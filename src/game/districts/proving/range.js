@@ -26,7 +26,7 @@ def('maps', 'combat-range', {
     for (let y = 3; y < 15; y++) for (let x = 41; x < 53; x++) floor[y * W + x] = 'grass';   // the lawn
     for (let y = 16; y < 24; y++) for (let x = 41; x < 53; x++) floor[y * W + x] = 'walk';   // the bare apron
     const map = new E.TileMap({ w: W, h: H, cells, floor, types: {
-      1: { h: 32, top: '#5a5a62', side: '#7a7a82', face: 'stone', roof: 'plain' },
+      1: { h: 48, top: '#5a5a62', side: '#7a7a82', face: 'stone', roof: 'plain' },   // (taller than a climb: the yard keeps you in)
       2: { h: 24, top: '#6a5a4a', side: '#a8886a', face: 'plank', roof: 'plain' },
       3: { h: 8, top: '#a8a8b0', side: '#8a8a92', face: 'stone', roof: 'plain' } } });
     map.surfaceAt = (cx, cy) => (cx < 0 || cy < 0 || cx >= W || cy >= H ? 'deep' : cells[cy * W + cx] ? 'lot' : floor[cy * W + cx] === 'grass' ? 'grass' : floor[cy * W + cx] === 'walk' ? 'walk' : 'road');

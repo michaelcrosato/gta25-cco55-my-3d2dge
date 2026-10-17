@@ -1,14 +1,14 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M2 complete; next M3, the protagonists, moving on foot and combat. Blockers: none. The run started inside the planning
-session (DECISIONS D5).
+Now: M3 complete; next M4, vehicles. Blockers: none. The run started inside the planning session (DECISIONS D5); the
+owner launched the `/goal` itself after M3's bulk had landed.
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
 | M0 Bootstrap | done | see the acceptance log · `npm test` all steps pass (lint, boundary, vendor, goal-sync, dist current, 9 unit + sim, e2e smoke 6/6, engine check) |
 | M1 Core + spikes | done | core, input, attract loop (`c76395c`); S2 floor and scale (`064fcae`): GTM-PATCHes 1-3, floor chunks, the scale yard · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65; S1 depth renderer (`dda0356`): SIDE7, TOP, the Stage, the view lab · TOP 6.1-6.2 ms, SIDE7 11.3-11.9 ms with 41 rigs; S3 vehicle physics (`7039af1`): the handling suite, the pad, the replay round-trip; the frozen contracts, D10 budgets · 69 unit + sim tests, 2 e2e · `docs/media/m1/` |
 | M2 Lowtown + ISO | done | the world layer, Lowtown, the street painter, the city renderer, the cut-away (`b781439`); the quarter turn, the speed zoom, the clock and sky, night ISO in budget (`fe4f6dc`); weather, the drawbridge, the stand-in crowd and the gate (`8f175be`); roofs, shopfronts, yards, the shot matrix and the acceptance (this commit) · ISO at the gate 9.3-10.0 ms · 86 unit + sim tests · `docs/media/lowtown-map-sheet.png`, `docs/media/shots/` |
-| M3 On foot + combat | | |
+| M3 On foot + combat | done | saves, weapons, vitals, fire (`edec102`); the crew on foot, combat, the wheels, the switch, the range (`42c3054`); the accept tests, the view lab, the self-tests, perf (this commit) · ISO at the gate the same as M2's build, interleaved · 114 unit + sim tests, 3 e2e suites · `docs/media/m3/` |
 | M4 Vehicles | | |
 | M5 Roads, traffic, peds | | |
 | M6 Wanted, police, gangs | | |
@@ -169,3 +169,69 @@ session (DECISIONS D5).
   - the speed zoom steps behind a quarter-second scale;
   - x-ray shows the player through decks.
 - **M2 · the gate:** `npm test` passes every step (86 unit and sim tests, both e2e suites, the engine checker).
+- **M3 · section 8.12, combat** (`tests/sim/combat.test.mjs`, `tests/unit/combat.test.mjs`):
+  - **DPS within spec for each weapon**, on the range's bench (`measureDps`: a shooter at the starting stats locked on
+    an anchored dummy, whole reload cycles from an empty magazine):
+
+    | Weapon | Spec DPS | Measured | Ratio |
+    |---|---|---|---|
+    | Fists | 20.8 | 21.4 | 103% |
+    | Lowtown Slugger | 33.6 | 35.6 | 106% |
+    | Snub .38 | 33.75 | 33.75 | 100% |
+    | Buzzsaw | 62.4 | 62.4 | 100% |
+    | Persuader (8 pellets) | 55.0 | 55.0 | 100% |
+    | Hot Mess | 35.3 | 35.3 | 100% |
+
+    The others have their own tests: a rocket's direct hit kills and its splash hurts less behind; a grenade's damage
+    falls off from where it went off; the Zap-O-Matic stuns and the fourth zap in a row kills; the Snap tells the BUS
+    what it photographed.
+  - **Lock-on selection:** the press locks the nearest dummy in the gallery's 70° screen cone; a threat comes first;
+    a flick moves the lock to the next dummy that way; letting go unlocks.
+  - **Molotov spread:** thrown on the lawn it catches 60+ cells and burns out; on the bare apron it burns little more
+    than its petrol. In Lowtown's park the same (`tests/sim/lowtown.test.mjs`).
+  - **z-aware hits:** from the shed's roof a locked shot pitches down and hits the street target; a level one (no
+    assist) flies over its head; the shed's wall takes a level street shot at the roof's dummy.
+  - **Drive-bys on both sides:** riding east at 120 u/s, the Buzzsaw hits the target off the left by the stick, then
+    the right, then whatever is off a side by the auto-target; the car itself is never hit.
+  - Also: knockdown slides with the hit and the body gets up; pickups heal and arm (Lowtown's own).
+
+  Verdict: pass.
+- **M3 · section 8.11, the crew:**
+  - **a switch between every pair** (six in a row): the camera climbs to the switch height, crosses and drops, control
+    passes, and a protagonist left long enough is found at their vignette, which plays and ends;
+  - in play the character wheel switches by the keys (hold Z, point, let go) and the switch camera flies in TOP;
+  - **abilities:** OVERDRIVE halves the game's time; DEAD CALM slows it to .35 only while aiming; RED MIST halves the
+    hurt (unit tests for the meters, a sim test in the play scene);
+  - **stats** grow by doing and come back the same through the game's save store.
+
+  Verdict: pass.
+- **M3 · moving on foot:** sprinting outruns running and lasts the stamina's four seconds, then winds; a jump climbs the
+  24-high shed but not the 48-high wall (the climb limit is 34; the jump itself was lowered to knee height, D14); a
+  low wall vaults at a run; a roll stops short of a wall; crouching sneaks. Verdict: pass.
+- **M3 · the Proving Ground's first zones:** `#proving/range` (the combat range) and `#proving/views` (the view lab, now
+  with the scale yard: the crew holding a pistol, an SMG and the Boom Tube beside a Cortez). Both pass their
+  `?selftest=1` in Chromium (`tests/e2e/selftest.mjs`, in `npm test`): the bench, the dummies and a lane in reach; the
+  same spot drawn with its bodies in ISO (8), TOP (44) and MODE 7 (44).
+- **M3 · the shots** (`docs/media/m3/`), with verdicts:
+  - `night-iso-2-aim-fire`: Dex aims the Snub .38 at the safehouse wall; the sight sits on the wall, the HUD shows the
+    rounds. Pass.
+  - `night-iso-3-weapon-wheel`: the wheel's eight slots, the one in hand named with its rounds; empty slots named dim.
+    Pass.
+  - `night-iso-5-switch-wheel`, `-6-switch-up`, `-8-vignette`: the crew's portraits (Dex left, Viv up, Gus right); the
+    camera over Lowtown's lamps with the signs as strokes of colour; Viv in her booth at the Greasy Spoke with her
+    line. Pass.
+  - `range-iso-2-smg`, `range-side7-smg`: tracers, casings, the muzzle's flash, the lock's mark over a dummy. Pass.
+  - `range-top-fire`, `range-side7-fire`: the Hot Mess sets the lawn alight; flames per cell, lit. Pass.
+  - `viewlab-iso`, `-top`, `-side7`: the three protagonists and their weapons read in every view; Gus's left hand on
+    the Boom Tube. Pass.
+  - Look notes fixed: the HUD's weapon name sat off the top edge; blood sprayed every step from a burning body; the
+    signs stayed full size from the switch camera's height; the scale yard stood behind a building in ISO.
+  - Known gap, for M7: in TOP-DOWN a body standing on a roof is drawn under the roof.
+- **M3 · performance:** the HUD and the pickups' tokens are drawn once and kept (the pixel font fills a rectangle a
+  pixel); the idle protagonists are kept images (D13). The ISO gate, interleaved with M2's build on the same machine
+  (which ran slower than M2's own measurement): M2 11.4, 12.0, 12.1 ms; M3 10.8, 11.5, 12.3 ms. The same within noise.
+  TOP 9.2 ms; MODE 7 15.2 ms (M7's lever, D10).
+- **M3 · engine:** GTM-PATCH 8 (`weaponDraw`, tested in both rig styles). Mouse chords are kept in step by MOTOR,
+  with no patch. Decisions in D14.
+- **M3 · the gate:** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 114 unit and sim
+  tests, the e2e smoke, replay and self-tests, the engine checker).

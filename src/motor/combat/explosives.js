@@ -111,12 +111,13 @@ export class Explosives {
     }
     this.blast({ x: p.x, y: p.y, z: p.z, damage: p.damage, splash: p.splash, by: p.by, source: p.kind });
   }
-  /** a throw's launch velocity to land near a target point from (x, y, z): the speed capped, the arc steeper when near */
-  static aimArc(from, to, speed) {
-    const dx = to[0] - from[0], dy = to[1] - from[1], d = Math.hypot(dx, dy) || 1, G = TUNE.gravity, dz = (to[2] || 0) - from[2];
+  /** a throw's launch velocity to land near a target point from (x, y, z): the speed capped, the arc steeper when near.
+   *  roll: the share of the distance it rolls on after landing (a grenade's bounce: it lands short and rolls up) */
+  static aimArc(from, to, speed, roll = 0) {
+    const dx = to[0] - from[0], dy = to[1] - from[1], d = (Math.hypot(dx, dy) || 1) * (1 - roll), G = TUNE.gravity, dz = (to[2] || 0) - from[2];
     // the 45-degree throw lands at v²/g on flat ground: lower the speed for a nearer target, keep the angle
     const v = Math.min(speed, Math.sqrt(G * Math.max(20, d - dz * .6))), a = Math.PI / 4;
-    return [dx / d * v * Math.cos(a), dy / d * v * Math.cos(a), v * Math.sin(a)];
+    const l = Math.hypot(dx, dy) || 1; return [dx / l * v * Math.cos(a), dy / l * v * Math.cos(a), v * Math.sin(a)];
   }
   hash() { let h = this.count; for (const p of this.list) h = (h * 31 + Math.round(p.x) * 7 + Math.round(p.y) * 13 + Math.round(p.z)) >>> 0; return h; }
 }

@@ -22,6 +22,7 @@ import { Ability } from '../combat/abilities.js';
 import { PedRig } from './ped-rig.js';
 
 knob('On foot', 'climbMax', 'Climb height', 34, 0, 82, 1, 'The highest ledge a jump climbs: a one-storey roof (24), a garage (32), a container');
+knob('On foot', 'jumpSpeed', 'Jump speed', 140, 60, 300, 5, 'A jump\'s upward speed: 140 peaks about 14 units up, knee to hip (the engine\'s 220 clears a ped\'s head)');
 knob('On foot', 'aimWalk', 'Aiming walk', .5, .2, 1, .05, 'The stick push while aiming (half: a walk)');
 knob('On foot', 'rollDist', 'Roll distance', 34, 10, 60, 1, 'How far a dodge roll goes (it stops short of a wall)');
 knob('On foot', 'staminaBack', 'Stamina recovery', .5, 0, 3, .05, 'Seconds of sprint won back a second at rest');
@@ -64,7 +65,7 @@ export class Ped {
    *  threat } } */
   update(dt, I, w = {}) {
     const m = this.mover, v = this.vitals, map = w.map;
-    m.climbMax = TUNE.climbMax;
+    m.climbMax = TUNE.climbMax; m.jumpSpeed = TUNE.jumpSpeed;
     v.damageTaken = this.ability ? this.ability.damageTaken : 1;
     v.update(dt); this.flinch = Math.max(0, this.flinch - dt); this.inCombat = Math.max(0, this.inCombat - dt);
     if (this.ability) this.ability.update(dt, { aiming: this.aiming });

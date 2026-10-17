@@ -121,7 +121,7 @@ def('scenes', 'play', {
         let I = human.update('onFoot', p);
         if (busy) I = clearIntent(I);
         if (crew.vignette && crew.vignette.who === crew.active) {
-          const moved = Math.hypot(I.move[0], I.move[1]) > .3 || I.tap.attack || I.tap.jump || I.tap.roll || I.down.aim;
+          const moved = Math.hypot(I.move[0], I.move[1]) > .3 || I.down.aim || Object.values(I.tap).some(Boolean);   // (any press ends it)
           if (moved) { crew.endVignette(); p.posing = null; } else { p.posing = crew.vignette.pose; I = clearIntent(I); }
         } else p.posing = null;
         if (tour) {   // the camera tour: the possessed body rides straight legs between the tour's corners at car speed
@@ -158,7 +158,7 @@ def('scenes', 'play', {
         // the crew where they stand (the possessed one seen through walls), a vignette's prop beside its protagonist
         for (const id of crew.order) {
           const q = crew.member(id).ped; if (Math.abs(q.x - fx0) > 900 || Math.abs(q.y - fy0) > 900) continue;
-          q.draw(stage, { xray: q === p });
+          q.draw(stage, q === p ? { xray: true } : { crowd: true, key: q.rig });   // (the others stand about: kept images, D13)
         }
         const vg = crew.vignette; if (vg && VIGNETTE_PROPS[vg.prop]) { const q = crew.member(vg.who).ped, x = q.x + 14, y = q.y + 4; stage.shape(x, y, 0, (g, P) => drawBoxModel(g, P, VIGNETTE_PROPS[vg.prop], x, y, 0, vg.prop === 'moto' ? Math.PI / 2 : 0, { lit: true })); }
         fx.draw(stage, combat, [fx0, fy0]);

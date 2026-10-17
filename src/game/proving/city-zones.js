@@ -1,7 +1,9 @@
-// Proving Ground zones on a dummy city (PLAN.md 8.23): 'scale' (spike S2: 160x160, no walkers) and 'views' (spike S1:
-// 64x64, 40 walkers). The focus drives a lap at car speed; ?mode=walk hands it to the player ([ and ] turn the
-// camera); ?zoom=.65 sets a driving zoom; ?rail=90 faces MODE 7's rail east.
-import { E, def, get, FloorChunks, Actor, RNG } from '../../motor/index.js';
+// Proving Ground zones on a dummy city (PLAN.md 8.23): 'scale' (spike S2: 160x160, no walkers) and 'views', the view
+// lab (spike S1's 64x64 with 40 walkers; M3 adds the scale yard: the three protagonists in hand with three weapons
+// and a parked Cortez beside them, where the lap starts). The focus drives a lap at car speed; ?mode=walk hands it to
+// the player ([ and ] turn the camera); ?zoom=.65 sets a driving zoom; ?rail=90 faces MODE 7's rail east. The view
+// lab's ?selftest=1 draws the same spot in ISO, TOP-DOWN and MODE 7 and checks each drew its bodies.
+import { E, def, get, FloorChunks, Actor, RNG, PedRig, drawBoxModel, carModel } from '../../motor/index.js';
 
 const SPEED = 300;   // the lap's speed: a sports car's top speed (PLAN.md 7.6)
 const OUTFITS = ['#d23a3a', '#3a7ad2', '#3ab06a', '#d2a03a', '#8a4ad2', '#e0e0e0', '#3a3a44', '#c86a3a'];
@@ -20,7 +22,7 @@ function cityZone(id, size, nWalkers) {
     title: id === 'scale' ? 'Scale yard' : 'View lab',
     make(app) {
       const { game, views, human, links, stage } = app;
-      let map, floor, hero, rig, leg, walk, lamps, walkers;
+      let map, floor, hero, rig, leg, walk, lamps, walkers, yard = null;
       return {
         enter() {
           map = get('maps', 'scale-city').build(app.seed, size);
@@ -38,6 +40,8 @@ function cityZone(id, size, nWalkers) {
             walkers.push({ loop, speed, d: rng.range(0, 4000), x: 0, y: 0, rig: new E.Humanoid({ size: .9, build: rng.pick(['slim', 'average', 'heroic']), outfit: rng.pick(['shirt', 'coat', 'dress']), hair: rng.pick(['short', 'spiky', 'long', 'bald']), weapon: null,
               colors: { skin: rng.pick(['#c8906a', '#8a5a3a', '#e0b090', '#5a3a2a']), hair: rng.pick(['#1e1a22', '#6a4a2a', '#c8a050']), cloth: c, coat: E.shade(c, -.3), pants: rng.pick(['#2a3048', '#3a3a3a', '#5a4a3a']), boot: '#18161c' } }) });
           }
+          // the scale yard (the view lab): the crew holding a pistol, an SMG and the Boom Tube, a parked Cortez beside them
+          yard = id === 'views' ? { at: [x + 30, y - 46], car: carModel({ color: '#3a6ac8' }), crew: ['dex', 'viv', 'gus'].map((c, i) => { const p = new PedRig(get('characters', c).outfits[0]); p.hold(['pistol', 'smg', 'launcher'][i]); return p; }) } : null;
           lamps = new Map(); for (const l of map.lamps) { const k = Math.floor(l[1] / 256) * 64 + Math.floor(l[0] / 256); if (!lamps.has(k)) lamps.set(k, []); lamps.get(k).push(l); }
           game.cam.bounds = v => map.bounds(v);
           if (links.query.get('zoom')) game.setZoom(+links.query.get('zoom'));   // the driving zooms: .8, .65
@@ -58,6 +62,7 @@ function cityZone(id, size, nWalkers) {
             hero.vx = dx / (d || 1) * SPEED; hero.vy = dy / (d || 1) * SPEED; hero.facing = Math.atan2(dy, dx);
           }
           rig.update(dt, hero.rigState());
+          if (yard) yard.crew.forEach((p, i) => p.update(dt, { x: yard.at[0] + i * 18, y: yard.at[1], z: 0, vx: 0, vy: 0, vz: 0, facing: Math.PI / 2, air: false, point: true, aim: 0 }));
           for (const w of walkers) {
             w.d += w.speed * dt; const [x, y, ux, uy] = walkerAt(w.loop, w.d), s = Math.sign(w.speed);
             w.x = x; w.y = y; w.rig.update(dt, { x, y, z: 0, vx: ux * w.speed, vy: uy * w.speed, vz: 0, facing: Math.atan2(uy * s, ux * s), air: false });
@@ -72,6 +77,10 @@ function cityZone(id, size, nWalkers) {
             stage.shape(lx, ly, 0, (g, P) => drawLamp(g, P, lx, ly));
           }
           for (const w of walkers) stage.actor(w.x, w.y, 0, (g, x, y, v) => w.rig.draw(g, x, y, v), { shadow: 4, crowd: true });
+          if (yard) {
+            yard.crew.forEach((p, i) => { const px = yard.at[0] + i * 18, py = yard.at[1]; stage.actor(px, py, 0, (g, sx, sy, v) => p.draw(g, sx, sy, v), { shadow: 5 }); });
+            const [cx, cy] = [yard.at[0] + 18, yard.at[1] + 34]; stage.shape(cx, cy, 0, (g, P) => drawBoxModel(g, P, yard.car, cx, cy, 0, 0, { lit: true }));
+          }
           stage.actor(hero.x, hero.y, hero.z, (g, x, y, v) => rig.draw(g, x, y, v), { shadow: 5, xray: true });
           stage.end();
         },
@@ -80,6 +89,20 @@ function cityZone(id, size, nWalkers) {
         perf() { return { floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length }; },
         stateHash() { return [Math.round(hero.x * 8), Math.round(hero.y * 8), leg]; },
         handle() { return { map, floor }; },
+        /** ?selftest=1 (the view lab): the same spot drawn in ISO, TOP-DOWN and MODE 7, 40 frames each; each view must
+         *  draw its bodies (the crew, the walkers near) inside the frame budget's double */
+        selftest: id !== 'views' ? undefined : st => {
+          const order = ['iso', 'top', 'side7'], i = Math.floor(st.frame / 40);
+          if (st.frame === 0) { st.rows = []; walk = true; }   // (hold the lap: the spot stays put)
+          if (i < 3) {
+            if (st.frame % 40 === 0) game.setView(order[i]);
+            if (st.frame % 40 === 39) st.rows.push({ view: order[i], actors: game.stats.actors, renderMs: +game.stats.renderMs.toFixed(2) });
+            return null;
+          }
+          game.setView('iso');
+          const checks = st.rows.map(r => ({ check: r.view + ' draws its bodies', ok: r.actors >= 3, value: r.actors }));
+          return { zone: 'views', ok: checks.every(c => c.ok), checks, rows: st.rows };
+        },
       };
     },
   });

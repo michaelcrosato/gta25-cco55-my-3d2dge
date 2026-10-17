@@ -85,6 +85,14 @@ def('provingZones', 'range', {
       perf() { return { floor: { ...floor.stats }, walls: map.wallCache(), bodies: combat.bodies.length }; },
       stateHash() { return [Math.round(me.x * 8), Math.round(me.y * 8), Math.round(me.z * 8), combat.hash()]; },
       handle() { return { map, combat, me, dummies, things, measure: measureDps }; },
+      /** ?selftest=1: the bench (every weapon within 10% of its spec's DPS), then a lock on the lane's nearest post */
+      selftest(st) {
+        if (st.frame === 0) { st.rows = all('weapons').filter(benchable).map(w => measureDps(w.id)); return null; }
+        const lock = combat.bodies.filter(b => b.tag && b.tag.startsWith('lane') && !b.dead).sort((a, b) => Math.hypot(a.x - me.x, a.y - me.y) - Math.hypot(b.x - me.x, b.y - me.y))[0];
+        const checks = st.rows.map(r => ({ check: r.weapon + ' DPS', ok: r.ratio >= .9 && r.ratio <= 1.1, value: r.ratio }));
+        checks.push({ check: 'dummies standing', ok: dummies.filter(d => !d.dead).length === dummies.length, value: dummies.length }, { check: 'a lane target in reach', ok: !!lock, value: lock && lock.tag });
+        return { zone: 'range', ok: checks.every(c => c.ok), checks };
+      },
     };
   },
 });

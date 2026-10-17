@@ -7,21 +7,38 @@ import { drawWeaponIcon, drawFistIcon } from '../render/weapon-models.js';
 import { CHEST } from '../combat/aim.js';
 import { ABILITIES } from '../combat/abilities.js';
 
-/** health, armour and ability at the bottom left; the weapon at the top right. o: { color (the protagonist's), name } */
+/** health, armour and ability at the bottom left; the weapon at the top right. o: { color (the protagonist's), name }.
+ *  Each corner is drawn into an image of its own and redrawn only when what it shows changes (the pixel font draws a
+ *  rectangle a pixel: a HUD redrawn every frame costs the city's lighting budget) */
+const CORNERS = new Map();
+function corner(key, sig, w, h, draw) {
+  let c = CORNERS.get(key);
+  if (!c) { c = { cv: E.mkCanvas(w, h), sig: null }; CORNERS.set(key, c); }
+  if (c.cv.width !== w || c.cv.height !== h) { c.cv.width = w; c.cv.height = h; c.sig = null; }
+  if (c.sig !== sig) { const g = c.cv.getContext('2d'); g.clearRect(0, 0, w, h); g.imageSmoothingEnabled = false; draw(g); g._c = null; c.sig = sig; }
+  return c.cv;
+}
 export function drawPedHud(g, W, H, p, o = {}) {
-  const x = 10, y = H - 26, w = 92, P = E.px, v = p.vitals;
-  const bar = (yy, frac, col, back) => { P.rect(g, x - 1, yy - 1, w + 2, 6, '#05030c'); P.rect(g, x, yy, w, 4, back); P.rect(g, x, yy, Math.round(w * Math.max(0, Math.min(1, frac))), 4, col); };
+  const v = p.vitals, a = p.ability, spec = p.inv.spec(), rd = p.inv.rounds();
   const low = v.health < 25 && Math.floor((E.current ? E.current.real : 0) * 4) % 2;
+  const bars = [Math.round(v.health), Math.round(v.armor), a ? Math.round(a.meter * 92) : -1, a && a.active ? 1 : 0, low ? 1 : 0, o.name || '', o.color || ''].join('|');
+  g.drawImage(corner('bars', bars, 200, 40, cg => drawBars(cg, 0, 40, p, o, low)), 0, H - 40);
+  const label = !rd ? '' : p.inv.reloading > 0 ? 'RELOAD' : spec.mag ? `${rd.mag} / ${Math.max(0, rd.total - rd.mag)}` : `${rd.total}`;
+  g.drawImage(corner('weapon', [spec && spec.id, label].join('|'), 90, 46, cg => drawWeaponCorner(cg, 90, p, spec, rd, label)), W - 90, 0);
+}
+function drawBars(g, W0, H, p, o, low) {
+  const x = 10, y = H - 26, w = 92, P = E.px, v = p.vitals;   // (low: the health bar blinks red)
+  const bar = (yy, frac, col, back) => { P.rect(g, x - 1, yy - 1, w + 2, 6, '#05030c'); P.rect(g, x, yy, w, 4, back); P.rect(g, x, yy, Math.round(w * Math.max(0, Math.min(1, frac))), 4, col); };
   bar(y, v.health / 100, low ? '#ff3a3a' : '#5ad84a', '#1e3a1a');
   bar(y + 7, v.armor / 100, '#5ab0ff', '#1a2a3e');
   if (p.ability) { const a = p.ability, on = a.active; bar(y + 14, a.meter, on ? '#ffffff' : (o.color || '#ffe066'), '#2a2438'); E.font.text(g, ABILITIES[a.id].name + (on ? '  ON' : ''), x + w + 6, y + 12, on ? '#ffffff' : (o.color || '#ffe066'), { font: 'tiny', outline: '#05030c' }); }
   if (o.name) E.font.text(g, o.name, x, y - 11, o.color || '#ffe066', { font: 'tiny', outline: '#05030c' });
-  // the weapon
-  const spec = p.inv.spec(), rx = W - 10, ry = 22;
+}
+// the weapon in hand (this corner's image is W wide, the screen's top right)
+function drawWeaponCorner(g, W, p, spec, rd, label) {
+  const rx = W - 10, ry = 22;   // (thrown and special weapons show how many; magazines, what is loaded and what is left)
   E.ui.box(g, rx - 76, ry - 6, 80, 32, { alpha: .6 });
   if (spec && spec.model) drawWeaponIcon(g, spec.model, rx - 38, ry + 8, 2.2); else drawFistIcon(g, rx - 38, ry + 8, 2.4);
-  const rd = p.inv.rounds();
-  const label = !rd ? '' : p.inv.reloading > 0 ? 'RELOAD' : spec.mag ? `${rd.mag} / ${Math.max(0, rd.total - rd.mag)}` : `${rd.total}`;   // (thrown and special: how many)
   if (label) E.font.text(g, label, rx - 4, ry + 16, p.inv.reloading > 0 ? '#ffd23a' : rd.total ? '#f0ecff' : '#ff5a5a', { align: 'right', font: 'tiny', outline: '#05030c' });
   if (spec) E.font.text(g, spec.name.toUpperCase(), rx - 72, ry - 12, '#c8c0e8', { font: 'tiny', outline: '#05030c' });
 }

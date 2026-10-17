@@ -118,7 +118,7 @@ export class Combat {
   /** throw a Molotov or a grenade from a ped's hand toward its aim */
   throwFrom(p, spec) {
     const h = p.rig.hand(), A = p.aimer, to = A.target ? [A.target.x, A.target.y, A.target.z] : A.point ? [A.point[0], A.point[1], A.point[2] || 0] : [p.x + A.dir[0] * TUNE.throwDist, p.y + A.dir[1] * TUNE.throwDist, p.z];
-    const [vx, vy, vz] = Explosives.aimArc(h, to, spec.speed);
+    const [vx, vy, vz] = Explosives.aimArc(h, to, spec.speed, spec.projectile === 'grenade' ? .35 : 0);   // (a grenade lands short and rolls up)
     this.explosives.throw({ kind: spec.projectile, x: h[0], y: h[1], z: h[2], vx, vy, vz, fuse: spec.fuse || 2.5, damage: spec.damage, splash: spec.splash, burn: spec.burn, by: p.id });
     p.rig.lit = false; this._sfx('whoosh', { vol: .4 });
   }
@@ -128,7 +128,7 @@ export class Combat {
     const r = t.hurt ? t.hurt(o) : null; if (!r) return null;
     const at = o.at || [t.x, t.y, (t.z || 0) + CHEST];
     BUS.emit('hit', { target: t.id, by: o.by, damage: (r.health || 0) + (r.armor || 0), kind: o.kind, x: at[0], y: at[1], z: at[2] });
-    if (r.health > 0 && t.vitals) this._fx('blood', at[0], at[1], at[2], { n: Math.min(8, 2 + Math.round(r.health / 8)) });
+    if (r.health >= 1 && t.vitals && o.kind !== 'fire' && o.kind !== 'zap') this._fx('blood', at[0], at[1], at[2], { n: Math.min(8, 2 + Math.round(r.health / 8)) });   // (burning shows as flames, a zap as its arc)
     if (r.armor > 0) this._fx('spark', at[0], at[1], at[2]);
     const by = this.bodies.find(b => b.id === o.by);
     if (by && (o.kind === 'bullet' || o.kind === 'pellet')) { by.stats.did('shotHit'); if (by.ability) by.ability.feed('shotHit'); }

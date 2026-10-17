@@ -86,17 +86,23 @@ export class CombatFX {
       stage.glow(b.x, b.y, b.z + 18, (g, sx, sy, k) => this._flame(g, sx, sy + 10 * k, 6 * k, 16 * k, now * 9 + b.id));
       stage.light(b.x, b.y, b.z + 10, 60, 1);
     }
-    // pickups: a bobbing token and a soft ring
-    for (const p of C.pickups.live) {
-      if (!near(p.x, p.y)) continue;
-      const bob = 4 + Math.sin(now * 3 + p.x * .1) * 2, [col, ch] = PICKUP_LOOK[p.kind] || ['#ffffff', '?'];
-      stage.glow(p.x, p.y, p.z + bob + 6, (g, sx, sy, k) => {
-        const r = Math.max(3, 3.4 * k); E.px.disc(g, sx, sy, r + 1, '#0b0814'); E.px.disc(g, sx, sy, r, col);
-        const model = p.kind === 'weapon' && get('weapons', p.item)?.model;
-        if (model) drawWeaponIcon(g, model, sx, sy, Math.max(.6, k * .45), { color: '#0b0814' });
-        else if (ch) E.font.text(g, ch, sx, sy - 3, '#0b0814', { align: 'center', outline: false, font: 'tiny' });
-      });
+    // pickups: a bobbing token (its image made once per kind, item and size)
+    for (const p of C.pickups.list) {
+      if (p.gone || p.away > 0 || !near(p.x, p.y)) continue;
+      const bob = 4 + Math.sin(now * 3 + p.x * .1) * 2;
+      stage.glow(p.x, p.y, p.z + bob + 6, (g, sx, sy, k) => { const cv = this._token(p, k); g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2)); });
     }
+  }
+  // a pickup's token: a disc of its kind's colour with its letter or weapon's silhouette, cached
+  _token(p, k) {
+    const r = Math.max(3, Math.round(3.4 * k)), key = p.kind + ':' + p.item + ':' + r, T = this._tokens || (this._tokens = new Map());
+    let cv = T.get(key); if (cv) return cv;
+    const [col, ch] = PICKUP_LOOK[p.kind] || ['#ffffff', '?'], S = r * 2 + 4; cv = E.mkCanvas(S, S); const g = cv.getContext('2d'), c = S / 2;
+    E.px.disc(g, c, c, r + 1, '#0b0814'); E.px.disc(g, c, c, r, col);
+    const model = p.kind === 'weapon' && get('weapons', p.item)?.model;
+    if (model) drawWeaponIcon(g, model, c, c, Math.max(.6, k * .45), { color: '#0b0814' });
+    else if (ch) E.font.text(g, ch, c, c - 3, '#0b0814', { align: 'center', outline: false, font: 'tiny' });
+    g._c = null; T.set(key, cv); return cv;
   }
   _fire(stage, F, fx, fy, R, now) {
     const T = F.T, c0 = Math.max(0, Math.floor((fx - R) / T)), c1 = Math.min(F.w - 1, Math.floor((fx + R) / T)), r0 = Math.max(0, Math.floor((fy - R) / T)), r1 = Math.min(F.h - 1, Math.floor((fy + R) / T));

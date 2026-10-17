@@ -57,6 +57,18 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The sky by hour and weather; rain, wet streets, haze and lightning on screen; MOTOR's light pass and glows | `src/motor/render/sky.js`, `weather-fx.js`, `stage.js` | M2 |
 | Lowtown: four neighbourhoods, every landmark, the Loop and the L, the canal and the drawbridge | `src/game/districts/lowtown/` | M2 |
 | Engine patch 7 (canvas lighting cost) and patch 1's `cutTop` | `vendor/my-3d2dge/PATCHES.md` | M2 |
+| Saves: a JSON document per slot (migrate, normalize, keep a corrupt one as `:bak`, locked in the demo) | `src/motor/core/save.js`, `src/game/save.js` | M3 |
+| Combat data: the `weapons` registry, Vitals (armour, regeneration, knockdown, stun), Inventory (slots of a kind, magazines, reloads), Stats, Abilities | `src/motor/combat/weapons.js`, `vitals.js`, `inventory.js`, `stats.js`, `abilities.js` | M3 |
+| Aim: lock-on in a screen cone (threats first), flicks, assist levels, the shot's pitch; z-aware sight lines | `src/motor/combat/aim.js` | M3 |
+| The Combat world: Shots (3D segment hits against bodies and boxes, walls by height, decks), Explosives (arcs, bounces, rockets, blasts, chains), the Fire grid, Pickups, zaps, the Snap, melee, drive-bys; BUS hit, kill, crime, explode, photo | `src/motor/combat/combat.js`, `shots.js`, `explosives.js`, `pickups.js`, `src/motor/sim/fire.js` | M3 |
+| The weapons bench (each weapon's measured DPS against its spec) | `src/motor/combat/bench.js` | M3 |
+| Peds on foot: the Mover's verbs, stamina, crouch, a roll that stops short, strafing, knockdown and get-up, seats | `src/motor/actors/ped.js` | M3 |
+| PedRig: a look over the Humanoid, MOTOR's weapon models drawn among the limbs (GTM-PATCH 8), the foregrip IK | `src/motor/actors/ped-rig.js`, `src/motor/render/weapon-models.js` | M3 |
+| The crew: the protagonists, the switch (camera up, across, down), vignettes, the crew fund; the `characters` registry | `src/motor/actors/crew.js`, `characters.js`, `src/game/characters/` | M3 |
+| The combat renderer (tracers, flames, zaps, fire and scorch, thrown things, lights, pickups) and the Stage's glow lines, lights and depth-view particles | `src/motor/render/combat-fx.js`, `stage.js` | M3 |
+| UI first pass: the radial wheel, the weapon wheel, the on-foot HUD (cached corners), lock-on marks | `src/motor/ui/wheel.js`, `weapon-wheel.js`, `hud.js` | M3 |
+| Chorded mouse buttons (right to aim, left to fire) | `src/motor/input/mouse-chords.js` | M3 |
+| The Proving Ground: the combat `range`, the view lab's scale yard, `?selftest=1` self-tests (e2e) | `src/game/proving/range-zone.js`, `city-zones.js`, `tests/e2e/selftest.mjs` | M3 |
 
 ## Frozen contracts (M1)
 
