@@ -8828,17 +8828,22 @@ root.My3D2dge = E;
     Drawbridge: () => Drawbridge,
     E: () => E,
     EVENTS: () => EVENTS,
+    FLAMMABLE: () => FLAMMABLE,
+    Fire: () => Fire,
     FloorChunks: () => FloorChunks,
     Footprint: () => Footprint,
     HANDLING: () => HANDLING,
     HINTS: () => HINTS,
     HumanController: () => HumanController,
     PALETTE: () => PALETTE,
+    PROJECTILES: () => PROJECTILES,
     PROP_MODELS: () => PROP_MODELS,
     RNG: () => RNG,
     ROAD_KINDS: () => ROAD_KINDS,
+    SLOTS: () => SLOTS,
     SURFACES: () => SURFACES,
     SURFACE_GRIP: () => SURFACE_GRIP,
+    SaveStore: () => SaveStore,
     Spans: () => Spans,
     SpeedZoom: () => SpeedZoom,
     Stage: () => Stage,
@@ -8847,6 +8852,7 @@ root.My3D2dge = E;
     TUNE: () => TUNE,
     VehicleBody: () => VehicleBody,
     ViewManager: () => ViewManager,
+    Vitals: () => Vitals,
     WEATHERS: () => WEATHERS,
     Weather: () => Weather,
     WeatherFX: () => WeatherFX,
@@ -8884,6 +8890,7 @@ root.My3D2dge = E;
     knobs: () => knobs,
     makeBody: () => makeBody,
     makeIntent: () => makeIntent,
+    memoryBackend: () => memoryBackend,
     missionStage: () => missionStage,
     paintTileMapFloor: () => paintTileMapFloor,
     parsePrompt: () => parsePrompt,
@@ -8894,6 +8901,7 @@ root.My3D2dge = E;
     sections: () => sections,
     shape: () => shape,
     skyAt: () => skyAt,
+    sustainedDps: () => sustainedDps,
     tapButton: () => tapButton,
     tuneLoad: () => tuneLoad,
     tuneReset: () => tuneReset,
@@ -9164,6 +9172,108 @@ root.My3D2dge = E;
     }
   };
 
+  // src/motor/core/save.js
+  var PREFIX = "my3d2dge:";
+  function localBackend() {
+    const ls = (() => {
+      try {
+        return typeof localStorage === "undefined" ? null : localStorage;
+      } catch (e) {
+        return null;
+      }
+    })();
+    return { get: (k) => ls ? ls.getItem(PREFIX + k) : null, set: (k, v) => {
+      if (!ls) return false;
+      try {
+        ls.setItem(PREFIX + k, v);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }, remove: (k) => {
+      if (ls) try {
+        ls.removeItem(PREFIX + k);
+      } catch (e) {
+      }
+    } };
+  }
+  function memoryBackend(map = /* @__PURE__ */ new Map()) {
+    return { map, get: (k) => map.has(k) ? map.get(k) : null, set: (k, v) => {
+      map.set(k, v);
+      return true;
+    }, remove: (k) => map.delete(k) };
+  }
+  var SaveStore = class {
+    /** o: { game, schema (the current version), blank() (a new save), normalize(data) (fills and checks every field),
+     *  migrations ({ n: data -> data at n + 1 }), slots (default ['1', '2', '3', 'auto']), backend (default: the
+     *  browser's storage) } */
+    constructor(o) {
+      Object.assign(this, { slots: ["1", "2", "3", "auto"], migrations: {}, normalize: (d) => d, locked: false }, o);
+      this.backend = o.backend || localBackend();
+      this.writes = 0;
+    }
+    key(slot) {
+      return `${this.game}:save:${slot}`;
+    }
+    /** write a save; refused while locked or for an unknown slot. Returns { ok, reason } */
+    write(slot, data) {
+      if (this.locked) return { ok: false, reason: "locked" };
+      if (!this.slots.includes(String(slot))) return { ok: false, reason: "slot" };
+      const doc = { ...data, schema: this.schema, game: this.game, slot: String(slot), savedAt: data.savedAt ?? Date.now() };
+      const ok = this.backend.set(this.key(slot), JSON.stringify(doc));
+      if (ok) this.writes++;
+      return ok ? { ok } : { ok, reason: "storage" };
+    }
+    /** read a save: { data (normalized, migrated) or null, error ('corrupt' | 'game' | 'future' | null), migrated (the
+     *  version it came from, when it was older) }. A corrupt one is moved to <key>:bak */
+    read(slot) {
+      const k = this.key(slot), raw = this.backend.get(k);
+      if (raw === null || raw === void 0) return { data: null, error: null };
+      let d;
+      try {
+        d = JSON.parse(raw);
+      } catch (e) {
+        d = void 0;
+      }
+      if (!d || typeof d !== "object" || Array.isArray(d)) {
+        this.backend.set(k + ":bak", raw);
+        this.backend.remove(k);
+        return { data: null, error: "corrupt" };
+      }
+      if (d.game && d.game !== this.game) return { data: null, error: "game" };
+      let v = Number.isInteger(d.schema) ? d.schema : 0, from = v;
+      if (v > this.schema) return { data: null, error: "future" };
+      while (v < this.schema) {
+        const m = this.migrations[v];
+        if (!m) {
+          this.backend.set(k + ":bak", raw);
+          return { data: null, error: "corrupt" };
+        }
+        d = m(d);
+        v++;
+      }
+      return { data: this.normalize({ ...d, schema: this.schema, game: this.game }), error: null, migrated: from < this.schema ? from : void 0 };
+    }
+    /** the slots that hold a save: [{ slot, label, savedAt, playtime }] */
+    list() {
+      const out = [];
+      for (const s of this.slots) {
+        const r = this.backend.get(this.key(s));
+        if (r === null || r === void 0) continue;
+        try {
+          const d = JSON.parse(r);
+          out.push({ slot: s, label: d.label || "", savedAt: d.savedAt || 0, playtime: d.playtime || 0 });
+        } catch (e) {
+          out.push({ slot: s, label: "(damaged)", savedAt: 0, playtime: 0 });
+        }
+      }
+      return out;
+    }
+    clear(slot) {
+      if (!this.locked) this.backend.remove(this.key(slot));
+    }
+  };
+
   // src/motor/debug/deeplinks.js
   function readLinks() {
     const o = globalThis.__GTM_OPTIONS__;
@@ -9370,10 +9480,10 @@ root.My3D2dge = E;
   var FLAT = { id: "chunk", scale: 1 };
   function paintTileMapFloor(map) {
     return (g, x0, y0, x1, y1) => {
-      const w = x1 - x0, h = y1 - y0, img = g.createImageData(w, h), d = img.data, T5 = map.T, W = map.w * T5, H3 = map.h * T5, R = map.ao;
+      const w = x1 - x0, h = y1 - y0, img = g.createImageData(w, h), d = img.data, T5 = map.T, W2 = map.w * T5, H3 = map.h * T5, R = map.ao;
       for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
         const gx = x0 + px + 0.5, gy = y0 + py + 0.5;
-        if (gx < 0 || gy < 0 || gx >= W || gy >= H3) continue;
+        if (gx < 0 || gy < 0 || gx >= W2 || gy >= H3) continue;
         const cx = Math.floor(gx / T5), cy = Math.floor(gy / T5);
         if (map.cell(cx, cy) !== 0) continue;
         const tag = map.floorTags ? map.floorTags[cy * map.w + cx] : null;
@@ -10104,7 +10214,7 @@ root.My3D2dge = E;
     }
     /** over the lit frame: the streaks, the splashes, a lightning flash and the haze. P: the view's projector
      *  ({ proj(x, y, z) -> [sx, sy, k] }), W x H: the buffer */
-    draw(g, P2, W, H3, sky) {
+    draw(g, P2, W2, H3, sky) {
       if (this.drops.length) {
         const night = sky.ambient < 0.66;
         g.strokeStyle = night ? "rgba(160,180,215,.42)" : "rgba(205,215,235,.5)";
@@ -10113,7 +10223,7 @@ root.My3D2dge = E;
         for (const d of this.drops) {
           const a = P2.proj(d.x, d.y, d.z), b = P2.proj(d.x - WIND * 0.03, d.y, d.z + 15);
           if (!a || !b) continue;
-          if (a[0] < -4 || a[0] > W + 4 || a[1] < -20 || a[1] > H3 + 4) continue;
+          if (a[0] < -4 || a[0] > W2 + 4 || a[1] < -20 || a[1] > H3 + 4) continue;
           g.moveTo(Math.round(a[0]) + 0.5, Math.round(a[1]));
           g.lineTo(Math.round(b[0]) + 0.5, Math.round(b[1]));
         }
@@ -10124,7 +10234,7 @@ root.My3D2dge = E;
         g.beginPath();
         for (const s of this.splashes) {
           const q = P2.proj(s.x, s.y, 0);
-          if (!q || q[0] < -6 || q[0] > W + 6 || q[1] < -6 || q[1] > H3 + 6) continue;
+          if (!q || q[0] < -6 || q[0] > W2 + 6 || q[1] < -6 || q[1] > H3 + 6) continue;
           const r = (0.6 + s.t * 9) * Math.max(0.6, q[2] * 0.6);
           g.moveTo(q[0] + r, q[1]);
           g.ellipse(q[0], q[1], r, r * 0.45, 0, 0, Math.PI * 2);
@@ -10133,18 +10243,18 @@ root.My3D2dge = E;
       }
       if (sky.haze > 0.02) {
         g.fillStyle = hazeColor(sky);
-        g.fillRect(0, 0, W, H3);
+        g.fillRect(0, 0, W2, H3);
       }
       if (sky.flash > 0) {
         g.fillStyle = `rgba(235,240,255,${Math.min(0.55, sky.flash * 1.6).toFixed(3)})`;
-        g.fillRect(0, 0, W, H3);
+        g.fillRect(0, 0, W2, H3);
       }
     }
     /** over the floor, before what stands on it: the wet street's darker tint */
-    floor(g, W, H3, sky) {
+    floor(g, W2, H3, sky) {
       if (sky.wet > 0.02) {
         g.fillStyle = `rgba(6,12,30,${(0.2 * sky.wet).toFixed(3)})`;
-        g.fillRect(0, 0, W, H3);
+        g.fillRect(0, 0, W2, H3);
       }
     }
   };
@@ -10225,7 +10335,7 @@ root.My3D2dge = E;
     /** the hour's look (render/sky.js skyAt): the engine's canvas lighting and ISO's backdrop, MODE 7's sky and fog,
      *  TOP's ground, and MOTOR's light pass in the depth views. Presentation only */
     setSky(s) {
-      const L3 = this.game.lights, W = this.world || (this.world = {});
+      const L3 = this.game.lights, W2 = this.world || (this.world = {});
       this.skyNow = s;
       if (L3) {
         L3.enabled = s.ambient < 0.98;
@@ -10234,14 +10344,14 @@ root.My3D2dge = E;
         L3.tint = s.tint;
         L3.res = TUNE.lightRes;
       }
-      W.night = s.night;
-      W.lamps = s.lamps;
+      W2.night = s.night;
+      W2.lamps = s.lamps;
       let b = this.backdrops.get(s.phase);
       if (!b) {
         b = new E.Backdrop(BACKDROPS[s.phase]);
         this.backdrops.set(s.phase, b);
       }
-      W.backdrop = b;
+      W2.backdrop = b;
       const v7 = this.side7;
       v7.sky = s.sky;
       if (v7.fog !== s.fog) {
@@ -10267,7 +10377,7 @@ root.My3D2dge = E;
       this.frameNo++;
       const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, 0.1);
       this.last = now;
-      const d = this.depth, W = this.world, sky = this.skyNow;
+      const d = this.depth, W2 = this.world, sky = this.skyNow;
       if (sky) this.wfx.update(dt, sky, this.focus);
       if (!d) {
         if (this.cutaway) {
@@ -10279,14 +10389,14 @@ root.My3D2dge = E;
           if (sky) this.wfx.draw(g, this._isoProj(r), r.bw, r.bh, sky);
         });
         if (sky && sky.wet > 0.02) r.decal((g) => this.wfx.floor(g, r.bw, r.bh, sky));
-        if (W.backdrop) W.backdrop.draw(r);
-        if (W.engineFloor && W.map) W.map.drawFloor(r);
-        else if (W.floor) W.floor.drawIso(r);
+        if (W2.backdrop) W2.backdrop.draw(r);
+        if (W2.engineFloor && W2.map) W2.map.drawFloor(r);
+        else if (W2.floor) W2.floor.drawIso(r);
         if (this.fx) this._turnFrame(r, dt, o.player || this.focus);
-        else if (W.map) {
-          W.map.queueWalls(r);
+        else if (W2.map) {
+          W2.map.queueWalls(r);
           if (this.zx) this._zoomFrame(r, dt, o.player || this.focus);
-          else W.map.prebakeWalls(r);
+          else W2.map.prebakeWalls(r);
         }
         return;
       }
@@ -10345,12 +10455,12 @@ root.My3D2dge = E;
       return !!this.zx;
     }
     _zoomFrame(r, dt, at) {
-      const zx = this.zx, W = this.world, g = this.game;
+      const zx = this.zx, W2 = this.world, g = this.game;
       zx.t += dt;
       if (at && !zx.switched) {
         if (this.cutaway) this.cutaway.also(zx.view, at[0], at[1], at[2] || 0);
-        zx.left = W.map.prebakeWalls(r, { view: zx.view, at: [at[0], at[1]], ms: ZOOM.bakeMs });
-      } else if (zx.switched) W.map.prebakeWalls(r);
+        zx.left = W2.map.prebakeWalls(r, { view: zx.view, at: [at[0], at[1]], ms: ZOOM.bakeMs });
+      } else if (zx.switched) W2.map.prebakeWalls(r);
       let k = 1, act = null;
       if (zx.out) {
         if (!zx.switched) {
@@ -10408,11 +10518,11 @@ root.My3D2dge = E;
     }
     // a frame of the turn: flat blocks at this frame's yaw, the final yaw's walls baking; after it, the next frame's yaw
     _turnFrame(r, dt, at) {
-      const fx = this.fx, W = this.world, g = this.game;
+      const fx = this.fx, W2 = this.world, g = this.game;
       fx.t += dt;
       if (at) {
         if (this.cutaway) this.cutaway.also(fx.view, at[0], at[1], at[2] || 0);
-        fx.left = W.map.prebakeWalls(r, { view: fx.view, at: [at[0], at[1]], ms: fx.t > TURN.time ? TURN.holdMs : TURN.bakeMs });
+        fx.left = W2.map.prebakeWalls(r, { view: fx.view, at: [at[0], at[1]], ms: fx.t > TURN.time ? TURN.holdMs : TURN.bakeMs });
       }
       this._flatWalls(r);
       const e = Math.min(1, fx.t / TURN.time), k = e * e * (3 - 2 * e), done = e >= 1 && (fx.left === 0 || fx.t >= TURN.most);
@@ -10431,7 +10541,7 @@ root.My3D2dge = E;
     // the walls as flat-shaded blocks: one box a building lot (its full height, or its stub where the cut-away drops it),
     // one a cell for walls with no lot (railings, embankments); queued with the actors, so they sort and occlude
     _flatWalls(r) {
-      const W = this.world, map = W.map, C = W.city, T5 = map.T, v = r.view, types = map.types;
+      const W2 = this.world, map = W2.map, C = W2.city, T5 = map.T, v = r.view, types = map.types;
       let mh = 0;
       for (const k in types) mh = Math.max(mh, +types[k].h || 0);
       const pad = Math.ceil(mh * Math.abs(v.bz) / Math.max(0.2, Math.hypot(v.bx, v.by)) / T5) + 2;
@@ -10509,7 +10619,7 @@ root.My3D2dge = E;
     // is the screen point of (x, y, z) behind a wall drawn this frame (ISO)? Down the screen from the point, past its own
     // ground spot (toward the camera), any wall whose drawn top reaches up to the point covers it
     _hidden(r, x, y, z) {
-      const W = this.world, map = W && W.map;
+      const W2 = this.world, map = W2 && W2.map;
       if (!map) return false;
       const v = r.view, up = -v.bz, T5 = map.T;
       if (!(up > 0)) return false;
@@ -10700,19 +10810,19 @@ root.My3D2dge = E;
     // darkness, so every view matches the hour), the lamps' pools cut out of it on the ground (round from above,
     // flattened along MODE 7's floor), then a little of their warmth added back
     _depthLight(g, d) {
-      const L3 = this.game.lights, r = this.r, W = r.bw, H3 = r.bh, a = E.clamp((1 - L3.ambient) * (L3.darkness === void 0 ? 0.9 : L3.darkness), 0, 1);
+      const L3 = this.game.lights, r = this.r, W2 = r.bw, H3 = r.bh, a = E.clamp((1 - L3.ambient) * (L3.darkness === void 0 ? 0.9 : L3.darkness), 0, 1);
       if (a < 0.01) return;
       let cv = this._lcv;
-      if (!cv || cv.width !== W || cv.height !== H3) cv = this._lcv = E.mkCanvas(W, H3);
+      if (!cv || cv.width !== W2 || cv.height !== H3) cv = this._lcv = E.mkCanvas(W2, H3);
       const lg = cv.getContext("2d"), dk = L3.dark || [10, 6, 24], flat = d === this.top ? 1 : 0.34, pools = [];
       for (const [x, y, , R] of this.lamps) {
         const q = d.proj(x, y, 0);
-        if (q && R * q[2] >= 2 && q[0] > -R * q[2] && q[0] < W + R * q[2]) pools.push([q[0], q[1], R * q[2]]);
+        if (q && R * q[2] >= 2 && q[0] > -R * q[2] && q[0] < W2 + R * q[2]) pools.push([q[0], q[1], R * q[2]]);
       }
       lg.globalCompositeOperation = "source-over";
-      lg.clearRect(0, 0, W, H3);
+      lg.clearRect(0, 0, W2, H3);
       lg.fillStyle = `rgba(${dk[0]},${dk[1]},${dk[2]},${a.toFixed(3)})`;
-      lg.fillRect(0, 0, W, H3);
+      lg.fillRect(0, 0, W2, H3);
       const pool = (c, x, y, rad, inner, outer) => {
         c.save();
         c.translate(x, y);
@@ -10749,39 +10859,39 @@ root.My3D2dge = E;
     end() {
       const d = this.depth;
       if (!d) return;
-      const r = this.r, g = r.ctx, W = this.world, S = W.floor ? W.floor.size : 256;
+      const r = this.r, g = r.ctx, W2 = this.world, S = W2.floor ? W2.floor.size : 256;
       g.save();
       g.imageSmoothingEnabled = false;
       d.stats.quads = 0;
       let spans = [];
       if (d === this.side7) {
         d.drawSky(g, Math.max(0, d.P.hy));
-        if (W.floor) {
+        if (W2.floor) {
           const [i0, j0, i1, j1] = d.wedge(S);
-          for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W.floor.canvas(i, j);
-          W.floor.pump(d.x, d.y);
-          d.drawFloor(g, W.floor);
+          for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W2.floor.canvas(i, j);
+          W2.floor.pump(d.x, d.y);
+          d.drawFloor(g, W2.floor);
         }
         this._floorFx(g, d, Math.max(0, Math.floor(d.P.hy)));
         if (this.spans) {
           const [i0, j0, i1, j1] = d.wedge(S);
           spans = this.spans.range(i0, j0, i1, j1);
-          d.spanItems(spans, this.items, this.focus, W.night);
+          d.spanItems(spans, this.items, this.focus, W2.night);
         }
       } else {
         g.fillStyle = d.bg || "#0a0812";
         g.fillRect(0, 0, r.bw, r.bh);
-        if (W.floor) {
+        if (W2.floor) {
           const [i0, j0, i1, j1] = d.range(S, S / 2);
-          for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W.floor.canvas(i, j);
-          W.floor.pump(d.x, d.y);
-          d.drawFloor(g, W.floor);
+          for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W2.floor.canvas(i, j);
+          W2.floor.pump(d.x, d.y);
+          d.drawFloor(g, W2.floor);
         }
         this._floorFx(g, d, 0);
         if (this.spans) {
           const [i0, j0, i1, j1] = d.range(S);
           spans = this.spans.range(i0, j0, i1, j1);
-          d.spanItems(spans, this.items, W.night);
+          d.spanItems(spans, this.items, W2.night);
         }
       }
       this.items.sort((a, b) => b.k - a.k || (a.actor ? 1 : 0) - (b.actor ? 1 : 0));
@@ -10995,8 +11105,8 @@ root.My3D2dge = E;
       return this.h.width / 2;
     }
     corners() {
-      const c = Math.cos(this.heading), s = Math.sin(this.heading), L3 = this.hl, W = this.hw;
-      return [[L3, -W], [L3, W], [-L3, W], [-L3, -W]].map(([f, r]) => [this.x + f * c - r * s, this.y + f * s + r * c]);
+      const c = Math.cos(this.heading), s = Math.sin(this.heading), L3 = this.hl, W2 = this.hw;
+      return [[L3, -W2], [L3, W2], [-L3, W2], [-L3, -W2]].map(([f, r]) => [this.x + f * c - r * s, this.y + f * s + r * c]);
     }
     /** the world velocity [vx, vy] */
     get vx() {
@@ -11299,18 +11409,18 @@ root.My3D2dge = E;
     g._c = null;
   }
   function carModel({ length = 58, width = 26, height = 22, color = "#c8423a", cabin = 0.45, cabinAt = -0.08, roof = "#2a2a34", bar = false, wheel = 6 } = {}) {
-    const L3 = length / 2, W = width / 2, body = height * 0.55, cl = length * cabin, cx = length * cabinAt;
+    const L3 = length / 2, W2 = width / 2, body = height * 0.55, cl = length * cabin, cx = length * cabinAt;
     const parts2 = [
-      { box: [-L3, -W, wheel * 0.5, L3, W, body], color, role: "body" },
-      { box: [cx - cl / 2, -W + 2, body, cx + cl / 2, W - 2, height], color: "#3a4a5a", role: "glass" },
-      { box: [cx - cl / 2 + 2, -W + 3, height - 1, cx + cl / 2 - 2, W - 3, height + 0.5], color: roof, role: "cabin" },
-      { box: [L3 - 1, -W + 2, body - 5, L3 + 0.5, -W + 6, body - 2], color: "#fff4c8", role: "light" },
-      { box: [L3 - 1, W - 6, body - 5, L3 + 0.5, W - 2, body - 2], color: "#fff4c8", role: "light" },
-      { box: [-L3 - 0.5, -W + 2, body - 5, -L3 + 1, -W + 6, body - 2], color: "#8a1a1a", role: "tail" },
-      { box: [-L3 - 0.5, W - 6, body - 5, -L3 + 1, W - 2, body - 2], color: "#8a1a1a", role: "tail" }
+      { box: [-L3, -W2, wheel * 0.5, L3, W2, body], color, role: "body" },
+      { box: [cx - cl / 2, -W2 + 2, body, cx + cl / 2, W2 - 2, height], color: "#3a4a5a", role: "glass" },
+      { box: [cx - cl / 2 + 2, -W2 + 3, height - 1, cx + cl / 2 - 2, W2 - 3, height + 0.5], color: roof, role: "cabin" },
+      { box: [L3 - 1, -W2 + 2, body - 5, L3 + 0.5, -W2 + 6, body - 2], color: "#fff4c8", role: "light" },
+      { box: [L3 - 1, W2 - 6, body - 5, L3 + 0.5, W2 - 2, body - 2], color: "#fff4c8", role: "light" },
+      { box: [-L3 - 0.5, -W2 + 2, body - 5, -L3 + 1, -W2 + 6, body - 2], color: "#8a1a1a", role: "tail" },
+      { box: [-L3 - 0.5, W2 - 6, body - 5, -L3 + 1, W2 - 2, body - 2], color: "#8a1a1a", role: "tail" }
     ];
-    for (const fx of [L3 * 0.62, -L3 * 0.62]) for (const sy of [-1, 1]) parts2.push({ box: [fx - wheel, sy < 0 ? -W - 0.5 : W - 3.5, 0, fx + wheel, sy < 0 ? -W + 3.5 : W + 0.5, wheel * 1.6], color: "#1a1a20", role: "wheel" });
-    if (bar) for (const sy of [-1, 1]) parts2.push({ box: [cx - 3, sy < 0 ? -W + 4 : 0, height + 0.5, cx + 3, sy < 0 ? 0 : W - 4, height + 3], color: sy < 0 ? "#c82a2a" : "#2a5ac8", role: "siren" });
+    for (const fx of [L3 * 0.62, -L3 * 0.62]) for (const sy of [-1, 1]) parts2.push({ box: [fx - wheel, sy < 0 ? -W2 - 0.5 : W2 - 3.5, 0, fx + wheel, sy < 0 ? -W2 + 3.5 : W2 + 0.5, wheel * 1.6], color: "#1a1a20", role: "wheel" });
+    if (bar) for (const sy of [-1, 1]) parts2.push({ box: [cx - 3, sy < 0 ? -W2 + 4 : 0, height + 0.5, cx + 3, sy < 0 ? 0 : W2 - 4, height + 3], color: sy < 0 ? "#c82a2a" : "#2a5ac8", role: "siren" });
     return { parts: parts2 };
   }
 
@@ -11954,16 +12064,16 @@ root.My3D2dge = E;
     return { next, int: (a, b) => a + Math.floor((b - a + 1) * next()), range: (a, b) => a + (b - a) * next(), pick: (l) => l[Math.floor(next() * l.length)], chance: (p) => next() < p };
   }
   function buildDistrict(spec, o = {}) {
-    const seed = o.seed ?? spec.seed ?? 1, [W, H3] = spec.size, C = new CityMap(W, H3, 16), T5 = 16;
+    const seed = o.seed ?? spec.seed ?? 1, [W2, H3] = spec.size, C = new CityMap(W2, H3, 16), T5 = 16;
     C.id = spec.id;
     C.seed = seed;
     C.spec = spec;
-    const cells = new Int32Array(W * H3), used = new Uint8Array(W * H3), taken = new Uint8Array(W * H3);
+    const cells = new Int32Array(W2 * H3), used = new Uint8Array(W2 * H3), taken = new Uint8Array(W2 * H3);
     const types = {};
     let nextType = 1;
-    const inside = (x, y) => x >= 0 && y >= 0 && x < W && y < H3, I = (x, y) => y * W + x;
+    const inside = (x, y) => x >= 0 && y >= 0 && x < W2 && y < H3, I = (x, y) => y * W2 + x;
     const rect = (r, fn) => {
-      for (let y = Math.max(0, r[1]); y <= Math.min(H3 - 1, r[3]); y++) for (let x = Math.max(0, r[0]); x <= Math.min(W - 1, r[2]); x++) fn(x, y, I(x, y));
+      for (let y = Math.max(0, r[1]); y <= Math.min(H3 - 1, r[3]); y++) for (let x = Math.max(0, r[0]); x <= Math.min(W2 - 1, r[2]); x++) fn(x, y, I(x, y));
     };
     const hoodIds = Object.keys(spec.hoods || {});
     C.hoods = hoodIds.map((id, i) => ({ id, index: i, ...spec.hoods[id] }));
@@ -11981,8 +12091,8 @@ root.My3D2dge = E;
       const walks = k.walk ? ns ? [[band2[0] - k.walk, band2[1], band2[0] - 1, band2[3]], [band2[2] + 1, band2[1], band2[2] + k.walk, band2[3]]] : [[band2[0], band2[1] - k.walk, band2[2], band2[1] - 1], [band2[0], band2[3] + 1, band2[2], band2[3] + k.walk]] : [];
       return { id: r.id || r.kind + n, kind: r.kind, axis: r.axis, at: r.at, from: r.from, to: r.to, band: band2, walks, lanes: k.lanes, median: !!k.median, width: k.width, name: r.name || "" };
     });
-    const water = new Uint8Array(W * H3);
-    for (let i = 0; i < W * H3; i++) water[i] = C.surface[i] === SURF.water || C.surface[i] === SURF.deep ? 1 : 0;
+    const water = new Uint8Array(W2 * H3);
+    for (let i = 0; i < W2 * H3; i++) water[i] = C.surface[i] === SURF.water || C.surface[i] === SURF.deep ? 1 : 0;
     const railings = [];
     for (const r of C.roads) for (const w of r.walks) rect(w, (x, y, i) => {
       if (water[i]) {
@@ -12002,7 +12112,7 @@ root.My3D2dge = E;
       if (outer && C.surface[I(x, y)] === SURF.bridge) cells[I(x, y)] = -2;
     }
     C.drawbridges = [];
-    C.drawMask = new Uint8Array(W * H3);
+    C.drawMask = new Uint8Array(W2 * H3);
     for (const B of spec.drawbridges || []) {
       const [x0, y0, x1, y1] = B.rect, ns = (B.axis || "y") === "y";
       rect(B.rect, (x, y, i) => {
@@ -12022,7 +12132,7 @@ root.My3D2dge = E;
       const cw = [Math.max(a.band[0], w[0]), Math.max(a.band[1], w[1]), Math.min(a.band[2], w[2]), Math.min(a.band[3], w[3])];
       if (cw[0] <= cw[2] && cw[1] <= cw[3] && !water[I(cw[0], cw[1])]) C.crosswalks.push({ rect: cw, axis: a.axis, road: a.id });
     }
-    C.busy = new Uint8Array(W * H3);
+    C.busy = new Uint8Array(W2 * H3);
     for (const n of C.intersections) rect(n.rect, (x, y, i) => {
       C.busy[i] = 1;
     });
@@ -12044,16 +12154,16 @@ root.My3D2dge = E;
       return lot;
     };
     for (const L3 of spec.lots || []) addLot({ ...L3, rect: L3.rect.slice(), landmark: L3.landmark || true, hood: C.hoods[C.hood[I(L3.rect[0], L3.rect[1])]]?.id });
-    const seen = new Uint8Array(W * H3);
+    const seen = new Uint8Array(W2 * H3);
     C.blocks = [];
-    for (let y = 0; y < H3; y++) for (let x = 0; x < W; x++) {
+    for (let y = 0; y < H3; y++) for (let x = 0; x < W2; x++) {
       const i0 = I(x, y);
       if (used[i0] || seen[i0]) continue;
       const list = [], q = [i0];
       seen[i0] = 1;
       let x0 = x, y0 = y, x1 = x, y1 = y;
       while (q.length) {
-        const i = q.pop(), cx = i % W, cy = (i - cx) / W;
+        const i = q.pop(), cx = i % W2, cy = (i - cx) / W2;
         list.push(i);
         x0 = Math.min(x0, cx);
         x1 = Math.max(x1, cx);
@@ -12076,7 +12186,7 @@ root.My3D2dge = E;
       const hood = C.hoods.find((h) => h.id === b.hood), style = (spec.styles || {})[hood && hood.style || "default"] || DEFAULT_STYLE;
       const free = new Set(b.cells), isFree = (x, y) => free.has(I(x, y));
       for (const i of b.cells) {
-        const x = i % W, y = (i - x) / W;
+        const x = i % W2, y = (i - x) / W2;
         if (!free.has(i)) continue;
         const kind = pickWeighted(rs, style.kinds), k = style.lots[kind];
         let w = rs.int(k.w[0], k.w[1]), d = rs.int(k.d[0], k.d[1]);
@@ -12128,7 +12238,7 @@ root.My3D2dge = E;
     }
     const railType = nextType++;
     types[railType] = { h: 7, top: "#8a8a92", side: "#6a6a72", face: "stone", roof: "plain", texture: false };
-    for (let i = 0; i < W * H3; i++) if (cells[i] === -2) cells[i] = railType;
+    for (let i = 0; i < W2 * H3; i++) if (cells[i] === -2) cells[i] = railType;
     for (const wall of spec.walls || []) {
       const id = nextType++;
       types[id] = wall.type;
@@ -12160,7 +12270,7 @@ root.My3D2dge = E;
     for (const lot of C.lots) if (lot.kind === "park") rect(lot.rect, (x, y) => {
       if (C.surface[I(x, y)] === SURF.park && (x + y * 3) % 5 === 0 && rp.chance(0.55)) addProp(rp.chance(0.5) ? "tree" : "palm", (x + 0.5) * T5, (y + 0.5) * T5, { solid: { hx: 3, hy: 3, top: 56 } });
     });
-    const rr = stream2(seed, "roofs"), NEON = ["#ff4ad8", "#5af0ff", "#ffe066", "#ff7a3a", "#7aff8a", "#ff5a5a"], held = new Uint8Array(W * H3);
+    const rr = stream2(seed, "roofs"), NEON = ["#ff4ad8", "#5af0ff", "#ffe066", "#ff7a3a", "#7aff8a", "#ff5a5a"], held = new Uint8Array(W2 * H3);
     for (const pr of spec.propList || []) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inside(Math.floor(pr.at[0]) + dx, Math.floor(pr.at[1]) + dy)) held[I(Math.floor(pr.at[0]) + dx, Math.floor(pr.at[1]) + dy)] = 1;
     const shops = spec.shopNames || SHOP_NAMES, brands = spec.billboards || BILLBOARDS;
     for (const lot of C.lots) {
@@ -12184,7 +12294,7 @@ root.My3D2dge = E;
         }
       }
     }
-    for (let y = 0; y < H3; y++) for (let x = 0; x < W; x++) {
+    for (let y = 0; y < H3; y++) for (let x = 0; x < W2; x++) {
       if (C.surface[I(x, y)] !== SURF.quay || (x + y) % 4 || cells[I(x, y)]) continue;
       const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => inside(x + dx, y + dy) && water[I(x + dx, y + dy)]);
       if (wet) addProp("bollard", (x + 0.5 + wet[0] * 0.35) * T5, (y + 0.5 + wet[1] * 0.35) * T5, { solid: { hx: 2, hy: 2, top: 6 } });
@@ -12198,13 +12308,13 @@ root.My3D2dge = E;
     for (const h of C.hoods) if (h.rects) for (const r of h.rects) C.zones.push({ kind: "hood", hood: h.id, gang: h.gang || null, rect: r });
     C.signs = C.lots.filter((l) => l.sign).map((l) => ({ lot: l.index, ...l.sign, rect: l.rect }));
     {
-      const open = (i) => cells[i] <= 0 && C.surface[i] !== SURF.water && C.surface[i] !== SURF.deep, seen2 = new Uint8Array(W * H3), q = [];
-      for (let i = 0; i < W * H3; i++) if (open(i) && (C.surface[i] === SURF.road || C.surface[i] === SURF.walk)) {
+      const open = (i) => cells[i] <= 0 && C.surface[i] !== SURF.water && C.surface[i] !== SURF.deep, seen2 = new Uint8Array(W2 * H3), q = [];
+      for (let i = 0; i < W2 * H3; i++) if (open(i) && (C.surface[i] === SURF.road || C.surface[i] === SURF.walk)) {
         seen2[i] = 1;
         q.push(i);
       }
       while (q.length) {
-        const i = q.pop(), x = i % W, y = (i - x) / W;
+        const i = q.pop(), x = i % W2, y = (i - x) / W2;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const nx = x + dx, ny = y + dy;
           if (!inside(nx, ny)) continue;
@@ -12215,8 +12325,8 @@ root.My3D2dge = E;
           }
         }
       }
-      for (let i = 0; i < W * H3; i++) if (open(i) && !seen2[i]) {
-        const x = i % W, y = (i - x) / W, nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => inside(x + dx, y + dy) ? I(x + dx, y + dy) : -1).find((j) => j >= 0 && cells[j] > 0 && C.lot[j] >= 0);
+      for (let i = 0; i < W2 * H3; i++) if (open(i) && !seen2[i]) {
+        const x = i % W2, y = (i - x) / W2, nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => inside(x + dx, y + dy) ? I(x + dx, y + dy) : -1).find((j) => j >= 0 && cells[j] > 0 && C.lot[j] >= 0);
         if (nb !== void 0) {
           cells[i] = cells[nb];
           C.lot[i] = C.lot[nb];
@@ -12224,7 +12334,7 @@ root.My3D2dge = E;
       }
     }
     const floor = Array.from(C.surface, (s) => SURFACES[s]);
-    const map = new E.TileMap({ w: W, h: H3, cells: Array.from(cells), floor, types, block: ["water", "deep"] });
+    const map = new E.TileMap({ w: W2, h: H3, cells: Array.from(cells), floor, types, block: ["water", "deep"] });
     map.addSolids(solids);
     C.map = map;
     map.city = C;
@@ -12545,14 +12655,14 @@ root.My3D2dge = E;
 
   // src/motor/world/validator.js
   function validateCity(C, o = {}) {
-    const errors = [], warnings = [], W = C.w, H3 = C.h, I = (x, y) => y * W + x;
+    const errors = [], warnings = [], W2 = C.w, H3 = C.h, I = (x, y) => y * W2 + x;
     const start = C.poi(o.from || "safehouse") || C.pois[0];
     if (!start) return { errors: ["no points of interest"], warnings };
     const cellOf = (p) => [Math.floor(p.x / C.T), Math.floor(p.y / C.T)];
     const foot = flood(C, cellOf(start), (x, y) => C.walkable(x, y));
     const DRIVE = /* @__PURE__ */ new Set(["road", "bridge", "alley", "yard", "plaza", "quay", "rail", "walk", "pier", "lot", "dirt"]);
     const roadOk = (x, y) => C.walkable(x, y) && DRIVE.has(C.surfaceAt(x, y));
-    const r0 = nearest(C, cellOf(start), roadOk, 12), road = r0 ? flood(C, r0, roadOk) : new Uint8Array(W * H3);
+    const r0 = nearest(C, cellOf(start), roadOk, 12), road = r0 ? flood(C, r0, roadOk) : new Uint8Array(W2 * H3);
     for (const p of C.pois) {
       const [cx, cy] = cellOf(p);
       if (!C.walkable(cx, cy)) {
@@ -12568,7 +12678,7 @@ root.My3D2dge = E;
     }
     let shut = 0;
     const shutAt = [];
-    for (let y = 0; y < H3; y++) for (let x = 0; x < W; x++) if (C.walkable(x, y) && !foot[I(x, y)]) {
+    for (let y = 0; y < H3; y++) for (let x = 0; x < W2; x++) if (C.walkable(x, y) && !foot[I(x, y)]) {
       shut++;
       if (shutAt.length < 6) shutAt.push(x + "," + y);
     }
@@ -12577,15 +12687,15 @@ root.My3D2dge = E;
     return { errors, warnings, reach: { foot, road } };
   }
   function flood(C, [x0, y0], ok) {
-    const W = C.w, seen = new Uint8Array(W * C.h), q = [[x0, y0]];
+    const W2 = C.w, seen = new Uint8Array(W2 * C.h), q = [[x0, y0]];
     if (!ok(x0, y0)) return seen;
-    seen[y0 * W + x0] = 1;
+    seen[y0 * W2 + x0] = 1;
     while (q.length) {
       const [x, y] = q.pop();
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx, ny = y + dy;
-        if (!C.inside(nx, ny) || seen[ny * W + nx] || !ok(nx, ny)) continue;
-        seen[ny * W + nx] = 1;
+        if (!C.inside(nx, ny) || seen[ny * W2 + nx] || !ok(nx, ny)) continue;
+        seen[ny * W2 + nx] = 1;
         q.push([nx, ny]);
       }
     }
@@ -12976,21 +13086,21 @@ root.My3D2dge = E;
     g.globalCompositeOperation = op;
     g.globalAlpha = a;
   }
-  function drawGlints(g, P2, lists, t, W, H3) {
+  function drawGlints(g, P2, lists, t, W2, H3) {
     g.fillStyle = "rgba(200,226,255,.55)";
     for (const list of lists) for (const [cx, cy, h] of list) {
       const ph = Math.sin(t * (1.3 + h * 4) + h * 40);
       if (ph < 0.55) continue;
       const q = P2.proj((cx + h * 2.6) * T, (cy + 0.3 + h * 1.5) * T, 0);
-      if (!q || q[0] < -4 || q[1] < -4 || q[0] > W + 4 || q[1] > H3 + 4) continue;
+      if (!q || q[0] < -4 || q[1] < -4 || q[0] > W2 + 4 || q[1] > H3 + 4) continue;
       const len = Math.max(2, Math.round((ph - 0.4) * 6 * Math.min(2, q[2])));
       g.fillRect(Math.round(q[0]), Math.round(q[1]), len, 1);
     }
   }
   function drawLeaf(g, P2, b, l, tex) {
-    const G = b.leafGeom(l), ns = b.axis === "y", th = 4, W = G.u1 - G.u0;
+    const G = b.leafGeom(l), ns = b.axis === "y", th = 4, W2 = G.u1 - G.u0;
     const pt = (s, tl, dz) => {
-      const t = G.dir > 0 ? tl : 1 - tl, u = G.u0 + s * W, v = G.a + G.dir * t * G.c, z = t * G.h + dz;
+      const t = G.dir > 0 ? tl : 1 - tl, u = G.u0 + s * W2, v = G.a + G.dir * t * G.c, z = t * G.h + dz;
       return ns ? P2.proj(u, v, z) : P2.proj(v, u, z);
     };
     const xy = (sx, sy, dz) => ns ? pt(sx, sy, dz) : pt(sy, sx, dz);
@@ -13209,6 +13319,220 @@ root.My3D2dge = E;
     }
   };
 
+  // src/motor/combat/weapons.js
+  var SLOTS = ["melee", "pistol", "smg", "shotgun", "heavy", "thrown", "special"];
+  var PROJECTILES = ["melee", "bullet", "pellets", "rocket", "molotov", "grenade", "stream", "zap", "photo"];
+  declare("weapons", shape({
+    name: { type: "string", req: true },
+    slot: { type: "string", req: true, oneOf: SLOTS },
+    projectile: { type: "string", req: true, oneOf: PROJECTILES },
+    damage: { type: "number", def: 0, min: 0 },
+    rate: { type: "number", def: 1, min: 0.05, max: 30 },
+    pellets: { type: "number", def: 1, min: 1 },
+    mag: { type: "number", def: 0, min: 0 },
+    reload: { type: "number", def: 0, min: 0 },
+    spread: { type: "number", def: 0, min: 0, max: 45 },
+    range: { type: "number", def: 300, min: 0 },
+    speed: { type: "number", def: 900, min: 0 },
+    splash: { type: "number", def: 0, min: 0 },
+    ammo: { type: "number", def: 0, min: 0 },
+    price: { type: "number", def: 0, min: 0 },
+    unlock: { type: "string", def: "" },
+    model: { type: "string", def: "" },
+    sound: { type: "string", def: "" },
+    recoil: { type: "number", def: 0 },
+    rumble: { type: "number", def: 0 },
+    twoHanded: { type: "boolean", def: false },
+    fuse: { type: "number", def: 0 },
+    burn: { type: "number", def: 0 },
+    chain: { type: "number", def: 0 },
+    stun: { type: "number", def: 0 }
+  }));
+  function sustainedDps(w) {
+    const perShot = w.damage * (w.pellets || 1);
+    if (!w.mag || !w.reload) return perShot * w.rate;
+    return perShot * w.mag / (w.mag / w.rate + w.reload);
+  }
+
+  // src/motor/combat/vitals.js
+  knob("Combat", "regenDelay", "Regeneration delay", 5, 0, 30, 0.5, "Seconds out of combat before health creeps back");
+  knob("Combat", "regenRate", "Regeneration rate", 6, 0, 50, 1, "Health a second while regenerating");
+  knob("Combat", "regenTo", "Regenerates to", 50, 0, 100, 5, "Health regeneration stops here (GTA V: half)");
+  knob("Combat", "armorSoak", "Armour soak", 0.8, 0, 1, 0.05, "The share of a hit armour takes while it lasts");
+  knob("Combat", "knockdownAt", "Knockdown threshold", 30, 5, 200, 1, "A single hit this hard (after armour) knocks a body down");
+  knob("Combat", "downTime", "Down time", 1.1, 0.2, 5, 0.1, "Seconds on the ground after a knockdown, before getting up");
+  var Vitals = class {
+    /** o: { health, maxHealth, armor } */
+    constructor(o = {}) {
+      this.health = o.health ?? 100;
+      this.maxHealth = o.maxHealth ?? 100;
+      this.armor = o.armor ?? 0;
+      this.sinceHit = 1e9;
+      this.down = 0;
+      this.stun = 0;
+      this.zaps = 0;
+      this.dead = false;
+      this.lastBy = null;
+      this.damageTaken = 1;
+    }
+    get alive() {
+      return !this.dead;
+    }
+    /** take a hit: { amount, by (the attacker's id), kind ('bullet' | 'melee' | 'explosion' | 'fire' | 'zap' | 'fall'),
+     *  knock (force a knockdown) }. Returns { health, armor (taken from each), down, killed } */
+    hit(o) {
+      if (this.dead) return { health: 0, armor: 0, down: false, killed: false };
+      let a = Math.max(0, o.amount || 0) * this.damageTaken, fromArmor = 0;
+      if (this.armor > 0 && o.kind !== "fire" && o.kind !== "fall") {
+        fromArmor = Math.min(this.armor, a * TUNE.armorSoak);
+        this.armor -= fromArmor;
+        a -= fromArmor;
+      }
+      const before = this.health;
+      this.health = Math.max(0, this.health - a);
+      this.sinceHit = 0;
+      this.lastBy = o.by ?? null;
+      if (o.kind === "zap") this.zaps++;
+      else this.zaps = 0;
+      const down = !!o.knock || a >= TUNE.knockdownAt || o.kind === "explosion";
+      if (down && this.health > 0) this.down = Math.max(this.down, TUNE.downTime);
+      if (this.health <= 0) this.dead = true;
+      return { health: before - this.health, armor: fromArmor, down, killed: this.dead };
+    }
+    heal(n) {
+      if (!this.dead) this.health = Math.min(this.maxHealth, this.health + n);
+    }
+    addArmor(n) {
+      this.armor = Math.min(100, this.armor + n);
+    }
+    /** step: regeneration, the knockdown and stun timers */
+    update(dt) {
+      this.sinceHit += dt;
+      this.down = Math.max(0, this.down - dt);
+      this.stun = Math.max(0, this.stun - dt);
+      if (this.sinceHit > 3) this.zaps = 0;
+      if (!this.dead && this.sinceHit >= TUNE.regenDelay && this.health < TUNE.regenTo) this.health = Math.min(TUNE.regenTo, this.health + TUNE.regenRate * dt);
+    }
+    /** can it act (not down, not stunned, alive)? */
+    get able() {
+      return !this.dead && this.down <= 0 && this.stun <= 0;
+    }
+  };
+
+  // src/motor/sim/fire.js
+  knob("Combat", "fireSpread", "Fire spread", 0.9, 0, 5, 0.05, "Chance a second that a hot cell lights a neighbour that burns well");
+  knob("Combat", "fireDps", "Fire damage", 14, 0, 100, 1, "Damage a second to a body in a fully burning cell");
+  knob("Combat", "rainDamp", "Rain damping", 2.5, 0, 10, 0.1, "How much faster fire dies in a downpour");
+  knob("Combat", "fireHop", "Fire vigour per hop", 0.8, 0, 1, 0.02, "The vigour a cell lit by a neighbour keeps (1: it spreads without end)");
+  var FLAMMABLE = {
+    grass: [1, 7],
+    park: [1, 7],
+    dirt: [0.25, 2],
+    sand: [0.05, 1],
+    pier: [0.9, 10],
+    lot: [0.3, 3],
+    yard: [0.3, 3],
+    walk: [0.12, 1.5],
+    plaza: [0.12, 1.5],
+    road: [0.08, 1.2],
+    alley: [0.2, 2],
+    bridge: [0.08, 1.2],
+    quay: [0.1, 1.5],
+    rail: [0.15, 2],
+    curb: [0.1, 1],
+    water: [0, 0],
+    deep: [0, 0]
+  };
+  var Fire = class {
+    /** city: a CityMap (surfaceAt, w, h, T) */
+    constructor(city) {
+      this.city = city;
+      this.w = city.w;
+      this.h = city.h;
+      this.T = city.T;
+      this.heat = new Float32Array(this.w * this.h);
+      this.fuel = new Float32Array(this.w * this.h);
+      this.vigor = new Float32Array(this.w * this.h);
+      this.live = /* @__PURE__ */ new Set();
+      this.burnt = new Uint8Array(this.w * this.h);
+      this.rs = RNG.stream("fire");
+    }
+    _flam(i) {
+      const f = FLAMMABLE[this.city.surfaceAt(i % this.w, i / this.w | 0)];
+      return f || [0.2, 2];
+    }
+    /** set a disc alight: a world point, its radius (u), heat (0..1), the fuel it brings (seconds: petrol) and its vigour */
+    add(x, y, r = 0, heat = 1, fuel = 0, vigor = 1) {
+      const T5 = this.T, c0 = Math.floor((x - r) / T5), c1 = Math.floor((x + r) / T5), r0 = Math.floor((y - r) / T5), r1 = Math.floor((y + r) / T5);
+      for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
+        if (cx < 0 || cy < 0 || cx >= this.w || cy >= this.h || Math.hypot((cx + 0.5) * T5 - x, (cy + 0.5) * T5 - y) > r + T5 * 0.5) continue;
+        const i = cy * this.w + cx, [flam, own] = this._flam(i);
+        if (flam <= 0 && fuel <= 0) continue;
+        this.heat[i] = Math.max(this.heat[i], heat);
+        this.fuel[i] = Math.max(this.fuel[i], own + fuel);
+        this.vigor[i] = Math.max(this.vigor[i], vigor);
+        this.live.add(i);
+      }
+    }
+    /** a burning body crossing a point lights it (if it burns at all) */
+    ignite(x, y) {
+      this.add(x, y, 0, 0.7, 0, 0.6);
+    }
+    /** step: dt seconds; wet: the streets' wetness 0..1 (rain damps the fire) */
+    update(dt, wet = 0) {
+      const W2 = this.w, damp = 1 + TUNE.rainDamp * wet, lit = [];
+      for (const i of this.live) {
+        this.fuel[i] -= dt * damp;
+        if (this.fuel[i] <= 0) {
+          this.heat[i] -= dt * 0.8 * damp;
+          if (this.heat[i] <= 0) {
+            this.heat[i] = 0;
+            this.fuel[i] = 0;
+            this.vigor[i] = 0;
+            this.burnt[i] = 1;
+            this.live.delete(i);
+            continue;
+          }
+        } else this.heat[i] = Math.min(1, this.heat[i] + dt * 0.5);
+        if (this.heat[i] < 0.5) continue;
+        const cx = i % W2, cy = i / W2 | 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = cx + dx, ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= W2 || ny >= this.h) continue;
+          const j = ny * W2 + nx;
+          if (this.heat[j] > 0 || this.burnt[j]) continue;
+          const [flam, own] = this._flam(j);
+          if (flam > 0 && this.rs.next() < TUNE.fireSpread * flam * this.heat[i] * this.vigor[i] * dt / damp) lit.push([j, own, this.vigor[i] * TUNE.fireHop]);
+        }
+      }
+      for (const [j, own, v] of lit) {
+        this.heat[j] = 0.55;
+        this.fuel[j] = own;
+        this.vigor[j] = v;
+        this.live.add(j);
+      }
+    }
+    /** the heat of the cell under a world point (0 not burning .. 1) */
+    heatAt(x, y) {
+      const cx = Math.floor(x / this.T), cy = Math.floor(y / this.T);
+      return cx < 0 || cy < 0 || cx >= this.w || cy >= this.h ? 0 : this.heat[cy * this.w + cx];
+    }
+    /** damage a second to a body standing at a world point */
+    damageAt(x, y) {
+      return this.heatAt(x, y) * TUNE.fireDps;
+    }
+    /** how many cells burn */
+    get count() {
+      return this.live.size;
+    }
+    /** for state hashes: the burning cells and their heat, rounded */
+    hash() {
+      let h = 0;
+      for (const i of [...this.live].sort((a, b) => a - b)) h = h * 31 + i * 7 + Math.round(this.heat[i] * 100) >>> 0;
+      return h;
+    }
+  };
+
   // src/motor/app.js
   function createApp({ game: game2, links: links2 }) {
     const views = new ViewManager(game2), bindings = Bindings.load(game2.input), activity = new Activity(game2.input);
@@ -13248,16 +13572,16 @@ root.My3D2dge = E;
   }
   def("maps", "hello", {
     build() {
-      const W = 32, H3 = 32, g = Array.from({ length: H3 }, () => Array(W).fill("."));
+      const W2 = 32, H3 = 32, g = Array.from({ length: H3 }, () => Array(W2).fill("."));
       const rect = (x0, y0, x1, y1, ch) => {
         for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) g[y][x] = ch;
       };
-      rect(0, 0, W - 1, 0, "#");
-      rect(0, H3 - 1, W - 1, H3 - 1, "#");
+      rect(0, 0, W2 - 1, 0, "#");
+      rect(0, H3 - 1, W2 - 1, H3 - 1, "#");
       rect(0, 0, 0, H3 - 1, "#");
-      rect(W - 1, 0, W - 1, H3 - 1, "#");
+      rect(W2 - 1, 0, W2 - 1, H3 - 1, "#");
       rect(14, 1, 17, H3 - 2, "r");
-      rect(1, 14, W - 2, 17, "r");
+      rect(1, 14, W2 - 2, 17, "r");
       rect(3, 3, 7, 7, "A");
       rect(9, 3, 11, 9, "B");
       rect(3, 9, 7, 11, "C");
@@ -14003,11 +14327,11 @@ root.My3D2dge = E;
         update(dt) {
           let ctl;
           if (auto) {
-            const W = [[30 * 16, 64 * 16], [70 * 16, 64 * 16], [72 * 16, 30 * 16], [40 * 16, 22 * 16], [10 * 16, 30 * 16], [8 * 16, 56 * 16]];
-            let [tx, ty] = W[wp % W.length];
+            const W2 = [[30 * 16, 64 * 16], [70 * 16, 64 * 16], [72 * 16, 30 * 16], [40 * 16, 22 * 16], [10 * 16, 30 * 16], [8 * 16, 56 * 16]];
+            let [tx, ty] = W2[wp % W2.length];
             if (Math.hypot(tx - car.x, ty - car.y) < 90) {
               wp++;
-              [tx, ty] = W[wp % W.length];
+              [tx, ty] = W2[wp % W2.length];
             }
             const want = Math.atan2(ty - car.y, tx - car.x), err = Math.atan2(Math.sin(want - car.heading), Math.cos(want - car.heading));
             ctl = { steer: E.clamp(err * 2.2, -1, 1), throttle: Math.abs(err) > 0.6 && car.speed > 120 ? 0 : 0.8, brake: Math.abs(err) > 0.9 && car.speed > 140 ? 0.6 : 0, handbrake: false };
@@ -14353,8 +14677,22 @@ root.My3D2dge = E;
     spec: { t200: 2.4, top: 260, brake200: 41 }
   });
 
+  // src/game/weapons/arsenal.js
+  var W = (id, spec) => def("weapons", id, spec);
+  W("fists", { name: "Fists", slot: "melee", projectile: "melee", damage: 8, rate: 2.6, range: 22, sound: "punch" });
+  W("slugger", { name: "Lowtown Slugger", slot: "melee", projectile: "melee", damage: 24, rate: 1.4, range: 30, model: "bat", sound: "bat", twoHanded: true, price: 60 });
+  W("snub38", { name: "Snub .38", slot: "pistol", projectile: "bullet", damage: 18, rate: 3, mag: 6, reload: 1.2, spread: 2.5, range: 420, speed: 1100, ammo: 48, model: "pistol", sound: "pistol", recoil: 0.3, rumble: 0.25, price: 250 });
+  W("buzzsaw", { name: "Buzzsaw", slot: "smg", projectile: "bullet", damage: 9, rate: 11, mag: 30, reload: 1.6, spread: 6, range: 340, speed: 1e3, ammo: 150, model: "smg", sound: "smg", recoil: 0.15, rumble: 0.2, price: 900, unlock: "m3" });
+  W("persuader", { name: "Persuader", slot: "shotgun", projectile: "pellets", damage: 9, pellets: 8, rate: 1.1, mag: 6, reload: 2.4, spread: 12, range: 210, speed: 950, ammo: 36, model: "shotgun", sound: "shotgun", recoil: 0.8, rumble: 0.6, twoHanded: true, price: 1200, unlock: "m5" });
+  W("boomtube", { name: "Boom Tube", slot: "heavy", projectile: "rocket", damage: 120, rate: 0.6, mag: 1, reload: 2.5, range: 700, speed: 380, splash: 64, ammo: 6, model: "launcher", sound: "rocket", recoil: 1, rumble: 1, twoHanded: true, price: 5e3, unlock: "m11" });
+  W("hotmess", { name: "Hot Mess", slot: "heavy", projectile: "stream", damage: 4, rate: 12, mag: 100, reload: 3, spread: 8, range: 110, speed: 260, burn: 4, ammo: 300, model: "flamer", sound: "flame", rumble: 0.3, twoHanded: true, price: 3500, unlock: "m9" });
+  W("partystarter", { name: "Party Starter", slot: "thrown", projectile: "molotov", damage: 18, rate: 0.8, range: 260, speed: 260, splash: 40, burn: 6, ammo: 5, model: "molotov", sound: "glass", price: 150 });
+  W("pineapple", { name: "Pineapple", slot: "thrown", projectile: "grenade", damage: 110, rate: 0.8, range: 280, speed: 280, splash: 72, fuse: 2.5, ammo: 5, model: "grenade", sound: "boom", price: 300, unlock: "m6" });
+  W("zapomatic", { name: "Zap-O-Matic", slot: "special", projectile: "zap", damage: 6, rate: 4, range: 180, chain: 3, stun: 1.2, ammo: 60, model: "zapper", sound: "zap", rumble: 0.4, price: 4e3, unlock: "m12" });
+  W("snap", { name: "Snap", slot: "special", projectile: "photo", damage: 0, rate: 1.5, range: 600, model: "phone", sound: "shutter" });
+
   // content:content
-  var CONTENT_FILES = ["districts/hello/map.js", "districts/lowtown/district.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/pad.js", "districts/proving/scale-city.js", "proving/city-zones.js", "proving/pad-zone.js", "scenes/attract.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "tune.js", "vehicles/cortez.js"];
+  var CONTENT_FILES = ["districts/hello/map.js", "districts/lowtown/district.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/pad.js", "districts/proving/scale-city.js", "proving/city-zones.js", "proving/pad-zone.js", "save.js", "scenes/attract.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "tune.js", "vehicles/cortez.js", "weapons/arsenal.js"];
 
   // src/main.js
   var links = readLinks();

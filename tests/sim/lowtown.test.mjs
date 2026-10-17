@@ -83,3 +83,20 @@ test('the drawbridge: it lifts every 3 game hours unless someone is on it, block
   for (let t = 0; t < 3; t += 1 / 120) m.update(1 / 120, C.map, { move: [0, 1] });
   assert.ok(m.y < y0 * T, `stopped at the edge of the lifted span: y ${m.y.toFixed(0)} < ${y0 * T}`);
 });
+
+test('fire: a Molotov on the grass of Palm Park spreads and burns out; on asphalt it burns its petrol and dies; rain puts it out sooner', async () => {
+  const { M } = await motor();
+  const C = M.buildCity('lowtown', 1999), park = C.poi('palm-park'), T = C.T;
+  // a grass cell inside the park, and a road cell on Sunset Strip
+  let gx = 0, gy = 0; outer: for (let cy = 12; cy < 25; cy++) for (let cx = 62; cx < 73; cx++) if (C.surfaceAt(cx, cy) === 'park') { gx = (cx + .5) * T; gy = (cy + .5) * T; break outer; }
+  void park;
+  const burn = (x, y, wet, secs) => { M.RNG.seed(3); const f = new M.Fire(C); f.add(x, y, 40, 1, 4); const splash = f.count; let most = 0; for (let t = 0; t < secs; t += 1 / 30) { f.update(1 / 30, wet); most = Math.max(most, f.count); } return { splash, most, left: f.count, f }; };
+  const grass = burn(gx, gy, 0, 12);
+  assert.ok(grass.most > grass.splash * 1.5, `grass spreads: ${grass.splash} cells splashed, ${grass.most} at most`);
+  const road = burn(56.5 * T, 30.5 * T, 0, 12);
+  assert.ok(road.most <= road.splash + 6 && road.left === 0, `asphalt: the petrol burns (${road.splash} splashed, ${road.most} at most) and goes out`);
+  const out = burn(gx, gy, 0, 90), rain = burn(gx, gy, 1, 12);
+  assert.equal(out.left, 0, 'it all burns out in time');
+  assert.ok(rain.most < grass.most, `rain damps the spread: ${rain.most} < ${grass.most}`);
+  const g2 = burn(gx, gy, 0, 12); assert.equal(g2.f.hash(), grass.f.hash(), 'the same throw burns the same way');
+});
