@@ -1,13 +1,13 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M1 in progress. Core, input and the attract loop are done; spike S2 (floor and scale) is done and kept; S1 (the
-depth renderer) is next, then S3 (vehicle physics) and the contracts. Blockers: none. The run started inside the
-planning session (DECISIONS D5).
+Now: M1 in progress. Core, input and the attract loop are done; spikes S2 (floor and scale) and S1 (the depth
+renderer) are done and kept; S3 (vehicle physics) is next, then the contracts. Blockers: none. The run started inside
+the planning session (DECISIONS D5).
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
 | M0 Bootstrap | done | see the acceptance log · `npm test` all steps pass (lint, boundary, vendor, goal-sync, dist current, 9 unit + sim, e2e smoke 6/6, engine check) |
-| M1 Core + spikes | in progress | core, input, attract loop (`c76395c`); S2 floor and scale: GTM-PATCHes 1-3, floor chunks, the scale yard, `tools/perf.mjs` · 13 patch tests + 4 render + 2 sim · `docs/media/m1/s2-*` · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65 |
+| M1 Core + spikes | in progress | core, input, attract loop (`c76395c`); S2 floor and scale (`064fcae`): GTM-PATCHes 1-3, floor chunks, the scale yard · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65; S1 depth renderer (`dda0356`): SIDE7, TOP, the Stage, the view lab · TOP 6.1-6.2 ms, SIDE7 11.3-11.9 ms with 41 rigs · 59 unit + sim tests · `docs/media/m1/` |
 | M2 Lowtown + ISO | | |
 | M3 On foot + combat | | |
 | M4 Vehicles | | |
@@ -59,4 +59,31 @@ planning session (DECISIONS D5).
   - **Verdict:** keep. The city scales to 160×160. The driving zoom is over the 9 ms target before any actors; the
     measured budgets go in DECISIONS with S1's numbers, and merging roof-only blocks per building is the lever to pull
     if M2's gates fail.
+- **M1 · S1 the depth renderer, on the view lab (`#proving/views`: 64×64 cells, 4×4 chunks, 40 walkers and the hero,
+  a lap at 300 u/s):** `render/depth/` (spans, textures, textured faces, `side7.js`, `top.js`) and `render/stage.js`.
+  Measured as for S2 (two runs each).
+
+  | Scenario | Draw median | p90 / p99 | Update median |
+  |---|---|---|---|
+  | view lab, ISO (crowd on the engine's fast path) | 7.0-7.5 ms | 11.3-11.7 / 17.6-17.8 ms | 0.4 ms |
+  | view lab, TOP-DOWN (H at its driving height) | 6.1-6.2 ms | 8.5-8.8 / 12.7-13.2 ms | 0.4 ms |
+  | view lab, MODE 7 | 11.3-11.9 ms | 14.3-15.5 / 19.5-22.3 ms | 0.4 ms |
+  | scale yard 160×160, MODE 7 (no walkers) | 9.0-9.4 ms | 12.1-13.7 / 15.5-19.2 ms | 0.2 ms |
+  | scale yard 160×160, TOP-DOWN (no walkers) | 5.5-5.7 ms | 7.6-8.9 / 11.3-11.4 ms | 0.2 ms |
+
+  - **Where MODE 7's time goes** (`tools/profile-frame.mjs`): the 41 rig draws at their distance's scale are about 3.5
+    ms of script; floor rows 0.5 ms (about 350 `drawImage` calls); faces 0.5 ms; the rest is raster, at present time.
+    It is 3-8% over the 11 ms target. The lever, for M7: crowd rigs drawn every other frame from a cached image, as the
+    engine's `every` does in ISO.
+  - **Screens:** `docs/media/m1/s1-view-lab-{iso,top,side7}.png` (one scene, one draw path, three views);
+    `s1-side7-rails-east-south-west.png` (the floor rows on all four rail headings); `s1-hello-block-three-views.png`
+    (the engine checker's own shots of the three views). Verdicts:
+    - MODE 7 reads as a SNES-style city street: textured facades recede on both sides, walkers shrink with distance,
+      and walls and figures stay upright (the shifted lens, DECISIONS D8);
+    - TOP-DOWN reads as GTA2: buildings lean out from the centre, showing their centre-facing walls and lit windows;
+    - ISO is unchanged.
+  - **Correctness:** projection inverses at every rail heading, the TOP lean, span coverage and the face splitter are
+    unit-tested. Walking stays screen-relative in each view (a sim test: up is north on the north rail). The rail
+    keeps the focus between `near` and `far`.
+  - **Verdict:** keep. No fallback was needed (PLAN.md 8.5's fallback cut SIDE7 to one heading; all four work).
 
