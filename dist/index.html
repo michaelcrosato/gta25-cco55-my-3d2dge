@@ -8929,6 +8929,7 @@ root.My3D2dge = E;
     createApp: () => createApp,
     curbSides: () => curbSides,
     curbSpot: () => curbSpot,
+    curbSpots: () => curbSpots,
     declare: () => declare,
     def: () => def,
     defActivity: () => defActivity,
@@ -8974,6 +8975,7 @@ root.My3D2dge = E;
     modelOf: () => modelOf,
     modelWithKit: () => modelWithKit,
     nextStation: () => nextStation,
+    onRoad: () => onRoad,
     paintTileMapFloor: () => paintTileMapFloor,
     parsePrompt: () => parsePrompt,
     pickLock: () => pickLock,
@@ -12677,7 +12679,6 @@ root.My3D2dge = E;
             fy = nx * ts + ny * tc;
           }
           const ry = fy * cr - nz * sr, rz = fy * sr + nz * cr, mx = fx5 * cp + rz * sp, mz = -fx5 * sp + rz * cp;
-          if (mz < -0.05) continue;
           const wx2 = mx * c - ry * s, wy = mx * s + ry * c, lit = wx2 * LIGHT2[0] + wy * LIGHT2[1] + mz * LIGHT2[2];
           g.fillStyle = shadeFor(color, mz > 0.7 ? 0.14 : lit > 0.2 ? 0.06 : lit < -0.2 ? -0.28 : -0.1);
           g.beginPath();
@@ -14096,12 +14097,12 @@ root.My3D2dge = E;
     if (road.axis === "y") return { x: side > 0 ? (road.band[2] + 1) * T8 - hw5 - inset : road.band[0] * T8 + hw5 + inset, y: (cy + 0.5) * T8, heading: side > 0 ? -Math.PI / 2 : Math.PI / 2, road, side };
     return { x: (cx5 + 0.5) * T8, y: side > 0 ? (road.band[3] + 1) * T8 - hw5 - inset : road.band[1] * T8 + hw5 + inset, heading: side > 0 ? 0 : Math.PI, road, side };
   }
-  function blockedSpot(city, x, y, h, hl5, hw5) {
+  function blockedSpot(city, x, y, h, hl5, hw5, height = 24) {
     const map = city.map;
     if (!map || !map.solidsNear) return false;
     const c = Math.cos(h), s = Math.sin(h);
     for (const q of map.solidsNear(x, y, hl5 + 8)) {
-      if (q.deck || q.railing || q.z > 20) continue;
+      if (q.z >= height + 2 || q.top <= 4) continue;
       const dx = q.x - x, dy = q.y - y, a = Math.abs(dx * c + dy * s), b = Math.abs(-dx * s + dy * c), r5 = Math.max(q.hx, q.hy) + 1.5;
       if (a < hl5 + r5 && b < hw5 + r5) return true;
     }
@@ -14111,23 +14112,31 @@ root.My3D2dge = E;
     }
     return false;
   }
+  function onRoad(city, x, y, h, hl5, hw5) {
+    const c = Math.cos(h), s = Math.sin(h), T8 = city.T;
+    for (const [ox, oy] of [[hl5, hw5], [hl5, -hw5], [-hl5, hw5], [-hl5, -hw5], [0, 0], [hl5, 0], [-hl5, 0]]) {
+      const cx5 = Math.floor((x + ox * c - oy * s) / T8), cy = Math.floor((y + ox * s + oy * c) / T8);
+      if (city.surfaceAt(cx5, cy) !== "road" || city.busy && city.inside(cx5, cy) && city.busy[city.idx(cx5, cy)]) return false;
+    }
+    return true;
+  }
   function curbSides(city, r5) {
     return r5.kind === "avenue" ? [-1, 1] : [city.roads.indexOf(r5) % 2 ? 1 : -1];
   }
-  function curbSpot(city, cx5, cy, hw5 = 13) {
-    let best = null, bd = Infinity;
+  function curbSpots(city, cx5, cy, hw5 = 13) {
+    const out = [];
     for (const r5 of city.roads) {
       if (r5.kind === "alley") continue;
       const [x0, y0, x1, y1] = r5.band;
       for (const side of curbSides(city, r5)) {
-        const lx = r5.axis === "y" ? side < 0 ? x0 : x1 : E.clamp(cx5, x0, x1), ly = r5.axis === "y" ? E.clamp(cy, y0, y1) : side < 0 ? y0 : y1, d = Math.hypot(lx - cx5, ly - cy);
-        if (d < bd && !busyNear(city, r5, lx, ly)) {
-          bd = d;
-          best = laneSpot(r5, side, lx, ly, city.T, hw5);
-        }
+        const lx = r5.axis === "y" ? side < 0 ? x0 : x1 : E.clamp(cx5, x0, x1), ly = r5.axis === "y" ? E.clamp(cy, y0, y1) : side < 0 ? y0 : y1;
+        if (!busyNear(city, r5, lx, ly)) out.push({ d: Math.hypot(lx - cx5, ly - cy), spot: laneSpot(r5, side, lx, ly, city.T, hw5) });
       }
     }
-    return best;
+    return out.sort((a, b) => a.d - b.d).map((o) => o.spot);
+  }
+  function curbSpot(city, cx5, cy, hw5 = 13) {
+    return curbSpots(city, cx5, cy, hw5)[0] || null;
   }
   function busyNear(city, r5, cx5, cy) {
     for (let k = -2; k <= 2; k++) {
@@ -14159,18 +14168,19 @@ root.My3D2dge = E;
     });
     const size = (d) => {
       const m = get("vehicleModels", d.model);
-      return m ? [m.length / 2, m.width / 2] : [29, 13];
+      return m ? [m.length / 2, m.width / 2, m.height] : [29, 13, 22];
     };
+    const fits = (x, y, h, hl5, hw5, ht) => free(x, y, h, hl5, hw5) && onRoad(city, x, y, h, hl5, hw5) && !blockedSpot(city, x, y, h, hl5, hw5, ht);
     for (const sp of spec.spots) {
       const poi = sp.near ? city.poi(sp.near) : null, at = poi ? [Math.floor(poi.x / T8), Math.floor(poi.y / T8)] : sp.at;
       if (!at) continue;
       const d = get("vehicles", sp.def);
       if (!d) continue;
-      const [hl5, hw5] = size(d), base3 = curbSpot(city, at[0], at[1], hw5);
-      if (!base3) continue;
-      for (let i = 0, k = 0; i < (sp.n || 1) && k < 8; k++) {
-        const L11 = hl5 * 2 + 10, x = base3.x - Math.cos(base3.heading) * L11 * k, y = base3.y - Math.sin(base3.heading) * L11 * k;
-        if (!free(x, y, base3.heading, hl5, hw5) || blockedSpot(city, x, y, base3.heading, hl5, hw5)) continue;
+      const [hl5, hw5, ht] = size(d), bases = curbSpots(city, at[0], at[1], hw5).slice(0, 4);
+      let i = 0;
+      for (const [bi, base3] of bases.entries()) for (let j = 0; i < (sp.n || 1) && j < (bi === bases.length - 1 ? 15 : 5); j++) {
+        const k = j & 1 ? (j + 1) / 2 : -j / 2, L11 = hl5 * 2 + 10, x = base3.x - Math.cos(base3.heading) * L11 * k, y = base3.y - Math.sin(base3.heading) * L11 * k;
+        if (!fits(x, y, base3.heading, hl5, hw5, ht)) continue;
         i++;
         fleet.spawn(sp.def, x, y, base3.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked });
         taken.push({ x, y, h: base3.heading, hl: hl5, hw: hw5 });
@@ -14185,12 +14195,12 @@ root.My3D2dge = E;
         const cx0 = r5.axis === "y" ? side < 0 ? x0 : x1 : k, cy0 = r5.axis === "y" ? k : side < 0 ? y0 : y1;
         const hood2 = city.hoodAt(cx0, cy0), d = pick(hood2 ? hood2.id : "");
         if (!d) continue;
-        const [hl5, hw5] = size(d);
+        const [hl5, hw5, ht] = size(d);
         for (const o of [0, 1, -1, 2, -2, 3, -3]) {
           const cx5 = r5.axis === "y" ? cx0 : cx0 + o, cy = r5.axis === "y" ? cy0 + o : cy0;
           if (busyNear(city, r5, cx5, cy) || noSpawn.some((z) => cx5 >= z.rect[0] && cx5 <= z.rect[2] && cy >= z.rect[1] && cy <= z.rect[3])) continue;
           const s = laneSpot(r5, side, cx5, cy, T8, hw5);
-          if (!free(s.x, s.y, s.heading, hl5, hw5) || blockedSpot(city, s.x, s.y, s.heading, hl5, hw5)) continue;
+          if (!fits(s.x, s.y, s.heading, hl5, hw5, ht)) continue;
           fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)] });
           taken.push({ x: s.x, y: s.y, h: s.heading, hl: hl5, hw: hw5 });
           out.parked++;

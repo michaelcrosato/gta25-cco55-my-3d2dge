@@ -28,34 +28,47 @@ export function laneSpot(road, side, cx, cy, T = 16, hw = 13) {
   if (road.axis === 'y') return { x: side > 0 ? (road.band[2] + 1) * T - hw - inset : road.band[0] * T + hw + inset, y: (cy + .5) * T, heading: side > 0 ? -Math.PI / 2 : Math.PI / 2, road, side };
   return { x: (cx + .5) * T, y: side > 0 ? (road.band[3] + 1) * T - hw - inset : road.band[1] * T + hw + inset, heading: side > 0 ? 0 : Math.PI, road, side };
 }
-/** does anything standing (a lamp, a palm, a bin, a pillar) stand inside a box parked at (x, y) facing h? */
-export function blockedSpot(city, x, y, h, hl, hw) {
+/** does anything stand inside a box parked at (x, y) facing h, up to its height: a lamp, a palm, a bin, a pillar, or the
+ *  low end of a ramp it would sit under? (A deck wholly above its roof, or a curb, is no bar) */
+export function blockedSpot(city, x, y, h, hl, hw, height = 24) {
   const map = city.map; if (!map || !map.solidsNear) return false;
   const c = Math.cos(h), s = Math.sin(h);
   for (const q of map.solidsNear(x, y, hl + 8)) {
-    if (q.deck || q.railing || q.z > 20) continue;
+    if (q.z >= height + 2 || q.top <= 4) continue;
     const dx = q.x - x, dy = q.y - y, a = Math.abs(dx * c + dy * s), b = Math.abs(-dx * s + dy * c), r = Math.max(q.hx, q.hy) + 1.5;
     if (a < hl + r && b < hw + r) return true;
   }
   for (const [ox, oy] of [[hl, hw], [hl, -hw], [-hl, hw], [-hl, -hw], [0, 0]]) { const px = x + ox * c - oy * s, py = y + ox * s + oy * c; if (map.cell(Math.floor(px / city.T), Math.floor(py / city.T)) !== 0) return true; }   // (no corner in a wall)
   return false;
 }
+/** are a parked box's corners and middle all on the road (not the sidewalk past a road's end, a lot, the water) and out
+ *  of the junctions' boxes? */
+export function onRoad(city, x, y, h, hl, hw) {
+  const c = Math.cos(h), s = Math.sin(h), T = city.T;
+  for (const [ox, oy] of [[hl, hw], [hl, -hw], [-hl, hw], [-hl, -hw], [0, 0], [hl, 0], [-hl, 0]]) {
+    const cx = Math.floor((x + ox * c - oy * s) / T), cy = Math.floor((y + ox * s + oy * c) / T);
+    if (city.surfaceAt(cx, cy) !== 'road' || (city.busy && city.inside(cx, cy) && city.busy[city.idx(cx, cy)])) return false;
+  }
+  return true;
+}
 /** the curbs a road parks on: both of an avenue's; one of a street's (alternating road by road), so the other lane
  *  and some of the parked one stay clear for traffic */
 export function curbSides(city, r) { return r.kind === 'avenue' ? [-1, 1] : [city.roads.indexOf(r) % 2 ? 1 : -1]; }
-/** the curb spot nearest a cell (on any street or avenue's parking side) */
-export function curbSpot(city, cx, cy, hw = 13) {
-  let best = null, bd = Infinity;
+/** the curb spots nearest a cell, one for each road side that parks, nearest first */
+export function curbSpots(city, cx, cy, hw = 13) {
+  const out = [];
   for (const r of city.roads) {
     if (r.kind === 'alley') continue;
     const [x0, y0, x1, y1] = r.band;
     for (const side of curbSides(city, r)) {
-      const lx = r.axis === 'y' ? (side < 0 ? x0 : x1) : E.clamp(cx, x0, x1), ly = r.axis === 'y' ? E.clamp(cy, y0, y1) : (side < 0 ? y0 : y1), d = Math.hypot(lx - cx, ly - cy);
-      if (d < bd && !busyNear(city, r, lx, ly)) { bd = d; best = laneSpot(r, side, lx, ly, city.T, hw); }
+      const lx = r.axis === 'y' ? (side < 0 ? x0 : x1) : E.clamp(cx, x0, x1), ly = r.axis === 'y' ? E.clamp(cy, y0, y1) : (side < 0 ? y0 : y1);
+      if (!busyNear(city, r, lx, ly)) out.push({ d: Math.hypot(lx - cx, ly - cy), spot: laneSpot(r, side, lx, ly, city.T, hw) });
     }
   }
-  return best;
+  return out.sort((a, b) => a.d - b.d).map(o => o.spot);
 }
+/** the curb spot nearest a cell (on any street or avenue's parking side) */
+export function curbSpot(city, cx, cy, hw = 13) { return curbSpots(city, cx, cy, hw)[0] || null; }
 // an intersection or a crosswalk within two cells along the road (no parking there)
 function busyNear(city, r, cx, cy) {
   for (let k = -2; k <= 2; k++) { const x = r.axis === 'y' ? cx : cx + k, y = r.axis === 'y' ? cy + k : cy; if (city.inside(x, y) && city.busy && city.busy[city.idx(x, y)]) return true; }
@@ -72,15 +85,18 @@ export function spawnFleet(fleet, city, spec, seed = 1) {
   const taken = [];   // (the boxes already parked: a new one may not overlap any, with a little room between)
   const free = (x, y, h, hl, hw) => !taken.some(q => { const c = Math.cos(q.h), s = Math.sin(q.h), dx = x - q.x, dy = y - q.y, a = Math.abs(dx * c + dy * s), b = Math.abs(-dx * s + dy * c), same = Math.abs(Math.sin(h - q.h)) < .5;
     return same ? a < q.hl + hl + 6 && b < q.hw + hw + 2 : a < q.hl + hw + 6 && b < q.hw + hl + 6; });
-  const size = d => { const m = get('vehicleModels', d.model); return m ? [m.length / 2, m.width / 2] : [29, 13]; };
+  const size = d => { const m = get('vehicleModels', d.model); return m ? [m.length / 2, m.width / 2, m.height] : [29, 13, 22]; };
+  const fits = (x, y, h, hl, hw, ht) => free(x, y, h, hl, hw) && onRoad(city, x, y, h, hl, hw) && !blockedSpot(city, x, y, h, hl, hw, ht);
   // the landmarks' own vehicles first
   for (const sp of spec.spots) {
     const poi = sp.near ? city.poi(sp.near) : null, at = poi ? [Math.floor(poi.x / T), Math.floor(poi.y / T)] : sp.at; if (!at) continue;
     const d = get('vehicles', sp.def); if (!d) continue;
-    const [hl, hw] = size(d), base = curbSpot(city, at[0], at[1], hw); if (!base) continue;
-    for (let i = 0, k = 0; i < (sp.n || 1) && k < 8; k++) {   // (each one a car's length on from the last; past street furniture)
-      const L = hl * 2 + 10, x = base.x - Math.cos(base.heading) * L * k, y = base.y - Math.sin(base.heading) * L * k;
-      if (!free(x, y, base.heading, hl, hw) || blockedSpot(city, x, y, base.heading, hl, hw)) continue;
+    const [hl, hw, ht] = size(d), bases = curbSpots(city, at[0], at[1], hw).slice(0, 4); let i = 0;
+    // the nearest curbs in turn, a car's length on from each spot either way (past street furniture, ramps, junctions);
+    // the last tried farther along
+    for (const [bi, base] of bases.entries()) for (let j = 0; i < (sp.n || 1) && j < (bi === bases.length - 1 ? 15 : 5); j++) {
+      const k = j & 1 ? (j + 1) / 2 : -j / 2, L = hl * 2 + 10, x = base.x - Math.cos(base.heading) * L * k, y = base.y - Math.sin(base.heading) * L * k;
+      if (!fits(x, y, base.heading, hl, hw, ht)) continue;
       i++;
       fleet.spawn(sp.def, x, y, base.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked });
       taken.push({ x, y, h: base.heading, hl, hw }); out.spots++;
@@ -94,13 +110,13 @@ export function spawnFleet(fleet, city, spec, seed = 1) {
       if (rng() >= chance) continue;
       const cx0 = r.axis === 'y' ? (side < 0 ? x0 : x1) : k, cy0 = r.axis === 'y' ? k : (side < 0 ? y0 : y1);
       const hood = city.hoodAt(cx0, cy0), d = pick(hood ? hood.id : ''); if (!d) continue;
-      const [hl, hw] = size(d);
+      const [hl, hw, ht] = size(d);
       // the spot, or the nearest clear one a few cells either way along the curb (lamps, palms and bins stand at the kerb)
       for (const o of [0, 1, -1, 2, -2, 3, -3]) {
         const cx = r.axis === 'y' ? cx0 : cx0 + o, cy = r.axis === 'y' ? cy0 + o : cy0;
         if (busyNear(city, r, cx, cy) || noSpawn.some(z => cx >= z.rect[0] && cx <= z.rect[2] && cy >= z.rect[1] && cy <= z.rect[3])) continue;
         const s = laneSpot(r, side, cx, cy, T, hw);
-        if (!free(s.x, s.y, s.heading, hl, hw) || blockedSpot(city, s.x, s.y, s.heading, hl, hw)) continue;
+        if (!fits(s.x, s.y, s.heading, hl, hw, ht)) continue;
         fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)] });
         taken.push({ x: s.x, y: s.y, h: s.heading, hl, hw }); out.parked++; break;
       }

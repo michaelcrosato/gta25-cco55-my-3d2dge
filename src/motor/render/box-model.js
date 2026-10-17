@@ -62,10 +62,10 @@ export function drawBoxModel(g, P, model, x, y, z, heading, o = {}) {
       for (const [a, b, cc, d, nx, ny, nz] of FACES) {
         const A = pts[a], B = pts[b], C = pts[cc], D = pts[d];
         if ((B[0] - A[0]) * (D[1] - A[1]) - (B[1] - A[1]) * (D[0] - A[0]) >= 0) continue;   // turned away (or edge-on)
-        // the face's normal after the roll and pitch (its own turn too), for culling the underside and the light
+        // the face's normal after the roll and pitch (its own turn too), for the light (the winding above culls: a side
+        // tipped a little down by a pitch or a lean still faces a camera above it)
         let fx = nx, fy = ny; if (turn) { fx = nx * tc - ny * ts; fy = nx * ts + ny * tc; }
         const ry = fy * cr - nz * sr, rz = fy * sr + nz * cr, mx = fx * cp + rz * sp, mz = -fx * sp + rz * cp;
-        if (mz < -.05) continue;
         const wx = mx * c - ry * s, wy = mx * s + ry * c, lit = wx * LIGHT[0] + wy * LIGHT[1] + mz * LIGHT[2];
         g.fillStyle = shadeFor(color, mz > .7 ? .14 : lit > .2 ? .06 : lit < -.2 ? -.28 : -.1);
         g.beginPath(); g.moveTo(Math.round(A[0]), Math.round(A[1])); g.lineTo(Math.round(B[0]), Math.round(B[1])); g.lineTo(Math.round(C[0]), Math.round(C[1])); g.lineTo(Math.round(D[0]), Math.round(D[1])); g.closePath(); g.fill();

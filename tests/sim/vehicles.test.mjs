@@ -187,13 +187,26 @@ test('in play, through the real bindings: E at a parked car gets in, W drives it
   holdCode(game, 'KeyE', 1 / 30); game.advance(1.5);
   const a = snap(), car = p.seat && p.seat.vehicle; assert.ok(car && a.vehicle === car.def.id, 'in a car');
   assert.ok(Math.hypot(car.x - v.x, car.y - v.y) < 140, 'the one beside us (or its neighbour)');
-  const x0 = car.x, y0 = car.y; let top = 0;   // (the car parked ahead may stop it: how fast it got, and that it moved)
-  for (let k = 0; k < 12; k++) { holdCode(game, 'KeyW', .1); top = Math.max(top, car.body.u); }
-  assert.ok(top > 60 && Math.hypot(car.x - x0, car.y - y0) > 15, `it drove: ${top.toFixed(0)} u/s, ${Math.hypot(car.x - x0, car.y - y0).toFixed(0)} u`);
+  for (const o of F.near(car.x, car.y, 220)) if (o !== car) F.remove(o);   // (the bindings are under test, not the parking: the road ahead cleared)
+  const x0 = car.x, y0 = car.y; holdCode(game, 'KeyW', 1.2);
+  assert.ok(Math.hypot(car.x - x0, car.y - y0) > 60, 'it drove: ' + Math.hypot(car.x - x0, car.y - y0).toFixed(0));
   holdCode(game, 'KeyS', 2); game.advance(.5);
   holdCode(game, 'KeyE', 1 / 30); game.advance(1.5);
   assert.equal(snap().vehicle, null, 'out again');
   assert.equal((game.errors || []).length, 0, JSON.stringify(game.errors));
+});
+
+test('Lowtown parks every vehicle wholly on the road, out of the junctions and from under the ramps: none is shoved in play\'s first second', async () => {
+  const { loadGame } = await import('../harness.mjs');
+  const { game, gtm } = await loadGame({ hash: 'play', query: { time: 'day' } });
+  const F = gtm.fleet, city = gtm.city, T = city.T, land = F.vehicles.filter(v => v.body && v.cls !== 'boat' && v.cls !== 'heli');
+  const at = new Map(land.map(v => [v, [v.x, v.y]])); game.advance(1);
+  for (const v of land) {
+    assert.ok(M.onRoad(city, v.x, v.y, v.heading, v.hl, v.hw), `${v.def.id} at (${(v.x / T).toFixed(1)}, ${(v.y / T).toFixed(1)}) stands off the road or in a junction`);
+    const [x, y] = at.get(v); assert.ok(Math.hypot(v.x - x, v.y - y) < 1, `${v.def.id} was moved ${Math.hypot(v.x - x, v.y - y).toFixed(0)} u`);
+  }
+  const medic = land.find(v => v.def.id === 'medic'), H = city.poi('hospital');
+  if (medic) assert.ok(Math.hypot(medic.x - H.x, medic.y - H.y) < 20 * T, 'the Medic waits by the hospital');
 });
 
 test('a bike crashing into a wall throws its rider; a car rolled over in the air lands on its roof and burns', () => {
