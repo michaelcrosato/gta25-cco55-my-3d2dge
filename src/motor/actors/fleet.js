@@ -127,6 +127,10 @@ export class Fleet {
     this.tows.push(j); truck.towing = j; car.towedBy = truck; this.wake(truck); this.wake(car); return j;
   }
   _untow(j) { j.release(); if (j.truck) j.truck.towing = null; if (j.car) j.car.towedBy = null; this.tows = this.tows.filter(t => t !== j); }
+  /** a car bomb fitted at the Boom Box ('ignition' | 'remote') is armed when its fitter gets out; an ignition bomb goes
+   *  off when the next driver puts a foot down, a remote one on detonate() (the phone) */
+  armBomb(v, by) { if (v.mods.bomb && !v.bombArmed) { v.bombArmed = true; v.bombBy = by || null; } }
+  detonate(v) { if (!v || !v.bombArmed || v.wrecked) return false; v.bombArmed = false; this.wake(v); v.chainT = .05; v.chainBy = v.bombBy; return true; }
 
   /** one step. o: { intent(v) -> the Intent of v's driver (null: none), peds: [Ped] (bodies cars meet), night, wet } */
   update(dt, o = {}) {
@@ -138,6 +142,7 @@ export class Fleet {
       if (v.asleep) continue;
       awake++;
       const I = v.driver && o.intent ? o.intent(v) : null;
+      if (I && v.bombArmed && v.mods.bomb === 'ignition' && I.throttle > .1 && v.driver.id !== v.bombBy && v.chainT < 0) { v.bombArmed = false; v.chainT = .6; v.chainBy = v.bombBy; }   // (the ignition: a moment, then up)
       v.update(dt, I, W);
       if (I && v.driver && !v.wrecked) this._tools(dt, v, I);
       if (v.cls === 'heli' && v.wrecked) v.body.falling = true;

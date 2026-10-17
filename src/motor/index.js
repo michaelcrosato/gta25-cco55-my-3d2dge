@@ -35,7 +35,7 @@ export { defMission, defActivity, missionStage, HINTS, checkHint } from './missi
 export { CityMap, Deck, SURFACES, standInCity } from './world/citymap.js';
 export { buildDistrict, ROAD_KINDS, BREAKABLE } from './world/builder.js';
 export { buildCity } from './world/district.js';
-export { spawnFleet, curbSpot, laneSpot } from './world/fleet-spawn.js';
+export { spawnFleet, curbSpot, laneSpot, curbSides, blockedSpot } from './world/fleet-spawn.js';
 export { validateCity } from './world/validator.js';
 export { WorldClock, TIMES } from './world/clock.js';
 export { Weather, WEATHERS } from './world/weather.js';

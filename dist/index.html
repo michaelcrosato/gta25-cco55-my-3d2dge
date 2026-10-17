@@ -8910,6 +8910,7 @@ root.My3D2dge = E;
     assist: () => assist,
     benchable: () => benchable,
     bikeParts: () => bikeParts,
+    blockedSpot: () => blockedSpot,
     boardingFor: () => boardingFor,
     boatParts: () => boatParts,
     boxDistance: () => boxDistance,
@@ -8926,6 +8927,7 @@ root.My3D2dge = E;
     collideCars: () => collideCars,
     collidePairs: () => collidePairs,
     createApp: () => createApp,
+    curbSides: () => curbSides,
     curbSpot: () => curbSpot,
     declare: () => declare,
     def: () => def,
@@ -13975,15 +13977,34 @@ root.My3D2dge = E;
   }));
   var HEADINGS = { E: 0, S: Math.PI / 2, W: Math.PI, N: -Math.PI / 2 };
   function laneSpot(road, side, cx2, cy, T8 = 16, hw = 13) {
-    if (road.axis === "y") return { x: side > 0 ? (road.band[2] + 1) * T8 - hw - 3 : road.band[0] * T8 + hw + 3, y: (cy + 0.5) * T8, heading: side > 0 ? -Math.PI / 2 : Math.PI / 2, road, side };
-    return { x: (cx2 + 0.5) * T8, y: side > 0 ? (road.band[3] + 1) * T8 - hw - 3 : road.band[1] * T8 + hw + 3, heading: side > 0 ? 0 : Math.PI, road, side };
+    const inset = road.kind === "avenue" ? 3 : 2;
+    if (road.axis === "y") return { x: side > 0 ? (road.band[2] + 1) * T8 - hw - inset : road.band[0] * T8 + hw + inset, y: (cy + 0.5) * T8, heading: side > 0 ? -Math.PI / 2 : Math.PI / 2, road, side };
+    return { x: (cx2 + 0.5) * T8, y: side > 0 ? (road.band[3] + 1) * T8 - hw - inset : road.band[1] * T8 + hw + inset, heading: side > 0 ? 0 : Math.PI, road, side };
+  }
+  function blockedSpot(city, x, y, h, hl, hw) {
+    const map = city.map;
+    if (!map || !map.solidsNear) return false;
+    const c = Math.cos(h), s = Math.sin(h);
+    for (const q of map.solidsNear(x, y, hl + 8)) {
+      if (q.deck || q.railing || q.z > 20) continue;
+      const dx = q.x - x, dy = q.y - y, a = Math.abs(dx * c + dy * s), b = Math.abs(-dx * s + dy * c), r = Math.max(q.hx, q.hy) + 1.5;
+      if (a < hl + r && b < hw + r) return true;
+    }
+    for (const [ox, oy] of [[hl, hw], [hl, -hw], [-hl, hw], [-hl, -hw], [0, 0]]) {
+      const px = x + ox * c - oy * s, py = y + ox * s + oy * c;
+      if (map.cell(Math.floor(px / city.T), Math.floor(py / city.T)) !== 0) return true;
+    }
+    return false;
+  }
+  function curbSides(city, r) {
+    return r.kind === "avenue" ? [-1, 1] : [city.roads.indexOf(r) % 2 ? 1 : -1];
   }
   function curbSpot(city, cx2, cy, hw = 13) {
     let best = null, bd = Infinity;
     for (const r of city.roads) {
       if (r.kind === "alley") continue;
       const [x0, y0, x1, y1] = r.band;
-      for (const side of [-1, 1]) {
+      for (const side of curbSides(city, r)) {
         const lx = r.axis === "y" ? side < 0 ? x0 : x1 : E.clamp(cx2, x0, x1), ly = r.axis === "y" ? E.clamp(cy, y0, y1) : side < 0 ? y0 : y1, d = Math.hypot(lx - cx2, ly - cy);
         if (d < bd && !busyNear(city, r, lx, ly)) {
           bd = d;
@@ -14032,9 +14053,10 @@ root.My3D2dge = E;
       if (!d) continue;
       const [hl, hw] = size(d), base2 = curbSpot(city, at[0], at[1], hw);
       if (!base2) continue;
-      for (let i = 0; i < (sp.n || 1); i++) {
-        const L4 = hl * 2 + 10, x = base2.x - Math.cos(base2.heading) * L4 * i, y = base2.y - Math.sin(base2.heading) * L4 * i;
-        if (!free(x, y, base2.heading, hl, hw)) continue;
+      for (let i = 0, k = 0; i < (sp.n || 1) && k < 8; k++) {
+        const L4 = hl * 2 + 10, x = base2.x - Math.cos(base2.heading) * L4 * k, y = base2.y - Math.sin(base2.heading) * L4 * k;
+        if (!free(x, y, base2.heading, hl, hw) || blockedSpot(city, x, y, base2.heading, hl, hw)) continue;
+        i++;
         fleet.spawn(sp.def, x, y, base2.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked });
         taken.push({ x, y, h: base2.heading, hl, hw });
         out.spots++;
@@ -14043,17 +14065,22 @@ root.My3D2dge = E;
     for (const r of city.roads) {
       if (r.kind === "alley") continue;
       const [x0, y0, x1, y1] = r.band, from = r.axis === "y" ? y0 : x0, to = r.axis === "y" ? y1 : x1;
-      for (const side of [-1, 1]) for (let k = from + 3; k <= to - 3; k += every) {
-        const cx2 = r.axis === "y" ? side < 0 ? x0 : x1 : k, cy = r.axis === "y" ? k : side < 0 ? y0 : y1;
-        if (rng() >= chance || busyNear(city, r, cx2, cy)) continue;
-        if (noSpawn.some((z) => cx2 >= z.rect[0] && cx2 <= z.rect[2] && cy >= z.rect[1] && cy <= z.rect[3])) continue;
-        const hood = city.hoodAt(cx2, cy), d = pick(hood ? hood.id : "");
+      for (const side of curbSides(city, r)) for (let k = from + 3; k <= to - 3; k += every) {
+        if (rng() >= chance) continue;
+        const cx0 = r.axis === "y" ? side < 0 ? x0 : x1 : k, cy0 = r.axis === "y" ? k : side < 0 ? y0 : y1;
+        const hood = city.hoodAt(cx0, cy0), d = pick(hood ? hood.id : "");
         if (!d) continue;
-        const [hl, hw] = size(d), s = laneSpot(r, side, cx2, cy, T8, hw);
-        if (!free(s.x, s.y, s.heading, hl, hw)) continue;
-        fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)] });
-        taken.push({ x: s.x, y: s.y, h: s.heading, hl, hw });
-        out.parked++;
+        const [hl, hw] = size(d);
+        for (const o of [0, 1, -1, 2, -2, 3, -3]) {
+          const cx2 = r.axis === "y" ? cx0 : cx0 + o, cy = r.axis === "y" ? cy0 + o : cy0;
+          if (busyNear(city, r, cx2, cy) || noSpawn.some((z) => cx2 >= z.rect[0] && cx2 <= z.rect[2] && cy >= z.rect[1] && cy <= z.rect[3])) continue;
+          const s = laneSpot(r, side, cx2, cy, T8, hw);
+          if (!free(s.x, s.y, s.heading, hl, hw) || blockedSpot(city, s.x, s.y, s.heading, hl, hw)) continue;
+          fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)] });
+          taken.push({ x: s.x, y: s.y, h: s.heading, hl, hw });
+          out.parked++;
+          break;
+        }
       }
     }
     for (const w of spec.water) {
@@ -16754,6 +16781,7 @@ root.My3D2dge = E;
         this.boarding = null;
         v.doorWant[P3.door.id] = 0;
         BUS.emit("vehicleExit", { vehicle: v.id, actor: this.id, seat: P3.seat });
+        if (v.mods.bomb && !v.bombArmed && w.fleet) w.fleet.armBomb(v, this.id);
         if (P3.kind === "bailOut" && v.speed > 150) {
           this.vitals.down = 0.6;
           this.vitals.hit({ amount: 6, kind: "fall" });
@@ -17485,6 +17513,22 @@ root.My3D2dge = E;
       if (j.car) j.car.towedBy = null;
       this.tows = this.tows.filter((t) => t !== j);
     }
+    /** a car bomb fitted at the Boom Box ('ignition' | 'remote') is armed when its fitter gets out; an ignition bomb goes
+     *  off when the next driver puts a foot down, a remote one on detonate() (the phone) */
+    armBomb(v, by) {
+      if (v.mods.bomb && !v.bombArmed) {
+        v.bombArmed = true;
+        v.bombBy = by || null;
+      }
+    }
+    detonate(v) {
+      if (!v || !v.bombArmed || v.wrecked) return false;
+      v.bombArmed = false;
+      this.wake(v);
+      v.chainT = 0.05;
+      v.chainBy = v.bombBy;
+      return true;
+    }
     /** one step. o: { intent(v) -> the Intent of v's driver (null: none), peds: [Ped] (bodies cars meet), night, wet } */
     update(dt, o = {}) {
       this.t += dt;
@@ -17500,6 +17544,11 @@ root.My3D2dge = E;
         if (v.asleep) continue;
         awake++;
         const I = v.driver && o.intent ? o.intent(v) : null;
+        if (I && v.bombArmed && v.mods.bomb === "ignition" && I.throttle > 0.1 && v.driver.id !== v.bombBy && v.chainT < 0) {
+          v.bombArmed = false;
+          v.chainT = 0.6;
+          v.chainBy = v.bombBy;
+        }
         v.update(dt, I, W6);
         if (I && v.driver && !v.wrecked) this._tools(dt, v, I);
         if (v.cls === "heli" && v.wrecked) v.body.falling = true;
@@ -19043,7 +19092,7 @@ root.My3D2dge = E;
   // src/game/districts/lowtown/fleet.js
   def("fleets", "lowtown", {
     district: "lowtown",
-    curb: { every: 7, chance: 0.3, roles: ["civilian"], classes: ["car", "bike"] },
+    curb: { every: 6, chance: 0.45, roles: ["civilian"], classes: ["car", "bike"] },
     spots: [
       { def: "cruiser", near: "precinct", n: 2 },
       { def: "rhino", near: "precinct" },

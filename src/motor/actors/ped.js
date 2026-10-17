@@ -193,7 +193,11 @@ export class Ped {
     if (P.door && B.kind !== 'mount' && P.kind !== 'bailOut') v.doorWant[P.door.id] = act.beat === 'shut' || act.beat === 'jimmy' ? 0 : 1;
     this._pose(dt, act.rigState());
     if (running) return this._sync();
-    if (B.exiting) { this.boarding = null; v.doorWant[P.door.id] = 0; BUS.emit('vehicleExit', { vehicle: v.id, actor: this.id, seat: P.seat }); if (P.kind === 'bailOut' && v.speed > 150) { this.vitals.down = .6; this.vitals.hit({ amount: 6, kind: 'fall' }); } return this._sync(); }
+    if (B.exiting) { this.boarding = null; v.doorWant[P.door.id] = 0; BUS.emit('vehicleExit', { vehicle: v.id, actor: this.id, seat: P.seat });
+      if (v.mods.bomb && !v.bombArmed && w.fleet) w.fleet.armBomb(v, this.id);   // (a fitted car bomb arms as its fitter walks away)
+      if (P.kind === 'bailOut' && v.speed > 150) { this.vitals.down = .6; this.vitals.hit({ amount: 6, kind: 'fall' }); }
+      return this._sync();
+    }
     if (B.kind === 'breakIn') { v.locked = false; P.locked = false; B.phase = 'walk'; B.t = 0; return this._sync(); }
     // seated
     this.boarding = null; if (P.door) v.doorWant[P.door.id] = 0;

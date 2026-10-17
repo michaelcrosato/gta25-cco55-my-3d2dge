@@ -7,7 +7,7 @@ import { def } from '../../../motor/index.js';
 
 def('fleets', 'lowtown', {
   district: 'lowtown',
-  curb: { every: 7, chance: .3, roles: ['civilian'], classes: ['car', 'bike'] },
+  curb: { every: 6, chance: .45, roles: ['civilian'], classes: ['car', 'bike'] },
   spots: [
     { def: 'cruiser', near: 'precinct', n: 2 }, { def: 'rhino', near: 'precinct' },
     { def: 'medic', near: 'hospital' },

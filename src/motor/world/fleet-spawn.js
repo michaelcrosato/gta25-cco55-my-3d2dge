@@ -22,18 +22,34 @@ declare('fleets', shape({
 const HEADINGS = { E: 0, S: Math.PI / 2, W: Math.PI, N: -Math.PI / 2 };
 
 /** a parked spot on a road's curb lane at cell (cx, cy) of side (-1: the west or north lane, 1: the east or south): a
- *  car of half width hw against the curb, facing its lane's way */
+ *  car of half width hw against the curb, facing its lane's way (a street is parked on one side only: curbSides) */
 export function laneSpot(road, side, cx, cy, T = 16, hw = 13) {
-  if (road.axis === 'y') return { x: side > 0 ? (road.band[2] + 1) * T - hw - 3 : road.band[0] * T + hw + 3, y: (cy + .5) * T, heading: side > 0 ? -Math.PI / 2 : Math.PI / 2, road, side };
-  return { x: (cx + .5) * T, y: side > 0 ? (road.band[3] + 1) * T - hw - 3 : road.band[1] * T + hw + 3, heading: side > 0 ? 0 : Math.PI, road, side };
+  const inset = road.kind === 'avenue' ? 3 : 2;   // (from the curb to the car's side)
+  if (road.axis === 'y') return { x: side > 0 ? (road.band[2] + 1) * T - hw - inset : road.band[0] * T + hw + inset, y: (cy + .5) * T, heading: side > 0 ? -Math.PI / 2 : Math.PI / 2, road, side };
+  return { x: (cx + .5) * T, y: side > 0 ? (road.band[3] + 1) * T - hw - inset : road.band[1] * T + hw + inset, heading: side > 0 ? 0 : Math.PI, road, side };
 }
-/** the curb spot nearest a cell (on any street or avenue) */
+/** does anything standing (a lamp, a palm, a bin, a pillar) stand inside a box parked at (x, y) facing h? */
+export function blockedSpot(city, x, y, h, hl, hw) {
+  const map = city.map; if (!map || !map.solidsNear) return false;
+  const c = Math.cos(h), s = Math.sin(h);
+  for (const q of map.solidsNear(x, y, hl + 8)) {
+    if (q.deck || q.railing || q.z > 20) continue;
+    const dx = q.x - x, dy = q.y - y, a = Math.abs(dx * c + dy * s), b = Math.abs(-dx * s + dy * c), r = Math.max(q.hx, q.hy) + 1.5;
+    if (a < hl + r && b < hw + r) return true;
+  }
+  for (const [ox, oy] of [[hl, hw], [hl, -hw], [-hl, hw], [-hl, -hw], [0, 0]]) { const px = x + ox * c - oy * s, py = y + ox * s + oy * c; if (map.cell(Math.floor(px / city.T), Math.floor(py / city.T)) !== 0) return true; }   // (no corner in a wall)
+  return false;
+}
+/** the curbs a road parks on: both of an avenue's; one of a street's (alternating road by road), so the other lane
+ *  and some of the parked one stay clear for traffic */
+export function curbSides(city, r) { return r.kind === 'avenue' ? [-1, 1] : [city.roads.indexOf(r) % 2 ? 1 : -1]; }
+/** the curb spot nearest a cell (on any street or avenue's parking side) */
 export function curbSpot(city, cx, cy, hw = 13) {
   let best = null, bd = Infinity;
   for (const r of city.roads) {
     if (r.kind === 'alley') continue;
     const [x0, y0, x1, y1] = r.band;
-    for (const side of [-1, 1]) {
+    for (const side of curbSides(city, r)) {
       const lx = r.axis === 'y' ? (side < 0 ? x0 : x1) : E.clamp(cx, x0, x1), ly = r.axis === 'y' ? E.clamp(cy, y0, y1) : (side < 0 ? y0 : y1), d = Math.hypot(lx - cx, ly - cy);
       if (d < bd && !busyNear(city, r, lx, ly)) { bd = d; best = laneSpot(r, side, lx, ly, city.T, hw); }
     }
@@ -62,9 +78,10 @@ export function spawnFleet(fleet, city, spec, seed = 1) {
     const poi = sp.near ? city.poi(sp.near) : null, at = poi ? [Math.floor(poi.x / T), Math.floor(poi.y / T)] : sp.at; if (!at) continue;
     const d = get('vehicles', sp.def); if (!d) continue;
     const [hl, hw] = size(d), base = curbSpot(city, at[0], at[1], hw); if (!base) continue;
-    for (let i = 0; i < (sp.n || 1); i++) {
-      const L = hl * 2 + 10, x = base.x - Math.cos(base.heading) * L * i, y = base.y - Math.sin(base.heading) * L * i;
-      if (!free(x, y, base.heading, hl, hw)) continue;
+    for (let i = 0, k = 0; i < (sp.n || 1) && k < 8; k++) {   // (each one a car's length on from the last; past street furniture)
+      const L = hl * 2 + 10, x = base.x - Math.cos(base.heading) * L * k, y = base.y - Math.sin(base.heading) * L * k;
+      if (!free(x, y, base.heading, hl, hw) || blockedSpot(city, x, y, base.heading, hl, hw)) continue;
+      i++;
       fleet.spawn(sp.def, x, y, base.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked });
       taken.push({ x, y, h: base.heading, hl, hw }); out.spots++;
     }
@@ -73,15 +90,20 @@ export function spawnFleet(fleet, city, spec, seed = 1) {
   for (const r of city.roads) {
     if (r.kind === 'alley') continue;
     const [x0, y0, x1, y1] = r.band, from = r.axis === 'y' ? y0 : x0, to = r.axis === 'y' ? y1 : x1;
-    for (const side of [-1, 1]) for (let k = from + 3; k <= to - 3; k += every) {
-      const cx = r.axis === 'y' ? (side < 0 ? x0 : x1) : k, cy = r.axis === 'y' ? k : (side < 0 ? y0 : y1);
-      if (rng() >= chance || busyNear(city, r, cx, cy)) continue;
-      if (noSpawn.some(z => cx >= z.rect[0] && cx <= z.rect[2] && cy >= z.rect[1] && cy <= z.rect[3])) continue;
-      const hood = city.hoodAt(cx, cy), d = pick(hood ? hood.id : ''); if (!d) continue;
-      const [hl, hw] = size(d), s = laneSpot(r, side, cx, cy, T, hw);
-      if (!free(s.x, s.y, s.heading, hl, hw)) continue;
-      fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)] });
-      taken.push({ x: s.x, y: s.y, h: s.heading, hl, hw }); out.parked++;
+    for (const side of curbSides(city, r)) for (let k = from + 3; k <= to - 3; k += every) {
+      if (rng() >= chance) continue;
+      const cx0 = r.axis === 'y' ? (side < 0 ? x0 : x1) : k, cy0 = r.axis === 'y' ? k : (side < 0 ? y0 : y1);
+      const hood = city.hoodAt(cx0, cy0), d = pick(hood ? hood.id : ''); if (!d) continue;
+      const [hl, hw] = size(d);
+      // the spot, or the nearest clear one a few cells either way along the curb (lamps, palms and bins stand at the kerb)
+      for (const o of [0, 1, -1, 2, -2, 3, -3]) {
+        const cx = r.axis === 'y' ? cx0 : cx0 + o, cy = r.axis === 'y' ? cy0 + o : cy0;
+        if (busyNear(city, r, cx, cy) || noSpawn.some(z => cx >= z.rect[0] && cx <= z.rect[2] && cy >= z.rect[1] && cy <= z.rect[3])) continue;
+        const s = laneSpot(r, side, cx, cy, T, hw);
+        if (!free(s.x, s.y, s.heading, hl, hw) || blockedSpot(city, s.x, s.y, s.heading, hl, hw)) continue;
+        fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)] });
+        taken.push({ x: s.x, y: s.y, h: s.heading, hl, hw }); out.parked++; break;
+      }
     }
   }
   // boats on the water

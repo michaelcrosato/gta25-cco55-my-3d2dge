@@ -185,11 +185,32 @@ test('in play, through the real bindings: E at a parked car gets in, W drives it
   const [x, y] = v.toWorld(0, -v.hw - 14); gtm.teleport(x, y); game.advance(1.5);
   assert.ok(F.awake <= 2, 'parked cars sleep: ' + F.awake + ' awake');
   holdCode(game, 'KeyE', 1 / 30); game.advance(1.5);
-  const a = snap(); assert.equal(a.vehicle, v.def.id, 'in the car');
-  const x0 = v.x, y0 = v.y; holdCode(game, 'KeyW', 1.2);
-  assert.ok(Math.hypot(v.x - x0, v.y - y0) > 60, 'it drove: ' + Math.hypot(v.x - x0, v.y - y0).toFixed(0));
+  const a = snap(), car = p.seat && p.seat.vehicle; assert.ok(car && a.vehicle === car.def.id, 'in a car');
+  assert.ok(Math.hypot(car.x - v.x, car.y - v.y) < 140, 'the one beside us (or its neighbour)');
+  const x0 = car.x, y0 = car.y; holdCode(game, 'KeyW', 1.2);
+  assert.ok(Math.hypot(car.x - x0, car.y - y0) > 60, 'it drove: ' + Math.hypot(car.x - x0, car.y - y0).toFixed(0));
   holdCode(game, 'KeyS', 2); game.advance(.5);
   holdCode(game, 'KeyE', 1 / 30); game.advance(1.5);
   assert.equal(snap().vehicle, null, 'out again');
   assert.equal((game.errors || []).length, 0, JSON.stringify(game.errors));
+});
+
+test('a bike crashing into a wall throws its rider; a car rolled over in the air lands on its roof and burns', () => {
+  const Y = yard(), b = Y.fleet.spawn('t-bike', 300, 480, Math.PI), r = ped(Y, 300, 480); b.sit(r, 0); b.body.u = 220;   // (west, into the yard's wall)
+  step(Y, 2, { intent: v => { const I = clearIntent(makeIntent()); if (v === b) I.throttle = 1; return I; }, until: () => !r.seat });
+  assert.equal(r.seat, null, 'thrown off'); assert.ok(r.vitals.health < 100, 'and hurt');
+  const Z = yard(), c = Z.fleet.spawn('cortez', 600, 480, 0); c.body.launch(260, 3.6);   // (.87 s in the air: half a turn)
+  step(Z, 3, { until: () => c.body.flipped });
+  assert.ok(c.body.flipped, 'on its roof'); assert.equal(c.damage.state, 'burning');
+  step(Z, TUNE.burnTime + .5); assert.ok(c.wrecked, 'and it went up');
+});
+
+test('a car bomb: armed when its fitter gets out; the next driver\'s throttle sets it off; a remote one on detonate()', () => {
+  const Y = yard(), v = Y.fleet.spawn('cortez', 600, 480, 0, { mods: { bomb: 'ignition' } }), me = ped(Y, 600, 480), mark = ped(Y, 600, 520, { faction: 'civilian' });
+  v.sit(me, 0); me.leave(exitFor(me, v)); step(Y, 1.5, { until: () => !me.boarding });
+  assert.ok(v.bombArmed, 'armed on getting out'); me.place(900, 900);
+  v.sit(mark, 0); step(Y, 2, { intent: q => { const I = clearIntent(makeIntent()); if (q === v) I.throttle = 1; return I; }, until: () => v.wrecked });
+  assert.ok(v.wrecked, 'the ignition set it off'); assert.ok(mark.dead, 'its driver with it');
+  const w = Y.fleet.spawn('cortez', 300, 300, 0, { mods: { bomb: 'remote' } }); Y.fleet.armBomb(w, me.id);
+  assert.ok(Y.fleet.detonate(w)); step(Y, .5); assert.ok(w.wrecked, 'the remote set it off');
 });
