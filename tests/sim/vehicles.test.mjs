@@ -187,8 +187,9 @@ test('in play, through the real bindings: E at a parked car gets in, W drives it
   holdCode(game, 'KeyE', 1 / 30); game.advance(1.5);
   const a = snap(), car = p.seat && p.seat.vehicle; assert.ok(car && a.vehicle === car.def.id, 'in a car');
   assert.ok(Math.hypot(car.x - v.x, car.y - v.y) < 140, 'the one beside us (or its neighbour)');
-  const x0 = car.x, y0 = car.y; holdCode(game, 'KeyW', 1.2);
-  assert.ok(Math.hypot(car.x - x0, car.y - y0) > 60, 'it drove: ' + Math.hypot(car.x - x0, car.y - y0).toFixed(0));
+  const x0 = car.x, y0 = car.y; let top = 0;   // (the car parked ahead may stop it: how fast it got, and that it moved)
+  for (let k = 0; k < 12; k++) { holdCode(game, 'KeyW', .1); top = Math.max(top, car.body.u); }
+  assert.ok(top > 60 && Math.hypot(car.x - x0, car.y - y0) > 15, `it drove: ${top.toFixed(0)} u/s, ${Math.hypot(car.x - x0, car.y - y0).toFixed(0)} u`);
   holdCode(game, 'KeyS', 2); game.advance(.5);
   holdCode(game, 'KeyE', 1 / 30); game.advance(1.5);
   assert.equal(snap().vehicle, null, 'out again');

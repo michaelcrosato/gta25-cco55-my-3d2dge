@@ -177,7 +177,7 @@ export class Stage {
       } else r.queue((cx + .5) * T, (cy + .5) * T, 0, g => r.box(g, cx * T, cy * T, 0, cx * T + T, cy * T + T, t.h, t.top, t.side), { occluder: true });
     }
   }
-  _isoProj(r) { return this.isoP || (this.isoP = { proj: (a, b, c = 0) => { const q = r.w(a, b, c); return [q[0], q[1], r.view.scale]; } }); }
+  _isoProj(r) { return this.isoP || (this.isoP = { proj: (a, b, c = 0) => { const q = r.w(a, b, c); return [q[0], q[1], r.view.scale]; }, depth3: (a, b, c = 0) => -r.view.depth(a, b, c) }); }   // (depth3: bigger is farther, for sorting a model's parts)
   /** something drawn on the floor before anything stands on it (water glints, a wet sheen): draw(g, P) with the view's
    *  projector. ISO takes it as one of the engine's floor decals; TOP and MODE 7 draw it right after their floor */
   floor(draw) { const d = this.depth, r = this.r; if (!d) r.decal(g => draw(g, this._isoProj(r))); else this.floorFx.push(draw); }
@@ -317,7 +317,7 @@ export class Stage {
       if (!K) { K = { cv: E.mkCanvas(w, h) }; this._kept.set(key, K); }
       if (K.cv.width < w || K.cv.height < h || K.cv.width > w * 2 || K.cv.height > h * 2) { K.cv.width = w; K.cv.height = h; }
       const kg = K.cv.getContext('2d'); kg.setTransform(1, 0, 0, 1, 0, 0); kg.clearRect(0, 0, K.cv.width, K.cv.height); kg.imageSmoothingEnabled = false;
-      const sx = q[0], sy = q[1], LP = { proj: (a, b, c = 0) => { const p = P.proj(a, b, c); return p && [p[0] - sx + ax, p[1] - sy + ay, p[2]]; } };
+      const sx = q[0], sy = q[1], LP = { proj: (a, b, c = 0) => { const p = P.proj(a, b, c); return p && [p[0] - sx + ax, p[1] - sy + ay, p[2]]; }, depth3: P.depth3 ? (a, b, c) => P.depth3(a, b, c) : undefined };
       draw(kg, LP); kg._c = null; Object.assign(K, { tag, k, n: this.frameNo, ax, ay });
     }
     g.drawImage(K.cv, Math.round(q[0] - K.ax), Math.round(q[1] - K.ay));

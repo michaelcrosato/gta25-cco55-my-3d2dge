@@ -36,6 +36,9 @@ export class TopView {
   toGround(bx, by) { const P = this.P; return [this.x + (bx - P.cx) / P.s, this.y + (by - P.cy) / P.s]; }
   /** the draw order key: distance from the centre (bigger is drawn first) */
   depth(x, y) { return Math.hypot(x - this.x, y - this.y); }
+  /** a point's depth for sorting a model's parts (bigger is farther): from nearly straight above, height decides what
+   *  covers what (a bumper sticking out below a bonnet still shows its edge), the distance off the centre breaks ties */
+  depth3(x, y, z = 0) { return -z + Math.hypot(x - this.x, y - this.y) * 1e-3; }
   /** a world offset on screen, linear (north up; height leans out from the centre, so it is left out) */
   screenVec(x, y) { return [x, y]; }
   screenDirToGround(dx, dy) { if (!dx && !dy) return [0, 0]; const l = Math.hypot(dx, dy) || 1, m = Math.min(1, l); return [dx / l * m, dy / l * m]; }

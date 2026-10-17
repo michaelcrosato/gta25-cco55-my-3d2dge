@@ -260,7 +260,7 @@ function buildDeck(D, C, solids, props) {
   }
   for (const st of D.stations || []) rect2(st.rect, (x, y) => put(x, y, z, z, 'y'));   // station platforms beside the track
   // ramps: from the deck's edge down to the ground over length tiles (the top falls away from the deck)
-  const ramps = [];
+  const ramps = [], feet = new Set();   // (feet: a ramp's last cells' outer edges, left open: no railing across the bottom)
   for (const R of D.ramps || []) {
     const [rx, ry] = R.at, L = R.length || 16, dx = { E: 1, W: -1, N: 0, S: 0 }[R.dir], dy = { E: 0, W: 0, N: -1, S: 1 }[R.dir], axis = dx ? 'x' : 'y';
     const edge = (dx || dy) > 0 ? hi + 1 : -lo + 1, pos = (dx || dy) > 0;   // the first cell past the corner square
@@ -268,6 +268,7 @@ function buildDeck(D, C, solids, props) {
       const cx = rx + dx * (edge + k) + (axis === 'y' ? o : 0), cy = ry + dy * (edge + k) + (axis === 'x' ? o : 0);
       const zNear = z * (1 - k / L), zFar = z * (1 - (k + 1) / L);
       put(cx, cy, pos ? zNear : zFar, pos ? zFar : zNear, axis);
+      if (k === L - 1) feet.add(cx + ',' + cy + ',' + dx + ',' + dy);
     }
     ramps.push({ at: R.at, dir: R.dir, length: L, foot: [rx + dx * (edge + L), ry + dy * (edge + L)] });
   }
@@ -283,7 +284,7 @@ function buildDeck(D, C, solids, props) {
   // pillars every pillarEvery tiles along the centre line, under the median of an avenue or the kerb of a street
   const every = D.pillarEvery || 4;
   centre.forEach(([cx, cy, axis], n) => {
-    if (n % every || gap(cx, cy) || underOther(cx, cy)) return;
+    if (n % every || gap(cx, cy) || underOther(cx, cy) || (C.inside(cx, cy) && C.busy[cy * C.w + cx] === 1)) return;   // (never in a junction's box: the deck spans it)
     const below = C.roads.find(r => cx >= r.band[0] && cx <= r.band[2] && cy >= r.band[1] && cy <= r.band[3]);
     const spots = below && below.median ? [[cx, cy]] : below ? (axis === 'y' ? [[below.band[0] - 1, cy], [below.band[2] + 1, cy]] : [[cx, below.band[1] - 1], [cx, below.band[3] + 1]]) : [[cx, cy]];
     for (const [px, py] of spots) { if (underOther(px, py)) continue; const x = (px + .5) * T, y = (py + .5) * T; solids.push({ x, y, z: 0, top: z - thick, hx: 3, hy: 3, pillar: D.id }); props.push({ kind: 'pillar', x, y, z: 0, top: z - thick, deck: D.id }); }
@@ -291,7 +292,7 @@ function buildDeck(D, C, solids, props) {
   // railings along the deck's outer edges (not where a ramp leaves): solids a car on the deck hits, nothing below
   const end = D.openEnd ? D.path[D.path.length - 1] : null;   // an unfinished end: no railing, a car flies off it
   if (D.railing !== false) for (const c of deck.cells) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    if (cells.has((c.cx + dx) + ',' + (c.cy + dy))) continue;
+    if (cells.has((c.cx + dx) + ',' + (c.cy + dy)) || feet.has(c.cx + ',' + c.cy + ',' + dx + ',' + dy)) continue;
     if (end && Math.abs(c.cx - end[0]) <= half && Math.abs(c.cy - end[1]) <= half && (D.path[0][0] === end[0] ? dy === Math.sign(end[1] - D.path[0][1]) : dx === Math.sign(end[0] - D.path[0][0]))) continue;
     const top = Math.max(c.z0, c.z1);
     solids.push({ x: (c.cx + .5 + dx * .5) * T, y: (c.cy + .5 + dy * .5) * T, z: top, top: top + 8, hx: dx ? .8 : 8, hy: dy ? .8 : 8, railing: D.id });

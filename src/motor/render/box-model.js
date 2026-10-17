@@ -26,7 +26,7 @@ export function drawBoxModel(g, P, model, x, y, z, heading, o = {}) {
   const c = Math.cos(heading), s = Math.sin(heading), roll = o.roll || 0, pitch = o.pitch || 0;
   const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
   const sorted = model._sorted || (model._sorted = model.parts.slice().sort((a, b) => (ORDER[a.role] ?? 1) - (ORDER[b.role] ?? 1)));
-  const list = o.extra ? [...sorted, ...o.extra] : sorted, upside = cr * cp < 0;
+  const upside = cr * cp < 0, list = P.depth3 && !upside ? depthOrder(P, model, sorted, o.extra, x, y, z, c, s, cr, sr, cp, sp) : o.extra ? [...sorted, ...o.extra] : sorted;
   const L = (model.length || 58) / 2, W = (model.width || 26) / 2, dn = o.dents;
   const dentF = dn ? dn.front : 0, dentR = dn ? dn.rear : 0, dentL = dn ? dn.left : 0, dentRt = dn ? dn.right : 0, dented = dentF + dentR + dentL + dentRt > .01;
   for (let pi = 0; pi < list.length; pi++) {
@@ -73,6 +73,27 @@ export function drawBoxModel(g, P, model, x, y, z, heading, o = {}) {
     }
   }
   g._c = null;
+}
+
+// the parts in drawing order for this view: the nested core (wheels, body, glass, roof) in role order (a near wheel sits
+// mostly inside the body, so the body must come after it), and the things fixed on the outside (lamps, bumpers, trim,
+// the siren bar) by true depth: those beyond the model's middle before the core, so the body hides them, the near ones
+// after it. P.depth3(x, y, z): bigger is farther (each view's projector has one)
+const OUTSIDE = new Set(['light', 'tail', 'bumper', 'trim', 'siren']);
+function depthOrder(P, model, sorted, extra, x, y, z, c, s, cr, sr, cp, sp) {
+  const key = p => {
+    const b = p.box, bx = (b[0] + b[3]) / 2, by = (b[1] + b[4]) / 2, bz = (b[2] + b[5]) / 2;
+    const ry = by * cr - bz * sr, rz = by * sr + bz * cr, px = bx * cp + rz * sp, pz = -bx * sp + rz * cp;
+    return P.depth3(x + px * c - ry * s, y + px * s + ry * c, z + pz);
+  };
+  const k0 = P.depth3(x, y, z + (model.height || 20) / 2), far = [], near = [], core = [], top = [];
+  for (const p of extra ? [...sorted, ...extra] : sorted) {
+    if (p.role === 'rotor') top.push(p);
+    else if (OUTSIDE.has(p.role)) { const k = key(p); (k > k0 ? far : near).push([k, p]); }
+    else core.push(p);
+  }
+  far.sort((a, b) => b[0] - a[0]); near.sort((a, b) => b[0] - a[0]);
+  return [...far.map(q => q[1]), ...core, ...near.map(q => q[1]), ...top];
 }
 
 /** a car model from its sizes: a body, a cabin with glass, four wheels, head and tail lights (and a light bar). Kept for

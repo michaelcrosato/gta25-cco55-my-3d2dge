@@ -1,7 +1,8 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M4, vehicles: the MOTOR side, Lowtown's fleet and the accept tests have landed (`b442d89`, `f198207`, `a7eb6ae`);
-FAN-OUT A1 (7 workers, the 13 models and 19 definitions) is building the content. Blockers: none. The run started
+Now: M4, vehicles: the MOTOR side, Lowtown's fleet and the accept tests have landed (`b442d89`, `f198207`, `a7eb6ae`,
+`87c52c9`); FAN-OUT A1 (7 workers, the 13 models and 19 definitions) is building the content: the two car groups are in
+(7 definitions on 5 models), the trucks, tow, bikes and water/air/rail groups are building. Blockers: none. The run started
 inside the planning session (DECISIONS D5); the owner launched the `/goal` itself after M3's bulk had landed.
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
@@ -10,7 +11,7 @@ inside the planning session (DECISIONS D5); the owner launched the `/goal` itsel
 | M1 Core + spikes | done | core, input, attract loop (`c76395c`); S2 floor and scale (`064fcae`): GTM-PATCHes 1-3, floor chunks, the scale yard · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65; S1 depth renderer (`dda0356`): SIDE7, TOP, the Stage, the view lab · TOP 6.1-6.2 ms, SIDE7 11.3-11.9 ms with 41 rigs; S3 vehicle physics (`7039af1`): the handling suite, the pad, the replay round-trip; the frozen contracts, D10 budgets · 69 unit + sim tests, 2 e2e · `docs/media/m1/` |
 | M2 Lowtown + ISO | done | the world layer, Lowtown, the street painter, the city renderer, the cut-away (`b781439`); the quarter turn, the speed zoom, the clock and sky, night ISO in budget (`fe4f6dc`); weather, the drawbridge, the stand-in crowd and the gate (`8f175be`); roofs, shopfronts, yards, the shot matrix and the acceptance (this commit) · ISO at the gate 9.3-10.0 ms · 86 unit + sim tests · `docs/media/lowtown-map-sheet.png`, `docs/media/shots/` |
 | M3 On foot + combat | done | saves, weapons, vitals, fire (`edec102`); the crew on foot, combat, the wheels, the switch, the range (`42c3054`); the accept tests, the view lab, the self-tests, perf (this commit) · ISO at the gate the same as M2's build, interleaved · 114 unit + sim tests, 3 e2e suites · `docs/media/m3/` |
-| M4 Vehicles | in progress | the models registry, the class bodies, the Fleet, boarding, damage, the renderer, the handling bench (`b442d89`); Lowtown's fleet, driving in play, the accept tests (`f198207`, `a7eb6ae`) · 128 unit + sim tests · FAN-OUT A1 running |
+| M4 Vehicles | in progress | the models registry, the class bodies, the Fleet, boarding, damage, the renderer, the handling bench (`b442d89`); Lowtown's fleet, driving in play, the accept tests (`f198207`, `a7eb6ae`, `87c52c9`); parts drawn by depth, the cars (this commit) · 128 unit + sim tests · FAN-OUT A1: cars in, 5 groups building |
 | M5 Roads, traffic, peds | | |
 | M6 Wanted, police, gangs | | |
 | M7 TOP + SIDE7 + bank | | |
