@@ -100,10 +100,15 @@ export function boardingFor(ped, v, seat = 0) {
 }
 /** can a ped standing at (x, y) get into v now (near enough to it)? */
 export function inReach(ped, v) { const dx = ped.x - v.x, dy = ped.y - v.y, c = Math.cos(v.heading), s = Math.sin(v.heading), lx = dx * c + dy * s, ly = -dx * s + dy * c; return Math.abs(lx) <= v.hl + TUNE.enterReach && Math.abs(ly) <= v.hw + TUNE.enterReach; }
-/** the way out: the seat's own door (a driver's on the left), and a dive roll above the bail-out speed */
-export function exitFor(ped, v) {
+/** the way out: the seat's own door (a driver's on the left), or, where that is blocked, the nearest clear one (across
+ *  the car); a dive roll above the bail-out speed. ok(x, y): can a body stand there (a wall, the water)? A boat is only
+ *  left where a door opens onto dry ground (null otherwise: nobody swims in the slice) */
+export function exitFor(ped, v, ok = null) {
   const seat = v.seats.indexOf(ped); if (seat < 0) return null;
-  const doors = v.model.doors.filter(d => d.seat === seat), door = doors[0] || v.model.doors[0] || { id: 'x', x: 0, y: -v.hw - 6, side: -1, seat };
+  const own = v.model.doors.filter(d => d.seat === seat), rest = v.model.doors.filter(d => d.seat !== seat);
+  let door = null;
+  for (const d of [...own, ...rest]) { const p = W(v, d.x, d.y); if (!ok || ok(p.x, p.y)) { door = d; break; } }
+  if (!door) { if (v.cls === 'boat') return null; door = own[0] || v.model.doors[0] || { id: 'x', x: 0, y: -v.hw - 6, side: -1, seat }; }
   const s = v.model.seats[Math.min(seat, v.model.seats.length - 1)] || { x: 0, y: 0 };
   return { vehicle: v, door, seat, seatSpot: s, kind: v.speed > TUNE.bailSpeed && v.cls !== 'boat' ? 'bailOut' : 'exitCar', at: W(v, door.x, door.y) };
 }

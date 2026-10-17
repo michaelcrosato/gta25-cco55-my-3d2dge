@@ -18003,10 +18003,22 @@ root.My3D2dge = E;
     const dx = ped.x - v.x, dy = ped.y - v.y, c = Math.cos(v.heading), s = Math.sin(v.heading), lx = dx * c + dy * s, ly = -dx * s + dy * c;
     return Math.abs(lx) <= v.hl + TUNE.enterReach && Math.abs(ly) <= v.hw + TUNE.enterReach;
   }
-  function exitFor(ped, v) {
+  function exitFor(ped, v, ok = null) {
     const seat = v.seats.indexOf(ped);
     if (seat < 0) return null;
-    const doors = v.model.doors.filter((d) => d.seat === seat), door = doors[0] || v.model.doors[0] || { id: "x", x: 0, y: -v.hw - 6, side: -1, seat };
+    const own = v.model.doors.filter((d) => d.seat === seat), rest = v.model.doors.filter((d) => d.seat !== seat);
+    let door = null;
+    for (const d of [...own, ...rest]) {
+      const p = W(v, d.x, d.y);
+      if (!ok || ok(p.x, p.y)) {
+        door = d;
+        break;
+      }
+    }
+    if (!door) {
+      if (v.cls === "boat") return null;
+      door = own[0] || v.model.doors[0] || { id: "x", x: 0, y: -v.hw - 6, side: -1, seat };
+    }
     const s = v.model.seats[Math.min(seat, v.model.seats.length - 1)] || { x: 0, y: 0 };
     return { vehicle: v, door, seat, seatSpot: s, kind: v.speed > TUNE.bailSpeed && v.cls !== "boat" ? "bailOut" : "exitCar", at: W(v, door.x, door.y) };
   }
@@ -20294,6 +20306,7 @@ root.My3D2dge = E;
     }
     return cached;
   }
+  knob("Camera", "camLead", "Driving look-ahead", 0.32, 0, 1, 0.02, "Seconds of a vehicle's travel the ISO camera looks ahead of it");
   var REFUSED = { wanted: "NOT WHILE WANTED", mission: "NOT DURING THIS JOB", down: "THEY'RE IN NO STATE", busy: "", same: "", unknown: "" };
   def("scenes", "play", {
     make(app2) {
@@ -20301,6 +20314,7 @@ root.My3D2dge = E;
       let city, map, cityR, floor, clock, weather, bridges = [], hoodName = "", tour = null, rec = null, crowd = null;
       let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, wasted = 0, prevView = null, mouse0 = null;
       let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null;
+      const lead = [0, 0];
       const idle = makeIntent(), TOUR_SPEED = 300;
       const hero = () => crew.ped, chOf = (id) => get("characters", id);
       function spawnCrew(startPoi) {
@@ -20527,7 +20541,7 @@ root.My3D2dge = E;
           let I = human.update(seated ? "vehicle" : "onFoot", p);
           if (busy) I = clearIntent(I);
           if (!busy && !p.dead && I.tap.interact && !p.boarding) {
-            if (seated) p.leave(exitFor(p, seated));
+            if (seated) p.leave(exitFor(p, seated, (x, y) => city.walkable(Math.floor(x / city.T), Math.floor(y / city.T)) && !fleet.near(x, y, 2).some((o) => o !== seated && boxDistance(o, x, y) < 4)));
             else {
               const plan = boardTarget(p);
               if (plan) p.board(plan);
@@ -20595,7 +20609,10 @@ root.My3D2dge = E;
           footprint.update(fx1, fy1);
           const hd = city.hoodAtPoint(fx1, fy1);
           hoodName = hd ? hd.name : "";
-          if (!cam) game2.focus(fx1, fy1, 16);
+          const k = Math.min(1, real * 2.5), want = qv ? [qv.body.vx * TUNE.camLead, qv.body.vy * TUNE.camLead] : [0, 0];
+          lead[0] += (want[0] - lead[0]) * k;
+          lead[1] += (want[1] - lead[1]) * k;
+          if (!cam) game2.focus(fx1 + (stage.depth ? 0 : lead[0]), fy1 + (stage.depth ? 0 : lead[1]), 16);
         },
         draw(r) {
           if (rec) {

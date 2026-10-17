@@ -214,3 +214,43 @@ test('a car bomb: armed when its fitter gets out; the next driver\'s throttle se
   const w = Y.fleet.spawn('cortez', 300, 300, 0, { mods: { bomb: 'remote' } }); Y.fleet.armBomb(w, me.id);
   assert.ok(Y.fleet.detonate(w)); step(Y, .5); assert.ok(w.wrecked, 'the remote set it off');
 });
+
+test('getting out where the driver\'s door is blocked uses the door across; a boat is only left beside dry ground', () => {
+  const Y = yard(), v = Y.fleet.spawn('cortez', 600, 480, 0), p = ped(Y, 600, 480); v.sit(p, 0);
+  const left = exitFor(p, v), clearOf = (x, y) => y > 480;   // (everything left of the car "blocked")
+  assert.equal(left.door.side, -1, 'the driver\'s own door by default');
+  const across = exitFor(p, v, clearOf); assert.equal(across.door.side, 1, 'the door across when the driver\'s is blocked');
+  p.leave(across); step(Y, 2, { until: () => !p.boarding }); assert.ok(p.y > 480 + v.hw, 'out on the right: ' + p.y.toFixed(1));
+});
+
+test('mods and tools: nitro, an oil slick, a mine, the roof MG, the water cannon, the tow hook on ○', () => {
+  const press = (v, f) => q => { const I = clearIntent(makeIntent()); if (q === v) f(I); return I; };
+  // nitro: the same launch with a charge burning is quicker to 150
+  const t150 = nitro => { const Y = yard(), v = Y.fleet.spawn('cortez', 200, 480, 0, { mods: { nitro: 1 } }), d = ped(Y, 200, 480); v.sit(d, 0); let first = true;
+    return step(Y, 6, { intent: press(v, I => { I.throttle = 1; if (nitro && first) { I.tap.nitro = true; first = false; } }), until: () => v.speed >= 150 }); };
+  const plain = t150(false), boosted = t150(true);
+  assert.ok(boosted < plain * .85, `nitro: ${boosted.toFixed(2)} s against ${plain.toFixed(2)} s to 150`);
+  // oil: dropped behind, a following car crossing it loses its grip
+  { const Y = yard(), v = Y.fleet.spawn('cortez', 400, 480, 0, { mods: { oil: 1, weapon: 'oil' } }), d = ped(Y, 400, 480); v.sit(d, 0);
+    step(Y, dt, { intent: press(v, I => { I.tap.fire = true; }) });
+    assert.equal(Y.fleet.slicks.length, 1); const s = Y.fleet.slicks[0];
+    assert.ok(Y.fleet.world.surface(s.x, s.y, 0) < .3, 'the slick\'s grip'); assert.equal(v.mods.oil, 0); }
+  // a mine: armed after a moment, it goes off under the next car over it
+  { const Y = yard(), v = Y.fleet.spawn('cortez', 400, 480, 0, { mods: { mines: 1, weapon: 'mines' } }), d = ped(Y, 400, 480); v.sit(d, 0);
+    step(Y, dt, { intent: press(v, I => { I.tap.fire = true; }) }); const m = Y.fleet.mines[0]; assert.ok(m, 'a mine down');
+    const victim = Y.fleet.spawn('cortez', m.x - 140, m.y, 0); victim.body.u = 150; step(Y, 3, { until: () => victim.damage.health < victim.damage.max * .5 });
+    assert.ok(victim.damage.health < victim.damage.max * .5, 'the mine hurt the car over it: ' + victim.damage.health.toFixed(0)); }
+  // the roof MG: bullets out ahead
+  { const Y = yard(), v = Y.fleet.spawn('cortez', 300, 480, 0, { mods: { roofMG: true } }), d = ped(Y, 300, 480); v.sit(d, 0); const target = ped(Y, 600, 480, { faction: 'civilian' });
+    step(Y, 1.5, { intent: press(v, I => { I.down.fire = true; }) }); assert.ok(target.vitals.health < 100, 'the target ahead was hit'); }
+  // the water cannon (a pumper's tool): it knocks a ped over and puts a fire out
+  { def('vehicles', 't-pump', { name: 'Test Pumper', model: 't-tow', role: 'fire', tool: 'cannon', handling: { mass: 4000, top: 180, accel: 70 }, spec: {} });
+    const Y = yard(); Y.combat.fire = new M.Fire(Y.city); const v = Y.fleet.spawn('t-pump', 300, 480, 0), d = ped(Y, 300, 480); v.sit(d, 0);
+    const man = ped(Y, 400, 480, { faction: 'civilian' }); Y.combat.fire.add(460, 480, 12, 1, 6);
+    let down = false; step(Y, 1, { intent: press(v, I => { I.down.fire = true; }), until: () => { if (man.vitals.down > 0 || man.floored) down = true; return false; } });
+    assert.ok(down, 'knocked over'); assert.ok(Y.combat.fire.heatAt(460, 480) === 0, 'the fire is out'); }
+  // the hook: ○ backs onto the car behind
+  { const Y = yard(), truck = Y.fleet.spawn('t-tow', 400, 480, 0), d = ped(Y, 400, 480); truck.sit(d, 0); const car = Y.fleet.spawn('cortez', 400 - 40 - 4 - 29 - 6, 480, 0);
+    step(Y, dt / 2, { intent: press(truck, I => { I.tap.fire = true; }) });
+    assert.ok(truck.towing && truck.towing.car === car, 'hooked on ○'); }
+});

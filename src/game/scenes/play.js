@@ -9,9 +9,9 @@
 // ?crowd=1 adds stand-ins for M4 and M5's traffic and peds (40 walkers and 20 cars round the focus, presentation only:
 // the perf gate measures their drawing before they exist); ?tour=1 drives the camera round the district's tour at car
 // speed and ?perf=1 records each frame's times (tools/perf.mjs).
-import { E, def, get, all, expose, BUS, TUNE, FloorChunks, buildCity, CityRenderer, WorldClock, Weather, Drawbridge, skyAt, drawBoxModel, carModel,
+import { E, def, get, all, expose, BUS, TUNE, knob, FloorChunks, buildCity, CityRenderer, WorldClock, Weather, Drawbridge, skyAt, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
-  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, stationLabel, modelOf, SpeedZoom, drawPrompt } from '../../motor/index.js';
+  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, boxDistance, stationLabel, modelOf, SpeedZoom, drawPrompt } from '../../motor/index.js';
 import { VIGNETTE_PROPS } from '../characters/vignette-props.js';
 
 let cached = null;   // one Lowtown per seed: built once (about 80 ms), kept across scene changes
@@ -28,6 +28,7 @@ function standIns() {
   return { peds, cars };
 }
 function lowtown(seed) { if (!cached || cached.seed !== seed) { const city = buildCity('lowtown', seed); cached = { seed, city, render: new CityRenderer(city) }; } return cached; }
+knob('Camera', 'camLead', 'Driving look-ahead', .32, 0, 1, .02, 'Seconds of a vehicle\'s travel the ISO camera looks ahead of it');
 const REFUSED = { wanted: 'NOT WHILE WANTED', mission: 'NOT DURING THIS JOB', down: 'THEY\'RE IN NO STATE', busy: '', same: '', unknown: '' };
 
 def('scenes', 'play', {
@@ -36,6 +37,7 @@ def('scenes', 'play', {
     let city, map, cityR, floor, clock, weather, bridges = [], hoodName = '', tour = null, rec = null, crowd = null;
     let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, wasted = 0, prevView = null, mouse0 = null;
     let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null;
+    const lead = [0, 0];
     const idle = makeIntent(), TOUR_SPEED = 300;   // (the tour: a sports car's top speed, PLAN.md 7.6)
     const hero = () => crew.ped, chOf = id => get('characters', id);
     function spawnCrew(startPoi) {
@@ -136,7 +138,7 @@ def('scenes', 'play', {
         let I = human.update(seated ? 'vehicle' : 'onFoot', p);
         if (busy) I = clearIntent(I);
         if (!busy && !p.dead && I.tap.interact && !p.boarding) {   // △ / E: get in (the nearest door), or get out
-          if (seated) p.leave(exitFor(p, seated));
+          if (seated) p.leave(exitFor(p, seated, (x, y) => city.walkable(Math.floor(x / city.T), Math.floor(y / city.T)) && !fleet.near(x, y, 2).some(o => o !== seated && boxDistance(o, x, y) < 4)));
           else { const plan = boardTarget(p); if (plan) p.board(plan); }
         }
         if (crew.vignette && crew.vignette.who === crew.active) {
@@ -167,7 +169,10 @@ def('scenes', 'play', {
         if (toast) { toast.t -= real; if (toast.t <= 0) toast = null; }
         const q = hero(), qv = q.seat && q.seat.vehicle, fx1 = qv ? qv.x : q.x, fy1 = qv ? qv.y : q.y; footprint.update(fx1, fy1);
         const hd = city.hoodAtPoint(fx1, fy1); hoodName = hd ? hd.name : '';
-        if (!cam) game.focus(fx1, fy1, 16);
+        // the camera leads a moving vehicle by a third of a second (eased: presentation only, nothing reads it back)
+        const k = Math.min(1, real * 2.5), want = qv ? [qv.body.vx * TUNE.camLead, qv.body.vy * TUNE.camLead] : [0, 0];
+        lead[0] += (want[0] - lead[0]) * k; lead[1] += (want[1] - lead[1]) * k;
+        if (!cam) game.focus(fx1 + (stage.depth ? 0 : lead[0]), fy1 + (stage.depth ? 0 : lead[1]), 16);   // (TOP leads by itself; MODE 7 rides its rail)
       },
       draw(r) {
         if (rec) { const st = game.stats; rec.update.push(+st.updateMs.toFixed(3)); rec.render.push(+st.renderMs.toFixed(3)); rec.frames++; }
