@@ -1,9 +1,8 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M4, vehicles: the MOTOR side, Lowtown's fleet and the accept tests have landed (`b442d89`, `f198207`, `a7eb6ae`,
-`87c52c9`); FAN-OUT A1 (7 workers, the 13 models and 19 definitions) is building the content: the two car groups are in
-(7 definitions on 5 models), the trucks, tow, bikes and water/air/rail groups are building. Blockers: none. The run started
-inside the planning session (DECISIONS D5); the owner launched the `/goal` itself after M3's bulk had landed.
+Now: M4 is done (vehicles: 7 classes, 13 models, 19 definitions). At the owner's request the run is handed off here
+(DECISIONS D16): the next session starts M5 from `docs/HANDOFF.md`, which holds its `/goal`. Blockers: none. The run
+started inside the planning session (DECISIONS D5); the owner launched the `/goal` itself after M3's bulk had landed.
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
@@ -11,7 +10,7 @@ inside the planning session (DECISIONS D5); the owner launched the `/goal` itsel
 | M1 Core + spikes | done | core, input, attract loop (`c76395c`); S2 floor and scale (`064fcae`): GTM-PATCHes 1-3, floor chunks, the scale yard · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65; S1 depth renderer (`dda0356`): SIDE7, TOP, the Stage, the view lab · TOP 6.1-6.2 ms, SIDE7 11.3-11.9 ms with 41 rigs; S3 vehicle physics (`7039af1`): the handling suite, the pad, the replay round-trip; the frozen contracts, D10 budgets · 69 unit + sim tests, 2 e2e · `docs/media/m1/` |
 | M2 Lowtown + ISO | done | the world layer, Lowtown, the street painter, the city renderer, the cut-away (`b781439`); the quarter turn, the speed zoom, the clock and sky, night ISO in budget (`fe4f6dc`); weather, the drawbridge, the stand-in crowd and the gate (`8f175be`); roofs, shopfronts, yards, the shot matrix and the acceptance (this commit) · ISO at the gate 9.3-10.0 ms · 86 unit + sim tests · `docs/media/lowtown-map-sheet.png`, `docs/media/shots/` |
 | M3 On foot + combat | done | saves, weapons, vitals, fire (`edec102`); the crew on foot, combat, the wheels, the switch, the range (`42c3054`); the accept tests, the view lab, the self-tests, perf (this commit) · ISO at the gate the same as M2's build, interleaved · 114 unit + sim tests, 3 e2e suites · `docs/media/m3/` |
-| M4 Vehicles | in progress | the models registry, the class bodies, the Fleet, boarding, damage, the renderer, the handling bench (`b442d89`); Lowtown's fleet, driving in play, the accept tests (`f198207`, `a7eb6ae`, `87c52c9`); parts drawn by depth, the cars (this commit) · 128 unit + sim tests · FAN-OUT A1: cars in, 5 groups building |
+| M4 Vehicles | done | the models registry, the class bodies, the Fleet, boarding, damage, the renderer, the handling bench (`b442d89`); Lowtown's fleet, driving in play, the accept tests (`f198207`, `a7eb6ae`, `87c52c9`); FAN-OUT A1's 19 definitions, the painter's order, the fixes its reviews found (`f61bf2e` to `c9e3ef6`); the acceptance and the handoff (this commit) · 172 unit + sim tests, 3 e2e suites · ISO at the gate the same as M3's build, interleaved; TOP 9.1 ms · `docs/media/m4/` (the model sheet, 15 shots) |
 | M5 Roads, traffic, peds | | |
 | M6 Wanted, police, gangs | | |
 | M7 TOP + SIDE7 + bank | | |
@@ -237,3 +236,121 @@ inside the planning session (DECISIONS D5); the owner launched the `/goal` itsel
   with no patch. Decisions in D14.
 - **M3 · the gate:** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 114 unit and sim
   tests, the e2e smoke, replay and self-tests, the engine checker).
+- **M4 · section 8.8, the handling suite** (`tests/unit/handling.test.mjs`, `sim/vehicle/handling.js`, in headless Node
+  at the fixed 1/120 s step). Every definition is measured on its class's bench against its own spec. A land
+  vehicle's bench covers:
+  - 0-200 u/s (or 0-100 for slow vehicles) within 10%;
+  - top speed within 5%;
+  - dry braking within 10%;
+  - wet braking at least 15% longer;
+  - skidpad grip at least half the tyres' grip;
+  - a handbrake drift past the class's yaw and slip thresholds;
+  - no tunnelling into a wall at 400 u/s.
+
+  Boats, the heli and the L have their own checks. All 19 definitions pass every check:
+
+    | Definition | Class | Launch (spec) | Top (spec) | Braking dry / wet | Skidpad | Handbrake | Checks |
+    |---|---|---|---|---|---|---|---|
+    | Bilge Rat (`bilgerat`) | boat | 0-100 2.60 s (2.6), on water | 228.7 (230) | - | - | the rudder turns it 1.97 rad/s at 120 u/s; a quay stops it | 4/4 |
+    | Brute (`brute`) | car | 0-200 2.00 s (2) | 294.7 (295) | 44.6 / 53.6 u | 300 | 7.26 rad/s, 90° | 7/7 |
+    | Cortez (`cortez`) | car | 0-200 2.41 s (2.4) | 259.8 (260) | 41.0 / 51.0 u | 283 | 5.87 rad/s, 89° | 7/7 |
+    | Retiree (`retiree`) | car | 0-200 3.41 s (3.4) | 224.8 (225) | 46.7 / 57.8 u | 233 | 4.33 rad/s, 65° | 7/7 |
+    | Fed Sedan (`fedsedan`) | car | 0-200 2.21 s (2.2) | 279.7 (280) | 39.1 / 48.7 u | 301 | 5.36 rad/s, 90° | 7/7 |
+    | MPD Cruiser (`cruiser`) | car | 0-200 2.11 s (2.1) | 304.6 (305) | 38.1 / 47.5 u | 309 | 5.78 rad/s, 89° | 7/7 |
+    | MPD Eye (`eye`) | heli | its point 600 u off in 4.15 s, held there | 240.0 (240) | - | - | climbs 90 u/s | 4/4 |
+    | Hauler (`hauler`) | truck | 0-100 2.12 s (2.2) | 200.3 (195) | 15.8 / 19.8 u | 160 | 1.16 rad/s, 17° | 7/7 |
+    | Medic (`medic`) | truck | 0-100 1.95 s (2) | 214.3 (210) | 14.4 / 18.0 u | 176 | 1.46 rad/s, 25° | 7/7 |
+    | MPD Rhino (`rhino`) | truck | 0-100 2.58 s (2.6) | 196.2 (190) | 16.7 / 20.9 u | 151 | 1.46 rad/s, 26° | 7/7 |
+    | Strongbox (`strongbox`) | truck | 0-100 2.91 s (3) | 175.3 (170) | 17.8 / 22.3 u | 140 | 1.22 rad/s, 19° | 7/7 |
+    | Hookline (`hookline`) | tow | 0-100 2.29 s (2.3) | 199.3 (200) | 15.1 / 18.9 u | 166 | 1.80 rad/s, 37° | 7/7 |
+    | Drill Rig (`drillrig`) | tow | 0-100 2.59 s (2.6) | 184.3 (185) | 16.2 / 20.2 u | 155 | 1.56 rad/s, 31° | 7/7 |
+    | Pumper (`pumper`) | truck | 0-100 2.77 s (2.8) | 180.3 (180) | 17.6 / 22.0 u | 142 | 1.24 rad/s, 19° | 7/7 |
+    | Saint (`saint`) | car | 0-200 2.70 s (2.7) | 284.6 (285) | 40.5 / 50.5 u | 256 | 4.58 rad/s, 79° | 7/7 |
+    | Sparrow (`sparrow`) | bike | 0-100 2.34 s (2.4) | 149.6 (150) | 13.3 / 16.6 u | 192 | 2.60 rad/s, 19° | 7/7 |
+    | The L (`thel`) | rail | - | 210.0 (210) | - | - | stops at all 4 platforms 0.0 u off; waits 5.49 s (dwell 5 ±.6) | 3/3 |
+    | Vandal 600 (`vandal`) | bike | 0-200 2.01 s (2) | 319.6 (320) | 40.2 / 50.0 u | 361 | 3.08 rad/s, 34° | 7/7 |
+    | Zephyr GT (`zephyr`) | car | 0-200 1.60 s (1.6) | 339.7 (340) | 34.0 / 42.5 u | 406 | 6.53 rad/s, 89° | 7/7 |
+
+  Verdict: pass.
+- **M4 · getting in and out** (`tests/sim/vehicles.test.mjs`, 17 tests):
+  - getting in, getting out and carjacking from all four sides (the driver is yanked out and thrown down; BUS
+    `carjack`);
+  - a police car's break-in (TUNE.breakIn seconds, a crime); a bike mounted at once;
+  - the dive roll above the bail-out speed; the door across when the driver's door is blocked;
+  - a boat is left only beside dry ground;
+  - in play, through the real bindings: E gets in, W drives, E gets out, and parked cars sleep.
+
+  Verdict: pass.
+- **M4 · towing, damage, chains:**
+  - a tow joint stays stable for 60 s of driving round a loop, and lets go on ○;
+  - chained explosions: a car blown up sets off the cars beside it, and a burning car goes up TUNE.burnTime later;
+  - a car rolled over in the air lands on its roof and burns; a crashing bike throws its rider;
+  - fast cars knock peds down, slow ones push them aside; a lamp falls and a hydrant bursts;
+  - a land vehicle in deep water sinks and its driver swims ashore;
+  - the Loop gap's open end: a car flies off, lands below and drives on;
+  - the car bomb (ignition and remote) and the mods: nitro, the oil slick, a mine, the roof MG, the water cannon,
+    the tow hook.
+
+  Verdict: pass.
+- **M4 · Lowtown's fleet:** when the city loads, 84 cars and bikes park along the curbs by neighbourhood (each definition's zones and weight) and 17 landmark vehicles at their landmarks; the Bilge Rat moors at the marina, two L trains run the elevated line and the MPD Eye patrols: 103 vehicles (88 cars, 5 trucks, 2 tow trucks, 6 bikes, a boat, a heli) and 2 trains.
+  - Every parked vehicle stands wholly on the road, out of the junctions and from under the ramps, and none is moved
+    by play's first second (a test). Cars had been parked under the Loop's ramp ends, and the first step shoved them
+    out: the Medic went 109 u onto the sidewalk.
+  - Landmarks' vehicles stand by their doors: two cruisers and the Rhino at the precinct, the Medic by the hospital,
+    and so on.
+  - The L's two trains run the elevated loop and stop at its stations (both tracks); they kill what stands on the track (a test).
+  - The MPD Eye flies its patrol at 150 over the four neighbourhoods, its spotlight sweeping the street ahead.
+  - The Bilge Rat waits in the marina's slip, alongside the south pier, bow out to sea (it had faced into the pier).
+- **M4 · the model sheet** (`docs/media/m4/model-sheet.png`, `node tools/model-sheet.mjs`): every definition alone in
+  the garage, in ISO by day and by night (lights and sirens on), TOP-DOWN and MODE 7. 19 rows of 4 shots. Verdict: every definition reads as what it is in every view, the variants apart from their base
+  (the Retiree's wood and rack, the Fed Sedan's beacon and grille lamps, the Medic's crosses and bars, the Rhino's
+  armour, the Strongbox's plates, the Drill Rig's mast); lights and sirens light at night; TOP-DOWN shows every vehicle
+  whole. Fixed on the way: the far end's lamps showing through (the painter's order), the TOP-DOWN rear cut off
+  (kept images), the heli framed off the top (the garage now frames a vehicle at its height), the boat invisible (its
+  bob was NaN). Pass.
+- **M4 · the renderer** (D16):
+  - box models are drawn in a painter's order: parts a plane separates go far one first, and overlapping parts keep
+    their roles' order, with outside parts placed by the face they poke out of;
+  - a parked vehicle's kept image is sized for the view drawing it (TOP-DOWN no longer cuts the rear off a car
+    facing up the screen);
+  - faces tipped slightly down by a pitch or a lean are drawn (they went missing on a towed car's tail);
+  - the water cannon leaves from its model's nozzle;
+  - a bike or boat swings no door slabs, and a wheelie pivots on the rear tyre.
+
+  Unit tests cover the order on a long truck: far end, flanks, roof bar, heading, roof, doors.
+- **M4 · the shots** (`docs/media/m4/`), with verdicts:
+  - `night-iso-precinct`, `night-top-precinct`, `night-side7-precinct`: the precinct's cruisers at night. Bars red
+    and blue, beams lit, the break-in prompt. ISO is turned to look from the north, because the Loop's deck runs
+    over the avenue. Pass.
+  - `carjack-iso`: the driver's door open, mid-beat. Pass.
+  - `chain-1`, `-2`, `-3-wrecks`: three cars going up in turn, ending as wrecks that burn and smoke. Pass.
+  - `tow-hookline`: a Cortez on the Hookline's hook, its nose lifted. Pass.
+  - `pad-lap-skids`: a lap of the pad, with skid marks and tyre smoke. Pass.
+  - `marina-bilgerat`: the Bilge Rat moored in the slip, Dex on the quay. Pass.
+  - `thel-iso`, `thel-top`, `thel-side7`: an L train on its deck over Neon Mile (ISO, the camera at its height),
+    its roofs from above (TOP-DOWN), the line's pillars and deck up the street with the train small at its far end
+    (MODE 7: a level camera puts the deck's 100 u above the view, the sheet has the train's own MODE 7). Pass.
+  - `eye-night-spot`: the MPD Eye hovering over the precinct at night, its light bar lit and its spotlight on Dex. Pass.
+  - `bike-greasy-spoke`: a Vandal 600 at the Greasy Spoke's curb, the ride prompt over it. Pass.
+- **M4 · performance:** the gate scenario's stand-in cars now only top up the real parked cars near the focus to its 20 (they had been
+  drawn on top of them). The ISO gate (`lowtown-gate`: the tour at night in the rain, 40 walkers, 20 cars),
+  interleaved with M3's build on the same machine: M3 10.5, 13.1, 11.9 ms; M4 10.9, 11.4, 10.4 ms. The same within
+  noise, and M4 adds every vehicle, the trains and the heli. This machine runs slower than the one the gate was set on
+  (D13 measured M2 at 9.3-10.0 ms): both builds sit about the 10.4 ms gate, not inside it. That margin is carried to
+  M7 and M13 (D10's levers; HANDOFF.md). TOP 9.1 ms (gate 12.7). MODE 7 14.0 ms, over its 12.7 as at M3 (15.2): M7's
+  lever (D10). Update 0.5 ms a frame.
+- **M4 · FAN-OUT A1** (D15, D16): 7 workers, one per class group, each in its own worktree. Each was held to its
+  class's handling test and to a review of its own model sheet and close-ups. The main session merged each group,
+  re-checked its looks under the renderer as it stood, and fixed in MOTOR what the workers reported:
+  - the draw order;
+  - TOP-DOWN's kept images;
+  - parked cars creeping;
+  - the cannon's nozzle;
+  - bike doors;
+  - the wheelie pivot.
+
+  The worktrees came up at the first commit, and each worker checked out the branch head first (HANDOFF.md says
+  how).
+- **M4 · the gate:** `npm test` passes every step: lint, boundary, vendor, goal-sync, dist current, 172 unit and
+  sim tests, the e2e smoke, replay and self-tests (the garage's: every definition's model and handling), and the engine
+  checker.

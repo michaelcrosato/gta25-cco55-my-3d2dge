@@ -61,7 +61,8 @@ kits and the baseline definition. Put each model and its definitions in a file o
     `heliParts({ length, width, height })`, `trainParts({ length, width, height })`.
 - `wheels: [{ x, y, r, steer }]`, `seats: [{ x, y }]` (the driver first), `doors: [{ id, x, y, side: -1 | 1 | 0,
   seat }]` (where a body stands to get in: outside the body), `lights: { head, tail, siren: [[x, y, z]] }` (where light
-  comes from), `hook: [x, y]` (a tow truck's), `hitch: [x, y]`.
+  comes from), `hook: [x, y]` (a tow truck's), `hitch: [x, y]`, `nozzle: [x, y, z]` (where a water cannon's jet
+  leaves).
 - `kits: { name: { parts, lights } }`: extra parts (and siren lights) a definition switches on with `kit: 'name'`.
 
 ### The definition: `def('vehicles', id, spec)`

@@ -150,7 +150,7 @@ A bad spec warns once per problem (`E.warn`), gets its defaults, and still regis
 | `provingZones` | `{ title, make(app) -> { enter(), update(dt), draw(r), hud(), snapshot(), perf(), stateHash(), handle() } }` | content |
 | `glyphSets` | the PlayStation / Xbox / Nintendo / keyboard glyph drawings | `input/glyphs.js` |
 | `vehicles` | `{ name, model (a vehicleModels id; M4, D15), kit, class (car truck tow bike boat heli rail), role, handling (the class body's overrides), palette, health, toughness, seats, radio, locked, siren, horn, tool, spec: { t200 or t100, top, brake200 or brake100; boats t100, top; heli top, climb; rail top, dwell }, spawn: { zones, weight, timeOfDay }, price, tags }` | `sim/vehicle/defs.js` |
-| `vehicleModels` | `{ name, class, length, width, height, parts: [{ box, color, role, paint }], wheels, seats, doors, lights: { head, tail, siren }, hook, hitch, kits: { name: { parts, lights } } }` | `sim/vehicle/model.js` (M4) |
+| `vehicleModels` | `{ name, class, length, width, height, parts: [{ box, color, role, paint }], wheels, seats, doors, lights: { head, tail, siren }, hook, hitch, nozzle, kits: { name: { parts, lights } } }` | `sim/vehicle/model.js` (M4) |
 | `fleets` | `{ district, curb: { every, chance, roles, classes }, spots: [{ def, near, n }], water, rail: [{ deck, def, trains }], air: [{ def, patrol, alt }] }` | `world/fleet-spawn.js` (M4) |
 | `stations` | `{ name, freq, dj, genre, color }` | `audio/stations.js` (M4's stub; M10) |
 | `missions` | `defMission(id, { title, giver, gang, tier, requires, brief, rewards, bonus, stages })` | `mission/dsl.js` |

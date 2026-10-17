@@ -233,6 +233,10 @@ and where it landed.
     out of faces the camera. The order is kept per model for each of the 8 octants, so a frame only reads it. Open
     doors are fitted in each frame. A wreck on its roof needs no special case. The models made for the role order
     look the same or better (checked from 8 headings in every view).
+  - **The gate's stand-in cars top up the real ones.** PLAN.md 8.4's gate has 20 cars and 40 peds in view. With
+    M4's fleet real, `?crowd=1` draws stand-in cars only to make up 20 with the real vehicles near the focus; before,
+    they were drawn on top of them. Interleaved with M3's build, M4 measures the same within noise. This machine
+    puts both builds at about the 10.4 ms gate, not inside it, so the margin is carried to M7 and M13 (HANDOFF.md).
   - **Carried, not cut.** Three reactions need systems that come later. Until then the hooks fire and the BUS carries
     the event:
     - the carjacked driver's flee-or-fight comes with PedBrain (M5): the driver is thrown down and `carjack` is

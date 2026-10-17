@@ -13,8 +13,8 @@ started the run; this page says where the run stands, how the repository is work
   - the crew on foot, combat and the weapon and character wheels;
   - the vehicles: 7 classes, 13 models, 19 definitions; boarding, carjacking, towing, damage, chained explosions,
     lights and sirens, the radio stub and the mods.
-- **The pull request:** michaelcrosato/gta25-cco55-my-3d2dge#1 carried M0-M4 and was merged into `main` when M4 closed
-  ({{MERGE}}). Later work goes on the new session's own branch, started from `main`, in a new draft pull request.
+- **The pull request:** michaelcrosato/gta25-cco55-my-3d2dge#1 carried M0-M4 and was merged into `main` when M4 closed.
+  Later work goes on the new session's own branch, started from `main`, in a new draft pull request.
 - **Next: M5** (roads, traffic, pedestrians, emergency services; it is accepted by PLAN.md 8.7, 8.9 and 8.10). A
   parked start on it is in `docs/handoff/m5-draft/`: the lane graph, the GPS and the signals work and are tested; the
   DriverBrain is a draft that still stalls. Its README says how to restore it and lists the known stalls.
@@ -42,7 +42,7 @@ started the run; this page says where the run stands, how the repository is work
 
 - **Setup:** `npm ci` (Node 22). In a Claude Code cloud session the SessionStart hook installs everything.
 - **The gate: `npm test`** runs lint, the boundary, vendor and goal-sync checks, "dist current", the unit and sim
-  tests ({{TESTS}}), the e2e smoke, replay and self-tests, and the engine's checker. It takes under a minute.
+  tests (172), the e2e smoke, replay and self-tests, and the engine's checker. It takes under a minute.
   `npm run test:full` adds the heavy suites as they land.
 - **Commit only when `npm test` exits 0.** Check the exit code itself: a grep over its output once hid a lint failure.
 - **`dist/index.html` is committed.** Rebuild it with `npm run build` before committing; the gate fails on a stale
@@ -77,22 +77,40 @@ started the run; this page says where the run stands, how the repository is work
   `{ files: [{ path, content }], notes }` in a structured result. The main loop writes the files, runs that group's
   tests, then the gate, and commits.
 - **Workers never write** `dist/index.html`, `PROGRESS.md` or `DECISIONS.md`, and never commit or push.
-- **Parallelism:** with 4 CPUs a workflow runs 2 agents at once, so 7 groups took about {{A1TIME}} hours.
+- **Parallelism:** a workflow runs at most CPUs - 2 agents at once (4 CPUs here: 2), so 7 groups took about
+  3.8 hours.
 - **The session's scratchpad is shared** by every worker. Give each worker its own subfolder, or their probes
   overwrite each other.
 - **Worktrees live in `.claude/worktrees/`**, which `.gitignore` and `eslint.config.js` both ignore. Never
   `git add -A` while they exist: a worktree once went in as a gitlink.
 
-## Known limits (renderer)
+## Known limits
 
-- **Night glows** (the head, tail and siren lights' halos) ignore occlusion: from some angles a far tail lamp's glow
-  shows over the roof at night.
+- **Night glows** (the head, tail and siren lights' halos) ignore occlusion. From some angles a far tail lamp's glow
+  shows over the roof at night, or through the Hookline's boom.
+- **Performance margin.** On this cloud machine the ISO gate scenario (`node tools/perf.mjs --scenario lowtown-gate`)
+  draws in 10.4-11.4 ms against its 10.4 ms gate. M3's build, measured interleaved, does the same: the machine runs
+  slower than the one D13 measured on. MODE 7 draws in 14 ms against 12.7, which is M7's lever (D10). TOP-DOWN draws in
+  9.1 ms. M5's traffic and peds add load, so measure each milestone interleaved with the last
+  (`--dist <old build>`), and keep D10's levers in mind:
+  - merging a building's roof-only wall blocks in ISO;
+  - MODE 7's crowd rigs drawn every other frame from a cached image.
+- **Bike riders** sit at a fixed height whatever the bike, and the Proving Ground's pad draws no peds (no rider shows
+  there).
 
 ## Continuing the run: the /goal prompt
 
-Start a new session with effort **xhigh** (PLAN.md 16 recommends it; M0-M4 ran at max), then paste this block. It is
-{{GOALLEN}} characters of plain ASCII, under the 4,000-character limit for `/goal`.
+Start a new session at the effort you choose (PLAN.md 16 recommends **xhigh**; M0-M4 ran at max), then paste this
+block. It is 3,225 characters of plain ASCII, under the 4,000-character limit for `/goal` (`npm run lint` checks it).
 
 ```
-{{GOAL}}
+/goal Continue GRAND THEFT MOTO (ID GrandTheftMoto-5S) in michaelcrosato/gta25-cco55-my-3d2dge from M5 through M13, exactly as PLAN.md specifies: it is the contract. M0-M4 are done and merged into main. Read docs/HANDOFF.md first, then PLAN.md in full, PROGRESS.md, docs/ARCHITECTURE.md (the frozen contracts), docs/DECISIONS.md (D1-D16) and docs/CONTENT-GUIDE.md. Work on this session's own branch, started from main, and open a draft PR for it. ultracode: run bounded workflows (max 10 agents, each in its own worktree, never two on one file) only at the remaining fan-out points in PLAN.md section 16 (A2 at M8, C at M9 optional, B at M13). Each worker first checks out the branch head in its worktree, returns its files and notes, and never writes dist/index.html, PROGRESS.md or DECISIONS.md, commits or pushes.
+
+Rules, as in GOAL.md: my-3D2dge v0.46.1 at cfa866aa45474868350cad1a7fc015e612f9305f stays vendored in vendor/my-3d2dge, patched only per PLAN.md section 12 (GTM-PATCH markers, PATCHES.md, tests). MOTOR in src/motor, content in src/game (content imports only src/motor/index.js). No runtime dependencies, no network, no binary assets. The simulation is deterministic, view-independent and headless-testable. A controller-first 10-foot UI for a PS5 DualSense (code-drawn glyphs, analog triggers, rumble); keyboard and mouse on the same model; no dense web screens; no touch controls (phones run kiosk/attract mode only). Attract mode after 10 s idle; any input returns to the title at once; the demo never saves. Model identifiers stay out of repository files (D3).
+
+Process: milestone by milestone. M5 may start from the parked draft in docs/handoff/m5-draft (its README says what works and what stalls). Keep PROGRESS.md current with evidence (tests, screenshots with verdicts, perf numbers, commits). Commit after each green step, only when npm test exits 0 (check the exit code itself), with dist/index.html rebuilt; push at least once per milestone and keep the PR's CI green. Change scope only through docs/DECISIONS.md, keeping the architecture and one working instance; never cut silently. Read your own screenshots and fix every look note.
+
+Done only when every item of PLAN.md section 15 holds (as amended in DECISIONS): npm test and test:full pass and CI is green; dist/index.html plays the whole slice from file://; all 14 missions, the side content, shops and properties work, and a headless bot campaign reaches 100%; the three views work outdoors and in the bank and never change the simulation hash; the attract soak and the exit-on-any-input matrix pass; the 10-foot UI audit and the controller-only, keyboard-only and mouse-only passes succeed; determinism, replay and the performance budgets pass; content-recipe tests pass; README.md, the Credits & About screen and the HTML header carry the Source Information and, separately, the engine analysis; docs/ENGINE-ANALYSIS.md is final.
+
+End with a chat report: 1. Source Information (Initial Date, SOURCE, GAME ENGINE version/commit/URL, Environment, Model and Effort Level; only what you can confirm). 2. Separately, the Game Engine Analysis (what you used, what you did not, the one thing you would change). 3. How to play, and the PR link.
 ```
