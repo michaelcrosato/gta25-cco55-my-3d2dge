@@ -4487,7 +4487,8 @@ class TileMap {
     // what fits instead of four whole views
     const view = r.view, key = view.id + ':' + view.yawDeg + ':' + view.pitchDeg + ':' + view.scale, wc = this._wcs || (this._wcs = new Map());
     let c = wc.get(key); if (!c) wc.set(key, c = { m: new Map() }); this._wcPx = this._wcPx || 0;
-    const idx = cy * this.w + cx, id = this.cells[idx]; let e = c.m.get(idx);
+    // (a block cut down by the cut-away keeps its own entry beside its whole one: a cut that comes and goes bakes once)
+    const idx = cy * this.w + cx, id = this.cells[idx], slot = idx * 2 + (h < t.h ? 1 : 0); let e = c.m.get(slot);
     // GTM-PATCH(1): a block is baked from its type, its height and its neighbours' drawn heights (a cut-away can lower
     // them as the player moves), so it checks those instead of the map's version
     const nh = (x, y) => { const n = this.cell(x, y); return n > 0 ? (this._isFront(x, y, view) ? (this.types[n].cutH || 6) : this.types[n].h) : 0; };
@@ -4502,7 +4503,7 @@ class TileMap {
       if (!view.isTop) for (const [nx, ny, A, B, n] of [[0, -1, [X1, Y0], [X0, Y0], n0], [0, 1, [X0, Y1], [X1, Y1], n1], [-1, 0, [X0, Y0], [X0, Y1], n2], [1, 0, [X1, Y1], [X1, Y0], n3]])
         if (nx * view.fx + ny * view.fy > .02 && n < h) { add(A[0], A[1], n); add(B[0], B[1], n); }
       e = { h, id, n0, n1, n2, n3, rN, rW, x0: Math.floor(x0) - 3, y0: Math.floor(y0) - 3, w: Math.ceil(x1) - Math.floor(x0) + 7, hh: Math.ceil(y1) - Math.floor(y0) + 7, cv: null, info: null, t: 0 };
-      c.m.set(idx, e);
+      c.m.set(slot, e);
     }
     e.t = r._frameNo || 0;
     const bake = info => {
@@ -4548,7 +4549,7 @@ class TileMap {
     const win = this._window(rr, Math.max(90, 20 - view.bz * mh), m), todo = [];
     for (let cy = win[1]; cy <= win[3]; cy++) for (let cx = win[0]; cx <= win[2]; cx++) {
       const id = this.cell(cx, cy); if (id <= 0) continue;
-      const t = this.types[id], h = this._isFront(cx, cy, view) ? (t.cutH || 6) : t.h, e = c && c.m.get(cy * this.w + cx);
+      const t = this.types[id], h = this._isFront(cx, cy, view) ? (t.cutH || 6) : t.h, e = c && c.m.get((cy * this.w + cx) * 2 + (h < t.h ? 1 : 0));
       if (e && e.cv && e.h === h && e.id === id) continue;
       const [sx, sy] = rr.w(cx * T + T / 2, cy * T + T / 2, 0);
       if (sx < -40 - m || sx > rr.W + 40 + m || sy < -20 - m || sy > rr.H + Math.max(90, 20 - view.bz * h) + m) continue;
@@ -4615,6 +4616,8 @@ class TileMap {
         const b0 = P(A[0], A[1], nh + .6), b1 = P(B[0], B[1], nh + .6); px.line(g, b0[0], b0[1], b1[0], b1[1], shade(col, -.35));
       }
     }
+    // GTM-PATCH(1): a cut block's top is the floor inside the building (t.cutTop, t.cutRoof), not its roof
+    if (h < t.h && t.cutTop) t = { ...t, top: t.cutTop, roof: t.cutRoof || t.roof, edge: t.cutEdge };
     const top = [P(x0, y0, h), P(x1, y0, h), P(x1, y1, h), P(x0, y1, h)];
     if (g._info) { g._mat = r._infoCol(h, 4, 0); g._c = null; }
     px.poly(g, top, t.top);

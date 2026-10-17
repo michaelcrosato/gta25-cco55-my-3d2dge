@@ -10,6 +10,7 @@ import { E } from '../engine.js';
 import { Spans } from './depth/spans.js';
 import { Side7View } from './depth/side7.js';
 import { TopView } from './depth/top.js';
+import { CutAway } from './cutaway.js';
 
 const CROWD = { outline: false, rim: false }, XRAY = { xray: true };
 
@@ -28,20 +29,23 @@ export class Stage {
   /** the active depth view (Side7View or TopView), or null in ISO */
   get depth() { const s = this.views.spec; return (s && s.depth) || null; }
   get depthActive() { return !!this.depth; }
-  /** the world to draw: { map (TileMap), floor (FloorChunks), backdrop (E.Backdrop, ISO's sky), night, engineFloor
-   *  (ISO draws the engine's own whole-map floor bake: small maps only, for comparisons) } */
+  /** the world to draw: { map (TileMap), city (its CityMap, for the cut-away), floor (FloorChunks), backdrop (E.Backdrop,
+   *  ISO's sky), night, engineFloor (ISO draws the engine's own whole-map floor bake: small maps only, for comparisons) } */
   setWorld(w) {
     this.world = Object.assign({ night: true }, w);
     this.spans = w.map ? new Spans(w.map, w.floor ? w.floor.size : 256) : null;
+    this.cutaway = w.city ? (w.city.cutaway || (w.city.cutaway = new CutAway(w.city))) : null;   // (a city's buildings drop round the player in ISO)
     this.side7.ready = false; this.top.ready = false; this.side7.heading = 0;
   }
   /** start a frame: o.focus [x, y] (the possessed actor), o.vel [vx, vy] and o.speed01 (0..1 of top speed) steer the
-   *  depth cameras; presentation only, the simulation never reads it */
+   *  depth cameras; o.player [x, y, z] (the focus by default) is who the cut-away keeps in sight. Presentation only:
+   *  the simulation never reads it */
   begin(r, o = {}) {
-    this.r = r; this.items.length = 0; this.focus = o.focus || null;
+    this.r = r; this.items.length = 0; this.focus = o.focus || null; this.isoP = null;
     const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, .1); this.last = now;
     const d = this.depth, W = this.world;
     if (!d) {   // ISO: the engine draws; the floor and walls go first
+      if (this.cutaway) { const p = o.player || this.focus; if (p) this.cutaway.update(r.view, p[0], p[1], p[2] || 0); }
       if (W.backdrop) W.backdrop.draw(r);
       if (W.engineFloor && W.map) W.map.drawFloor(r); else if (W.floor) W.floor.drawIso(r);
       if (W.map) { W.map.queueWalls(r); W.map.prebakeWalls(r); }
@@ -64,11 +68,26 @@ export class Stage {
       g.globalAlpha = 1;
     } });
   }
-  /** a shape drawn through a projector: draw(g, P) with P.proj(x, y, z) -> [sx, sy, k] (vehicles, props, markers) */
-  shape(x, y, z, draw) {
+  /** a shape drawn through a projector: draw(g, P) with P.proj(x, y, z) -> [sx, sy, k] (vehicles, props, markers).
+   *  o: the engine queue's options in ISO ({ emissive, bias, hides, footprint }) */
+  shape(x, y, z, draw, o) {
     const d = this.depth, r = this.r;
-    if (!d) { r.queue(x, y, z, g => draw(g, { proj: (a, b, c = 0) => { const q = r.w(a, b, c); return [q[0], q[1], r.view.scale]; } })); return; }
-    this.items.push({ k: d.depth(x, y), fn: g => draw(g, d) });
+    if (!d) { r.queue(x, y, z, g => draw(g, this.isoP || (this.isoP = { proj: (a, b, c = 0) => { const q = r.w(a, b, c); return [q[0], q[1], r.view.scale]; } })), o); return; }
+    this.items.push({ k: d.depth(x, y) - (o && o.bias || 0), fn: g => draw(g, d) });
+  }
+  /** one of the engine's props (E.PROPS: 'streetlamp', 'palm', 'trashcan'...): r.prop's billboard in ISO (o: its options:
+   *  size, light, lightRadius...), the same sprite scaled to its distance in TOP and SIDE7 */
+  prop(name, x, y, z, o = {}) {
+    const d = this.depth, r = this.r;
+    if (!d) { r.prop(name, x, y, z, o); return; }
+    const p = E.prop(name, o.size ? { size: o.size } : undefined); if (!p) return;
+    const spr = p.frames[0];
+    this.items.push({ k: d.depth(x, y), fn: g => {
+      const q = d.proj(x, y, z); if (!q) return;
+      const s = q[2] / Math.SQRT2, w = spr.w * s, h = spr.h * s; if (h < 1) return;   // (sprites are drawn for ISO's sqrt 2 pixels a unit)
+      g.drawImage(spr.cv, Math.round(q[0] - w / 2), Math.round(q[1] - h), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+      if (p.glowAt && o.light) { const gx = q[0] - w / 2 + w * p.glowAt[0], gy = q[1] - h + h * p.glowAt[1], R = Math.max(2, w * .9); g.globalAlpha = .25; g.fillStyle = p.glowAt[2]; g.beginPath(); g.arc(gx, gy, R, 0, 6.3); g.fill(); g.globalAlpha = 1; }
+    } });
   }
   /** finish the frame: in a depth view, the sky, the floor, then the spans and everything queued, far to near */
   end() {

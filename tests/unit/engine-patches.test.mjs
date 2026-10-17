@@ -118,6 +118,15 @@ test('GTM-PATCH(1): map.cutAt decides the cut-away first; null leaves it to the 
   it.fn({ drawImage() {} }); map._box = box;
   assert.equal(drawnH, 8, 'the hook\'s cut height is what is baked');
 });
+test('GTM-PATCH(1): a cut block\'s top is the floor inside (cutTop), the whole block\'s its roof', () => {
+  const E = engineWithPads([]), t = { h: 64, cutH: 8, top: '#5a3a2a', side: '#555', roof: 'plain', cutTop: '#c8bca8', cutRoof: 'plain' };
+  const map = new E.TileMap({ w: 16, h: 16, types: { 1: t } }); map.fill(4, 4, 1, 1, 1);
+  const fills = c => { const seen = new Set(), g = { set fillStyle(v) { seen.add(String(v).toLowerCase()); }, get fillStyle() { return ''; },
+    beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {}, fillRect() {}, stroke() {} }; map._box(g, fakeR(E, E.VIEWS.iso, 0, 0), 4, 4, t, c); return seen; };
+  const cut = fills(8), whole = fills(64);
+  assert.ok(cut.has('#c8bca8') && !cut.has('#5a3a2a'), 'cut: the floor inside, not the roof');
+  assert.ok(whole.has('#5a3a2a') && !whole.has('#c8bca8'), 'whole: the roof');
+});
 test('GTM-PATCH(1): a block re-bakes when a neighbour\'s drawn height changes, and only then', () => {
   const E = engineWithPads([]), map = new E.TileMap({ w: 16, h: 16, types: { 1: { h: 64, top: '#666', side: '#555' } } });
   map.fill(5, 5, 2, 1, 1);   // two blocks side by side: (5, 5) and (6, 5)
@@ -127,17 +136,19 @@ test('GTM-PATCH(1): a block re-bakes when a neighbour\'s drawn height changes, a
   map.cutAt = (cx, cy) => cx === 6 ? true : null; frame(3);
   assert.equal(bakes, 4, 'the cut block and its neighbour (its east face is uncovered) both re-bake');
   frame(4); assert.equal(bakes, 4);
+  map.cutAt = null; frame(5); assert.equal(bakes, 5, 'uncut: the cut block\'s whole version is still kept; only its neighbour re-bakes');
+  map.cutAt = (cx, cy) => cx === 6 ? true : null; frame(6); assert.equal(bakes, 6, 'cut again: the stub is still kept too');
 });
 test('GTM-PATCH(2): the wall cache stays inside map.wallCacheMax on a long drive, across views', () => {
   const E = engineWithPads([]), map = cityMap(E); map.wallCacheMax = 4e6;   // about 1.5 frames of blocks at 480 x 270
-  let baked = 0; const bake = map._box; map._box = function (g, r, cx, cy, t, h) { const e = this._wcs.get(r.view.id + ':' + r.view.yawDeg + ':' + r.view.pitchDeg + ':' + r.view.scale).m.get(cy * this.w + cx); baked += e.w * e.hh; return bake.call(this, g, r, cx, cy, t, h); };
+  let baked = 0; const bake = map._box; map._box = function (g, r, cx, cy, t, h) { const e = this._wcs.get(r.view.id + ':' + r.view.yawDeg + ':' + r.view.pitchDeg + ':' + r.view.scale).m.get((cy * this.w + cx) * 2 + (h < t.h ? 1 : 0)); baked += e.w * e.hh; return bake.call(this, g, r, cx, cy, t, h); };
   const views = [E.VIEWS.iso, new E.View('iso', 'Isometric', 135, 30, Math.SQRT2, 1), new E.View('iso', 'Isometric', 45, 30, Math.SQRT2 * .65, 1)];
   let frame = 0, peak = 0;
   for (let i = 0; i < 90; i++) {
     const view = views[Math.floor(i / 30)], r = fakeR(E, view, 0, 0, ++frame), [ix, iy] = camAt(view, 200 + i * 24, 300 + i * 20, r); r.ix = ix; r.iy = iy;
     map.queueWalls(r); for (const it of r.items) it.fn({ drawImage() {} });
     peak = Math.max(peak, map.wallCache().px);
-    for (const it of r.items) { const c = map._wcs.get(view.id + ':' + view.yawDeg + ':' + view.pitchDeg + ':' + view.scale), idx = Math.floor(it.y / 16) * map.w + Math.floor(it.x / 16); assert.ok(c && c.m.has(idx), 'what this frame drew is still cached'); }
+    for (const it of r.items) { const c = map._wcs.get(view.id + ':' + view.yawDeg + ':' + view.pitchDeg + ':' + view.scale), idx = Math.floor(it.y / 16) * map.w + Math.floor(it.x / 16); assert.ok(c && (c.m.has(idx * 2) || c.m.has(idx * 2 + 1)), 'what this frame drew is still cached'); }
   }
   assert.ok(peak <= map.wallCacheMax, `peak ${peak} px`);
   assert.ok(baked > 3 * map.wallCacheMax, `the drive baked ${baked} px in all, so blocks were dropped`);

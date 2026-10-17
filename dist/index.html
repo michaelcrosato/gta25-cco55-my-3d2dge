@@ -4525,7 +4525,8 @@ class TileMap {
     // what fits instead of four whole views
     const view = r.view, key = view.id + ':' + view.yawDeg + ':' + view.pitchDeg + ':' + view.scale, wc = this._wcs || (this._wcs = new Map());
     let c = wc.get(key); if (!c) wc.set(key, c = { m: new Map() }); this._wcPx = this._wcPx || 0;
-    const idx = cy * this.w + cx, id = this.cells[idx]; let e = c.m.get(idx);
+    // (a block cut down by the cut-away keeps its own entry beside its whole one: a cut that comes and goes bakes once)
+    const idx = cy * this.w + cx, id = this.cells[idx], slot = idx * 2 + (h < t.h ? 1 : 0); let e = c.m.get(slot);
     // GTM-PATCH(1): a block is baked from its type, its height and its neighbours' drawn heights (a cut-away can lower
     // them as the player moves), so it checks those instead of the map's version
     const nh = (x, y) => { const n = this.cell(x, y); return n > 0 ? (this._isFront(x, y, view) ? (this.types[n].cutH || 6) : this.types[n].h) : 0; };
@@ -4540,7 +4541,7 @@ class TileMap {
       if (!view.isTop) for (const [nx, ny, A, B, n] of [[0, -1, [X1, Y0], [X0, Y0], n0], [0, 1, [X0, Y1], [X1, Y1], n1], [-1, 0, [X0, Y0], [X0, Y1], n2], [1, 0, [X1, Y1], [X1, Y0], n3]])
         if (nx * view.fx + ny * view.fy > .02 && n < h) { add(A[0], A[1], n); add(B[0], B[1], n); }
       e = { h, id, n0, n1, n2, n3, rN, rW, x0: Math.floor(x0) - 3, y0: Math.floor(y0) - 3, w: Math.ceil(x1) - Math.floor(x0) + 7, hh: Math.ceil(y1) - Math.floor(y0) + 7, cv: null, info: null, t: 0 };
-      c.m.set(idx, e);
+      c.m.set(slot, e);
     }
     e.t = r._frameNo || 0;
     const bake = info => {
@@ -4586,7 +4587,7 @@ class TileMap {
     const win = this._window(rr, Math.max(90, 20 - view.bz * mh), m), todo = [];
     for (let cy = win[1]; cy <= win[3]; cy++) for (let cx = win[0]; cx <= win[2]; cx++) {
       const id = this.cell(cx, cy); if (id <= 0) continue;
-      const t = this.types[id], h = this._isFront(cx, cy, view) ? (t.cutH || 6) : t.h, e = c && c.m.get(cy * this.w + cx);
+      const t = this.types[id], h = this._isFront(cx, cy, view) ? (t.cutH || 6) : t.h, e = c && c.m.get((cy * this.w + cx) * 2 + (h < t.h ? 1 : 0));
       if (e && e.cv && e.h === h && e.id === id) continue;
       const [sx, sy] = rr.w(cx * T + T / 2, cy * T + T / 2, 0);
       if (sx < -40 - m || sx > rr.W + 40 + m || sy < -20 - m || sy > rr.H + Math.max(90, 20 - view.bz * h) + m) continue;
@@ -4653,6 +4654,8 @@ class TileMap {
         const b0 = P(A[0], A[1], nh + .6), b1 = P(B[0], B[1], nh + .6); px.line(g, b0[0], b0[1], b1[0], b1[1], shade(col, -.35));
       }
     }
+    // GTM-PATCH(1): a cut block's top is the floor inside the building (t.cutTop, t.cutRoof), not its roof
+    if (h < t.h && t.cutTop) t = { ...t, top: t.cutTop, roof: t.cutRoof || t.roof, edge: t.cutEdge };
     const top = [P(x0, y0, h), P(x1, y0, h), P(x1, y1, h), P(x0, y1, h)];
     if (g._info) { g._mat = r._infoCol(h, 4, 0); g._c = null; }
     px.poly(g, top, t.top);
@@ -8793,6 +8796,96 @@ root.My3D2dge = E;
 </script>
 <script>
 (() => {
+  var __defProp = Object.defineProperty;
+  var __export = (target, all2) => {
+    for (var name in all2)
+      __defProp(target, name, { get: all2[name], enumerable: true });
+  };
+
+  // src/motor/index.js
+  var motor_exports = {};
+  __export(motor_exports, {
+    Activity: () => Activity,
+    Actor: () => Actor,
+    BUS: () => BUS,
+    BUTTONS: () => BUTTONS,
+    Bindings: () => Bindings,
+    CityMap: () => CityMap,
+    CityRenderer: () => CityRenderer,
+    CutAway: () => CutAway,
+    DEFAULT_BINDINGS: () => DEFAULT_BINDINGS,
+    Deck: () => Deck,
+    E: () => E,
+    EVENTS: () => EVENTS,
+    FloorChunks: () => FloorChunks,
+    Footprint: () => Footprint,
+    HANDLING: () => HANDLING,
+    HINTS: () => HINTS,
+    HumanController: () => HumanController,
+    PALETTE: () => PALETTE,
+    PROP_MODELS: () => PROP_MODELS,
+    RNG: () => RNG,
+    ROAD_KINDS: () => ROAD_KINDS,
+    SURFACES: () => SURFACES,
+    SURFACE_GRIP: () => SURFACE_GRIP,
+    Spans: () => Spans,
+    Stage: () => Stage,
+    SurfacePainter: () => SurfacePainter,
+    TUNE: () => TUNE,
+    VehicleBody: () => VehicleBody,
+    ViewManager: () => ViewManager,
+    all: () => all,
+    buildCity: () => buildCity,
+    buildDistrict: () => buildDistrict,
+    carModel: () => carModel,
+    checkHint: () => checkHint,
+    clearIntent: () => clearIntent,
+    codeFor: () => codeFor,
+    collideCars: () => collideCars,
+    collidePairs: () => collidePairs,
+    createApp: () => createApp,
+    declare: () => declare,
+    def: () => def,
+    defActivity: () => defActivity,
+    defMission: () => defMission,
+    drawBoxModel: () => drawBoxModel,
+    drawDeckCell: () => drawDeckCell,
+    drawGlyph: () => drawGlyph,
+    drawPrompt: () => drawPrompt,
+    drawSign: () => drawSign,
+    expose: () => expose,
+    get: () => get,
+    glyphSet: () => glyphSet,
+    glyphWidth: () => glyphWidth,
+    handle: () => handle,
+    hash32: () => hash32,
+    installHandle: () => installHandle,
+    kinds: () => kinds,
+    kioskWanted: () => kioskWanted,
+    knob: () => knob,
+    knobs: () => knobs,
+    makeBody: () => makeBody,
+    makeIntent: () => makeIntent,
+    missionStage: () => missionStage,
+    paintTileMapFloor: () => paintTileMapFloor,
+    parsePrompt: () => parsePrompt,
+    promptWidth: () => promptWidth,
+    readLinks: () => readLinks,
+    resetActorIds: () => resetActorIds,
+    route: () => route,
+    sections: () => sections,
+    shape: () => shape,
+    tapButton: () => tapButton,
+    tuneLoad: () => tuneLoad,
+    tuneReset: () => tuneReset,
+    tuneSave: () => tuneSave,
+    tuneSet: () => tuneSet,
+    tuningMarkdown: () => tuningMarkdown,
+    validateCity: () => validateCity,
+    vehicleDef: () => vehicleDef,
+    wrapScenes: () => wrapScenes
+  });
+
   // src/motor/engine.js
   var E = globalThis.My3D2dge;
   if (!E) throw new Error("MOTOR: my-3D2dge (My3D2dge) must be loaded before the game bundle");
@@ -8816,6 +8909,7 @@ root.My3D2dge = E;
   }
   var get = (kind, id) => REG.get(kind)?.get(id);
   var all = (kind) => [...REG.get(kind)?.values() || []];
+  var kinds = () => [...REG.keys()];
 
   // src/motor/core/schema.js
   var is = (v, t) => t === "any" || (t === "array" ? Array.isArray(v) : t === "object" ? v !== null && typeof v === "object" && !Array.isArray(v) : typeof v === t);
@@ -8885,14 +8979,111 @@ root.My3D2dge = E;
     }
   };
 
+  // src/motor/core/events.js
+  var EVENTS = {
+    // crime and police
+    crime: "type, x, y, by, victim, severity",
+    // type: 'assault' | 'murder' | 'carjack' | 'theft' | 'shooting' | 'explosion' | 'vandalism' | 'speeding' | ...
+    witness: "crime, by",
+    report: "crime, x, y",
+    wanted: "stars, heat, prev",
+    search: "x, y, r",
+    evaded: "stars",
+    busted: "by",
+    wrecked: "cause",
+    // combat
+    hit: "target, by, damage, kind, x, y, z",
+    // kind: 'bullet' | 'melee' | 'vehicle' | 'explosion' | 'fire' | 'fall'
+    kill: "target, by, kind",
+    explode: "x, y, z, r, by, power",
+    fire: "x, y, r, by",
+    // vehicles
+    vehicleEnter: "vehicle, actor, seat",
+    vehicleExit: "vehicle, actor, seat",
+    carjack: "vehicle, by, victim",
+    vehicleDamage: "vehicle, amount, x, y, by",
+    vehicleDestroyed: "vehicle, by",
+    // rewards
+    pickup: "item, by",
+    cash: "amount, reason",
+    respect: "gang, delta",
+    stunt: "id, score",
+    collectible: "id",
+    stat: "stat, delta",
+    // missions and activities
+    missionStart: "id",
+    stageStart: "mission, stage",
+    stageFail: "mission, stage, reason",
+    missionPass: "id, medal, elapsed",
+    missionFail: "id, reason",
+    activityStart: "id, level",
+    activityEnd: "id, level, result",
+    // the player
+    switch: "from, to",
+    ability: "who, on",
+    // the world and presentation
+    view: "view, prev",
+    radio: "station",
+    clock: "hour",
+    weather: "state, prev",
+    // saves, the attract mode, the UI
+    save: "slot",
+    load: "slot",
+    attractBeat: "reel, beat",
+    uiOpen: "screen",
+    uiClose: "screen"
+  };
+
   // src/motor/core/tune.js
   var KNOBS = /* @__PURE__ */ new Map();
   var TUNE = {};
+  var KEY = "GrandTheftMoto-5S:tune";
   function knob(section, id, label, def2, min, max, step = 0, about = "") {
     if (KNOBS.has(id)) E.warn("motor:tune:" + id, `MOTOR: knob "${id}" declared twice`);
     KNOBS.set(id, { section, id, label, def: def2, min, max, step, about });
     if (!(id in TUNE)) TUNE[id] = def2;
     return TUNE[id];
+  }
+  function tuneSet(id, v) {
+    const k = KNOBS.get(id);
+    if (!k) {
+      E.warn("motor:tune:unknown:" + id, `MOTOR: no knob "${id}"`);
+      return void 0;
+    }
+    if (typeof k.def === "number") {
+      v = E.clamp(+v, k.min, k.max);
+      if (k.step) v = Math.round(v / k.step) * k.step;
+    }
+    return TUNE[id] = v;
+  }
+  var knobs = (section) => [...KNOBS.values()].filter((k) => !section || k.section === section);
+  var sections = () => [...new Set([...KNOBS.values()].map((k) => k.section))];
+  function tuneReset() {
+    for (const k of KNOBS.values()) TUNE[k.id] = k.def;
+  }
+  function tuneLoad() {
+    const o = E.store.get(KEY, {}) || {};
+    for (const [id, v] of Object.entries(o)) if (KNOBS.has(id)) tuneSet(id, v);
+  }
+  function tuneSave() {
+    const o = {};
+    for (const k of KNOBS.values()) if (TUNE[k.id] !== k.def) o[k.id] = TUNE[k.id];
+    E.store.set(KEY, o);
+    return o;
+  }
+  function tuningMarkdown() {
+    let md = "# Tuning\n\nEvery gameplay number is a knob in `src/game/tune.js`, live in the dev menu (`?dev=1`). This file is generated (`node tools/tuning-doc.mjs`).\n";
+    for (const s of sections()) {
+      md += `
+## ${s}
+
+| Knob | Default | Range | What it does |
+|---|---|---|---|
+`;
+      for (const k of knobs(s)) md += `| \`${k.id}\` ${k.label} | ${k.def} | ${k.min}..${k.max} | ${k.about} |
+`;
+    }
+    return md;
   }
 
   // src/motor/core/rng.js
@@ -8975,6 +9166,7 @@ root.My3D2dge = E;
     game2.debug = Object.assign(game2.debug || {}, { snapshot: () => H.snapshot ? H.snapshot() : { scene: game2.sceneName } });
     return H;
   }
+  var handle = H;
 
   // src/motor/render/view-manager.js
   var ViewManager = class {
@@ -9159,26 +9351,26 @@ root.My3D2dge = E;
   var FLAT = { id: "chunk", scale: 1 };
   function paintTileMapFloor(map) {
     return (g, x0, y0, x1, y1) => {
-      const w = x1 - x0, h = y1 - y0, img = g.createImageData(w, h), d = img.data, T4 = map.T, W = map.w * T4, H3 = map.h * T4, R = map.ao;
+      const w = x1 - x0, h = y1 - y0, img = g.createImageData(w, h), d = img.data, T5 = map.T, W = map.w * T5, H3 = map.h * T5, R = map.ao;
       for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
         const gx = x0 + px + 0.5, gy = y0 + py + 0.5;
         if (gx < 0 || gy < 0 || gx >= W || gy >= H3) continue;
-        const cx = Math.floor(gx / T4), cy = Math.floor(gy / T4);
+        const cx = Math.floor(gx / T5), cy = Math.floor(gy / T5);
         if (map.cell(cx, cy) !== 0) continue;
         const tag = map.floorTags ? map.floorTags[cy * map.w + cx] : null;
         let c = map.floorTex(gx, gy, tag, FLAT);
         if (!c) continue;
         if (R) {
-          const lx = gx - cx * T4, ly = gy - cy * T4, wall = (dx, dy) => map.cell(cx + dx, cy + dy) > 0;
+          const lx = gx - cx * T5, ly = gy - cy * T5, wall = (dx, dy) => map.cell(cx + dx, cy + dy) > 0;
           let ao = 0;
           if (wall(-1, 0)) ao = Math.max(ao, 1 - lx / R);
-          if (wall(1, 0)) ao = Math.max(ao, 1 - (T4 - lx) / R);
+          if (wall(1, 0)) ao = Math.max(ao, 1 - (T5 - lx) / R);
           if (wall(0, -1)) ao = Math.max(ao, 1 - ly / R);
-          if (wall(0, 1)) ao = Math.max(ao, 1 - (T4 - ly) / R);
+          if (wall(0, 1)) ao = Math.max(ao, 1 - (T5 - ly) / R);
           if (wall(-1, -1)) ao = Math.max(ao, 1 - Math.hypot(lx, ly) / R);
-          if (wall(1, -1)) ao = Math.max(ao, 1 - Math.hypot(T4 - lx, ly) / R);
-          if (wall(-1, 1)) ao = Math.max(ao, 1 - Math.hypot(lx, T4 - ly) / R);
-          if (wall(1, 1)) ao = Math.max(ao, 1 - Math.hypot(T4 - lx, T4 - ly) / R);
+          if (wall(1, -1)) ao = Math.max(ao, 1 - Math.hypot(T5 - lx, ly) / R);
+          if (wall(-1, 1)) ao = Math.max(ao, 1 - Math.hypot(lx, T5 - ly) / R);
+          if (wall(1, 1)) ao = Math.max(ao, 1 - Math.hypot(T5 - lx, T5 - ly) / R);
           if (ao > 0) {
             const k2 = 1 - 0.4 * Math.round(ao * 5) / 5;
             c = [c[0] * k2, c[1] * k2 * 0.98, c[2] * k2 * 1.02];
@@ -9214,7 +9406,7 @@ root.My3D2dge = E;
       const k = j * 4096 + i;
       let list = this.cache.get(k);
       if (list) return list;
-      const n = this.cells, c0 = i * n, r0 = j * n, c1 = Math.min(M.w, c0 + n), r1 = Math.min(M.h, r0 + n), T4 = M.T;
+      const n = this.cells, c0 = i * n, r0 = j * n, c1 = Math.min(M.w, c0 + n), r1 = Math.min(M.h, r0 + n), T5 = M.T;
       const open = /* @__PURE__ */ new Map();
       list = [];
       for (let cy = r0; cy <= r1; cy++) {
@@ -9231,13 +9423,13 @@ root.My3D2dge = E;
           cx = e;
         }
         for (const [key, s] of open) if (runs.has(key)) {
-          s.y1 += T4;
+          s.y1 += T5;
           runs.delete(key);
         } else {
           open.delete(key);
           list.push(s);
         }
-        for (const [key, [a, b, id]] of runs) open.set(key, { x0: a * T4, y0: cy * T4, x1: b * T4, y1: (cy + 1) * T4, id, t: M.types[id], h: M.types[id].h });
+        for (const [key, [a, b, id]] of runs) open.set(key, { x0: a * T5, y0: cy * T5, x1: b * T5, y1: (cy + 1) * T5, id, t: M.types[id], h: M.types[id].h });
       }
       this.cache.set(k, list);
       return list;
@@ -9432,10 +9624,10 @@ root.My3D2dge = E;
         this.ready = true;
         return;
       }
-      const rx = fx - this.x, ry = fy - this.y, L2 = rx * a.r[0] + ry * a.r[1], D = rx * a.f[0] + ry * a.f[1];
+      const rx = fx - this.x, ry = fy - this.y, L3 = rx * a.r[0] + ry * a.r[1], D = rx * a.f[0] + ry * a.f[1];
       const k = 1 - Math.exp(-dt * 5), want = E.clamp(D, this.near, this.far), mv = (D - want) * Math.min(1, k * 2);
-      this.x += a.r[0] * L2 * k + a.f[0] * mv;
-      this.y += a.r[1] * L2 * k + a.f[1] * mv;
+      this.x += a.r[0] * L3 * k + a.f[0] * mv;
+      this.y += a.r[1] * L3 * k + a.f[1] * mv;
     }
     /** set up the projection for this frame (r: the engine renderer: its buffer size and sub-pixel offset) */
     frame(r) {
@@ -9452,10 +9644,10 @@ root.My3D2dge = E;
       return [P2.cx + (rx * P2.r[0] + ry * P2.r[1]) * k, P2.hy - (z - this.h) * k, k];
     }
     /** (D, L, z) in rail space -> [buffer x, buffer y] (null behind the camera) */
-    _q(D, L2, z) {
+    _q(D, L3, z) {
       if (D < 6) return null;
       const P2 = this.P, k = P2.F / D;
-      return [P2.cx + L2 * k, P2.hy - (z - this.h) * k, k];
+      return [P2.cx + L3 * k, P2.hy - (z - this.h) * k, k];
     }
     /** a buffer row's floor distance along the rail (the inverse of proj on the floor), or 0 at and above the horizon */
     rowDepth(by) {
@@ -9466,8 +9658,8 @@ root.My3D2dge = E;
     toGround(bx, by) {
       const P2 = this.P, D = this.rowDepth(by);
       if (!D) return null;
-      const L2 = (bx - P2.cx) * D / P2.F;
-      return [this.x + P2.f[0] * D + P2.r[0] * L2, this.y + P2.f[1] * D + P2.r[1] * L2];
+      const L3 = (bx - P2.cx) * D / P2.F;
+      return [this.x + P2.f[0] * D + P2.r[0] * L3, this.y + P2.f[1] * D + P2.r[1] * L3];
     }
     /** depth along the rail of a world point: the draw order key (bigger is farther) */
     depth(x, y) {
@@ -9562,17 +9754,17 @@ root.My3D2dge = E;
      *  slice's far edge), front faces (key: their depth) and the tops of spans lower than the camera. focus: [x, y]; a
      *  span wholly between the camera and the focus, across its line of sight, drops to a stub (its cutH) */
     spanItems(spans, items, focus, night = true) {
-      const a = RAIL[this.heading], P2 = this.P, T4 = 16, PER = FACE_PERIOD, mod = (v, m) => (v % m + m) % m;
+      const a = RAIL[this.heading], P2 = this.P, T5 = 16, PER = FACE_PERIOD, mod = (v, m) => (v % m + m) % m;
       const fD = focus ? this.depth(focus[0], focus[1]) : 0, fL = focus ? (focus[0] - this.x) * a.r[0] + (focus[1] - this.y) * a.r[1] : 0;
       const cAlong = this.x * a.f[0] + this.y * a.f[1], cAcross = this.x * a.r[0] + this.y * a.r[1];
       for (const s of spans) {
         let Dn = 1e9, Df = -1e9, La = 1e9, Lb = -1e9;
         for (const [x, y] of [[s.x0, s.y0], [s.x1, s.y0], [s.x0, s.y1], [s.x1, s.y1]]) {
-          const rx = x - this.x, ry = y - this.y, D = rx * a.f[0] + ry * a.f[1], L2 = rx * a.r[0] + ry * a.r[1];
+          const rx = x - this.x, ry = y - this.y, D = rx * a.f[0] + ry * a.f[1], L3 = rx * a.r[0] + ry * a.r[1];
           Dn = Math.min(Dn, D);
           Df = Math.max(Df, D);
-          La = Math.min(La, L2);
-          Lb = Math.max(Lb, L2);
+          La = Math.min(La, L3);
+          Lb = Math.max(Lb, L3);
         }
         if (Df < NEAR_D || Dn > this.farClip) continue;
         if ((La > 0 ? La : Lb < 0 ? -Lb : 0) * P2.F / Math.max(6, Df) > P2.W / 2 + 8) continue;
@@ -9581,8 +9773,8 @@ root.My3D2dge = E;
         const side = La > 0 ? La : Lb < 0 ? Lb : null;
         if (side !== null) {
           const nx = La > 0 ? -a.r[0] : a.r[0], ny = La > 0 ? -a.r[1] : a.r[1], sh = shadeOf(nx, ny), cv = faceTexture(s.id, s.t, h, sh, v, night), col = faceColor(s.t, sh);
-          for (let b = Dn; b < Df; b += T4) {
-            const d0 = Math.max(b, NEAR_D), d1 = Math.min(Df, b + T4);
+          for (let b = Dn; b < Df; b += T5) {
+            const d0 = Math.max(b, NEAR_D), d1 = Math.min(Df, b + T5);
             if (d1 <= d0) continue;
             if (d0 > this.farClip) break;
             const u0 = mod(cAlong + b, PER) + (d0 - b);
@@ -9732,6 +9924,43 @@ root.My3D2dge = E;
     }
   };
 
+  // src/motor/render/cutaway.js
+  var CutAway = class {
+    /** city: a CityMap (its lot grid names each wall cell's building) */
+    constructor(city) {
+      this.city = city;
+      this.cut = /* @__PURE__ */ new Set();
+      this.on = false;
+      this.radius = 13;
+      city.map.cutAt = (cx, cy, view) => {
+        if (!this.on || !view.inv || view.isTop) return false;
+        const lot = city.lot[cy * city.w + cx];
+        return lot >= 0 && this.cut.has(lot);
+      };
+    }
+    /** pick the buildings that hide a body at (x, y, z) in the engine view: wall cells in front of it (nearer the camera)
+     *  whose drawn box covers its sprite on screen. Call each ISO frame, before the walls are queued */
+    update(view, x, y, z = 0) {
+      this.cut.clear();
+      this.on = !!view.inv && !view.isTop;
+      if (!this.on) return;
+      const C = this.city, T5 = C.T, map = C.map, s = view.scale, own = view.fx * x + view.fy * y, [px, py] = view.p(x, y, z);
+      const bx0 = px - 10 * s, bx1 = px + 10 * s, by0 = py - 40 * s, by1 = py + 2 * s;
+      const cx0 = Math.floor(x / T5), cy0 = Math.floor(y / T5), R = this.radius;
+      for (let cy = cy0 - R; cy <= cy0 + R; cy++) for (let cx = cx0 - R; cx <= cx0 + R; cx++) {
+        const id = map.cell(cx, cy);
+        if (id <= 0) continue;
+        const lot = C.lot[cy * C.w + cx];
+        if (lot < 0 || this.cut.has(lot)) continue;
+        const mx = (cx + 0.5) * T5, my = (cy + 0.5) * T5;
+        if (view.fx * mx + view.fy * my <= own + 6) continue;
+        const h = C.types[id].h, a = view.p(cx * T5, cy * T5, 0), b = view.p(cx * T5 + T5, cy * T5 + T5, 0), c = view.p(cx * T5 + T5, cy * T5, 0), d = view.p(cx * T5, cy * T5 + T5, 0);
+        const sx0 = Math.min(a[0], b[0], c[0], d[0]), sx1 = Math.max(a[0], b[0], c[0], d[0]), sy1 = Math.max(a[1], b[1], c[1], d[1]), sy0 = Math.min(a[1], b[1], c[1], d[1]) + view.bz * h;
+        if (sx1 > bx0 && sx0 < bx1 && sy1 > by0 && sy0 < by1) this.cut.add(lot);
+      }
+    }
+  };
+
   // src/motor/render/stage.js
   var CROWD = { outline: false, rim: false };
   var XRAY = { xray: true };
@@ -9776,25 +10005,32 @@ root.My3D2dge = E;
     get depthActive() {
       return !!this.depth;
     }
-    /** the world to draw: { map (TileMap), floor (FloorChunks), backdrop (E.Backdrop, ISO's sky), night, engineFloor
-     *  (ISO draws the engine's own whole-map floor bake: small maps only, for comparisons) } */
+    /** the world to draw: { map (TileMap), city (its CityMap, for the cut-away), floor (FloorChunks), backdrop (E.Backdrop,
+     *  ISO's sky), night, engineFloor (ISO draws the engine's own whole-map floor bake: small maps only, for comparisons) } */
     setWorld(w) {
       this.world = Object.assign({ night: true }, w);
       this.spans = w.map ? new Spans(w.map, w.floor ? w.floor.size : 256) : null;
+      this.cutaway = w.city ? w.city.cutaway || (w.city.cutaway = new CutAway(w.city)) : null;
       this.side7.ready = false;
       this.top.ready = false;
       this.side7.heading = 0;
     }
     /** start a frame: o.focus [x, y] (the possessed actor), o.vel [vx, vy] and o.speed01 (0..1 of top speed) steer the
-     *  depth cameras; presentation only, the simulation never reads it */
+     *  depth cameras; o.player [x, y, z] (the focus by default) is who the cut-away keeps in sight. Presentation only:
+     *  the simulation never reads it */
     begin(r, o = {}) {
       this.r = r;
       this.items.length = 0;
       this.focus = o.focus || null;
+      this.isoP = null;
       const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, 0.1);
       this.last = now;
       const d = this.depth, W = this.world;
       if (!d) {
+        if (this.cutaway) {
+          const p = o.player || this.focus;
+          if (p) this.cutaway.update(r.view, p[0], p[1], p[2] || 0);
+        }
         if (W.backdrop) W.backdrop.draw(r);
         if (W.engineFloor && W.map) W.map.drawFloor(r);
         else if (W.floor) W.floor.drawIso(r);
@@ -9834,17 +10070,46 @@ root.My3D2dge = E;
         g.globalAlpha = 1;
       } });
     }
-    /** a shape drawn through a projector: draw(g, P) with P.proj(x, y, z) -> [sx, sy, k] (vehicles, props, markers) */
-    shape(x, y, z, draw) {
+    /** a shape drawn through a projector: draw(g, P) with P.proj(x, y, z) -> [sx, sy, k] (vehicles, props, markers).
+     *  o: the engine queue's options in ISO ({ emissive, bias, hides, footprint }) */
+    shape(x, y, z, draw, o) {
       const d = this.depth, r = this.r;
       if (!d) {
-        r.queue(x, y, z, (g) => draw(g, { proj: (a, b, c = 0) => {
+        r.queue(x, y, z, (g) => draw(g, this.isoP || (this.isoP = { proj: (a, b, c = 0) => {
           const q = r.w(a, b, c);
           return [q[0], q[1], r.view.scale];
-        } }));
+        } })), o);
         return;
       }
-      this.items.push({ k: d.depth(x, y), fn: (g) => draw(g, d) });
+      this.items.push({ k: d.depth(x, y) - (o && o.bias || 0), fn: (g) => draw(g, d) });
+    }
+    /** one of the engine's props (E.PROPS: 'streetlamp', 'palm', 'trashcan'...): r.prop's billboard in ISO (o: its options:
+     *  size, light, lightRadius...), the same sprite scaled to its distance in TOP and SIDE7 */
+    prop(name, x, y, z, o = {}) {
+      const d = this.depth, r = this.r;
+      if (!d) {
+        r.prop(name, x, y, z, o);
+        return;
+      }
+      const p = E.prop(name, o.size ? { size: o.size } : void 0);
+      if (!p) return;
+      const spr = p.frames[0];
+      this.items.push({ k: d.depth(x, y), fn: (g) => {
+        const q = d.proj(x, y, z);
+        if (!q) return;
+        const s = q[2] / Math.SQRT2, w = spr.w * s, h = spr.h * s;
+        if (h < 1) return;
+        g.drawImage(spr.cv, Math.round(q[0] - w / 2), Math.round(q[1] - h), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+        if (p.glowAt && o.light) {
+          const gx = q[0] - w / 2 + w * p.glowAt[0], gy = q[1] - h + h * p.glowAt[1], R = Math.max(2, w * 0.9);
+          g.globalAlpha = 0.25;
+          g.fillStyle = p.glowAt[2];
+          g.beginPath();
+          g.arc(gx, gy, R, 0, 6.3);
+          g.fill();
+          g.globalAlpha = 1;
+        }
+      } });
     }
     /** finish the frame: in a depth view, the sky, the floor, then the spans and everything queued, far to near */
     end() {
@@ -9900,6 +10165,9 @@ root.My3D2dge = E;
 
   // src/motor/sim/actor.js
   var nextId = 1;
+  var resetActorIds = () => {
+    nextId = 1;
+  };
   var Actor = class {
     /** kind: 'ped' | 'vehicle' | 'pickup' | 'prop' | 'projectile' | 'fire' ...; o: any field below */
     constructor(kind, o = {}) {
@@ -9983,6 +10251,11 @@ root.My3D2dge = E;
       i.down[b] = false;
       i.tap[b] = false;
     }
+    return i;
+  }
+  function tapButton(i, b) {
+    i.down[b] = true;
+    i.tap[b] = true;
     return i;
   }
 
@@ -10082,8 +10355,8 @@ root.My3D2dge = E;
       return this.h.width / 2;
     }
     corners() {
-      const c = Math.cos(this.heading), s = Math.sin(this.heading), L2 = this.hl, W = this.hw;
-      return [[L2, -W], [L2, W], [-L2, W], [-L2, -W]].map(([f, r]) => [this.x + f * c - r * s, this.y + f * s + r * c]);
+      const c = Math.cos(this.heading), s = Math.sin(this.heading), L3 = this.hl, W = this.hw;
+      return [[L3, -W], [L3, W], [-L3, W], [-L3, -W]].map(([f, r]) => [this.x + f * c - r * s, this.y + f * s + r * c]);
     }
     /** the world velocity [vx, vy] */
     get vx() {
@@ -10190,7 +10463,7 @@ root.My3D2dge = E;
     }
     /** push out of wall cells taller than a curb, and out of map solids */
     _collideMap(map) {
-      const T4 = map.T, cs = this.corners();
+      const T5 = map.T, cs = this.corners();
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
       for (const [x, y] of cs) {
         x0 = Math.min(x0, x);
@@ -10202,10 +10475,10 @@ root.My3D2dge = E;
         const id = map.cell(cx, cy);
         return id < 0 || id > 0 && map.types[id].h > this.z + CURB;
       };
-      for (let it = 0; it < 2; it++) for (let cy = Math.floor(y0 / T4); cy <= Math.floor(y1 / T4); cy++) for (let cx = Math.floor(x0 / T4); cx <= Math.floor(x1 / T4); cx++) {
+      for (let it = 0; it < 2; it++) for (let cy = Math.floor(y0 / T5); cy <= Math.floor(y1 / T5); cy++) for (let cx = Math.floor(x0 / T5); cx <= Math.floor(x1 / T5); cx++) {
         if (!tall(cx, cy)) continue;
         const open = { "1,0": !tall(cx + 1, cy), "-1,0": !tall(cx - 1, cy), "0,1": !tall(cx, cy + 1), "0,-1": !tall(cx, cy - 1) };
-        const hit = obbVsBox(this, (cx + 0.5) * T4, (cy + 0.5) * T4, T4 / 2, T4 / 2, 1, 0, (nx, ny) => open[Math.round(nx) + "," + Math.round(ny)] !== false);
+        const hit = obbVsBox(this, (cx + 0.5) * T5, (cy + 0.5) * T5, T5 / 2, T5 / 2, 1, 0, (nx, ny) => open[Math.round(nx) + "," + Math.round(ny)] !== false);
         if (hit) this._resolve(hit, null);
       }
       if (map.solidsNear) for (const s of map.solidsNear(this.x, this.y, this.hl + 8)) {
@@ -10386,17 +10659,17 @@ root.My3D2dge = E;
     g._c = null;
   }
   function carModel({ length = 58, width = 26, height = 22, color = "#c8423a", cabin = 0.45, cabinAt = -0.08, roof = "#2a2a34", bar = false, wheel = 6 } = {}) {
-    const L2 = length / 2, W = width / 2, body = height * 0.55, cl = length * cabin, cx = length * cabinAt;
+    const L3 = length / 2, W = width / 2, body = height * 0.55, cl = length * cabin, cx = length * cabinAt;
     const parts2 = [
-      { box: [-L2, -W, wheel * 0.5, L2, W, body], color, role: "body" },
+      { box: [-L3, -W, wheel * 0.5, L3, W, body], color, role: "body" },
       { box: [cx - cl / 2, -W + 2, body, cx + cl / 2, W - 2, height], color: "#3a4a5a", role: "glass" },
       { box: [cx - cl / 2 + 2, -W + 3, height - 1, cx + cl / 2 - 2, W - 3, height + 0.5], color: roof, role: "cabin" },
-      { box: [L2 - 1, -W + 2, body - 5, L2 + 0.5, -W + 6, body - 2], color: "#fff4c8", role: "light" },
-      { box: [L2 - 1, W - 6, body - 5, L2 + 0.5, W - 2, body - 2], color: "#fff4c8", role: "light" },
-      { box: [-L2 - 0.5, -W + 2, body - 5, -L2 + 1, -W + 6, body - 2], color: "#8a1a1a", role: "tail" },
-      { box: [-L2 - 0.5, W - 6, body - 5, -L2 + 1, W - 2, body - 2], color: "#8a1a1a", role: "tail" }
+      { box: [L3 - 1, -W + 2, body - 5, L3 + 0.5, -W + 6, body - 2], color: "#fff4c8", role: "light" },
+      { box: [L3 - 1, W - 6, body - 5, L3 + 0.5, W - 2, body - 2], color: "#fff4c8", role: "light" },
+      { box: [-L3 - 0.5, -W + 2, body - 5, -L3 + 1, -W + 6, body - 2], color: "#8a1a1a", role: "tail" },
+      { box: [-L3 - 0.5, W - 6, body - 5, -L3 + 1, W - 2, body - 2], color: "#8a1a1a", role: "tail" }
     ];
-    for (const fx of [L2 * 0.62, -L2 * 0.62]) for (const sy of [-1, 1]) parts2.push({ box: [fx - wheel, sy < 0 ? -W - 0.5 : W - 3.5, 0, fx + wheel, sy < 0 ? -W + 3.5 : W + 0.5, wheel * 1.6], color: "#1a1a20", role: "wheel" });
+    for (const fx of [L3 * 0.62, -L3 * 0.62]) for (const sy of [-1, 1]) parts2.push({ box: [fx - wheel, sy < 0 ? -W - 0.5 : W - 3.5, 0, fx + wheel, sy < 0 ? -W + 3.5 : W + 0.5, wheel * 1.6], color: "#1a1a20", role: "wheel" });
     if (bar) for (const sy of [-1, 1]) parts2.push({ box: [cx - 3, sy < 0 ? -W + 4 : 0, height + 0.5, cx + 3, sy < 0 ? 0 : W - 4, height + 3], color: sy < 0 ? "#c82a2a" : "#2a5ac8", role: "siren" });
     return { parts: parts2 };
   }
@@ -10470,7 +10743,7 @@ root.My3D2dge = E;
     }
   };
   var LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt)/;
-  var KEY = "GrandTheftMoto-5S:bindings";
+  var KEY2 = "GrandTheftMoto-5S:bindings";
   var TRIGGER = 0.35;
   var STICK = 0.5;
   var Bindings = class _Bindings {
@@ -10619,10 +10892,10 @@ root.My3D2dge = E;
     }
     /** the player's changes, saved apart from the engine's bindings */
     save() {
-      E.store.set(KEY, this.map);
+      E.store.set(KEY2, this.map);
     }
     static load(input) {
-      return new _Bindings(input, E.store.get(KEY, null));
+      return new _Bindings(input, E.store.get(KEY2, null));
     }
   };
 
@@ -10899,6 +11172,868 @@ root.My3D2dge = E;
   declare("missions", (spec, id) => [...missionShape(spec, id), ...checkStages(spec.stages)]);
   var activityShape = shape({ title: { type: "string", req: true }, start: { type: "object", def: {} }, levels: { type: "number", def: 1, min: 1 }, stages: { type: "array", req: true } });
   declare("activities", (spec, id) => [...activityShape(spec, id), ...checkStages(spec.stages)]);
+  var defMission = (id, spec) => def("missions", id, spec);
+  var defActivity = (id, spec) => def("activities", id, spec);
+  var missionStage = (id, stage) => {
+    const m = get("missions", id);
+    return m && m.stages.find((s) => s.id === stage) || null;
+  };
+
+  // src/motor/world/citymap.js
+  var SURFACES = ["lot", "road", "walk", "curb", "grass", "dirt", "water", "deep", "plaza", "sand", "alley", "quay", "pier", "park", "yard", "rail", "bridge"];
+  var SURF = Object.fromEntries(SURFACES.map((s, i) => [s, i]));
+  var BLOCKING = /* @__PURE__ */ new Set(["water", "deep"]);
+  var CityMap = class {
+    /** w, h: cells; T: the tile size (16) */
+    constructor(w, h, T5 = 16) {
+      this.w = w;
+      this.h = h;
+      this.T = T5;
+      this.surface = new Uint8Array(w * h);
+      this.hood = new Uint8Array(w * h);
+      this.lot = new Int32Array(w * h).fill(-1);
+      this.hoods = [];
+      this.roads = [];
+      this.intersections = [];
+      this.lots = [];
+      this.decks = [];
+      this.props = [];
+      this.pois = [];
+      this.zones = [];
+      this.signs = [];
+      this.map = null;
+      this.seed = 0;
+      this.id = "";
+    }
+    inside(cx, cy) {
+      return cx >= 0 && cy >= 0 && cx < this.w && cy < this.h;
+    }
+    idx(cx, cy) {
+      return cy * this.w + cx;
+    }
+    /** the surface name at a cell (or 'deep' outside) */
+    surfaceAt(cx, cy) {
+      return this.inside(cx, cy) ? SURFACES[this.surface[this.idx(cx, cy)]] : "deep";
+    }
+    /** the surface name under a world point */
+    surfaceAtPoint(x, y) {
+      return this.surfaceAt(Math.floor(x / this.T), Math.floor(y / this.T));
+    }
+    setSurface(cx, cy, name) {
+      if (this.inside(cx, cy)) this.surface[this.idx(cx, cy)] = SURF[name];
+    }
+    /** fill a cell rectangle (inclusive) with a surface */
+    fillSurface(x0, y0, x1, y1, name) {
+      for (let y = Math.max(0, y0); y <= Math.min(this.h - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(this.w - 1, x1); x++) this.surface[y * this.w + x] = SURF[name];
+    }
+    /** the neighbourhood spec at a cell, or null */
+    hoodAt(cx, cy) {
+      return this.inside(cx, cy) ? this.hoods[this.hood[this.idx(cx, cy)]] || null : null;
+    }
+    hoodAtPoint(x, y) {
+      return this.hoodAt(Math.floor(x / this.T), Math.floor(y / this.T));
+    }
+    /** a point of interest by id */
+    poi(id) {
+      return this.pois.find((p) => p.id === id) || null;
+    }
+    /** the zones holding a world point */
+    zonesAt(x, y) {
+      const cx = x / this.T, cy = y / this.T;
+      return this.zones.filter((z) => cx >= z.rect[0] && cy >= z.rect[1] && cx < z.rect[2] + 1 && cy < z.rect[3] + 1);
+    }
+    /** the deck surface under (x, y) a body at height z can stand on (the highest deck top at or below z + step), or null */
+    deckAt(x, y, z = 1e9, step = 6) {
+      let best = null;
+      for (const d of this.decks) {
+        const s = d.heightAt(x, y);
+        if (s !== null && s <= z + step && (!best || s > best.z)) best = { deck: d, z: s };
+      }
+      return best;
+    }
+    /** is the cell walkable on foot at street level (no wall, no water)? */
+    walkable(cx, cy) {
+      return this.inside(cx, cy) && this.map.cell(cx, cy) === 0 && !BLOCKING.has(this.surfaceAt(cx, cy));
+    }
+    /** is the cell drivable at street level? Every open cell is (a car mounts the sidewalk and crosses the park, as in
+     *  GTA2); traffic keeps to its lanes */
+    drivable(cx, cy) {
+      return this.walkable(cx, cy);
+    }
+  };
+  var Deck = class {
+    constructor(o) {
+      Object.assign(this, { id: "", kind: "road", width: 6, cells: [], pillars: [], thickness: 6, railing: true, lanes: 2 }, o);
+      this._index = null;
+    }
+    _cellMap() {
+      if (this._index) return this._index;
+      const m = /* @__PURE__ */ new Map();
+      for (const c of this.cells) m.set(c.cx + "," + c.cy, c);
+      return this._index = m;
+    }
+    /** the deck's top under a world point, or null (off the deck) */
+    heightAt(x, y) {
+      const T5 = 16, cx = Math.floor(x / T5), cy = Math.floor(y / T5), c = this._cellMap().get(cx + "," + cy);
+      if (!c) return null;
+      const f = c.axis === "x" ? x / T5 - cx : y / T5 - cy;
+      return c.z0 + (c.z1 - c.z0) * f;
+    }
+  };
+
+  // src/motor/world/builder.js
+  var ROAD_KINDS = { avenue: { width: 9, walk: 2, lanes: 4, median: true }, street: { width: 5, walk: 2, lanes: 2 }, alley: { width: 3, walk: 0, lanes: 1 } };
+  function stream2(seed, name) {
+    const next = E.rng(hash32(seed, "build", name));
+    return { next, int: (a, b) => a + Math.floor((b - a + 1) * next()), range: (a, b) => a + (b - a) * next(), pick: (l) => l[Math.floor(next() * l.length)], chance: (p) => next() < p };
+  }
+  function buildDistrict(spec, o = {}) {
+    const seed = o.seed ?? spec.seed ?? 1, [W, H3] = spec.size, C = new CityMap(W, H3, 16), T5 = 16;
+    C.id = spec.id;
+    C.seed = seed;
+    C.spec = spec;
+    const cells = new Int32Array(W * H3), used = new Uint8Array(W * H3), taken = new Uint8Array(W * H3);
+    const types = {};
+    let nextType = 1;
+    const inside = (x, y) => x >= 0 && y >= 0 && x < W && y < H3, I = (x, y) => y * W + x;
+    const rect = (r, fn) => {
+      for (let y = Math.max(0, r[1]); y <= Math.min(H3 - 1, r[3]); y++) for (let x = Math.max(0, r[0]); x <= Math.min(W - 1, r[2]); x++) fn(x, y, I(x, y));
+    };
+    const hoodIds = Object.keys(spec.hoods || {});
+    C.hoods = hoodIds.map((id, i) => ({ id, index: i, ...spec.hoods[id] }));
+    for (const [x0, y0, x1, y1, id] of spec.hoodMap || []) rect([x0, y0, x1, y1], (x, y, i) => {
+      C.hood[i] = hoodIds.indexOf(id);
+    });
+    for (const w of spec.water || []) rect(w.rect, (x, y, i) => {
+      C.surface[i] = SURF[w.deep === false ? "water" : "deep"];
+      used[i] = 1;
+      taken[i] = 1;
+    });
+    C.roads = (spec.roads || []).map((r, n) => {
+      const k = ROAD_KINDS[r.kind] || ROAD_KINDS.street, half = (k.width - 1) / 2, ns = r.axis === "y";
+      const band2 = ns ? [r.at - half, r.from, r.at + half, r.to] : [r.from, r.at - half, r.to, r.at + half];
+      const walks = k.walk ? ns ? [[band2[0] - k.walk, band2[1], band2[0] - 1, band2[3]], [band2[2] + 1, band2[1], band2[2] + k.walk, band2[3]]] : [[band2[0], band2[1] - k.walk, band2[2], band2[1] - 1], [band2[0], band2[3] + 1, band2[2], band2[3] + k.walk]] : [];
+      return { id: r.id || r.kind + n, kind: r.kind, axis: r.axis, at: r.at, from: r.from, to: r.to, band: band2, walks, lanes: k.lanes, median: !!k.median, width: k.width, name: r.name || "" };
+    });
+    const water = new Uint8Array(W * H3);
+    for (let i = 0; i < W * H3; i++) water[i] = C.surface[i] === SURF.water || C.surface[i] === SURF.deep ? 1 : 0;
+    const railings = [];
+    for (const r of C.roads) for (const w of r.walks) rect(w, (x, y, i) => {
+      if (water[i]) {
+        C.surface[i] = SURF.bridge;
+        railings.push([x, y, r]);
+      } else if (C.surface[i] !== SURF.road) C.surface[i] = SURF[r.kind === "alley" ? "alley" : "walk"];
+      used[i] = 1;
+      taken[i] = 2;
+    });
+    for (const r of C.roads) rect(r.band, (x, y, i) => {
+      C.surface[i] = water[i] ? SURF.bridge : SURF[r.kind === "alley" ? "alley" : "road"];
+      used[i] = 1;
+      taken[i] = 2;
+    });
+    for (const [x, y, r] of railings) {
+      const outer = r.axis === "y" ? x === r.walks[0][0] || x === r.walks[1][2] : y === r.walks[0][1] || y === r.walks[1][3];
+      if (outer && C.surface[I(x, y)] === SURF.bridge) cells[I(x, y)] = -2;
+    }
+    for (const a of C.roads) for (const b of C.roads) if (a.axis === "y" && b.axis === "x") {
+      const ix = [Math.max(a.band[0], b.band[0]), Math.max(a.band[1], b.band[1]), Math.min(a.band[2], b.band[2]), Math.min(a.band[3], b.band[3])];
+      if (ix[0] <= ix[2] && ix[1] <= ix[3]) C.intersections.push({ rect: ix, roads: [a.id, b.id], signals: a.kind === "avenue" && b.kind === "avenue" ? "signal" : a.kind === "avenue" || b.kind === "avenue" ? "signal" : "stop" });
+    }
+    C.crosswalks = [];
+    for (const a of C.roads) for (const b of C.roads) if (a !== b && a.axis !== b.axis && a.kind !== "alley") for (const w of b.walks) {
+      const cw = [Math.max(a.band[0], w[0]), Math.max(a.band[1], w[1]), Math.min(a.band[2], w[2]), Math.min(a.band[3], w[3])];
+      if (cw[0] <= cw[2] && cw[1] <= cw[3] && !water[I(cw[0], cw[1])]) C.crosswalks.push({ rect: cw, axis: a.axis, road: a.id });
+    }
+    C.busy = new Uint8Array(W * H3);
+    for (const n of C.intersections) rect(n.rect, (x, y, i) => {
+      C.busy[i] = 1;
+    });
+    for (const w of C.crosswalks) rect(w.rect, (x, y, i) => {
+      C.busy[i] = 2;
+    });
+    const rs = stream2(seed, "lots");
+    const addLot = (lot) => {
+      lot.index = C.lots.length;
+      C.lots.push(lot);
+      const overWater = lot.kind === "pier" || lot.surface === "pier" || lot.surface === "quay";
+      rect(lot.rect, (x, y, i) => {
+        if (taken[i] === 2 || taken[i] === 1 && !overWater && !lot.onWater) return;
+        used[i] = 1;
+        C.lot[i] = lot.index;
+        if (lot.surface) C.surface[i] = SURF[lot.surface];
+        if (lot.kind === "building") taken[i] = 3;
+      });
+      return lot;
+    };
+    for (const L3 of spec.lots || []) addLot({ ...L3, rect: L3.rect.slice(), landmark: L3.landmark || true, hood: C.hoods[C.hood[I(L3.rect[0], L3.rect[1])]]?.id });
+    const seen = new Uint8Array(W * H3);
+    C.blocks = [];
+    for (let y = 0; y < H3; y++) for (let x = 0; x < W; x++) {
+      const i0 = I(x, y);
+      if (used[i0] || seen[i0]) continue;
+      const list = [], q = [i0];
+      seen[i0] = 1;
+      let x0 = x, y0 = y, x1 = x, y1 = y;
+      while (q.length) {
+        const i = q.pop(), cx = i % W, cy = (i - cx) / W;
+        list.push(i);
+        x0 = Math.min(x0, cx);
+        x1 = Math.max(x1, cx);
+        y0 = Math.min(y0, cy);
+        y1 = Math.max(y1, cy);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = cx + dx, ny = cy + dy;
+          if (!inside(nx, ny)) continue;
+          const j = I(nx, ny);
+          if (!used[j] && !seen[j]) {
+            seen[j] = 1;
+            q.push(j);
+          }
+        }
+      }
+      C.blocks.push({ rect: [x0, y0, x1, y1], cells: list.sort((a, b) => a - b), hood: C.hoods[C.hood[i0]]?.id });
+    }
+    for (const b of C.blocks) fillBlock(b);
+    function fillBlock(b) {
+      const hood = C.hoods.find((h) => h.id === b.hood), style = (spec.styles || {})[hood && hood.style || "default"] || DEFAULT_STYLE;
+      const free = new Set(b.cells), isFree = (x, y) => free.has(I(x, y));
+      for (const i of b.cells) {
+        const x = i % W, y = (i - x) / W;
+        if (!free.has(i)) continue;
+        const kind = pickWeighted(rs, style.kinds), k = style.lots[kind];
+        let w = rs.int(k.w[0], k.w[1]), d = rs.int(k.d[0], k.d[1]);
+        let mw = 0;
+        while (mw < w && isFree(x + mw, y)) mw++;
+        let md = 0;
+        outer: while (md < d) {
+          for (let dx = 0; dx < mw; dx++) if (!isFree(x + dx, y + md)) break outer;
+          md++;
+        }
+        const lot = { rect: [x, y, x + mw - 1, y + md - 1], kind: k.kind || "building", style: kind, hood: b.hood };
+        if (mw < 2 || md < 2) {
+          lot.kind = "yard";
+          lot.surface = style.filler || "yard";
+        } else if (k.kind === "building") lot.storeys = rs.int(k.storeys[0], k.storeys[1]);
+        for (let yy = lot.rect[1]; yy <= lot.rect[3]; yy++) for (let xx = lot.rect[0]; xx <= lot.rect[2]; xx++) free.delete(I(xx, yy));
+        if (lot.kind === "building" && style.alleys && rs.chance(style.alleys) && mw > 4) {
+          lot.rect[2]--;
+          lot.alley = true;
+        }
+        addLot(lot);
+        if (lot.alley) rect([lot.rect[2] + 1, lot.rect[1], lot.rect[2] + 1, lot.rect[3]], (xx, yy, ii) => {
+          C.surface[ii] = SURF.alley;
+          C.lot[ii] = -1;
+        });
+      }
+    }
+    const typeKey = /* @__PURE__ */ new Map(), STOREY2 = spec.storey || 24;
+    const wallType = (lot, inner) => {
+      const st = (spec.styles || {})[(C.hoods.find((h2) => h2.id === lot.hood) || {}).style || "default"] || DEFAULT_STYLE;
+      const look2 = lot.look || (st.lots[lot.style] && st.lots[lot.style].looks ? rs.pick(st.lots[lot.style].looks) : st.looks ? rs.pick(st.looks) : DEFAULT_LOOK);
+      const h = lot.height || Math.max(8, (lot.storeys || 2) * STOREY2);
+      const key = JSON.stringify([look2, h, inner]);
+      let id = typeKey.get(key);
+      if (!id) {
+        id = nextType++;
+        typeKey.set(key, id);
+        types[id] = { ...look2, h, cut: h > 30, cutH: inner ? 2 : 8, cutTop: look2.floor || st.floor || "#7e7266", cutRoof: "slab" };
+      }
+      lot.look = look2;
+      return id;
+    };
+    for (const lot of C.lots) if (lot.kind === "building") {
+      lot.typeId = wallType(lot, false);
+      const inner = wallType(lot, true), mine = (x, y) => inside(x, y) && C.lot[I(x, y)] === lot.index;
+      rect(lot.rect, (x, y, i) => {
+        if (C.lot[i] === lot.index) cells[i] = mine(x - 1, y) && mine(x + 1, y) && mine(x, y - 1) && mine(x, y + 1) ? inner : lot.typeId;
+      });
+    }
+    const railType = nextType++;
+    types[railType] = { h: 7, top: "#8a8a92", side: "#6a6a72", face: "stone", roof: "plain", texture: false };
+    for (let i = 0; i < W * H3; i++) if (cells[i] === -2) cells[i] = railType;
+    for (const wall of spec.walls || []) {
+      const id = nextType++;
+      types[id] = wall.type;
+      rect(wall.rect, (x, y, i) => {
+        cells[i] = id;
+      });
+    }
+    C.types = types;
+    const solids = [], props = [];
+    for (const D of spec.decks || []) C.decks.push(buildDeck(D, C, solids, props));
+    const rp = stream2(seed, "props"), P2 = spec.props || {};
+    const addProp = (kind, x, y, o2 = {}) => {
+      props.push({ kind, x, y, z: o2.z || 0, facing: o2.facing || 0, ...o2 });
+    };
+    for (const r of C.roads) for (const [wi, w] of r.walks.entries()) {
+      const ns = r.axis === "y", curbSide = wi === 0 ? ns ? w[2] : w[3] : ns ? w[0] : w[1], off = wi === 0 ? 0.78 : 0.22;
+      for (let s = (ns ? w[1] : w[0]) + 2; s <= (ns ? w[3] : w[2]) - 1; s++) {
+        const cx = ns ? curbSide : s, cy = ns ? s : curbSide;
+        if (!inside(cx, cy) || C.surface[I(cx, cy)] !== SURF.walk) continue;
+        const px = (ns ? cx + off : cx + 0.5) * T5, py = (ns ? cy + 0.5 : cy + off) * T5;
+        if (s % (P2.lampEvery || 6) === 0) addProp("lamp", px, py, { solid: { hx: 1.5, hy: 1.5, top: 44 }, facing: ns ? wi === 0 ? 0 : Math.PI : wi === 0 ? Math.PI / 2 : -Math.PI / 2 });
+        else if (s % (P2.lampEvery || 6) === 3 && rp.chance(P2.clutter ?? 0.25)) addProp(rp.pick(["bin", "bench", "hydrant", "newsstand"]), px, py, { solid: { hx: 2.5, hy: 2.5, top: 14 } });
+        if (C.hoods[C.hood[I(cx, cy)]]?.trees && s % 4 === 1 && rp.chance(0.6)) addProp("palm", (ns ? cx + (wi === 0 ? 0.2 : 0.8) : cx + 0.5) * T5, (ns ? cy + 0.5 : cy + (wi === 0 ? 0.2 : 0.8)) * T5, { solid: { hx: 2, hy: 2, top: 60 } });
+      }
+    }
+    for (const lot of C.lots) if (lot.kind === "park") rect(lot.rect, (x, y) => {
+      if (C.surface[I(x, y)] === SURF.park && (x + y * 3) % 5 === 0 && rp.chance(0.55)) addProp(rp.chance(0.5) ? "tree" : "palm", (x + 0.5) * T5, (y + 0.5) * T5, { solid: { hx: 3, hy: 3, top: 56 } });
+    });
+    for (const pr of spec.propList || []) addProp(pr.kind, pr.at[0] * T5, pr.at[1] * T5, pr);
+    C.props = props;
+    for (const p of props) if (p.solid) solids.push({ x: p.x, y: p.y, z: p.z || 0, top: (p.z || 0) + p.solid.top, hx: p.solid.hx, hy: p.solid.hy });
+    C.pois = (spec.pois || []).map((p) => ({ ...p, x: (p.at[0] + 0.5) * T5, y: (p.at[1] + 0.5) * T5 }));
+    C.zones = (spec.zones || []).map((z) => ({ ...z }));
+    for (const h of C.hoods) if (h.rects) for (const r of h.rects) C.zones.push({ kind: "hood", hood: h.id, gang: h.gang || null, rect: r });
+    C.signs = C.lots.filter((l) => l.sign).map((l) => ({ lot: l.index, ...l.sign, rect: l.rect }));
+    {
+      const open = (i) => cells[i] <= 0 && C.surface[i] !== SURF.water && C.surface[i] !== SURF.deep, seen2 = new Uint8Array(W * H3), q = [];
+      for (let i = 0; i < W * H3; i++) if (open(i) && (C.surface[i] === SURF.road || C.surface[i] === SURF.walk)) {
+        seen2[i] = 1;
+        q.push(i);
+      }
+      while (q.length) {
+        const i = q.pop(), x = i % W, y = (i - x) / W;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx, ny = y + dy;
+          if (!inside(nx, ny)) continue;
+          const j = I(nx, ny);
+          if (!seen2[j] && open(j)) {
+            seen2[j] = 1;
+            q.push(j);
+          }
+        }
+      }
+      for (let i = 0; i < W * H3; i++) if (open(i) && !seen2[i]) {
+        const x = i % W, y = (i - x) / W, nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => inside(x + dx, y + dy) ? I(x + dx, y + dy) : -1).find((j) => j >= 0 && cells[j] > 0 && C.lot[j] >= 0);
+        if (nb !== void 0) {
+          cells[i] = cells[nb];
+          C.lot[i] = C.lot[nb];
+        }
+      }
+    }
+    const floor = Array.from(C.surface, (s) => SURFACES[s]);
+    const map = new E.TileMap({ w: W, h: H3, cells: Array.from(cells), floor, types, block: ["water", "deep"] });
+    map.addSolids(solids);
+    C.map = map;
+    map.city = C;
+    return C;
+  }
+  function pickWeighted(rs, pairs) {
+    let t = 0;
+    for (const k in pairs) t += pairs[k];
+    let r = rs.next() * t;
+    for (const k in pairs) {
+      if ((r -= pairs[k]) < 0) return k;
+    }
+    return Object.keys(pairs)[0];
+  }
+  var DEFAULT_LOOK = { side: "#8a7a6a", top: "#5a5060", face: "brick", roof: "slab", windows: { lit: 0.3 } };
+  var DEFAULT_STYLE = { kinds: { block: 1 }, lots: { block: { kind: "building", w: [4, 8], d: [4, 8], storeys: [2, 4] } }, looks: [DEFAULT_LOOK], alleys: 0.2 };
+  function buildDeck(D, C, solids, props) {
+    const T5 = 16, half = Math.floor(D.width / 2), cells = /* @__PURE__ */ new Map(), z = D.z, thick = D.thickness || 6;
+    const rect2 = (r, fn) => {
+      for (let y = r[1]; y <= r[3]; y++) for (let x = r[0]; x <= r[2]; x++) fn(x, y);
+    };
+    const underOther = (x, y) => C.decks.some((d) => d._cellMap().has(x + "," + y));
+    const gap = (x, y) => (D.gaps || []).some((g) => x >= g[0] && x <= g[2] && y >= g[1] && y <= g[3]);
+    const put = (x, y, z0, z1, axis) => {
+      if (!C.inside(x, y) || gap(x, y)) return;
+      const k = x + "," + y;
+      if (!cells.has(k)) cells.set(k, { cx: x, cy: y, z0, z1, axis });
+    };
+    const pts = D.path.slice();
+    if (D.closed) pts.push(pts[0]);
+    const lo = -half, hi = D.width - 1 - half, centre = [];
+    for (let s = 0; s + 1 < pts.length; s++) {
+      const [ax, ay] = pts[s], [bx, by] = pts[s + 1], axis = ax === bx ? "y" : "x", n = Math.max(Math.abs(bx - ax), Math.abs(by - ay)), sx = Math.sign(bx - ax), sy = Math.sign(by - ay);
+      for (let k = 0; k <= n; k++) {
+        const cx = ax + sx * k, cy = ay + sy * k;
+        centre.push([cx, cy, axis]);
+        for (let o = lo; o <= hi; o++) put(axis === "y" ? cx + o : cx, axis === "y" ? cy : cy + o, z, z, axis);
+        if (k === 0 || k === n) for (let a = lo; a <= hi; a++) for (let b = lo; b <= hi; b++) put(cx + a, cy + b, z, z, axis);
+      }
+    }
+    for (const st of D.stations || []) rect2(st.rect, (x, y) => put(x, y, z, z, "y"));
+    const ramps = [];
+    for (const R of D.ramps || []) {
+      const [rx, ry] = R.at, L3 = R.length || 16, dx = { E: 1, W: -1, N: 0, S: 0 }[R.dir], dy = { E: 0, W: 0, N: -1, S: 1 }[R.dir], axis = dx ? "x" : "y";
+      const edge = (dx || dy) > 0 ? hi + 1 : -lo + 1, pos = (dx || dy) > 0;
+      for (let k = 0; k < L3; k++) for (let o = lo; o <= hi; o++) {
+        const cx = rx + dx * (edge + k) + (axis === "y" ? o : 0), cy = ry + dy * (edge + k) + (axis === "x" ? o : 0);
+        const zNear = z * (1 - k / L3), zFar = z * (1 - (k + 1) / L3);
+        put(cx, cy, pos ? zNear : zFar, pos ? zFar : zNear, axis);
+      }
+      ramps.push({ at: R.at, dir: R.dir, length: L3, foot: [rx + dx * (edge + L3), ry + dy * (edge + L3)] });
+    }
+    const deck = new Deck({ id: D.id, kind: D.kind || "road", width: D.width, z, cells: [...cells.values()], ramps, thickness: thick, stations: D.stations || [], lanes: D.lanes || 2, gaps: D.gaps || [] });
+    for (const c of deck.cells) {
+      if (c.z0 === c.z1) {
+        solids.push({ x: (c.cx + 0.5) * T5, y: (c.cy + 0.5) * T5, z: c.z0 - thick, top: c.z0, hx: 8, hy: 8, deck: D.id });
+        continue;
+      }
+      for (let h2 = 0; h2 < 2; h2++) {
+        const f = (h2 + 0.5) / 2, top = c.z0 + (c.z1 - c.z0) * f, x = (c.cx + (c.axis === "x" ? h2 * 0.5 + 0.25 : 0.5)) * T5, y = (c.cy + (c.axis === "y" ? h2 * 0.5 + 0.25 : 0.5)) * T5;
+        solids.push({ x, y, z: Math.max(0, top - thick), top, hx: c.axis === "x" ? 4 : 8, hy: c.axis === "y" ? 4 : 8, deck: D.id });
+      }
+    }
+    const every = D.pillarEvery || 4;
+    centre.forEach(([cx, cy, axis], n) => {
+      if (n % every || gap(cx, cy) || underOther(cx, cy)) return;
+      const below = C.roads.find((r) => cx >= r.band[0] && cx <= r.band[2] && cy >= r.band[1] && cy <= r.band[3]);
+      const spots = below && below.median ? [[cx, cy]] : below ? axis === "y" ? [[below.band[0] - 1, cy], [below.band[2] + 1, cy]] : [[cx, below.band[1] - 1], [cx, below.band[3] + 1]] : [[cx, cy]];
+      for (const [px, py] of spots) {
+        if (underOther(px, py)) continue;
+        const x = (px + 0.5) * T5, y = (py + 0.5) * T5;
+        solids.push({ x, y, z: 0, top: z - thick, hx: 3, hy: 3, pillar: D.id });
+        props.push({ kind: "pillar", x, y, z: 0, top: z - thick, deck: D.id });
+      }
+    });
+    const end = D.openEnd ? D.path[D.path.length - 1] : null;
+    if (D.railing !== false) for (const c of deck.cells) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (cells.has(c.cx + dx + "," + (c.cy + dy))) continue;
+      if (end && Math.abs(c.cx - end[0]) <= half && Math.abs(c.cy - end[1]) <= half && (D.path[0][0] === end[0] ? dy === Math.sign(end[1] - D.path[0][1]) : dx === Math.sign(end[0] - D.path[0][0]))) continue;
+      const top = Math.max(c.z0, c.z1);
+      solids.push({ x: (c.cx + 0.5 + dx * 0.5) * T5, y: (c.cy + 0.5 + dy * 0.5) * T5, z: top, top: top + 8, hx: dx ? 0.8 : 8, hy: dy ? 0.8 : 8, railing: D.id });
+    }
+    return deck;
+  }
+
+  // src/motor/render/surface-paint.js
+  var PALETTE = {
+    road: { base: "#2e2e36", var: 6 },
+    alley: { base: "#34323a", var: 9 },
+    bridge: { base: "#383840", var: 5 },
+    walk: { stones: ["#7a7880", "#74727a", "#807e86"], mortar: "#4a4850", hi: "#8e8c94", lo: "#605e66", speck: "#6a6870" },
+    plaza: { stones: ["#9a8a7a", "#94867a", "#a29484"], mortar: "#5a5048", hi: "#b0a090", lo: "#7a6a5e", speck: "#8a7a6a" },
+    lot: { base: "#4a4640", dark: "#3e3a36", light: "#56524a" },
+    yard: { base: "#545058", dark: "#46424a", light: "#5e5a62" },
+    grass: { base: "#4a8a42", dark: "#3a7034", light: "#5ea050" },
+    park: { base: "#4e9046", dark: "#3c7436", light: "#62a852" },
+    dirt: { base: "#7a5a3a", dark: "#5e4430", light: "#8e6c48" },
+    sand: { base: "#c8b07a", dark: "#a8905e", light: "#dcc68e" },
+    water: { base: "#1e4a7a", dark: "#163a62", light: "#4a7aaa" },
+    deep: { base: "#163a62", dark: "#102c4c", light: "#3a6a9a" },
+    quay: { base: "#6a6a70", dark: "#58585e", light: "#7a7a80" },
+    pier: { base: "#7a5a3a", line: "#4a3422" },
+    rail: { base: "#3a3434", var: 6 },
+    paint: { yellow: "#d6ac34", white: "#d8d8dc", kerb: "#9a98a0", kerbDark: "#5a5860" }
+  };
+  var TILE2 = 64;
+  var SurfacePainter = class {
+    /** city: a CityMap */
+    constructor(city) {
+      this.city = city;
+      this.tiles = /* @__PURE__ */ new Map();
+      this.T = city.T;
+    }
+    /** a repeating 64-texel tile for a surface in a palette (built once) */
+    _tile(g, surf, pal) {
+      const key = surf + JSON.stringify(pal);
+      let p = this.tiles.get(key);
+      if (p) return p;
+      const cv = E.mkCanvas(TILE2, TILE2), cg = E.ctx2d(cv), img = cg.createImageData(TILE2, TILE2), d = img.data, hex = E.hex;
+      const put = (x, y, c) => {
+        const k = (y * TILE2 + x) * 4;
+        d[k] = c[0];
+        d[k + 1] = c[1];
+        d[k + 2] = c[2];
+        d[k + 3] = 255;
+      };
+      for (let y = 0; y < TILE2; y++) for (let x = 0; x < TILE2; x++) {
+        let c;
+        if (surf === "walk" || surf === "plaza") {
+          const p2 = { stones: pal.stones.map(hex), mortar: hex(pal.mortar), hi: hex(pal.hi), lo: hex(pal.lo), speck: hex(pal.speck) };
+          c = E.tex.flagstone(x, y, p2, surf === "plaza" ? 8 : 16);
+        } else if (surf === "grass" || surf === "park") c = E.tex.grass(x, y, pal);
+        else if (surf === "dirt" || surf === "sand" || surf === "lot" || surf === "yard" || surf === "quay") c = E.tex.dirt(x, y, pal);
+        else if (surf === "water" || surf === "deep") c = E.tex.water(x, y, pal);
+        else if (surf === "pier") c = E.tex.planks(x, y, { base: pal.base, dark: E.shade(pal.base, -0.15), line: pal.line });
+        else {
+          const b = hex(pal.base || "#2e2e36"), n = (E.noise2(x * 0.27, y * 0.27) + 1) * (pal.var || 6) * 0.5 + (E.hash2(x, y) < 0.07 ? -6 : E.hash2(x + 5, y) > 0.96 ? 7 : 0);
+          c = [b[0] + n, b[1] + n, b[2] + n + 2];
+        }
+        put(x, y, c);
+      }
+      cg.putImageData(img, 0, 0);
+      p = g.createPattern(cv, "repeat");
+      this.tiles.set(key, p);
+      return p;
+    }
+    _pal(surf, hood) {
+      const base = PALETTE[surf] || PALETTE.lot, o = hood && hood.palette && hood.palette[surf];
+      return o ? { ...base, ...o } : base;
+    }
+    /** paint the floor of world rectangle [x0, x1) x [y0, y1) into g (in world coordinates): FloorChunks' paint */
+    paint(g, x0, y0, x1, y1) {
+      const C = this.city, T5 = this.T, P2 = PALETTE.paint, map = C.map;
+      const c0 = Math.max(0, Math.floor(x0 / T5)), c1 = Math.min(C.w - 1, Math.floor((x1 - 1) / T5)), r0 = Math.max(0, Math.floor(y0 / T5)), r1 = Math.min(C.h - 1, Math.floor((y1 - 1) / T5));
+      for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; ) {
+        const i = cy * C.w + cx, s = C.surface[i], h = C.hood[i];
+        let e = cx;
+        while (e + 1 <= c1 && C.surface[i + e + 1 - cx] === s && C.hood[i + e + 1 - cx] === h) e++;
+        const surf = SURFACES[s], hood = C.hoods[h];
+        g.fillStyle = this._tile(g, surf === "curb" ? "walk" : surf, this._pal(surf === "curb" ? "walk" : surf, hood));
+        g.fillRect(cx * T5, cy * T5, (e - cx + 1) * T5, T5);
+        cx = e + 1;
+      }
+      const inRect = (r) => r[2] >= c0 && r[0] <= c1 && r[3] >= r0 && r[1] <= r1;
+      const busy = (cx, cy) => C.inside(cx, cy) && C.busy[cy * C.w + cx] > 0;
+      for (const r of C.roads) {
+        if (!inRect(r.band) || r.kind === "alley") continue;
+        const ns = r.axis === "y", a0 = ns ? r.band[1] : r.band[0], a1 = ns ? r.band[3] : r.band[2], across0 = (ns ? r.band[0] : r.band[1]) * T5, across1 = ((ns ? r.band[2] : r.band[3]) + 1) * T5, mid = (across0 + across1) / 2;
+        const line = (pos, w, dashed, color) => {
+          g.fillStyle = color;
+          for (let k = Math.max(a0, ns ? r0 : c0); k <= Math.min(a1, ns ? r1 : c1); k++) {
+            if (busy(ns ? Math.floor(pos / T5) : k, ns ? k : Math.floor(pos / T5))) continue;
+            for (let half = 0; half < 2; half++) {
+              if (dashed && half) continue;
+              const s0 = k * T5 + half * 8, len = dashed ? 9 : 8;
+              ns ? g.fillRect(pos - w / 2, s0, w, len) : g.fillRect(s0, pos - w / 2, len, w);
+            }
+          }
+        };
+        if (r.median) {
+          line(mid - 3, 2, false, P2.yellow);
+          line(mid + 3, 2, false, P2.yellow);
+          const lane = (across1 - across0) / 4;
+          line(across0 + lane, 1.5, true, P2.white);
+          line(across1 - lane, 1.5, true, P2.white);
+        } else line(mid, 2, true, P2.yellow);
+      }
+      g.fillStyle = P2.white;
+      for (const w of C.crosswalks) {
+        if (!inRect(w.rect)) continue;
+        const X0 = w.rect[0] * T5, Y0 = w.rect[1] * T5, X1 = (w.rect[2] + 1) * T5, Y1 = (w.rect[3] + 1) * T5;
+        if (w.axis === "y") for (let x = X0 + 2; x < X1 - 2; x += 6) g.fillRect(x, Y0 + 3, 3, Y1 - Y0 - 6);
+        else for (let y = Y0 + 2; y < Y1 - 2; y += 6) g.fillRect(X0 + 3, y, X1 - X0 - 6, 3);
+      }
+      const S = SURFACES, isRoad = (s) => s === "road" || s === "bridge" || s === "alley";
+      for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
+        const s = S[C.surface[cy * C.w + cx]];
+        if (s !== "walk" && s !== "plaza" && s !== "park" && s !== "grass") continue;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (!C.inside(cx + dx, cy + dy) || !isRoad(S[C.surface[(cy + dy) * C.w + cx + dx]])) continue;
+          const x = cx * T5 + (dx > 0 ? T5 - 2 : 0), y = cy * T5 + (dy > 0 ? T5 - 2 : 0), w = dx ? 2 : T5, h = dy ? 2 : T5;
+          g.fillStyle = P2.kerb;
+          g.fillRect(x, y, w, h);
+          g.fillStyle = "rgba(10,8,18,.35)";
+          g.fillRect(dx ? x + dx * 2 : x, dy ? y + dy * 2 : y, dx ? 1 : T5, dy ? 1 : T5);
+        }
+      }
+      for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
+        const s = S[C.surface[cy * C.w + cx]], h = E.hash2(cx * 31 + 7, cy * 17 + 3), X = cx * T5, Y = cy * T5;
+        if (s === "road" && !busy(cx, cy)) {
+          if (h < 0.035) {
+            g.fillStyle = "#1e1c22";
+            g.beginPath();
+            g.arc(X + 8, Y + 8, 4.5, 0, 6.3);
+            g.fill();
+            g.fillStyle = "#3a3840";
+            g.fillRect(X + 5, Y + 7, 7, 1);
+            g.fillRect(X + 5, Y + 9, 7, 1);
+          } else if (h < 0.09) {
+            g.fillStyle = "rgba(8,6,14,.28)";
+            g.beginPath();
+            g.ellipse(X + 4 + h * 60, Y + 6 + h * 40, 5, 3, h * 9, 0, 6.3);
+            g.fill();
+          } else if (h > 0.97) {
+            g.fillStyle = "rgba(70,110,150,.28)";
+            g.beginPath();
+            g.ellipse(X + 8, Y + 8, 7, 4, h * 5, 0, 6.3);
+            g.fill();
+          }
+        } else if (s === "alley" && h < 0.2) {
+          g.fillStyle = "rgba(8,6,14,.3)";
+          g.fillRect(X + h * 40, Y + 3, 5, 9);
+        }
+      }
+      if (map) {
+        g.fillStyle = "rgba(8,6,16,.32)";
+        for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
+          if (map.cell(cx, cy) !== 0) continue;
+          if (map.cell(cx, cy - 1) > 0) g.fillRect(cx * T5, cy * T5, T5, 4);
+          if (map.cell(cx - 1, cy) > 0) g.fillRect(cx * T5, cy * T5, 4, T5);
+          if (map.cell(cx + 1, cy) > 0) g.fillRect(cx * T5 + T5 - 4, cy * T5, 4, T5);
+          if (map.cell(cx, cy + 1) > 0) g.fillRect(cx * T5, cy * T5 + T5 - 4, T5, 4);
+        }
+      }
+    }
+  };
+
+  // src/motor/world/district.js
+  declare("districts", shape({
+    name: { type: "string", req: true },
+    size: { type: "array", req: true },
+    seed: { type: "number", def: 1 },
+    storey: { type: "number", def: 24 },
+    hoods: { type: "object", req: true },
+    hoodMap: { type: "array", def: [] },
+    styles: { type: "object", def: {} },
+    water: { type: "array", def: [] },
+    roads: { type: "array", req: true },
+    decks: { type: "array", def: [] },
+    walls: { type: "array", def: [] },
+    lots: { type: "array", def: [] },
+    props: { type: "object", def: {} },
+    propList: { type: "array", def: [] },
+    pois: { type: "array", def: [] },
+    zones: { type: "array", def: [] }
+  }));
+  declare("landmarks", shape({ district: { type: "string", req: true }, name: { type: "string", req: true }, lots: { type: "array", def: [] }, pois: { type: "array", def: [] }, props: { type: "array", def: [] } }));
+  function buildCity(id, seed) {
+    const spec = get("districts", id);
+    if (!spec) throw new Error('MOTOR: unknown district "' + id + '"');
+    const marks = all("landmarks").filter((l) => l.district === id);
+    const full = { ...spec, lots: [...spec.lots, ...marks.flatMap((m) => m.lots.map((l) => ({ landmark: m.id, ...l })))], pois: [...spec.pois, ...marks.flatMap((m) => m.pois.map((p) => ({ landmark: m.id, ...p })))], propList: [...spec.propList, ...marks.flatMap((m) => m.props)] };
+    const city = buildDistrict(full, { seed: seed ?? spec.seed });
+    city.painter = new SurfacePainter(city);
+    return city;
+  }
+
+  // src/motor/world/validator.js
+  function validateCity(C, o = {}) {
+    const errors = [], warnings = [], W = C.w, H3 = C.h, I = (x, y) => y * W + x;
+    const start = C.poi(o.from || "safehouse") || C.pois[0];
+    if (!start) return { errors: ["no points of interest"], warnings };
+    const cellOf = (p) => [Math.floor(p.x / C.T), Math.floor(p.y / C.T)];
+    const foot = flood(C, cellOf(start), (x, y) => C.walkable(x, y));
+    const DRIVE = /* @__PURE__ */ new Set(["road", "bridge", "alley", "yard", "plaza", "quay", "rail", "walk", "pier", "lot", "dirt"]);
+    const roadOk = (x, y) => C.walkable(x, y) && DRIVE.has(C.surfaceAt(x, y));
+    const r0 = nearest(C, cellOf(start), roadOk, 12), road = r0 ? flood(C, r0, roadOk) : new Uint8Array(W * H3);
+    for (const p of C.pois) {
+      const [cx, cy] = cellOf(p);
+      if (!C.walkable(cx, cy)) {
+        errors.push(`poi ${p.id} at ${cx},${cy} is on a blocked cell (${C.surfaceAt(cx, cy)}${C.map.cell(cx, cy) > 0 ? ", a wall" : ""})`);
+        continue;
+      }
+      if (!foot[I(cx, cy)]) errors.push(`poi ${p.id} at ${cx},${cy} can't be reached on foot`);
+      if (p.kind !== "payphone" && p.kind !== "landmark") {
+        const r = nearest(C, [cx, cy], roadOk, 10);
+        if (!r || !road[I(r[0], r[1])]) errors.push(`poi ${p.id} at ${cx},${cy} can't be reached by road`);
+      }
+      if (p.kind === "door" && !get("interiors", p.interior)) warnings.push(`door ${p.id} names interior "${p.interior}", not built yet`);
+    }
+    let shut = 0;
+    const shutAt = [];
+    for (let y = 0; y < H3; y++) for (let x = 0; x < W; x++) if (C.walkable(x, y) && !foot[I(x, y)]) {
+      shut++;
+      if (shutAt.length < 6) shutAt.push(x + "," + y);
+    }
+    if (shut) warnings.push(`${shut} walkable cells can't be reached on foot from ${start.id} (e.g. ${shutAt.join(" ")})`);
+    for (const d of C.decks) if (d.kind === "road" && !d.ramps.length && !(C.spec.decks || []).find((s) => s.id === d.id && s.openEnd)) errors.push(`deck ${d.id} has no ramp`);
+    return { errors, warnings, reach: { foot, road } };
+  }
+  function flood(C, [x0, y0], ok) {
+    const W = C.w, seen = new Uint8Array(W * C.h), q = [[x0, y0]];
+    if (!ok(x0, y0)) return seen;
+    seen[y0 * W + x0] = 1;
+    while (q.length) {
+      const [x, y] = q.pop();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (!C.inside(nx, ny) || seen[ny * W + nx] || !ok(nx, ny)) continue;
+        seen[ny * W + nx] = 1;
+        q.push([nx, ny]);
+      }
+    }
+    return seen;
+  }
+  function nearest(C, [x0, y0], ok, R) {
+    for (let r = 0; r <= R; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      if (C.inside(x0 + dx, y0 + dy) && ok(x0 + dx, y0 + dy)) return [x0 + dx, y0 + dy];
+    }
+    return null;
+  }
+
+  // src/motor/render/city-render.js
+  var T = 16;
+  var CH = 256;
+  var SPRITES = { lamp: "streetlamp", bin: "trashcan", hydrant: "hydrant", palm: "palm", tree: "tree" };
+  var box = (x0, y0, z0, x1, y1, z1, color, role = "body") => ({ box: [x0, y0, z0, x1, y1, z1], color, role });
+  var PROP_MODELS = {
+    bench: { parts: [box(-8, -2.5, 4, 8, 2.5, 6, "#7a5a3a"), box(-8, 1.5, 6, 8, 2.5, 12, "#7a5a3a"), box(-7, -2, 0, -6, 2, 4, "#3a3a40", "wheel"), box(6, -2, 0, 7, 2, 4, "#3a3a40", "wheel")] },
+    newsstand: { parts: [box(-5, -4, 0, 5, 4, 14, "#3a6ac8"), box(-5.5, -4.5, 14, 5.5, 4.5, 16, "#c8423a", "cabin")] },
+    pump: { parts: [box(-3, -2, 0, 3, 2, 18, "#c8423a"), box(-3.5, -2.5, 18, 3.5, 2.5, 21, "#e8e8ec", "cabin")] },
+    fountain: { parts: [box(-18, -18, 0, 18, 18, 6, "#a8a0a0"), box(-15, -15, 5, 15, 15, 6.5, "#3a8ad0", "glass"), box(-3, -3, 6, 3, 3, 16, "#c8c0c0", "cabin")] },
+    drill: { parts: [box(-10, -8, 0, 10, 8, 10, "#c8a03a"), box(-2, -2, 10, 2, 2, 60, "#5a5a62", "cabin"), box(-6, -6, 54, 6, 6, 60, "#c8a03a", "cabin")] },
+    mound: { parts: [box(-20, -14, 0, 20, 14, 6, "#7a5a3a"), box(-12, -8, 6, 12, 8, 10, "#8e6c48", "cabin")] },
+    scaffold: { parts: [box(-14, -4, 0, -12, 4, 44, "#8a8a92"), box(12, -4, 0, 14, 4, 44, "#8a8a92"), box(-14, -4, 20, 14, 4, 22, "#c8a03a", "cabin"), box(-14, -4, 42, 14, 4, 44, "#c8a03a", "cabin")] },
+    crusher: { parts: [box(-20, -14, 0, 20, 14, 8, "#5a5a62"), box(-18, -12, 22, 18, 12, 30, "#c8a03a", "cabin"), box(-20, -14, 8, -16, 14, 30, "#4a4a52"), box(16, -14, 8, 20, 14, 30, "#4a4a52")] },
+    crane: { parts: [box(-6, -6, 0, 6, 6, 110, "#e0b020"), box(-6, -60, 104, 6, 30, 114, "#e0b020", "cabin"), box(-8, 22, 96, 8, 32, 104, "#5a5a62", "cabin")] }
+  };
+  var CityRenderer = class {
+    /** city: a CityMap */
+    constructor(city) {
+      this.city = city;
+      this.props = /* @__PURE__ */ new Map();
+      this.deckCells = /* @__PURE__ */ new Map();
+      this.signs = [];
+      const add = (m, x, y, v) => {
+        const k = Math.floor(y / CH) * 64 + Math.floor(x / CH);
+        let a = m.get(k);
+        if (!a) m.set(k, a = []);
+        a.push(v);
+      };
+      for (const p of city.props) if (p.kind !== "pillar") add(this.props, p.x, p.y, p);
+      else add(this.props, p.x, p.y, p);
+      for (const d of city.decks) {
+        const map = d._cellMap();
+        for (const c of d.cells) add(this.deckCells, (c.cx + 0.5) * T, (c.cy + 0.5) * T, { d, c, map });
+      }
+      for (const s of city.signs) this.signs.push(placeSign(city, s));
+      this.fadeUnder = null;
+    }
+    /** queue what stands within radius (world units) of (fx, fy) */
+    queue(stage, fx, fy, radius = 640, night = true, player = null) {
+      const ci = Math.floor(fx / CH), cj = Math.floor(fy / CH), n = Math.ceil(radius / CH);
+      const under = player && this.city.deckAt(player[0], player[1], 1e9);
+      const fade = under && under.z > (player[2] || 0) + 24 ? player : null;
+      for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) {
+        const k = j * 64 + i;
+        for (const p of this.props.get(k) || []) this._prop(stage, p, night);
+        for (const dc of this.deckCells.get(k) || []) this._deck(stage, dc, fade);
+      }
+      for (const s of this.signs) if (Math.abs(s.x - fx) < radius && Math.abs(s.y - fy) < radius) stage.shape(s.x, s.y, s.z, (g, P2) => drawSign(g, P2, s, night), { emissive: true, bias: 0.01 });
+    }
+    _prop(stage, p, night) {
+      if (p.kind === "pillar") {
+        stage.shape(p.x, p.y, 0, (g, P2) => drawBoxModel(g, P2, PILLAR(p.top), p.x, p.y, 0, 0));
+        return;
+      }
+      const spr = SPRITES[p.kind];
+      if (spr) {
+        stage.prop(spr, p.x, p.y, p.z || 0, { light: night && p.kind === "lamp", lightRadius: 64, size: p.kind === "palm" ? 1.3 : 1 });
+        return;
+      }
+      const m = PROP_MODELS[p.kind];
+      if (m) stage.shape(p.x, p.y, p.z || 0, (g, P2) => drawBoxModel(g, P2, m, p.x, p.y, p.z || 0, p.facing || 0));
+    }
+    _deck(stage, { d, c, map }, fade) {
+      const x = (c.cx + 0.5) * T, y = (c.cy + 0.5) * T, z = Math.max(c.z0, c.z1);
+      const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72;
+      stage.shape(x, y, z, (g, P2) => drawDeckCell(g, P2, d, c, map, near ? 0.3 : 1));
+    }
+  };
+  var PILLARS = /* @__PURE__ */ new Map();
+  function PILLAR(top) {
+    let m = PILLARS.get(top);
+    if (!m) {
+      m = { parts: [box(-3, -3, 0, 3, 3, top, "#7a7a82")] };
+      PILLARS.set(top, m);
+    }
+    return m;
+  }
+  var deckTex = /* @__PURE__ */ new Map();
+  function deckTexture(kind) {
+    let cv = deckTex.get(kind);
+    if (cv) return cv;
+    cv = E.mkCanvas(64, 64);
+    const g = E.ctx2d(cv), img = g.createImageData(64, 64), d = img.data;
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+      const n = (E.noise2(x * 0.3, y * 0.3) + 1) * 4 + (E.hash2(x, y) < 0.06 ? -6 : 0), k = (y * 64 + x) * 4;
+      let c = kind === "rail" ? [72 + n, 64 + n, 58 + n] : [56 + n, 56 + n, 62 + n];
+      if (kind !== "rail" && x % 16 === 0) c = [44, 44, 50];
+      if (kind === "rail" && y % 8 < 2) c = [96 + n, 74 + n, 52 + n];
+      d[k] = c[0];
+      d[k + 1] = c[1];
+      d[k + 2] = c[2];
+      d[k + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    if (kind === "rail") {
+      g.fillStyle = "#b8b8c0";
+      g.fillRect(18, 0, 3, 64);
+      g.fillRect(43, 0, 3, 64);
+    }
+    deckTex.set(kind, cv);
+    return cv;
+  }
+  function drawDeckCell(g, P2, d, c, map, alpha = 1) {
+    const x0 = c.cx * T, y0 = c.cy * T, x1 = x0 + T, y1 = y0 + T, th = d.thickness;
+    const zAt = (x, y) => c.z0 + (c.z1 - c.z0) * (c.axis === "x" ? (x - x0) / T : (y - y0) / T);
+    if (alpha < 1) g.globalAlpha = alpha;
+    const u = [P2.proj(x0, y0, zAt(x0, y0) - th), P2.proj(x1, y0, zAt(x1, y0) - th), P2.proj(x1, y1, zAt(x1, y1) - th), P2.proj(x0, y1, zAt(x0, y1) - th)];
+    if (u.every(Boolean) && cross(u) < 0) quad(g, u, "#2a2a32");
+    for (const [dx, dy, A, B] of [[0, -1, [x1, y0], [x0, y0]], [0, 1, [x0, y1], [x1, y1]], [-1, 0, [x0, y0], [x0, y1]], [1, 0, [x1, y1], [x1, y0]]]) {
+      if (map.has(c.cx + dx + "," + (c.cy + dy))) continue;
+      const za = zAt(...A), zb = zAt(...B), f = [P2.proj(A[0], A[1], za - th), P2.proj(B[0], B[1], zb - th), P2.proj(B[0], B[1], zb), P2.proj(A[0], A[1], za)];
+      if (!f.every(Boolean) || cross(f) >= 0) continue;
+      quad(g, f, dy > 0 || dx > 0 ? "#5a5a64" : "#6e6e78");
+      const r = [P2.proj(A[0], A[1], za), P2.proj(B[0], B[1], zb), P2.proj(B[0], B[1], zb + 7), P2.proj(A[0], A[1], za + 7)];
+      if (r.every(Boolean)) {
+        quad(g, r, "rgba(150,150,160,.85)");
+        g.fillStyle = "#c8c8d0";
+        const a = r[3], b = r[2];
+        g.fillRect(Math.round(Math.min(a[0], b[0])), Math.round(Math.min(a[1], b[1])), Math.max(1, Math.round(Math.abs(b[0] - a[0]))), 1);
+      }
+    }
+    const top = (s, t) => {
+      const x = x0 + s * T, y = y0 + t * T;
+      return P2.proj(x, y, zAt(x, y));
+    };
+    const corners = [top(0, 0), top(0, 1), top(1, 1), top(1, 0)];
+    if (corners.every(Boolean) && cross(corners) < 0) texturedFace(g, top, deckTexture(d.kind), c.cx * T % 64, c.cy * T % 64, T, T, "#3a3a42");
+    g.globalAlpha = 1;
+    g._c = null;
+  }
+  var cross = (q) => (q[1][0] - q[0][0]) * (q[3][1] - q[0][1]) - (q[1][1] - q[0][1]) * (q[3][0] - q[0][0]);
+  function quad(g, q, color) {
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.fillStyle = color;
+    g.beginPath();
+    g.moveTo(q[0][0], q[0][1]);
+    for (let i = 1; i < q.length; i++) g.lineTo(q[i][0], q[i][1]);
+    g.closePath();
+    g.fill();
+  }
+  function placeSign(C, s) {
+    const [x0, y0, x1, y1] = s.rect, lot = C.lots[s.lot], h = (C.types[lot.typeId] || { h: 24 }).h;
+    const street = (cx, cy) => {
+      const t = C.surfaceAt(cx, cy);
+      return t === "walk" || t === "road" || t === "plaza" || t === "yard" ? 1 : 0;
+    };
+    const sides = [
+      ["s", () => {
+        let n = 0;
+        for (let x = x0; x <= x1; x++) n += street(x, y1 + 1);
+        return n;
+      }],
+      ["e", () => {
+        let n = 0;
+        for (let y = y0; y <= y1; y++) n += street(x1 + 1, y);
+        return n;
+      }],
+      ["n", () => {
+        let n = 0;
+        for (let x = x0; x <= x1; x++) n += street(x, y0 - 1);
+        return n;
+      }],
+      ["w", () => {
+        let n = 0;
+        for (let y = y0; y <= y1; y++) n += street(x0 - 1, y);
+        return n;
+      }]
+    ];
+    const best = sides.map(([k, f]) => [k, f()]).sort((a, b) => b[1] - a[1])[0][0];
+    const mx = (x0 + x1 + 1) / 2 * T, my = (y0 + y1 + 1) / 2 * T;
+    const at = { s: [mx, (y1 + 1) * T + 2], e: [(x1 + 1) * T + 2, my], n: [mx, y0 * T - 2], w: [x0 * T - 2, my] }[best];
+    return { ...s, x: at[0], y: at[1], z: Math.min(h - 4, Math.max(14, h * 0.55)), side: best };
+  }
+  function drawSign(g, P2, s, night) {
+    const p = P2.proj(s.x, s.y, s.z);
+    if (!p) return;
+    const k = Math.max(1, Math.round(p[2] * 0.75)), text = s.text, w = E.font.width(text, { scale: k }) + 6, h = 7 * k + 4, x = Math.round(p[0] - w / 2), y = Math.round(p[1] - h / 2);
+    g.fillStyle = "rgba(10,8,20,.85)";
+    g.fillRect(x, y, w, h);
+    g.fillStyle = s.color;
+    g.globalAlpha = night ? 0.35 : 0.15;
+    g.fillRect(x - 2, y - 2, w + 4, h + 4);
+    g.globalAlpha = 1;
+    E.font.text(g, text, x + 3, y + 2, night ? s.color : E.shade(s.color, -0.2), { scale: k });
+    g._c = null;
+  }
 
   // src/motor/app.js
   function createApp({ game: game2, links: links2 }) {
@@ -10929,11 +12064,11 @@ root.My3D2dge = E;
 
   // src/game/districts/hello/map.js
   var CONCRETE = { stones: ["#6e6c72", "#68666c", "#74727a"].map(E.hex), mortar: E.hex("#3a3840"), hi: E.hex("#85838c"), lo: E.hex("#55535a"), speck: E.hex("#5e5c64") };
-  var T = 16;
+  var T2 = 16;
   function asphalt(x, y) {
     const n = (E.noise2(x * 0.31, y * 0.31) + 1) * 5 + ((Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663)) & 3);
-    const onX = Math.abs(x - 16 * T) < 1.2 && y % 32 < 16, onY = Math.abs(y - 16 * T) < 1.2 && x % 32 < 16;
-    if (onX && !(y > 14 * T && y < 18 * T) || onY && !(x > 14 * T && x < 18 * T)) return [214, 172, 52];
+    const onX = Math.abs(x - 16 * T2) < 1.2 && y % 32 < 16, onY = Math.abs(y - 16 * T2) < 1.2 && x % 32 < 16;
+    if (onX && !(y > 14 * T2 && y < 18 * T2) || onY && !(x > 14 * T2 && x < 18 * T2)) return [214, 172, 52];
     const v = 46 + n;
     return [v, v + 1, v + 6];
   }
@@ -10981,8 +12116,329 @@ root.My3D2dge = E;
     }
   });
 
+  // src/game/districts/lowtown/styles.js
+  var HOODS = {
+    palm: {
+      name: "Palm Terraces",
+      style: "palm",
+      gang: "gnomes",
+      trees: true,
+      music: "sunny",
+      rects: [[0, 0, 79, 76]],
+      palette: { walk: { stones: ["#b8a890", "#b0a088", "#c0b098"], mortar: "#7a6a58", hi: "#d0c0a8", lo: "#8a7a68", speck: "#a09078" }, lot: { base: "#8a7a5a", dark: "#7a6a4a", light: "#9a8a6a" } }
+    },
+    neon: {
+      name: "Neon Mile",
+      style: "neon",
+      gang: "saints",
+      music: "neon",
+      rects: [[80, 0, 159, 76]],
+      palette: { walk: { stones: ["#5a5a72", "#54546c", "#606078"], mortar: "#2e2e42", hi: "#727290", lo: "#44445a", speck: "#4c4c64" }, road: { base: "#26262e", var: 5 } }
+    },
+    brick: {
+      name: "Brickyard",
+      style: "brick",
+      gang: null,
+      music: "rust",
+      rects: [[0, 77, 79, 159]],
+      palette: { walk: { stones: ["#7a6a62", "#74645c", "#80706a"], mortar: "#4a3e3a", hi: "#8e7e76", lo: "#5e504a", speck: "#6a5a54" }, lot: { base: "#5a4a40", dark: "#4a3c34", light: "#6a584c" }, yard: { base: "#4e4640", dark: "#403a34", light: "#5a524a" } }
+    },
+    harbor: {
+      name: "Harborfront",
+      style: "harbor",
+      gang: "rats",
+      music: "harbor",
+      rects: [[80, 77, 159, 159]],
+      palette: { walk: { stones: ["#6a7478", "#646e72", "#707a7e"], mortar: "#3e4648", hi: "#808a8e", lo: "#525a5e", speck: "#5a6468" }, yard: { base: "#5a6066", dark: "#4a5056", light: "#666c72" } }
+    }
+  };
+  var pastel = ["#e8c8a8", "#c8e0c0", "#e8b8c8", "#c8d8e8", "#f0e0a8", "#d8c8e8"];
+  var palmLooks = pastel.flatMap((side, i) => [
+    { side, top: "#a85a3a", face: "plaster", roof: "tiles", windows: { lit: 0.35 }, shutters: ["#2a6a5a", "#6a3a5a", "#3a5a8a"][i % 3], door: { chance: 0.5 } },
+    { side, top: "#8a8478", face: "plaster", roof: "slab", windows: { lit: 0.3 }, balcony: { z: 30, color: "#5a4a3a" }, door: { chance: 0.4 } }
+  ]);
+  var neonLooks = [
+    { side: "#3a4a6a", top: "#2a2e3e", face: "stone", roof: "plain", windows: { w: 3, h: 12, step: 10, lit: 0.55 } },
+    { side: "#4a3a5a", top: "#2e2a3a", face: "stone", roof: "plain", windows: { w: 4, h: 10, lit: 0.5 } },
+    { side: "#2e4a5a", top: "#263440", face: "#2e4a5a metal", roof: "plain", windows: { w: 3, h: 12, step: 10, lit: 0.6 } },
+    { side: "#5a5a6e", top: "#3a3a48", face: "stone", roof: "slab", windows: { w: 4, h: 11, lit: 0.45 }, door: { chance: 0.3 } }
+  ];
+  var brickLooks = [
+    { side: "#9a5a42", top: "#4a4a4e", face: "brick", roof: "slab", windows: { lit: 0.15, w: 5 }, door: { chance: 0.35, color: "#3a3a40" } },
+    { side: "#8a4a3a", top: "#45403e", face: "brick", roof: "slab", windows: { lit: 0.12 } },
+    { side: "#a86a4a", top: "#504a48", face: "brick", roof: "plain", windows: { lit: 0.18, w: 6, h: 7 }, door: { chance: 0.3 } },
+    { side: "#7a6a5e", top: "#3e3a3a", face: "stone", roof: "slab", windows: { lit: 0.1 } }
+  ];
+  var harborLooks = [
+    { side: "#6a7a8a", top: "#4a5258", face: "#6a7a8a metal", roof: "plain", windows: { lit: 0.15, w: 5, h: 6 }, door: { chance: 0.4, color: "#2a3a4a" } },
+    { side: "#5a8a8a", top: "#3e5a5a", face: "#5a8a8a metal", roof: "plain", windows: { lit: 0.12 } },
+    { side: "#8a8a82", top: "#5a5a56", face: "stone", roof: "slab", windows: { lit: 0.2 } }
+  ];
+  var containers = ["#c8423a", "#3a6ac8", "#3a8a5a", "#c8a03a", "#8a3a8a"].map((c) => ({ side: c, top: c, face: `${c} metal`, roof: "plain", texture: true }));
+  var STYLES = {
+    palm: { kinds: { row: 4, shop: 2, apartment: 2 }, looks: palmLooks, alleys: 0.2, filler: "grass", floor: "#b89a78", lots: {
+      row: { kind: "building", w: [3, 5], d: [6, 9], storeys: [2, 3] },
+      shop: { kind: "building", w: [4, 7], d: [4, 6], storeys: [1, 2] },
+      apartment: { kind: "building", w: [6, 9], d: [6, 9], storeys: [3, 4] }
+    } },
+    neon: { kinds: { tower: 3, midrise: 3, club: 1 }, looks: neonLooks, alleys: 0.25, filler: "plaza", floor: "#7a7488", lots: {
+      tower: { kind: "building", w: [6, 10], d: [6, 10], storeys: [5, 8] },
+      midrise: { kind: "building", w: [5, 8], d: [5, 8], storeys: [3, 5] },
+      club: { kind: "building", w: [4, 6], d: [4, 6], storeys: [1, 2] }
+    } },
+    brick: { kinds: { warehouse: 3, factory: 2, garage: 2 }, looks: brickLooks, alleys: 0.3, filler: "yard", floor: "#8a7462", lots: {
+      warehouse: { kind: "building", w: [7, 12], d: [6, 10], storeys: [2, 3] },
+      factory: { kind: "building", w: [6, 10], d: [6, 10], storeys: [2, 4] },
+      garage: { kind: "building", w: [4, 6], d: [4, 6], storeys: [1, 1] }
+    } },
+    harbor: { kinds: { shed: 3, office: 2, stack: 2 }, looks: harborLooks, alleys: 0.3, filler: "yard", floor: "#7a8486", lots: {
+      shed: { kind: "building", w: [6, 10], d: [5, 8], storeys: [1, 2] },
+      office: { kind: "building", w: [4, 6], d: [4, 6], storeys: [2, 3] },
+      stack: { kind: "building", w: [2, 3], d: [4, 6], storeys: [1, 2], looks: containers }
+    } }
+  };
+
+  // src/game/districts/lowtown/district.js
+  var NS = (at, from, to, kind = "street", name = "") => ({ axis: "y", at, from, to, kind, name });
+  var EW = (at, from, to, kind = "street", name = "") => ({ axis: "x", at, from, to, kind, name });
+  def("districts", "lowtown", {
+    name: "Lowtown",
+    size: [160, 160],
+    seed: 1999,
+    storey: 24,
+    hoods: HOODS,
+    styles: STYLES,
+    hoodMap: [[0, 0, 79, 76, "palm"], [80, 0, 159, 76, "neon"], [0, 77, 79, 159, "brick"], [80, 77, 159, 159, "harbor"]],
+    water: [
+      { rect: [0, 152, 159, 159], kind: "sea" },
+      { rect: [154, 0, 159, 151], kind: "sea" },
+      { rect: [140, 108, 153, 151], kind: "harbour" },
+      { rect: [0, 124, 139, 131], kind: "canal" }
+    ],
+    roads: [
+      // north to south
+      NS(6, 2, 122, "street", "Gnome Row"),
+      NS(32, 2, 151, "street", "Chapel Street"),
+      NS(56, 2, 122, "street", "Palm Walk"),
+      NS(80, 2, 151, "avenue", "Motor Avenue"),
+      NS(104, 2, 122, "street", "Marquee Street"),
+      NS(128, 2, 151, "street", "Dock Road"),
+      NS(149, 2, 104, "street", "Seawall Drive"),
+      // west to east
+      EW(6, 2, 151, "street", "Terrace Road"),
+      EW(30, 2, 151, "street", "Sunset Strip"),
+      EW(54, 2, 151, "street", "Lantern Lane"),
+      EW(78, 2, 153, "avenue", "Loop Avenue"),
+      EW(102, 2, 151, "street", "Brick Lane"),
+      EW(118, 2, 137, "street", "Canal Street"),
+      EW(140, 2, 137, "street", "Wharf Street")
+    ],
+    decks: [
+      {
+        id: "loop",
+        kind: "road",
+        z: 64,
+        width: 6,
+        lanes: 4,
+        closed: true,
+        path: [[32, 78], [128, 78], [128, 102], [32, 102]],
+        pillarEvery: 4,
+        ramps: [{ at: [32, 78], dir: "W", length: 16 }, { at: [128, 78], dir: "E", length: 14 }, { at: [32, 102], dir: "W", length: 16 }, { at: [128, 102], dir: "E", length: 14 }]
+      },
+      { id: "loop-gap", kind: "road", z: 64, width: 4, lanes: 2, path: [[29, 91], [16, 91]], pillarEvery: 4, openEnd: true },
+      {
+        id: "L",
+        kind: "rail",
+        z: 100,
+        width: 3,
+        lanes: 2,
+        path: [[80, 3], [80, 150]],
+        pillarEvery: 4,
+        stations: [{ name: "Palm", rect: [76, 12, 84, 23] }, { name: "Neon Mile", rect: [76, 38, 84, 49] }, { name: "Brickyard", rect: [76, 86, 84, 97] }, { name: "Harbor", rect: [76, 136, 84, 147] }]
+      }
+    ],
+    walls: [
+      // the embankments round the north and west edges, and the west end of Loop Avenue: the closed bridge
+      { rect: [0, 0, 159, 1], type: { h: 32, top: "#5a6a4a", side: "#7a7468", face: "stone", roof: "grass" } },
+      { rect: [0, 2, 1, 151], type: { h: 32, top: "#5a6a4a", side: "#7a7468", face: "stone", roof: "grass" } }
+    ],
+    props: { lampEvery: 6, clutter: 0.3 },
+    zones: [
+      { kind: "patrol", rect: [80, 0, 159, 76], name: "Neon Mile beat" },
+      { kind: "patrol", rect: [0, 0, 79, 76], name: "Palm beat" },
+      { kind: "patrol", rect: [0, 77, 159, 151], name: "Docks beat" },
+      { kind: "noSpawn", rect: [140, 108, 159, 159] },
+      { kind: "noSpawn", rect: [0, 124, 139, 131] }
+    ]
+  });
+
+  // src/game/districts/lowtown/landmarks.js
+  var L2 = (id, name, lots, pois = [], props = []) => def("landmarks", id, { district: "lowtown", name, lots, pois, props });
+  var look = (side, top, o = {}) => ({ side, top, face: "plaster", roof: "slab", windows: { lit: 0.35 }, ...o });
+  L2(
+    "gas-n-sip",
+    "Gas'n'Sip",
+    [{ rect: [37, 11, 51, 19], kind: "yard", surface: "yard" }, { rect: [45, 11, 51, 15], kind: "building", storeys: 1, look: look("#f0e0a8", "#c8423a", { door: { chance: 1 } }), sign: { text: "GAS'N'SIP", color: "#ffd23a" } }],
+    [{ id: "gas-n-sip", kind: "shop", shop: "gas", at: [47, 16], label: "Gas'n'Sip" }],
+    [{ kind: "pump", at: [40, 15] }, { kind: "pump", at: [40, 17.5] }]
+  );
+  L2("palm-park", "Palm Park", [{ rect: [61, 11, 73, 25], kind: "park", surface: "park" }, { rect: [65, 15, 69, 20], kind: "water", surface: "water" }], [{ id: "palm-park", kind: "landmark", at: [62, 22], label: "Palm Park" }]);
+  L2(
+    "chapel",
+    "St. Christopher's Chapel",
+    [{ rect: [11, 35, 27, 49], kind: "park", surface: "park" }, { rect: [14, 37, 23, 45], kind: "building", storeys: 2, look: look("#c8c0b0", "#5a4a4a", { face: "stone", roof: "tiles", windows: { lit: 0.6, w: 4, h: 12 } }), sign: { text: "SAFEHOUSE", color: "#7af0ff" } }],
+    [{ id: "safehouse", kind: "safehouse", at: [18, 47], label: "St. Christopher's Chapel" }]
+  );
+  L2(
+    "greasy-spoke",
+    "The Greasy Spoke",
+    [{ rect: [37, 43, 44, 49], kind: "building", storeys: 1, look: look("#d8d8e0", "#c8423a", { face: "#d8d8e0 metal", door: { chance: 1 } }), sign: { text: "GREASY SPOKE", color: "#ff5a5a" } }],
+    [{ id: "greasy-spoke", kind: "shop", shop: "diner", at: [40, 50], label: "The Greasy Spoke" }]
+  );
+  L2(
+    "gutterball",
+    "Gutterball Lanes",
+    [{ rect: [38, 60, 50, 70], kind: "building", storeys: 2, look: look("#e8b8c8", "#7a5a6a", { windows: { lit: 0.5 } }), sign: { text: "GUTTERBALL", color: "#ff7ac8" } }],
+    [{ id: "gnomes-hq", kind: "gang", gang: "gnomes", at: [44, 71], label: "Gutterball Lanes" }, { id: "phone-gnomes", kind: "payphone", gang: "gnomes", at: [37, 72] }]
+  );
+  L2(
+    "lowtown-general",
+    "Lowtown General",
+    [{ rect: [11, 59, 27, 67], kind: "building", storeys: 4, look: look("#e8e8ec", "#8a9aa0", { face: "stone", windows: { lit: 0.55, w: 5 } }), sign: { text: "LOWTOWN GENERAL", color: "#ff4a4a" } }, { rect: [11, 68, 27, 71], kind: "yard", surface: "yard" }],
+    [{ id: "hospital", kind: "hospital", at: [19, 70], label: "Lowtown General" }]
+  );
+  L2(
+    "threads",
+    "Threads",
+    [{ rect: [61, 65, 68, 71], kind: "building", storeys: 2, look: look("#c8d8e8", "#4a5a6a", { door: { chance: 1 } }), sign: { text: "THREADS", color: "#7af0ff" } }],
+    [{ id: "threads", kind: "shop", shop: "clothes", at: [64, 72], label: "Threads" }]
+  );
+  L2(
+    "kwik-lux-palm",
+    "Kwik-Lux (Palm)",
+    [{ rect: [67, 44, 73, 49], kind: "building", storeys: 1, look: look("#f0e0a8", "#3a8a5a", { door: { chance: 1 } }), sign: { text: "KWIK-LUX", color: "#5aff8a" } }],
+    [{ id: "kwik-lux-palm", kind: "shop", shop: "kwiklux", holdup: true, at: [70, 50], label: "Kwik-Lux" }]
+  );
+  var neon = (side, top, o = {}) => ({ side, top, face: "stone", roof: "plain", windows: { w: 3, h: 12, step: 10, lit: 0.6 }, ...o });
+  L2(
+    "hotel-marquee",
+    "Hotel Marquee",
+    [{ rect: [88, 12, 98, 24], kind: "building", storeys: 7, look: neon("#5a3a6a", "#2e2a3a"), sign: { text: "HOTEL MARQUEE", color: "#ff4ad8" } }],
+    [{ id: "hotel-marquee", kind: "landmark", at: [93, 26], label: "Hotel Marquee" }]
+  );
+  L2(
+    "plaza",
+    "Marquee Plaza",
+    [{ rect: [109, 11, 123, 25], kind: "plaza", surface: "plaza" }],
+    [{ id: "plaza", kind: "landmark", at: [116, 18], label: "Marquee Plaza" }],
+    [{ kind: "fountain", at: [116.5, 18.5], solid: { hx: 18, hy: 18, top: 10 } }]
+  );
+  L2(
+    "lead-farm",
+    "Lead Farm",
+    [{ rect: [133, 19, 140, 25], kind: "building", storeys: 2, look: neon("#3a3a3e", "#2a2a2e", { windows: { lit: 0.2 } }), sign: { text: "LEAD FARM", color: "#ffa23a" } }],
+    [{ id: "lead-farm", kind: "shop", shop: "guns", at: [136, 27], label: "Lead Farm" }]
+  );
+  L2(
+    "pixel-palace",
+    "Pixel Palace",
+    [{ rect: [87, 41, 95, 49], kind: "building", storeys: 2, look: neon("#2a2a4a", "#1e1e30", { windows: { lit: 0.8, w: 6, h: 6 } }), sign: { text: "PIXEL PALACE", color: "#5af0ff" } }],
+    [{ id: "pixel-palace", kind: "property", property: "arcade", at: [91, 50], label: "Pixel Palace" }]
+  );
+  L2(
+    "bank",
+    "First Lowtown Bank",
+    [{ rect: [109, 35, 123, 49], kind: "plaza", surface: "plaza" }, { rect: [111, 37, 121, 47], kind: "building", storeys: 8, look: neon("#8a8070", "#4a4440", { face: "stone", windows: { w: 4, h: 14, step: 12, lit: 0.5 }, floor: "#c8bca8" }), sign: { text: "FIRST LOWTOWN BANK", color: "#ffe066" } }],
+    [{ id: "bank-door", kind: "door", interior: "bank", at: [116, 49], label: "First Lowtown Bank" }]
+  );
+  L2(
+    "club-chrome",
+    "Club Chrome",
+    [{ rect: [133, 45, 144, 49], kind: "plaza", surface: "plaza" }, { rect: [134, 36, 143, 44], kind: "building", storeys: 2, look: neon("#a8b0c0", "#5a6070", { face: "#a8b0c0 metal", windows: { lit: 0.7 } }), sign: { text: "CLUB CHROME", color: "#7ae0ff" } }],
+    [{ id: "saints-hq", kind: "gang", gang: "saints", at: [138, 46], label: "Club Chrome" }, { id: "phone-saints", kind: "payphone", gang: "saints", at: [133, 50] }]
+  );
+  L2(
+    "precinct",
+    "MPD 5th Precinct",
+    [{ rect: [87, 59, 99, 67], kind: "building", storeys: 4, look: neon("#5a6a8a", "#3a4458", { windows: { lit: 0.6, w: 5 } }), sign: { text: "MPD", color: "#5a8aff" } }, { rect: [87, 68, 99, 71], kind: "yard", surface: "yard" }],
+    [{ id: "precinct", kind: "police", at: [93, 70], label: "MPD 5th Precinct" }]
+  );
+  L2(
+    "kwik-lux-neon",
+    "Kwik-Lux (Neon)",
+    [{ rect: [117, 65, 123, 71], kind: "building", storeys: 1, look: neon("#3a5a4a", "#2a3a32", { windows: { lit: 0.7 } }), sign: { text: "KWIK-LUX", color: "#5aff8a" } }],
+    [{ id: "kwik-lux-neon", kind: "shop", shop: "kwiklux", holdup: true, at: [120, 72], label: "Kwik-Lux" }]
+  );
+  var brick = (side, top, o = {}) => ({ side, top, face: "brick", roof: "slab", windows: { lit: 0.2 }, ...o });
+  L2(
+    "boom-box",
+    "Boom Box Garage",
+    [{ rect: [37, 94, 51, 97], kind: "yard", surface: "yard" }, { rect: [37, 85, 46, 93], kind: "building", storeys: 1, look: brick("#8a5a3a", "#3a3a40", { door: { chance: 1, w: 12, h: 14, color: "#3a3a40" } }), sign: { text: "BOOM BOX", color: "#ff5a3a" } }],
+    [{ id: "boom-box", kind: "shop", shop: "mods", at: [41, 94], label: "Boom Box Garage" }]
+  );
+  L2(
+    "construction",
+    "The Construction Site",
+    [{ rect: [11, 85, 27, 97], kind: "construction", surface: "dirt" }],
+    [{ id: "loop-gap", kind: "stunt", at: [14, 91], label: "The Loop Gap" }],
+    [{ kind: "drill", at: [20, 88] }, { kind: "mound", at: [14, 93], solid: { hx: 20, hy: 14, top: 10 } }, { kind: "scaffold", at: [24, 95] }]
+  );
+  L2(
+    "spray-pray",
+    "Spray & Pray",
+    [{ rect: [11, 107, 18, 113], kind: "building", storeys: 1, look: brick("#5a6a8a", "#3a3a44", { door: { chance: 1, w: 12, h: 14 } }), sign: { text: "SPRAY & PRAY", color: "#ff8af0" } }],
+    [{ id: "spray-pray", kind: "shop", shop: "respray", at: [15, 114], label: "Spray & Pray" }]
+  );
+  L2("l-depot", "L Depot", [{ rect: [61, 107, 73, 113], kind: "yard", surface: "rail" }], [{ id: "l-depot", kind: "landmark", at: [67, 110], label: "L Depot" }]);
+  L2(
+    "car-wash",
+    "Palm Car Wash",
+    [{ rect: [37, 107, 51, 113], kind: "yard", surface: "yard" }, { rect: [37, 107, 44, 113], kind: "building", storeys: 1, look: brick("#5ab0d0", "#3a6a8a", { face: "plaster" }), sign: { text: "CAR WASH", color: "#5af0ff" } }],
+    [{ id: "car-wash", kind: "property", property: "carwash", at: [47, 114], label: "Palm Car Wash" }]
+  );
+  L2("crush-hour", "Crush Hour", [{ rect: [37, 145, 51, 151], kind: "yard", surface: "yard" }], [{ id: "crush-hour", kind: "crusher", at: [44, 147], label: "Crush Hour" }], [{ kind: "crusher", at: [44.5, 148.5], solid: { hx: 20, hy: 14, top: 30 } }]);
+  var shed = (side, top, o = {}) => ({ side, top, face: `${side} metal`, roof: "plain", windows: { lit: 0.15 }, ...o });
+  L2(
+    "fish-market",
+    "Fish Market",
+    [{ rect: [87, 93, 99, 97], kind: "yard", surface: "quay" }, { rect: [87, 85, 99, 92], kind: "building", storeys: 2, look: shed("#5a8a8a", "#3e5a5a", { door: { chance: 0.8 } }), sign: { text: "FISH MARKET", color: "#7affd0" } }],
+    [{ id: "fish-market", kind: "landmark", at: [93, 94], label: "Fish Market" }]
+  );
+  L2("container-yard", "Container Yard", [{ rect: [109, 85, 123, 97], kind: "yard", surface: "yard" }], [{ id: "container-ramp", kind: "stunt", at: [111, 96], label: "Container Ramp" }]);
+  L2(
+    "cranes",
+    "The Cranes",
+    [{ rect: [133, 85, 146, 97], kind: "yard", surface: "quay" }],
+    [{ id: "cranes", kind: "landmark", at: [139, 98], label: "The Cranes" }],
+    [{ kind: "crane", at: [137, 89], solid: { hx: 6, hy: 6, top: 120 } }, { kind: "crane", at: [143, 92], solid: { hx: 6, hy: 6, top: 120 } }]
+  );
+  L2(
+    "kwik-lux-harbor",
+    "Kwik-Lux (Harbor)",
+    [{ rect: [94, 107, 99, 113], kind: "building", storeys: 1, look: shed("#3a5a4a", "#2a3a32"), sign: { text: "KWIK-LUX", color: "#5aff8a" } }],
+    [{ id: "kwik-lux-harbor", kind: "shop", shop: "kwiklux", holdup: true, at: [96, 114], label: "Kwik-Lux" }]
+  );
+  L2(
+    "marina",
+    "The Marina",
+    [{ rect: [133, 107, 139, 123], kind: "yard", surface: "quay" }, { rect: [140, 111, 148, 112], kind: "pier", surface: "pier" }, { rect: [140, 117, 148, 118], kind: "pier", surface: "pier" }],
+    [{ id: "marina", kind: "marina", at: [137, 115], label: "The Marina" }]
+  );
+  L2(
+    "boathouse",
+    "Harbor Rats Boathouse",
+    [{ rect: [142, 134, 151, 145], kind: "pier", surface: "pier" }, { rect: [144, 136, 150, 142], kind: "building", storeys: 2, look: shed("#8a6a4a", "#5a4a3a", { face: "plank" }), sign: { text: "BOATHOUSE", color: "#ffd23a" } }, { rect: [138, 138, 141, 139], kind: "pier", surface: "pier" }],
+    [{ id: "rats-hq", kind: "gang", gang: "rats", at: [147, 143], label: "Harbor Rats Boathouse" }, { id: "phone-rats", kind: "payphone", gang: "rats", at: [134, 139] }]
+  );
+  L2(
+    "lighthouse",
+    "The Lighthouse",
+    [{ rect: [148, 146, 153, 151], kind: "pier", surface: "quay" }, { rect: [149, 147, 152, 150], kind: "building", storeys: 6, look: { side: "#e8e8ec", top: "#c8423a", face: "plaster", roof: "tiles", windows: { lit: 0.3, w: 4 } } }],
+    [{ id: "lighthouse", kind: "landmark", at: [148, 146], label: "The Lighthouse" }]
+  );
+
   // src/game/districts/proving/pad.js
-  var T2 = 16;
+  var T3 = 16;
   var N = 80;
   var asphalt2 = (x, y) => {
     const v = 46 + (E.noise2(x * 0.27, y * 0.27) + 1) * 4 + (E.hash2(x, y) < 0.07 ? -6 : E.hash2(x + 5, y) > 0.96 ? 7 : 0);
@@ -11023,18 +12479,18 @@ root.My3D2dge = E;
         2: { h: 14, top: "#d8d8d0", side: "#c8c8c0", face: "plaster", roof: "plain" },
         3: { h: 3, top: "#a8a8b0", side: "#8a8a92", face: "stone", roof: "plain" }
       } });
-      map.skidpad = [25 * T2, 22 * T2, 160];
-      map.start = [6 * T2, 64 * T2, 0];
-      map.bays = [[48 * T2, 16 * T2, Math.PI / 2], [52 * T2, 24 * T2, 0], [60 * T2, 12 * T2, 0.4], [40 * T2, 30 * T2, Math.PI]];
+      map.skidpad = [25 * T3, 22 * T3, 160];
+      map.start = [6 * T3, 64 * T3, 0];
+      map.bays = [[48 * T3, 16 * T3, Math.PI / 2], [52 * T3, 24 * T3, 0], [60 * T3, 12 * T3, 0.4], [40 * T3, 30 * T3, Math.PI]];
       map.lamps = [];
-      for (let x = 8; x < 76; x += 6) map.lamps.push([x * T2, 60.5 * T2], [x * T2, 67.5 * T2]);
+      for (let x = 8; x < 76; x += 6) map.lamps.push([x * T3, 60.5 * T3], [x * T3, 67.5 * T3]);
       map.addSolids(map.lamps.map(([x, y]) => ({ x, y, z: 0, top: 44, hx: 1.5, hy: 1.5 })));
       let pats = null;
       map.paintFloor = (g, x0, y0, x1, y1) => {
         pats ||= { road: g.createPattern(tile(64, asphalt2), "repeat"), grass: g.createPattern(tile(64, (x, y) => E.tex.grass(x, y)), "repeat"), dirt: g.createPattern(tile(64, (x, y) => E.tex.dirt(x, y)), "repeat") };
-        for (let cy = Math.max(0, Math.floor(y0 / T2)); cy <= Math.min(N - 1, Math.floor((y1 - 1) / T2)); cy++) for (let cx = Math.max(0, Math.floor(x0 / T2)); cx <= Math.min(N - 1, Math.floor((x1 - 1) / T2)); cx++) {
+        for (let cy = Math.max(0, Math.floor(y0 / T3)); cy <= Math.min(N - 1, Math.floor((y1 - 1) / T3)); cy++) for (let cx = Math.max(0, Math.floor(x0 / T3)); cx <= Math.min(N - 1, Math.floor((x1 - 1) / T3)); cx++) {
           g.fillStyle = pats[map.floorTags[cy * N + cx]] || pats.road;
-          g.fillRect(cx * T2, cy * T2, T2, T2);
+          g.fillRect(cx * T3, cy * T3, T3, T3);
         }
         const [sx, sy, sr] = map.skidpad;
         g.strokeStyle = "#e8e8ec";
@@ -11043,10 +12499,10 @@ root.My3D2dge = E;
         g.arc(sx, sy, sr, 0, Math.PI * 2);
         g.stroke();
         g.fillStyle = "#e8e8ec";
-        g.fillRect(4 * T2, 61.5 * T2, 72 * T2, 2);
-        g.fillRect(4 * T2, 66.5 * T2, 72 * T2, 2);
+        g.fillRect(4 * T3, 61.5 * T3, 72 * T3, 2);
+        g.fillRect(4 * T3, 66.5 * T3, 72 * T3, 2);
         g.fillStyle = "#d6ac34";
-        for (let x = map.start[0]; x < 76 * T2; x += 100) g.fillRect(x - 1, 61.5 * T2, 3, 5 * T2);
+        for (let x = map.start[0]; x < 76 * T3; x += 100) g.fillRect(x - 1, 61.5 * T3, 3, 5 * T3);
         g.fillStyle = "rgba(255,255,255,.08)";
         for (const [bx, by] of map.bays) g.fillRect(bx - 34, by - 18, 68, 36);
       };
@@ -11055,7 +12511,7 @@ root.My3D2dge = E;
   });
 
   // src/game/districts/proving/scale-city.js
-  var T3 = 16;
+  var T4 = 16;
   var P = 22;
   var band = (c) => {
     const m = c % P;
@@ -11072,7 +12528,7 @@ root.My3D2dge = E;
       { side: "#8a6a5a", top: "#4a4652", face: "brick", roof: "slab", windows: { lit: 0.45 }, balcony: { z: 40 } }
     ];
     let id = 1;
-    for (let s = 1; s <= 8; s++) for (const look of looks) out[id++] = { ...look, h: s * STOREY, cut: s >= 3, cutH: 8 };
+    for (let s = 1; s <= 8; s++) for (const look2 of looks) out[id++] = { ...look2, h: s * STOREY, cut: s >= 3, cutH: 8 };
     return out;
   }
   function tile2(size, fn) {
@@ -11101,51 +12557,51 @@ root.My3D2dge = E;
         walk: g.createPattern(tile2(64, (x, y) => E.tex.flagstone(x, y, PAVING)), "repeat"),
         lot: g.createPattern(tile2(32, (x, y) => E.tex.dirt(x, y, { base: "#5a5048", dark: "#4a423c", light: "#6a6058" })), "repeat")
       };
-      const c0 = Math.max(0, Math.floor(x0 / T3)), c1 = Math.min(N2 - 1, Math.floor((x1 - 1) / T3)), r0 = Math.max(0, Math.floor(y0 / T3)), r1 = Math.min(N2 - 1, Math.floor((y1 - 1) / T3));
+      const c0 = Math.max(0, Math.floor(x0 / T4)), c1 = Math.min(N2 - 1, Math.floor((x1 - 1) / T4)), r0 = Math.max(0, Math.floor(y0 / T4)), r1 = Math.min(N2 - 1, Math.floor((y1 - 1) / T4));
       for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; ) {
         const tag = map.floorTags[cy * N2 + cx] || "lot";
         let e = cx;
         while (e + 1 <= c1 && (map.floorTags[cy * N2 + e + 1] || "lot") === tag) e++;
         g.fillStyle = pats[tag] || pats.lot;
-        g.fillRect(cx * T3, cy * T3, (e - cx + 1) * T3, T3);
+        g.fillRect(cx * T4, cy * T4, (e - cx + 1) * T4, T4);
         cx = e + 1;
       }
       g.fillStyle = "#d6ac34";
       for (let k = 0; k * P < N2; k++) {
-        const mid = (k * P + 4.5) * T3;
+        const mid = (k * P + 4.5) * T4;
         if (mid < y0 - 2 || mid > y1 + 2) {
-        } else for (let x = Math.floor(x0 / 32) * 32; x < x1; x += 32) if (band(Math.floor((x + 8) / T3)) !== "road") g.fillRect(x, mid - 1, 16, 2);
+        } else for (let x = Math.floor(x0 / 32) * 32; x < x1; x += 32) if (band(Math.floor((x + 8) / T4)) !== "road") g.fillRect(x, mid - 1, 16, 2);
         if (mid >= x0 - 2 && mid <= x1 + 2) {
-          for (let y = Math.floor(y0 / 32) * 32; y < y1; y += 32) if (band(Math.floor((y + 8) / T3)) !== "road") g.fillRect(mid - 1, y, 2, 16);
+          for (let y = Math.floor(y0 / 32) * 32; y < y1; y += 32) if (band(Math.floor((y + 8) / T4)) !== "road") g.fillRect(mid - 1, y, 2, 16);
         }
       }
       g.fillStyle = "#d8d8dc";
       for (let k = 0; k * P < N2; k++) for (let q = 0; q * P < N2; q++) {
-        const ax = k * P * T3, ay = q * P * T3;
-        if (ax + 9 * T3 < x0 || ax > x1 || ay + 9 * T3 < y0 || ay > y1) continue;
-        for (let s = 0; s < 5 * T3; s += 6) {
-          g.fillRect(ax + 2 * T3 + s, ay + 1.2 * T3, 3, 0.7 * T3);
-          g.fillRect(ax + 2 * T3 + s, ay + 7.1 * T3, 3, 0.7 * T3);
-          g.fillRect(ax + 1.2 * T3, ay + 2 * T3 + s, 0.7 * T3, 3);
-          g.fillRect(ax + 7.1 * T3, ay + 2 * T3 + s, 0.7 * T3, 3);
+        const ax = k * P * T4, ay = q * P * T4;
+        if (ax + 9 * T4 < x0 || ax > x1 || ay + 9 * T4 < y0 || ay > y1) continue;
+        for (let s = 0; s < 5 * T4; s += 6) {
+          g.fillRect(ax + 2 * T4 + s, ay + 1.2 * T4, 3, 0.7 * T4);
+          g.fillRect(ax + 2 * T4 + s, ay + 7.1 * T4, 3, 0.7 * T4);
+          g.fillRect(ax + 1.2 * T4, ay + 2 * T4 + s, 0.7 * T4, 3);
+          g.fillRect(ax + 7.1 * T4, ay + 2 * T4 + s, 0.7 * T4, 3);
         }
       }
       g.fillStyle = "#9a98a0";
       for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
         if (map.floorTags[cy * N2 + cx] !== "walk") continue;
         const road = (x, y) => map.floorTags[y * N2 + x] === "road";
-        if (cx + 1 < N2 && road(cx + 1, cy)) g.fillRect(cx * T3 + T3 - 2, cy * T3, 2, T3);
-        if (cx > 0 && road(cx - 1, cy)) g.fillRect(cx * T3, cy * T3, 2, T3);
-        if (cy + 1 < N2 && road(cx, cy + 1)) g.fillRect(cx * T3, cy * T3 + T3 - 2, T3, 2);
-        if (cy > 0 && road(cx, cy - 1)) g.fillRect(cx * T3, cy * T3, T3, 2);
+        if (cx + 1 < N2 && road(cx + 1, cy)) g.fillRect(cx * T4 + T4 - 2, cy * T4, 2, T4);
+        if (cx > 0 && road(cx - 1, cy)) g.fillRect(cx * T4, cy * T4, 2, T4);
+        if (cy + 1 < N2 && road(cx, cy + 1)) g.fillRect(cx * T4, cy * T4 + T4 - 2, T4, 2);
+        if (cy > 0 && road(cx, cy - 1)) g.fillRect(cx * T4, cy * T4, T4, 2);
       }
       g.fillStyle = "rgba(8, 6, 16, .35)";
       for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
         if (map.cell(cx, cy) !== 0) continue;
-        if (map.cell(cx, cy - 1) > 0) g.fillRect(cx * T3, cy * T3, T3, 4);
-        if (map.cell(cx - 1, cy) > 0) g.fillRect(cx * T3, cy * T3, 4, T3);
-        if (map.cell(cx + 1, cy) > 0) g.fillRect(cx * T3 + T3 - 4, cy * T3, 4, T3);
-        if (map.cell(cx, cy + 1) > 0) g.fillRect(cx * T3, cy * T3 + T3 - 4, T3, 4);
+        if (map.cell(cx, cy - 1) > 0) g.fillRect(cx * T4, cy * T4, T4, 4);
+        if (map.cell(cx - 1, cy) > 0) g.fillRect(cx * T4, cy * T4, 4, T4);
+        if (map.cell(cx + 1, cy) > 0) g.fillRect(cx * T4 + T4 - 4, cy * T4, 4, T4);
+        if (map.cell(cx, cy + 1) > 0) g.fillRect(cx * T4, cy * T4 + T4 - 4, T4, 4);
       }
     };
   }
@@ -11166,7 +12622,7 @@ root.My3D2dge = E;
         for (let s = 0; s < cuts.length - 1; s++) {
           const rows = rng.chance(0.5) ? [[y0, y1]] : [[y0, y0 + 5], [y0 + 7, y1]];
           for (const [ya, yb] of rows) {
-            const storeys = Math.min(8, 1 + Math.floor(rng.next() ** 1.6 * 8)), look = rng.int(0, 5), id = (storeys - 1) * 6 + look + 1;
+            const storeys = Math.min(8, 1 + Math.floor(rng.next() ** 1.6 * 8)), look2 = rng.int(0, 5), id = (storeys - 1) * 6 + look2 + 1;
             for (let y = ya; y <= yb; y++) for (let x = cuts[s]; x < cuts[s + 1] - (s < cuts.length - 2 ? 1 : 0); x++) cells[y * N2 + x] = id;
           }
         }
@@ -11175,16 +12631,16 @@ root.My3D2dge = E;
       map.paintFloor = painter(map);
       map.lamps = [];
       for (let k = 0; k * P < N2; k++) for (let s = 2; s < N2; s += 4) for (const off of [0.6, 8.4]) {
-        const line = (k * P + off) * T3, along = s * T3 + 8;
+        const line = (k * P + off) * T4, along = s * T4 + 8;
         if (band(s) === "road") continue;
         map.lamps.push([along, line], [line, along]);
       }
       map.addSolids(map.lamps.map(([x, y]) => ({ x, y, z: 0, top: 44, hx: 1.5, hy: 1.5 })));
-      const K = Math.floor((N2 - 9) / P), a = K >= 3 ? 1 : 0, b = K >= 3 ? K - 1 : K, at = (k) => (k * P + 4.5) * T3, lo = at(a), hi = at(b), mid = at(Math.min(b, a + 2)), mid1 = at(Math.min(b, a + 1));
+      const K = Math.floor((N2 - 9) / P), a = K >= 3 ? 1 : 0, b = K >= 3 ? K - 1 : K, at = (k) => (k * P + 4.5) * T4, lo = at(a), hi = at(b), mid = at(Math.min(b, a + 2)), mid1 = at(Math.min(b, a + 1));
       map.route = mid > mid1 && mid < hi ? [[lo, lo], [hi, lo], [hi, hi], [mid, hi], [mid, mid1], [lo, mid1]] : [[lo, lo], [hi, lo], [hi, hi], [lo, hi]];
       map.loops = [];
       for (let by = 0; by * P + 9 < N2; by++) for (let bx = 0; bx * P + 9 < N2; bx++) {
-        const x0 = (bx * P + 8) * T3, y0 = (by * P + 8) * T3, x1 = Math.min(N2 - 1, (bx + 1) * P + 1) * T3, y1 = Math.min(N2 - 1, (by + 1) * P + 1) * T3;
+        const x0 = (bx * P + 8) * T4, y0 = (by * P + 8) * T4, x1 = Math.min(N2 - 1, (bx + 1) * P + 1) * T4, y1 = Math.min(N2 - 1, (by + 1) * P + 1) * T4;
         if (x1 - x0 > 64 && y1 - y0 > 64) map.loops.push([x0, y0, x1, y1]);
       }
       return map;
@@ -11337,7 +12793,7 @@ root.My3D2dge = E;
     title: "Vehicle pad",
     make(app2) {
       const { game: game2, views, human, links: links2, stage } = app2;
-      let map, floor, car, cars, wet, auto, wp, look;
+      let map, floor, car, cars, wet, auto, wp, look2;
       const models = /* @__PURE__ */ new Map(), modelFor = (b) => {
         const k = b.def.id + b.color;
         let m = models.get(k);
@@ -11362,7 +12818,7 @@ root.My3D2dge = E;
             b.color = b.def.palette[1 + i % (b.def.palette.length - 1)];
             return b;
           })];
-          look = { roll: 0, pitch: 0 };
+          look2 = { roll: 0, pitch: 0 };
           game2.cam.bounds = (v) => map.bounds(v);
           game2.setZoom(+(links2.query.get("zoom") || 0.8));
           if (!game2.headless) floor.warm(car.x, car.y, 400);
@@ -11391,13 +12847,13 @@ root.My3D2dge = E;
         },
         draw(r) {
           const k = 1 - Math.exp(-(1 / 60) * 8);
-          look.roll += (E.clamp(-car.felt.lat * 5e-4, -0.12, 0.12) - look.roll) * k;
-          look.pitch += (E.clamp(car.felt.lon * 4e-4, -0.08, 0.08) - look.pitch) * k;
+          look2.roll += (E.clamp(-car.felt.lat * 5e-4, -0.12, 0.12) - look2.roll) * k;
+          look2.pitch += (E.clamp(car.felt.lon * 4e-4, -0.08, 0.08) - look2.pitch) * k;
           stage.begin(r, { focus: [car.x, car.y], vel: [car.vx, car.vy], speed01: car.speed / car.h.top });
           for (const [lx, ly] of map.lamps) stage.shape(lx, ly, 0, (g, P2) => drawLamp(g, P2, lx, ly));
           for (const b of cars) {
             const mine = b === car;
-            stage.shape(b.x, b.y, 0, (g, P2) => drawBoxModel(g, P2, modelFor(b), b.x, b.y, b.z, b.heading, { roll: mine ? look.roll : 0, pitch: mine ? look.pitch : 0, lit: true, braking: mine && car.ctl.brake > 0 && car.u > 1 }));
+            stage.shape(b.x, b.y, 0, (g, P2) => drawBoxModel(g, P2, modelFor(b), b.x, b.y, b.z, b.heading, { roll: mine ? look2.roll : 0, pitch: mine ? look2.pitch : 0, lit: true, braking: mine && car.ctl.brake > 0 && car.u > 1 }));
           }
           stage.end();
         },
@@ -11477,19 +12933,28 @@ root.My3D2dge = E;
   });
 
   // src/game/scenes/play.js
+  var cached = null;
+  function lowtown(seed) {
+    if (!cached || cached.seed !== seed) {
+      const city = buildCity("lowtown", seed);
+      cached = { seed, city, render: new CityRenderer(city) };
+    }
+    return cached;
+  }
   def("scenes", "play", {
     make(app2) {
       const { game: game2, views, human, footprint, links: links2, stage } = app2;
-      let map, hero, rig;
+      let city, map, cityR, floor, hero, rig, hoodName = "";
       return {
         pausable: true,
-        enter() {
-          map = get("maps", "hello").build();
-          const engineFloor = links2.query.get("floor") === "engine";
-          stage.setWorld({ map, floor: new FloorChunks({ w: map.w * map.T, h: map.h * map.T, paint: paintTileMapFloor(map), size: 128 }), backdrop: new E.Backdrop("city-night"), engineFloor });
-          const s = map.find("hero");
-          hero = new E.Mover({ x: s.x, y: s.y });
-          hero.actor = new Actor("ped", { x: s.x, y: s.y, faction: "crew" });
+        enter(data) {
+          ({ city, render: cityR } = lowtown(+(links2.query.get("seed") || 1999)));
+          map = city.map;
+          floor = new FloorChunks({ w: map.w * map.T, h: map.h * map.T, paint: (g, x0, y0, x1, y1) => city.painter.paint(g, x0, y0, x1, y1) });
+          stage.setWorld({ map, city, floor, backdrop: new E.Backdrop("city-night") });
+          const at = city.poi(data && data.route && data.route[1] || "safehouse") || city.poi("safehouse");
+          hero = new E.Mover({ x: at.x, y: at.y });
+          hero.actor = new Actor("ped", { x: at.x, y: at.y, faction: "crew" });
           rig = new E.Humanoid({
             size: 1,
             build: "heroic",
@@ -11499,12 +12964,19 @@ root.My3D2dge = E;
             colors: { skin: "#c8906a", hair: "#1e1a22", cloth: "#d23a3a", coat: "#2a2630", pants: "#2a3048", boot: "#18161c", belt: "#3a2a22" }
           });
           game2.cam.bounds = (v) => map.bounds(v);
-          expose("snapshot", () => ({ scene: "play", view: views.active, hero: [hero.x, hero.y, hero.z].map((v) => Math.round(v)) }));
+          game2.lights.enabled = true;
+          game2.lights.ambient = 0.34;
+          if (!game2.headless) floor.warm(hero.x, hero.y, 420);
+          expose("snapshot", () => ({ scene: "play", view: views.active, hero: [hero.x, hero.y, hero.z].map((v) => Math.round(v)), hood: hoodName }));
           expose("teleport", (x, y) => {
             hero.x = x;
             hero.y = y;
           });
+          expose("city", city);
           game2.stateHash = () => [Math.round(hero.x * 8), Math.round(hero.y * 8), Math.round(hero.z * 8)];
+        },
+        exit() {
+          game2.lights.enabled = false;
         },
         update(dt) {
           const I = human.update("onFoot", hero);
@@ -11515,13 +12987,16 @@ root.My3D2dge = E;
           rig.update(dt, hero.rigState());
           if (I.tap.view) views.next();
           footprint.update(hero.x, hero.y);
+          const h = city.hoodAtPoint(hero.x, hero.y);
+          hoodName = h ? h.name : "";
           game2.focus(hero.x, hero.y, 16);
         },
         draw(r) {
-          stage.begin(r, { focus: [hero.x, hero.y], vel: [hero.vx, hero.vy] });
+          stage.begin(r, { focus: [hero.x, hero.y], vel: [hero.vx, hero.vy], player: [hero.x, hero.y, hero.z] });
+          cityR.queue(stage, hero.x, hero.y, stage.depth === stage.side7 ? 700 : 520, true, [hero.x, hero.y, hero.z]);
           stage.actor(hero.x, hero.y, hero.z, (g, x, y, v) => rig.draw(g, x, y, v), { shadow: 5, xray: true });
           stage.end();
-          r.overlay((g) => E.font.text(g, "LOWTOWN  •  HELLO BLOCK  •  " + (views.spec.label || views.active).toUpperCase(), 6, 6, "#ffe066", { shadow: "#000" }));
+          r.overlay((g) => E.font.text(g, (hoodName || "LOWTOWN").toUpperCase() + "  •  " + (views.spec.label || views.active).toUpperCase(), 6, 6, "#ffe066", { shadow: "#000" }));
         }
       };
     }
@@ -11636,7 +13111,7 @@ root.My3D2dge = E;
   });
 
   // content:content
-  var CONTENT_FILES = ["districts/hello/map.js", "districts/proving/pad.js", "districts/proving/scale-city.js", "proving/city-zones.js", "proving/pad-zone.js", "scenes/attract.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "tune.js", "vehicles/cortez.js"];
+  var CONTENT_FILES = ["districts/hello/map.js", "districts/lowtown/district.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/pad.js", "districts/proving/scale-city.js", "proving/city-zones.js", "proving/pad-zone.js", "scenes/attract.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "tune.js", "vehicles/cortez.js"];
 
   // src/main.js
   var links = readLinks();
@@ -11645,6 +13120,7 @@ root.My3D2dge = E;
   var H2 = installHandle(game);
   var app = createApp({ game, links });
   expose("content", CONTENT_FILES);
+  expose("motor", motor_exports);
   var scenes = wrapScenes(app, all("scenes"));
   var scene = scenes[parts[0]] ? parts[0] : app.kiosk ? "attract" : "title";
   game.start({ scenes, scene, data: { route: parts }, boot: { title: GAME.title, messages: ["Paving Lowtown", "Waking the traffic lights"] } });
