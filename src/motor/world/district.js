@@ -11,7 +11,7 @@ declare('districts', shape({
   hoods: { type: 'object', req: true }, hoodMap: { type: 'array', def: [] }, styles: { type: 'object', def: {} },
   water: { type: 'array', def: [] }, roads: { type: 'array', req: true }, decks: { type: 'array', def: [] }, walls: { type: 'array', def: [] },
   lots: { type: 'array', def: [] }, props: { type: 'object', def: {} }, propList: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, zones: { type: 'array', def: [] },
-  tour: { type: 'array', def: [] },
+  tour: { type: 'array', def: [] }, drawbridges: { type: 'array', def: [] },
 }));
 declare('landmarks', shape({ district: { type: 'string', req: true }, name: { type: 'string', req: true }, lots: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, props: { type: 'array', def: [] } }));
 

@@ -15,8 +15,10 @@ import { Side7View } from './depth/side7.js';
 import { TopView } from './depth/top.js';
 import { CutAway } from './cutaway.js';
 import { BACKDROPS } from './sky.js';
+import { WeatherFX } from './weather-fx.js';
 import { TUNE, knob } from '../core/tune.js';
 
+knob('Graphics', 'crowdEvery', 'Crowd animation rate', 4, 1, 8, 1, 'A crowd body (o.key) is drawn every n frames (4: 15 a second, like classic townsfolk) and its image reused in between, at the place it is now (the player never)');
 knob('Graphics', 'lightRes', 'Light field coarseness', 2, 1, 4, 1, 'ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work');
 
 const CROWD = { outline: false, rim: false }, XRAY = { xray: true };
@@ -31,7 +33,8 @@ export class Stage {
   /** game: the E.Game; views: the ViewManager (it learns the depth views here) */
   constructor(game, views) {
     this.game = game; this.views = views; this.items = []; this.world = null; this.last = 0; this.fx = null; this.zx = null;
-    this.lamps = []; this.glows = []; this.backdrops = new Map(); this.skyNow = null; this._maxH = null;
+    this.lamps = []; this.glows = []; this.floorFx = []; this.backdrops = new Map(); this.skyNow = null; this._maxH = null; this.wfx = new WeatherFX();
+    this.frameNo = 0; this._kept = new WeakMap();   // (crowd bodies' kept images in the depth views, by their key)
     this.side7 = new Side7View({}); this.top = new TopView({});
     for (const v of [this.top, this.side7]) views.addView({ id: v.id, label: v.label, depth: v,
       screenDirToGround: (dx, dy) => v.screenDirToGround(dx, dy),
@@ -59,19 +62,23 @@ export class Stage {
     if (L) { L.enabled = s.ambient < .98; L.ambient = s.ambient; L.dark = s.dark; L.tint = s.tint; L.res = TUNE.lightRes; }
     W.night = s.night; W.lamps = s.lamps;
     let b = this.backdrops.get(s.phase); if (!b) { b = new E.Backdrop(BACKDROPS[s.phase]); this.backdrops.set(s.phase, b); } W.backdrop = b;
-    this.side7.sky = s.sky; if (this.side7.fog !== s.fog) { this.side7.fog = s.fog; this.side7.fogRGB = E.hex(s.fog); }
+    const v7 = this.side7; v7.sky = s.sky; if (v7.fog !== s.fog) { v7.fog = s.fog; v7.fogRGB = E.hex(s.fog); }
+    if (!v7.clear) v7.clear = [v7.fogStart, v7.farClip];   // (fog draws MODE 7's far fade in)
+    v7.fogStart = v7.clear[0] - 190 * (s.haze || 0); v7.farClip = v7.clear[1] - 200 * (s.haze || 0);
     this.top.bg = s.top;
   }
   /** start a frame: o.focus [x, y] (the possessed actor), o.vel [vx, vy] and o.speed01 (0..1 of top speed) steer the
    *  depth cameras; o.player [x, y, z] (the focus by default) is who the cut-away keeps in sight. Presentation only:
    *  the simulation never reads it */
   begin(r, o = {}) {
-    this.r = r; this.items.length = 0; this.lamps.length = 0; this.glows.length = 0; this.focus = o.focus || null; this.isoP = null;
+    this.r = r; this.items.length = 0; this.lamps.length = 0; this.glows.length = 0; this.floorFx.length = 0; this.focus = o.focus || null; this.isoP = null; this.frameNo++;
     const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, .1); this.last = now;
-    const d = this.depth, W = this.world;
+    const d = this.depth, W = this.world, sky = this.skyNow;
+    if (sky) this.wfx.update(dt, sky, this.focus);
     if (!d) {   // ISO: the engine draws; the floor and walls go first
       if (this.cutaway) { const p = o.player || this.focus; if (p) this.cutaway.update(r.view, p[0], p[1], p[2] || 0); }
-      r.overlay(g => this._isoGlows(g, r));   // (after the lights, before a turn or zoom transforms the frame, and before the HUD)
+      r.overlay(g => { this._isoGlows(g, r); if (sky) this.wfx.draw(g, this._isoProj(r), r.bw, r.bh, sky); });   // (after the lights, before a turn or zoom transforms the frame, and before the HUD)
+      if (sky && sky.wet > .02) r.decal(g => this.wfx.floor(g, r.bw, r.bh, sky));   // (over the floor, under what stands on it)
       if (W.backdrop) W.backdrop.draw(r);
       if (W.engineFloor && W.map) W.map.drawFloor(r); else if (W.floor) W.floor.drawIso(r);
       if (this.fx) this._turnFrame(r, dt, o.player || this.focus);
@@ -170,21 +177,29 @@ export class Stage {
       } else r.queue((cx + .5) * T, (cy + .5) * T, 0, g => r.box(g, cx * T, cy * T, 0, cx * T + T, cy * T + T, t.h, t.top, t.side), { occluder: true });
     }
   }
+  _isoProj(r) { return this.isoP || (this.isoP = { proj: (a, b, c = 0) => { const q = r.w(a, b, c); return [q[0], q[1], r.view.scale]; } }); }
+  /** something drawn on the floor before anything stands on it (water glints, a wet sheen): draw(g, P) with the view's
+   *  projector. ISO takes it as one of the engine's floor decals; TOP and MODE 7 draw it right after their floor */
+  floor(draw) { const d = this.depth, r = this.r; if (!d) r.decal(g => draw(g, this._isoProj(r))); else this.floorFx.push(draw); }
   /** something that shines at (x, y, z): a lamp's head, a neon sign. draw(g, sx, sy, k) draws it at its screen point, k
    *  pixels a unit. In ISO glows are drawn after the lights, so the dark never dims them, and only where no wall drawn
    *  this frame stands in front of the point (the walls' tops checked down the screen from it: no full-frame mask, the
-   *  cut-away included); o.iso: ISO only (a sign the depth views already draw as a shape). In TOP and MODE 7 they sort
-   *  with everything else */
+   *  cut-away included); o.iso: ISO only (a sign the depth views already draw as a shape); o.reflect(g, sx, sy, k, wet):
+   *  its smear of light on a wet street, at the point's foot. In TOP and MODE 7 they sort with everything else */
   glow(x, y, z, draw, o = {}) {
     const d = this.depth;
-    if (!d) { this.glows.push([x, y, z, draw]); return; }
+    if (!d) { this.glows.push([x, y, z, draw, o.reflect || null]); return; }
     if (o.iso) return;
     this.items.push({ k: d.depth(x, y) - .01, fn: g => { const q = d.proj(x, y, z); if (q) draw(g, q[0], q[1], q[2]); } });
   }
   _isoGlows(g, r) {
     if (!this.glows.length) return;
-    const k = r.view.scale; g.save(); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-    for (const [x, y, z, draw] of this.glows) { const [sx, sy] = r.w(x, y, z); if (sx < -40 || sy < -40 || sx > r.bw + 40 || sy > r.bh + 40 || this._hidden(r, x, y, z)) continue; draw(g, sx, sy, k); }
+    const k = r.view.scale, wet = this.skyNow ? this.skyNow.wet : 0; g.save(); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    for (const [x, y, z, draw, reflect] of this.glows) {
+      const [sx, sy] = r.w(x, y, z); if (sx < -40 || sy < -60 || sx > r.bw + 40 || sy > r.bh + 40) continue;
+      if (reflect && wet > .1 && !this._hidden(r, x, y, 1)) { const [fx, fy] = r.w(x, y, 0); reflect(g, fx, fy, k, wet); }
+      if (!this._hidden(r, x, y, z)) draw(g, sx, sy, k);
+    }
     g.restore(); g._c = null;
   }
   // is the screen point of (x, y, z) behind a wall drawn this frame (ISO)? Down the screen from the point, past its own
@@ -214,26 +229,70 @@ export class Stage {
     const m = rad * Math.max(a[2], b[2]) + 8;
     return Math.max(a[0], b[0]) > -m && Math.min(a[0], b[0]) < r.bw + m && Math.max(a[1], b[1]) > -m && Math.min(a[1], b[1]) < r.bh + m;
   }
-  /** an actor drawn by code with an engine View (a rig): o { shadow: radius, xray, alpha, crowd }. A crowd actor takes
-   *  the engine's fast path in ISO (no outline or rim: the composite costs about half a millisecond a body); the player
-   *  and named characters keep them */
+  /** an actor drawn by code with an engine View (a rig): o { shadow: radius, xray, alpha, crowd, key, pose }. A crowd
+   *  actor takes the engine's fast path in ISO (no outline or rim: the composite costs about half a millisecond a body);
+   *  the player and named characters keep them. A crowd actor with a key (any object of its own: its rig) is drawn every
+   *  TUNE.crowdEvery frames into an image of its own, reused in between where it stands now; o.pose(seconds) runs just
+   *  before each redraw with the time since the last (a rig's animation steps only when it is seen) */
   actor(x, y, z, draw, o = {}) {
     const d = this.depth, r = this.r;
-    if (!d) { if (o.shadow) r.shadow(x, y, o.shadow); r.actor(x, y, z, (g, ox, oy) => draw(g, ox, oy, r.view, r.view.scale), o.crowd ? CROWD : o.xray ? XRAY : undefined); return; }
+    if (!d) {
+      if (o.shadow) r.shadow(x, y, o.shadow);
+      if (o.crowd && o.key && TUNE.crowdEvery > 1) {   // (the engine's own every works on its composite path only, dearer than this)
+        if (!this.onScreen(x, y, z, z + 40, 24)) return;
+        r.queue(x, y, z, g => { const [a, b] = r.w(x, y, z); this._keptDraw(g, r.view, r.view.yawDeg, o.key, Math.round(a), Math.round(b), r.view.scale, draw, o.pose); }, { solid: true, actor: true });
+        return;
+      }
+      r.actor(x, y, z, (g, ox, oy) => draw(g, ox, oy, r.view, r.view.scale), o.crowd ? CROWD : o.xray ? XRAY : undefined); return;
+    }
     this.items.push({ k: d.depth(x, y), actor: true, fn: g => {
       const p = d.proj(x, y, z); if (!p) return;
       if (o.shadow) { const s = d.proj(x, y, 0); if (s) { g.fillStyle = 'rgba(5,3,12,.45)'; g.beginPath(); g.ellipse(s[0], s[1], o.shadow * s[2] * 1.1, Math.max(1, o.shadow * s[2] * (d === this.top ? 1.1 : .45)), 0, 0, Math.PI * 2); g.fill(); } }
       if (o.alpha !== undefined) g.globalAlpha = o.alpha;
-      draw(g, Math.round(p[0]), Math.round(p[1]), d.view(p[2]), p[2]);
+      const sx = Math.round(p[0]), sy = Math.round(p[1]);
+      if (o.crowd && o.key && TUNE.crowdEvery > 1) this._keptDraw(g, d.view(p[2]), d.heading, o.key, sx, sy, p[2], draw, o.pose); else { if (o.pose) o.pose(1 / 60); draw(g, sx, sy, d.view(p[2]), p[2]); }
       g.globalAlpha = 1;
     } });
   }
+  // a crowd body: drawn into its own image every few frames (or when its size or the view changed), and that image put
+  // where it stands in between (each actor's frames are staggered by its key's own phase, so the work spreads evenly)
+  _keptDraw(g, view, heading, key, sx, sy, k, draw, pose) {
+    let K = this._kept.get(key);
+    if (!K || this.frameNo - K.n >= TUNE.crowdEvery || Math.abs(K.k - k) > K.k * .12 || K.view.id !== view.id || K.heading !== heading) {
+      if (pose) { const now = this.game.real; pose(K && K.t !== undefined ? Math.min(.5, now - K.t) : 1 / 60); if (K) K.t = now; }
+      const w = Math.ceil(30 * k) + 12, h = Math.ceil(52 * k) + 12, foot = Math.ceil(8 * k) + 6;
+      if (!K) { K = { cv: E.mkCanvas(w, h) }; this._kept.set(key, K); }
+      if (K.cv.width < w || K.cv.height < h || K.cv.width > w * 2) { K.cv.width = w; K.cv.height = h; }
+      const kg = K.cv.getContext('2d'); kg.setTransform(1, 0, 0, 1, 0, 0); kg.clearRect(0, 0, K.cv.width, K.cv.height); kg.imageSmoothingEnabled = false;
+      K.ax = Math.floor(K.cv.width / 2); K.ay = K.cv.height - foot; draw(kg, K.ax, K.ay, view, k); kg._c = null;
+      if (K.n === undefined) { K.phase = (this._keptN = (this._keptN || 0) + 1) % TUNE.crowdEvery; K.t = this.game.real; }   // (staggered: a part of a crowd redraws each frame)
+      Object.assign(K, { n: this.frameNo - (K.fresh ? 0 : K.phase), k, view, heading }); K.fresh = true;
+    }
+    g.drawImage(K.cv, sx - K.ax, sy - K.ay);
+  }
   /** a shape drawn through a projector: draw(g, P) with P.proj(x, y, z) -> [sx, sy, k] (vehicles, props, markers).
-   *  o: the engine queue's options in ISO ({ emissive, bias, hides, footprint }) */
+   *  o: the engine queue's options in ISO ({ emissive, bias, hides, footprint }), and kept: { key, r, h } for a shape
+   *  that looks the same from frame to frame (a parked car): drawn once into an image of its own (r: its reach round
+   *  (x, y), h: its height, in world units) and put where it stands until the view or its size changes */
   shape(x, y, z, draw, o) {
-    const d = this.depth, r = this.r;
-    if (!d) { r.queue(x, y, z, g => draw(g, this.isoP || (this.isoP = { proj: (a, b, c = 0) => { const q = r.w(a, b, c); return [q[0], q[1], r.view.scale]; } })), o); return; }
-    this.items.push({ k: d.depth(x, y) - (o && o.bias || 0), fn: g => draw(g, d) });
+    const d = this.depth, r = this.r, kept = o && o.kept;
+    if (!d) { r.queue(x, y, z, kept ? g => this._keptShape(g, this._isoProj(r), r.view, x, y, z, draw, kept) : g => draw(g, this._isoProj(r)), o); return; }
+    this.items.push({ k: d.depth(x, y) - (o && o.bias || 0), fn: kept ? g => this._keptShape(g, d, d.view(1), x, y, z, draw, kept) : g => draw(g, d) });
+  }
+  // a kept shape: its image, redrawn when the view, its size on screen (depth views) or the frame's skew changed
+  _keptShape(g, P, view, x, y, z, draw, kp) {
+    const q = P.proj(x, y, z); if (!q) return;
+    const k = q[2], key = kp.key; let K = this._kept.get(key);
+    const tag = view.id + ':' + (view.yawDeg | 0) + ':' + (this.depth ? this.depth.heading : 0) + ':' + (this.depth ? 0 : view.scale);
+    if (!K || K.tag !== tag || Math.abs(K.k - k) > K.k * .06 || (this.depth && this.frameNo - K.n >= 8)) {
+      const w = Math.ceil((kp.r * 2 * k * 1.15 + 8) / 16) * 16, h = Math.ceil(((kp.r + kp.h * 1.4) * k + 8) / 16) * 16, ax = w / 2, ay = Math.ceil(kp.r * .8 * k) + 4 + Math.ceil(kp.h * 1.2 * k);   // (sizes in steps of 16: a canvas is never resized for a pixel)
+      if (!K) { K = { cv: E.mkCanvas(w, h) }; this._kept.set(key, K); }
+      if (K.cv.width < w || K.cv.height < h || K.cv.width > w * 2 || K.cv.height > h * 2) { K.cv.width = w; K.cv.height = h; }
+      const kg = K.cv.getContext('2d'); kg.setTransform(1, 0, 0, 1, 0, 0); kg.clearRect(0, 0, K.cv.width, K.cv.height); kg.imageSmoothingEnabled = false;
+      const sx = q[0], sy = q[1], LP = { proj: (a, b, c = 0) => { const p = P.proj(a, b, c); return p && [p[0] - sx + ax, p[1] - sy + ay, p[2]]; } };
+      draw(kg, LP); kg._c = null; Object.assign(K, { tag, k, n: this.frameNo, ax, ay });
+    }
+    g.drawImage(K.cv, Math.round(q[0] - K.ax), Math.round(q[1] - K.ay));
   }
   /** one of the engine's props (E.PROPS: 'streetlamp', 'palm', 'trashcan'...): r.prop's billboard in ISO (o: its options:
    *  size, light, lightRadius...), the same sprite scaled to its distance in TOP and SIDE7 */
@@ -274,6 +333,12 @@ export class Stage {
     for (const [x, y, rad] of pools) pool(g, x, y, rad * .8, `rgba(${warm},${Math.round(warm * .75)},${Math.round(warm * .4)},1)`, 'rgba(0,0,0,1)');
     g.globalCompositeOperation = 'source-over';
   }
+  // what lies on a depth view's floor: the wet street's tint below the horizon, then the floor decals
+  _floorFx(g, d, top) {
+    const r = this.r, sky = this.skyNow;
+    if (sky && sky.wet > .02) { g.save(); g.beginPath(); g.rect(0, top, r.bw, r.bh - top); g.clip(); this.wfx.floor(g, r.bw, r.bh, sky); g.restore(); }
+    for (const f of this.floorFx) f(g, d);
+  }
   /** finish the frame: in a depth view, the sky, the floor, then the spans and everything queued, far to near */
   end() {
     const d = this.depth; if (!d) return;
@@ -283,16 +348,19 @@ export class Stage {
     if (d === this.side7) {
       d.drawSky(g, Math.max(0, d.P.hy));
       if (W.floor) { const [i0, j0, i1, j1] = d.wedge(S); for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W.floor.canvas(i, j); W.floor.pump(d.x, d.y); d.drawFloor(g, W.floor); }
+      this._floorFx(g, d, Math.max(0, Math.floor(d.P.hy)));
       if (this.spans) { const [i0, j0, i1, j1] = d.wedge(S); spans = this.spans.range(i0, j0, i1, j1); d.spanItems(spans, this.items, this.focus, W.night); }
     } else {
       g.fillStyle = d.bg || '#0a0812'; g.fillRect(0, 0, r.bw, r.bh);
       if (W.floor) { const [i0, j0, i1, j1] = d.range(S, S / 2); for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W.floor.canvas(i, j); W.floor.pump(d.x, d.y); d.drawFloor(g, W.floor); }
+      this._floorFx(g, d, 0);
       if (this.spans) { const [i0, j0, i1, j1] = d.range(S); spans = this.spans.range(i0, j0, i1, j1); d.spanItems(spans, this.items, W.night); }
     }
     // far to near; at equal keys the actor last (it stands in front of the face it touches)
     this.items.sort((a, b) => b.k - a.k || (a.actor ? 1 : 0) - (b.actor ? 1 : 0));
     let actors = 0; for (const it of this.items) { it.fn(g); if (it.actor) actors++; }
     if (this.game.lights && this.game.lights.enabled) this._depthLight(g, d);
+    if (this.skyNow) this.wfx.draw(g, d, r.bw, r.bh, this.skyNow);
     g.restore(); g._c = null;
     d.stats.actors = actors; d.stats.spans = spans.length; d.stats.items = this.items.length;
     this.game.stats.actors = actors;   // (the engine's checker counts the characters on screen)

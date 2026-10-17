@@ -40,6 +40,8 @@ def('districts', 'lowtown', {
     { rect: [0, 2, 1, 151], type: { h: 32, top: '#5a6a4a', side: '#7a7468', face: 'stone', roof: 'grass' } },
   ],
   props: { lampEvery: 6, clutter: .3 },
+  // Dock Road's bridge over the canal lifts for the boats (PLAN.md 9.1): its span, sidewalks and all
+  drawbridges: [{ id: 'dock', rect: [124, 124, 132, 131], axis: 'y' }],
   // a loop through all four neighbourhoods on the streets, under the Loop twice (perf runs, the attract camera)
   tour: [[32, 30], [128, 30], [128, 118], [32, 118]],
   zones: [

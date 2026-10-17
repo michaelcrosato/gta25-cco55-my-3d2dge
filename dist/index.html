@@ -8825,6 +8825,7 @@ root.My3D2dge = E;
     CutAway: () => CutAway,
     DEFAULT_BINDINGS: () => DEFAULT_BINDINGS,
     Deck: () => Deck,
+    Drawbridge: () => Drawbridge,
     E: () => E,
     EVENTS: () => EVENTS,
     FloorChunks: () => FloorChunks,
@@ -8846,6 +8847,9 @@ root.My3D2dge = E;
     TUNE: () => TUNE,
     VehicleBody: () => VehicleBody,
     ViewManager: () => ViewManager,
+    WEATHERS: () => WEATHERS,
+    Weather: () => Weather,
+    WeatherFX: () => WeatherFX,
     WorldClock: () => WorldClock,
     all: () => all,
     buildCity: () => buildCity,
@@ -8864,6 +8868,7 @@ root.My3D2dge = E;
     drawBoxModel: () => drawBoxModel,
     drawDeckCell: () => drawDeckCell,
     drawGlyph: () => drawGlyph,
+    drawLeaf: () => drawLeaf,
     drawPrompt: () => drawPrompt,
     drawSign: () => drawSign,
     expose: () => expose,
@@ -10007,7 +10012,24 @@ root.My3D2dge = E;
     return "#" + p.map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, "0")).join("");
   };
   var ease = (t) => t * t * (3 - 2 * t);
-  function skyAt(hour) {
+  function skyAt(hour, w = null) {
+    const s = clearSky(hour);
+    if (!w) return s;
+    const c = w.cloud || 0, f = w.fog || 0, day = E.clamp((s.ambient - 0.62) / 0.38, 0, 1);
+    s.ambient *= 1 - c * (0.34 * day + 0.12 * (1 - day));
+    s.sky = s.sky.map((col) => mixHex(col, "#5a6070", 0.6 * c));
+    s.top = mixHex(s.top, "#3e424c", 0.5 * c);
+    s.fog = mixHex(s.fog, s.ambient > 0.6 ? "#a4aab4" : "#3a3c48", Math.min(1, 0.8 * f + 0.35 * c));
+    s.lamps = s.ambient < 0.8;
+    s.night = s.ambient < 0.66;
+    s.haze = f;
+    s.rain = w.rain || 0;
+    s.wet = w.wet || 0;
+    s.flash = w.flash || 0;
+    if (s.flash > 0) s.ambient = Math.min(1, s.ambient + s.flash * 2.2);
+    return s;
+  }
+  function clearSky(hour) {
     const h = (hour % 24 + 24) % 24;
     let i = 0;
     while (i < KEYS.length - 2 && KEYS[i + 1][0] <= h) i++;
@@ -10023,11 +10045,111 @@ root.My3D2dge = E;
       top: mixHex(a.top, b.top, t),
       phase: t < 0.5 ? a.phase : b.phase,
       lamps: ambient < 0.8,
-      night: ambient < 0.66
+      night: ambient < 0.66,
+      haze: 0,
+      rain: 0,
+      wet: 0,
+      flash: 0
     };
   }
 
+  // src/motor/render/weather-fx.js
+  var BOX = 300;
+  var TOP = 220;
+  var FALL = 520;
+  var WIND = 70;
+  var WeatherFX = class {
+    constructor() {
+      this.drops = [];
+      this.splashes = [];
+      this.cx = 0;
+      this.cy = 0;
+    }
+    _drop(d, fresh) {
+      d.x = this.cx + (Math.random() * 2 - 1) * BOX;
+      d.y = this.cy + (Math.random() * 2 - 1) * BOX;
+      d.z = fresh ? Math.random() * TOP : TOP * (0.75 + Math.random() * 0.25);
+      d.v = FALL * (0.85 + Math.random() * 0.3);
+      return d;
+    }
+    /** step the drops round the focus [x, y] by dt seconds, as hard as the sky's rain (0..1) */
+    update(dt, sky, focus) {
+      if (focus) {
+        this.cx = focus[0];
+        this.cy = focus[1];
+      }
+      const want = Math.round(340 * (sky.rain || 0)), D = this.drops;
+      while (D.length < want) D.push(this._drop({}, true));
+      if (D.length > want) D.length = want;
+      for (const d of D) {
+        d.z -= d.v * dt;
+        d.x += WIND * dt;
+        if (d.z <= 0) {
+          if (this.splashes.length < 90 && Math.random() < 0.6) this.splashes.push({ x: d.x, y: d.y, t: 0 });
+          this._drop(d, false);
+          continue;
+        }
+        if (d.x < this.cx - BOX) d.x += 2 * BOX;
+        else if (d.x > this.cx + BOX) d.x -= 2 * BOX;
+        if (d.y < this.cy - BOX) d.y += 2 * BOX;
+        else if (d.y > this.cy + BOX) d.y -= 2 * BOX;
+      }
+      for (const s of this.splashes) s.t += dt;
+      this.splashes = this.splashes.filter((s) => s.t < 0.2);
+    }
+    /** over the lit frame: the streaks, the splashes, a lightning flash and the haze. P: the view's projector
+     *  ({ proj(x, y, z) -> [sx, sy, k] }), W x H: the buffer */
+    draw(g, P2, W, H3, sky) {
+      if (this.drops.length) {
+        const night = sky.ambient < 0.66;
+        g.strokeStyle = night ? "rgba(160,180,215,.42)" : "rgba(205,215,235,.5)";
+        g.lineWidth = 1;
+        g.beginPath();
+        for (const d of this.drops) {
+          const a = P2.proj(d.x, d.y, d.z), b = P2.proj(d.x - WIND * 0.03, d.y, d.z + 15);
+          if (!a || !b) continue;
+          if (a[0] < -4 || a[0] > W + 4 || a[1] < -20 || a[1] > H3 + 4) continue;
+          g.moveTo(Math.round(a[0]) + 0.5, Math.round(a[1]));
+          g.lineTo(Math.round(b[0]) + 0.5, Math.round(b[1]));
+        }
+        g.stroke();
+      }
+      if (this.splashes.length) {
+        g.strokeStyle = sky.ambient < 0.66 ? "rgba(170,190,225,.5)" : "rgba(220,230,245,.55)";
+        g.beginPath();
+        for (const s of this.splashes) {
+          const q = P2.proj(s.x, s.y, 0);
+          if (!q || q[0] < -6 || q[0] > W + 6 || q[1] < -6 || q[1] > H3 + 6) continue;
+          const r = (0.6 + s.t * 9) * Math.max(0.6, q[2] * 0.6);
+          g.moveTo(q[0] + r, q[1]);
+          g.ellipse(q[0], q[1], r, r * 0.45, 0, 0, Math.PI * 2);
+        }
+        g.stroke();
+      }
+      if (sky.haze > 0.02) {
+        g.fillStyle = hazeColor(sky);
+        g.fillRect(0, 0, W, H3);
+      }
+      if (sky.flash > 0) {
+        g.fillStyle = `rgba(235,240,255,${Math.min(0.55, sky.flash * 1.6).toFixed(3)})`;
+        g.fillRect(0, 0, W, H3);
+      }
+    }
+    /** over the floor, before what stands on it: the wet street's darker tint */
+    floor(g, W, H3, sky) {
+      if (sky.wet > 0.02) {
+        g.fillStyle = `rgba(6,12,30,${(0.2 * sky.wet).toFixed(3)})`;
+        g.fillRect(0, 0, W, H3);
+      }
+    }
+  };
+  function hazeColor(sky) {
+    const c = sky.fog.match(/[0-9a-f]{2}/gi).map((h) => parseInt(h, 16));
+    return `rgba(${c[0]},${c[1]},${c[2]},${(0.34 * sky.haze).toFixed(3)})`;
+  }
+
   // src/motor/render/stage.js
+  knob("Graphics", "crowdEvery", "Crowd animation rate", 4, 1, 8, 1, "A crowd body (o.key) is drawn every n frames (4: 15 a second, like classic townsfolk) and its image reused in between, at the place it is now (the player never)");
   knob("Graphics", "lightRes", "Light field coarseness", 2, 1, 4, 1, "ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work");
   var CROWD = { outline: false, rim: false };
   var XRAY = { xray: true };
@@ -10045,9 +10167,13 @@ root.My3D2dge = E;
       this.zx = null;
       this.lamps = [];
       this.glows = [];
+      this.floorFx = [];
       this.backdrops = /* @__PURE__ */ new Map();
       this.skyNow = null;
       this._maxH = null;
+      this.wfx = new WeatherFX();
+      this.frameNo = 0;
+      this._kept = /* @__PURE__ */ new WeakMap();
       this.side7 = new Side7View({});
       this.top = new TopView({});
       for (const v of [this.top, this.side7]) views.addView({
@@ -10111,11 +10237,15 @@ root.My3D2dge = E;
         this.backdrops.set(s.phase, b);
       }
       W.backdrop = b;
-      this.side7.sky = s.sky;
-      if (this.side7.fog !== s.fog) {
-        this.side7.fog = s.fog;
-        this.side7.fogRGB = E.hex(s.fog);
+      const v7 = this.side7;
+      v7.sky = s.sky;
+      if (v7.fog !== s.fog) {
+        v7.fog = s.fog;
+        v7.fogRGB = E.hex(s.fog);
       }
+      if (!v7.clear) v7.clear = [v7.fogStart, v7.farClip];
+      v7.fogStart = v7.clear[0] - 190 * (s.haze || 0);
+      v7.farClip = v7.clear[1] - 200 * (s.haze || 0);
       this.top.bg = s.top;
     }
     /** start a frame: o.focus [x, y] (the possessed actor), o.vel [vx, vy] and o.speed01 (0..1 of top speed) steer the
@@ -10126,17 +10256,24 @@ root.My3D2dge = E;
       this.items.length = 0;
       this.lamps.length = 0;
       this.glows.length = 0;
+      this.floorFx.length = 0;
       this.focus = o.focus || null;
       this.isoP = null;
+      this.frameNo++;
       const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, 0.1);
       this.last = now;
-      const d = this.depth, W = this.world;
+      const d = this.depth, W = this.world, sky = this.skyNow;
+      if (sky) this.wfx.update(dt, sky, this.focus);
       if (!d) {
         if (this.cutaway) {
           const p = o.player || this.focus;
           if (p) this.cutaway.update(r.view, p[0], p[1], p[2] || 0);
         }
-        r.overlay((g) => this._isoGlows(g, r));
+        r.overlay((g) => {
+          this._isoGlows(g, r);
+          if (sky) this.wfx.draw(g, this._isoProj(r), r.bw, r.bh, sky);
+        });
+        if (sky && sky.wet > 0.02) r.decal((g) => this.wfx.floor(g, r.bw, r.bh, sky));
         if (W.backdrop) W.backdrop.draw(r);
         if (W.engineFloor && W.map) W.map.drawFloor(r);
         else if (W.floor) W.floor.drawIso(r);
@@ -10316,15 +10453,28 @@ root.My3D2dge = E;
         } else r.queue((cx + 0.5) * T5, (cy + 0.5) * T5, 0, (g) => r.box(g, cx * T5, cy * T5, 0, cx * T5 + T5, cy * T5 + T5, t.h, t.top, t.side), { occluder: true });
       }
     }
+    _isoProj(r) {
+      return this.isoP || (this.isoP = { proj: (a, b, c = 0) => {
+        const q = r.w(a, b, c);
+        return [q[0], q[1], r.view.scale];
+      } });
+    }
+    /** something drawn on the floor before anything stands on it (water glints, a wet sheen): draw(g, P) with the view's
+     *  projector. ISO takes it as one of the engine's floor decals; TOP and MODE 7 draw it right after their floor */
+    floor(draw) {
+      const d = this.depth, r = this.r;
+      if (!d) r.decal((g) => draw(g, this._isoProj(r)));
+      else this.floorFx.push(draw);
+    }
     /** something that shines at (x, y, z): a lamp's head, a neon sign. draw(g, sx, sy, k) draws it at its screen point, k
      *  pixels a unit. In ISO glows are drawn after the lights, so the dark never dims them, and only where no wall drawn
      *  this frame stands in front of the point (the walls' tops checked down the screen from it: no full-frame mask, the
-     *  cut-away included); o.iso: ISO only (a sign the depth views already draw as a shape). In TOP and MODE 7 they sort
-     *  with everything else */
+     *  cut-away included); o.iso: ISO only (a sign the depth views already draw as a shape); o.reflect(g, sx, sy, k, wet):
+     *  its smear of light on a wet street, at the point's foot. In TOP and MODE 7 they sort with everything else */
     glow(x, y, z, draw, o = {}) {
       const d = this.depth;
       if (!d) {
-        this.glows.push([x, y, z, draw]);
+        this.glows.push([x, y, z, draw, o.reflect || null]);
         return;
       }
       if (o.iso) return;
@@ -10335,14 +10485,18 @@ root.My3D2dge = E;
     }
     _isoGlows(g, r) {
       if (!this.glows.length) return;
-      const k = r.view.scale;
+      const k = r.view.scale, wet = this.skyNow ? this.skyNow.wet : 0;
       g.save();
       g.globalAlpha = 1;
       g.globalCompositeOperation = "source-over";
-      for (const [x, y, z, draw] of this.glows) {
+      for (const [x, y, z, draw, reflect] of this.glows) {
         const [sx, sy] = r.w(x, y, z);
-        if (sx < -40 || sy < -40 || sx > r.bw + 40 || sy > r.bh + 40 || this._hidden(r, x, y, z)) continue;
-        draw(g, sx, sy, k);
+        if (sx < -40 || sy < -60 || sx > r.bw + 40 || sy > r.bh + 40) continue;
+        if (reflect && wet > 0.1 && !this._hidden(r, x, y, 1)) {
+          const [fx, fy] = r.w(x, y, 0);
+          reflect(g, fx, fy, k, wet);
+        }
+        if (!this._hidden(r, x, y, z)) draw(g, sx, sy, k);
       }
       g.restore();
       g._c = null;
@@ -10386,13 +10540,23 @@ root.My3D2dge = E;
       const m = rad * Math.max(a[2], b[2]) + 8;
       return Math.max(a[0], b[0]) > -m && Math.min(a[0], b[0]) < r.bw + m && Math.max(a[1], b[1]) > -m && Math.min(a[1], b[1]) < r.bh + m;
     }
-    /** an actor drawn by code with an engine View (a rig): o { shadow: radius, xray, alpha, crowd }. A crowd actor takes
-     *  the engine's fast path in ISO (no outline or rim: the composite costs about half a millisecond a body); the player
-     *  and named characters keep them */
+    /** an actor drawn by code with an engine View (a rig): o { shadow: radius, xray, alpha, crowd, key, pose }. A crowd
+     *  actor takes the engine's fast path in ISO (no outline or rim: the composite costs about half a millisecond a body);
+     *  the player and named characters keep them. A crowd actor with a key (any object of its own: its rig) is drawn every
+     *  TUNE.crowdEvery frames into an image of its own, reused in between where it stands now; o.pose(seconds) runs just
+     *  before each redraw with the time since the last (a rig's animation steps only when it is seen) */
     actor(x, y, z, draw, o = {}) {
       const d = this.depth, r = this.r;
       if (!d) {
         if (o.shadow) r.shadow(x, y, o.shadow);
+        if (o.crowd && o.key && TUNE.crowdEvery > 1) {
+          if (!this.onScreen(x, y, z, z + 40, 24)) return;
+          r.queue(x, y, z, (g) => {
+            const [a, b] = r.w(x, y, z);
+            this._keptDraw(g, r.view, r.view.yawDeg, o.key, Math.round(a), Math.round(b), r.view.scale, draw, o.pose);
+          }, { solid: true, actor: true });
+          return;
+        }
         r.actor(x, y, z, (g, ox, oy) => draw(g, ox, oy, r.view, r.view.scale), o.crowd ? CROWD : o.xray ? XRAY : void 0);
         return;
       }
@@ -10409,22 +10573,93 @@ root.My3D2dge = E;
           }
         }
         if (o.alpha !== void 0) g.globalAlpha = o.alpha;
-        draw(g, Math.round(p[0]), Math.round(p[1]), d.view(p[2]), p[2]);
+        const sx = Math.round(p[0]), sy = Math.round(p[1]);
+        if (o.crowd && o.key && TUNE.crowdEvery > 1) this._keptDraw(g, d.view(p[2]), d.heading, o.key, sx, sy, p[2], draw, o.pose);
+        else {
+          if (o.pose) o.pose(1 / 60);
+          draw(g, sx, sy, d.view(p[2]), p[2]);
+        }
         g.globalAlpha = 1;
       } });
     }
+    // a crowd body: drawn into its own image every few frames (or when its size or the view changed), and that image put
+    // where it stands in between (each actor's frames are staggered by its key's own phase, so the work spreads evenly)
+    _keptDraw(g, view, heading, key, sx, sy, k, draw, pose) {
+      let K = this._kept.get(key);
+      if (!K || this.frameNo - K.n >= TUNE.crowdEvery || Math.abs(K.k - k) > K.k * 0.12 || K.view.id !== view.id || K.heading !== heading) {
+        if (pose) {
+          const now = this.game.real;
+          pose(K && K.t !== void 0 ? Math.min(0.5, now - K.t) : 1 / 60);
+          if (K) K.t = now;
+        }
+        const w = Math.ceil(30 * k) + 12, h = Math.ceil(52 * k) + 12, foot = Math.ceil(8 * k) + 6;
+        if (!K) {
+          K = { cv: E.mkCanvas(w, h) };
+          this._kept.set(key, K);
+        }
+        if (K.cv.width < w || K.cv.height < h || K.cv.width > w * 2) {
+          K.cv.width = w;
+          K.cv.height = h;
+        }
+        const kg = K.cv.getContext("2d");
+        kg.setTransform(1, 0, 0, 1, 0, 0);
+        kg.clearRect(0, 0, K.cv.width, K.cv.height);
+        kg.imageSmoothingEnabled = false;
+        K.ax = Math.floor(K.cv.width / 2);
+        K.ay = K.cv.height - foot;
+        draw(kg, K.ax, K.ay, view, k);
+        kg._c = null;
+        if (K.n === void 0) {
+          K.phase = (this._keptN = (this._keptN || 0) + 1) % TUNE.crowdEvery;
+          K.t = this.game.real;
+        }
+        Object.assign(K, { n: this.frameNo - (K.fresh ? 0 : K.phase), k, view, heading });
+        K.fresh = true;
+      }
+      g.drawImage(K.cv, sx - K.ax, sy - K.ay);
+    }
     /** a shape drawn through a projector: draw(g, P) with P.proj(x, y, z) -> [sx, sy, k] (vehicles, props, markers).
-     *  o: the engine queue's options in ISO ({ emissive, bias, hides, footprint }) */
+     *  o: the engine queue's options in ISO ({ emissive, bias, hides, footprint }), and kept: { key, r, h } for a shape
+     *  that looks the same from frame to frame (a parked car): drawn once into an image of its own (r: its reach round
+     *  (x, y), h: its height, in world units) and put where it stands until the view or its size changes */
     shape(x, y, z, draw, o) {
-      const d = this.depth, r = this.r;
+      const d = this.depth, r = this.r, kept = o && o.kept;
       if (!d) {
-        r.queue(x, y, z, (g) => draw(g, this.isoP || (this.isoP = { proj: (a, b, c = 0) => {
-          const q = r.w(a, b, c);
-          return [q[0], q[1], r.view.scale];
-        } })), o);
+        r.queue(x, y, z, kept ? (g) => this._keptShape(g, this._isoProj(r), r.view, x, y, z, draw, kept) : (g) => draw(g, this._isoProj(r)), o);
         return;
       }
-      this.items.push({ k: d.depth(x, y) - (o && o.bias || 0), fn: (g) => draw(g, d) });
+      this.items.push({ k: d.depth(x, y) - (o && o.bias || 0), fn: kept ? (g) => this._keptShape(g, d, d.view(1), x, y, z, draw, kept) : (g) => draw(g, d) });
+    }
+    // a kept shape: its image, redrawn when the view, its size on screen (depth views) or the frame's skew changed
+    _keptShape(g, P2, view, x, y, z, draw, kp) {
+      const q = P2.proj(x, y, z);
+      if (!q) return;
+      const k = q[2], key = kp.key;
+      let K = this._kept.get(key);
+      const tag = view.id + ":" + (view.yawDeg | 0) + ":" + (this.depth ? this.depth.heading : 0) + ":" + (this.depth ? 0 : view.scale);
+      if (!K || K.tag !== tag || Math.abs(K.k - k) > K.k * 0.06 || this.depth && this.frameNo - K.n >= 8) {
+        const w = Math.ceil((kp.r * 2 * k * 1.15 + 8) / 16) * 16, h = Math.ceil(((kp.r + kp.h * 1.4) * k + 8) / 16) * 16, ax = w / 2, ay = Math.ceil(kp.r * 0.8 * k) + 4 + Math.ceil(kp.h * 1.2 * k);
+        if (!K) {
+          K = { cv: E.mkCanvas(w, h) };
+          this._kept.set(key, K);
+        }
+        if (K.cv.width < w || K.cv.height < h || K.cv.width > w * 2 || K.cv.height > h * 2) {
+          K.cv.width = w;
+          K.cv.height = h;
+        }
+        const kg = K.cv.getContext("2d");
+        kg.setTransform(1, 0, 0, 1, 0, 0);
+        kg.clearRect(0, 0, K.cv.width, K.cv.height);
+        kg.imageSmoothingEnabled = false;
+        const sx = q[0], sy = q[1], LP = { proj: (a, b, c = 0) => {
+          const p = P2.proj(a, b, c);
+          return p && [p[0] - sx + ax, p[1] - sy + ay, p[2]];
+        } };
+        draw(kg, LP);
+        kg._c = null;
+        Object.assign(K, { tag, k, n: this.frameNo, ax, ay });
+      }
+      g.drawImage(K.cv, Math.round(q[0] - K.ax), Math.round(q[1] - K.ay));
     }
     /** one of the engine's props (E.PROPS: 'streetlamp', 'palm', 'trashcan'...): r.prop's billboard in ISO (o: its options:
      *  size, light, lightRadius...), the same sprite scaled to its distance in TOP and SIDE7 */
@@ -10491,6 +10726,19 @@ root.My3D2dge = E;
       for (const [x, y, rad] of pools) pool(g, x, y, rad * 0.8, `rgba(${warm},${Math.round(warm * 0.75)},${Math.round(warm * 0.4)},1)`, "rgba(0,0,0,1)");
       g.globalCompositeOperation = "source-over";
     }
+    // what lies on a depth view's floor: the wet street's tint below the horizon, then the floor decals
+    _floorFx(g, d, top) {
+      const r = this.r, sky = this.skyNow;
+      if (sky && sky.wet > 0.02) {
+        g.save();
+        g.beginPath();
+        g.rect(0, top, r.bw, r.bh - top);
+        g.clip();
+        this.wfx.floor(g, r.bw, r.bh, sky);
+        g.restore();
+      }
+      for (const f of this.floorFx) f(g, d);
+    }
     /** finish the frame: in a depth view, the sky, the floor, then the spans and everything queued, far to near */
     end() {
       const d = this.depth;
@@ -10508,6 +10756,7 @@ root.My3D2dge = E;
           W.floor.pump(d.x, d.y);
           d.drawFloor(g, W.floor);
         }
+        this._floorFx(g, d, Math.max(0, Math.floor(d.P.hy)));
         if (this.spans) {
           const [i0, j0, i1, j1] = d.wedge(S);
           spans = this.spans.range(i0, j0, i1, j1);
@@ -10522,6 +10771,7 @@ root.My3D2dge = E;
           W.floor.pump(d.x, d.y);
           d.drawFloor(g, W.floor);
         }
+        this._floorFx(g, d, 0);
         if (this.spans) {
           const [i0, j0, i1, j1] = d.range(S);
           spans = this.spans.range(i0, j0, i1, j1);
@@ -10535,6 +10785,7 @@ root.My3D2dge = E;
         if (it.actor) actors++;
       }
       if (this.game.lights && this.game.lights.enabled) this._depthLight(g, d);
+      if (this.skyNow) this.wfx.draw(g, d, r.bw, r.bh, this.skyNow);
       g.restore();
       g._c = null;
       d.stats.actors = actors;
@@ -11744,6 +11995,18 @@ root.My3D2dge = E;
       const outer = r.axis === "y" ? x === r.walks[0][0] || x === r.walks[1][2] : y === r.walks[0][1] || y === r.walks[1][3];
       if (outer && C.surface[I(x, y)] === SURF.bridge) cells[I(x, y)] = -2;
     }
+    C.drawbridges = [];
+    C.drawMask = new Uint8Array(W * H3);
+    for (const B of spec.drawbridges || []) {
+      const [x0, y0, x1, y1] = B.rect, ns = (B.axis || "y") === "y";
+      rect(B.rect, (x, y, i) => {
+        C.drawMask[i] = 1;
+        if (cells[i] === -2) cells[i] = 0;
+      });
+      const mid = ns ? Math.floor((y0 + y1) / 2) : Math.floor((x0 + x1) / 2);
+      const leaves = ns ? [{ rect: [x0, y0, x1, mid], hinge: "n" }, { rect: [x0, mid + 1, x1, y1], hinge: "s" }] : [{ rect: [x0, y0, mid, y1], hinge: "w" }, { rect: [mid + 1, y0, x1, y1], hinge: "e" }];
+      C.drawbridges.push({ id: B.id, rect: B.rect.slice(), axis: ns ? "y" : "x", leaves, every: B.every, up: B.up });
+    }
     for (const a of C.roads) for (const b of C.roads) if (a.axis === "y" && b.axis === "x") {
       const ix = [Math.max(a.band[0], b.band[0]), Math.max(a.band[1], b.band[1]), Math.min(a.band[2], b.band[2]), Math.min(a.band[3], b.band[3])];
       if (ix[0] <= ix[2] && ix[1] <= ix[3]) C.intersections.push({ rect: ix, roads: [a.id, b.id], signals: a.kind === "avenue" && b.kind === "avenue" ? "signal" : a.kind === "avenue" || b.kind === "avenue" ? "signal" : "stop" });
@@ -12073,25 +12336,42 @@ root.My3D2dge = E;
       this.tiles.set(key, p);
       return p;
     }
+    /** a drawbridge leaf's top: its cells painted as the road they are (lane paint, sidewalks), one texel a unit, from
+     *  its low corner (made once per leaf) */
+    leafTexture(rect) {
+      const key = "leaf:" + rect.join(",");
+      let cv = this.tiles.get(key);
+      if (cv) return cv;
+      const T5 = this.T, w = (rect[2] - rect[0] + 1) * T5, h = (rect[3] - rect[1] + 1) * T5;
+      cv = E.mkCanvas(w, h);
+      const g = E.ctx2d(cv);
+      g.translate(-rect[0] * T5, -rect[1] * T5);
+      this.paint(g, rect[0] * T5, rect[1] * T5, (rect[2] + 1) * T5, (rect[3] + 1) * T5, { raw: true });
+      this.tiles.set(key, cv);
+      return cv;
+    }
     _pal(surf, hood) {
       const base = PALETTE[surf] || PALETTE.lot, o = hood && hood.palette && hood.palette[surf];
       return o ? { ...base, ...o } : base;
     }
-    /** paint the floor of world rectangle [x0, x1) x [y0, y1) into g (in world coordinates): FloorChunks' paint */
-    paint(g, x0, y0, x1, y1) {
-      const C = this.city, T5 = this.T, P2 = PALETTE.paint, map = C.map;
+    /** paint the floor of world rectangle [x0, x1) x [y0, y1) into g (in world coordinates): FloorChunks' paint. A
+     *  drawbridge's span paints as the water under it (its leaves draw the road); o.raw paints the road there instead
+     *  (the leaves' own texture: leafTexture) */
+    paint(g, x0, y0, x1, y1, o = {}) {
+      const C = this.city, T5 = this.T, P2 = PALETTE.paint, map = C.map, M = !o.raw && C.drawMask ? C.drawMask : null, W0 = SURFACES.indexOf("water");
+      const sAt = (i) => M && M[i] ? W0 : C.surface[i], masked = (cx, cy) => !!M && C.inside(cx, cy) && M[cy * C.w + cx] === 1;
       const c0 = Math.max(0, Math.floor(x0 / T5)), c1 = Math.min(C.w - 1, Math.floor((x1 - 1) / T5)), r0 = Math.max(0, Math.floor(y0 / T5)), r1 = Math.min(C.h - 1, Math.floor((y1 - 1) / T5));
       for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; ) {
-        const i = cy * C.w + cx, s = C.surface[i], h = C.hood[i];
+        const i = cy * C.w + cx, s = sAt(i), h = C.hood[i];
         let e = cx;
-        while (e + 1 <= c1 && C.surface[i + e + 1 - cx] === s && C.hood[i + e + 1 - cx] === h) e++;
+        while (e + 1 <= c1 && sAt(i + e + 1 - cx) === s && C.hood[i + e + 1 - cx] === h) e++;
         const surf = SURFACES[s], hood = C.hoods[h];
         g.fillStyle = this._tile(g, surf === "curb" ? "walk" : surf, this._pal(surf === "curb" ? "walk" : surf, hood));
         g.fillRect(cx * T5, cy * T5, (e - cx + 1) * T5, T5);
         cx = e + 1;
       }
       const inRect = (r) => r[2] >= c0 && r[0] <= c1 && r[3] >= r0 && r[1] <= r1;
-      const busy = (cx, cy) => C.inside(cx, cy) && C.busy[cy * C.w + cx] > 0;
+      const busy = (cx, cy) => C.inside(cx, cy) && (C.busy[cy * C.w + cx] > 0 || masked(cx, cy));
       for (const r of C.roads) {
         if (!inRect(r.band) || r.kind === "alley") continue;
         const ns = r.axis === "y", a0 = ns ? r.band[1] : r.band[0], a1 = ns ? r.band[3] : r.band[2], across0 = (ns ? r.band[0] : r.band[1]) * T5, across1 = ((ns ? r.band[2] : r.band[3]) + 1) * T5, mid = (across0 + across1) / 2;
@@ -12124,9 +12404,9 @@ root.My3D2dge = E;
       const S = SURFACES, isRoad = (s) => s === "road" || s === "bridge" || s === "alley";
       for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
         const s = S[C.surface[cy * C.w + cx]];
-        if (s !== "walk" && s !== "plaza" && s !== "park" && s !== "grass") continue;
+        if (s !== "walk" && s !== "plaza" && s !== "park" && s !== "grass" || masked(cx, cy)) continue;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          if (!C.inside(cx + dx, cy + dy) || !isRoad(S[C.surface[(cy + dy) * C.w + cx + dx]])) continue;
+          if (!C.inside(cx + dx, cy + dy) || masked(cx + dx, cy + dy) || !isRoad(S[C.surface[(cy + dy) * C.w + cx + dx]])) continue;
           const x = cx * T5 + (dx > 0 ? T5 - 2 : 0), y = cy * T5 + (dy > 0 ? T5 - 2 : 0), w = dx ? 2 : T5, h = dy ? 2 : T5;
           g.fillStyle = P2.kerb;
           g.fillRect(x, y, w, h);
@@ -12135,6 +12415,7 @@ root.My3D2dge = E;
         }
       }
       for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
+        if (masked(cx, cy)) continue;
         const s = S[C.surface[cy * C.w + cx]], h = E.hash2(cx * 31 + 7, cy * 17 + 3), X = cx * T5, Y = cy * T5;
         if (s === "road" && !busy(cx, cy)) {
           if (h < 0.035) {
@@ -12164,7 +12445,7 @@ root.My3D2dge = E;
       if (map) {
         g.fillStyle = "rgba(8,6,16,.32)";
         for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
-          if (map.cell(cx, cy) !== 0) continue;
+          if (map.cell(cx, cy) !== 0 || masked(cx, cy)) continue;
           if (map.cell(cx, cy - 1) > 0) g.fillRect(cx * T5, cy * T5, T5, 4);
           if (map.cell(cx - 1, cy) > 0) g.fillRect(cx * T5, cy * T5, 4, T5);
           if (map.cell(cx + 1, cy) > 0) g.fillRect(cx * T5 + T5 - 4, cy * T5, 4, T5);
@@ -12192,7 +12473,8 @@ root.My3D2dge = E;
     propList: { type: "array", def: [] },
     pois: { type: "array", def: [] },
     zones: { type: "array", def: [] },
-    tour: { type: "array", def: [] }
+    tour: { type: "array", def: [] },
+    drawbridges: { type: "array", def: [] }
   }));
   declare("landmarks", shape({ district: { type: "string", req: true }, name: { type: "string", req: true }, lots: { type: "array", def: [] }, pois: { type: "array", def: [] }, props: { type: "array", def: [] } }));
   function buildCity(id, seed) {
@@ -12295,6 +12577,152 @@ root.My3D2dge = E;
     }
   };
 
+  // src/motor/world/weather.js
+  var WEATHERS = ["clear", "overcast", "rain", "storm", "fog"];
+  var ODDS = [["clear", 4], ["overcast", 2.5], ["rain", 2], ["storm", 0.8], ["fog", 1]];
+  var LOOK = { clear: [0, 0, 0], overcast: [0.55, 0, 0], rain: [0.75, 0.6, 0], storm: [0.9, 1, 0], fog: [0.4, 0, 1] };
+  knob("World", "weatherHoursMin", "Weather lasts at least", 1, 0.25, 12, 0.25, "Game hours before the weather may change");
+  knob("World", "weatherHoursMax", "Weather lasts at most", 3, 0.5, 24, 0.25, "Game hours before it changes for sure");
+  knob("World", "wetMinutes", "Soaked after", 20, 1, 120, 1, "Game minutes of rain to soak the streets");
+  knob("World", "dryMinutes", "Dry after", 120, 5, 600, 5, "Game minutes for soaked streets to dry once the rain stops");
+  var Weather = class {
+    /** o: { state (a WEATHERS name; held if fixed), fixed } */
+    constructor(o = {}) {
+      this.rs = RNG.stream("weather");
+      this.fixed = !!o.fixed && WEATHERS.includes(o.state);
+      this.state = WEATHERS.includes(o.state) ? o.state : this.rs.pickW(ODDS);
+      this.left = this.rs.range(TUNE.weatherHoursMin, TUNE.weatherHoursMax);
+      const [c, r, f] = LOOK[this.state];
+      this.cloud = c;
+      this.rain = r;
+      this.fog = f;
+      this.wet = r > 0 ? 1 : 0;
+      this.flash = 0;
+      this.nextStrike = this.rs.range(3, 9);
+    }
+    /** step: dt seconds of game time, hours of game time on the clock */
+    update(dt, hours) {
+      if (!this.fixed && (this.left -= hours) <= 0) {
+        this.state = this.rs.pickW(ODDS);
+        this.left = this.rs.range(TUNE.weatherHoursMin, TUNE.weatherHoursMax);
+      }
+      const [c, r, f] = LOOK[this.state], k = Math.min(1, dt / 5);
+      this.cloud += (c - this.cloud) * k;
+      this.rain += (r - this.rain) * k;
+      this.fog += (f - this.fog) * k;
+      const mins = hours * 60;
+      this.wet = this.rain > 0.1 ? Math.min(1, this.wet + mins / TUNE.wetMinutes * this.rain) : Math.max(0, this.wet - mins / TUNE.dryMinutes);
+      this.flash = Math.max(0, this.flash - dt);
+      if (this.state === "storm" && (this.nextStrike -= dt) <= 0) {
+        this.flash = 0.35;
+        this.nextStrike = this.rs.range(4, 14);
+      }
+    }
+    /** is it raining (for peds, the radio's weather lines)? */
+    get raining() {
+      return this.rain > 0.15;
+    }
+    /** the traction factor for tyres: 1 dry, 0.8 soaked (PLAN.md 8.6) */
+    get grip() {
+      return 1 - 0.2 * this.wet;
+    }
+    /** for state hashes */
+    get index() {
+      return WEATHERS.indexOf(this.state);
+    }
+  };
+
+  // src/motor/world/drawbridge.js
+  knob("World", "drawbridgeEvery", "Drawbridge lifts every", 3, 0.25, 24, 0.25, "Game hours between lifts (PLAN.md 9.1: every 3)");
+  knob("World", "drawbridgeRaise", "Drawbridge lift time", 8, 2, 30, 0.5, "Seconds for the leaves to rise (and to come down)");
+  knob("World", "drawbridgeUp", "Drawbridge held up", 20, 3, 120, 1, "Seconds the leaves stay up");
+  var MAX = 72 * Math.PI / 180;
+  var Drawbridge = class {
+    /** b: a CityMap drawbridge ({ id, rect, axis, leaves: [{ rect, hinge }] }); city: its CityMap; o.wait: game hours to
+     *  the first lift */
+    constructor(b, city, o = {}) {
+      Object.assign(this, { id: b.id, rect: b.rect, axis: b.axis, city, T: city.T });
+      this.leaves = b.leaves.map((l) => ({ ...l }));
+      this.phase = "down";
+      this.lift = 0;
+      this.held = 0;
+      this.wait = o.wait ?? TUNE.drawbridgeEvery;
+      this._block(false);
+    }
+    /** jump straight to fully up (screenshots, tests) */
+    raiseNow() {
+      this.phase = "up";
+      this.lift = 1;
+      this.held = 0;
+      this._block(true);
+    }
+    /** the leaves' angle (radians, eased) */
+    get angle() {
+      const t = this.lift;
+      return MAX * t * t * (3 - 2 * t);
+    }
+    /** are the gates closed (anything but down)? */
+    get closed() {
+      return this.phase !== "down";
+    }
+    /** step: dt seconds, hours of game time on the clock; busy(bridge) -> true while someone is on it (it waits) */
+    update(dt, hours, busy = () => false) {
+      const raise = Math.max(0.1, TUNE.drawbridgeRaise);
+      if (this.phase === "down") {
+        if ((this.wait -= hours) <= 0 && !busy(this)) {
+          this.phase = "raising";
+          this._block(true);
+        }
+      } else if (this.phase === "raising") {
+        if ((this.lift += dt / raise) >= 1) {
+          this.lift = 1;
+          this.phase = "up";
+          this.held = 0;
+        }
+      } else if (this.phase === "up") {
+        if ((this.held += dt) >= TUNE.drawbridgeUp) this.phase = "lowering";
+      } else if ((this.lift -= dt / raise) <= 0) {
+        this.lift = 0;
+        this.phase = "down";
+        this.wait = TUNE.drawbridgeEvery;
+        this._block(false);
+      }
+    }
+    /** start a lift now (missions, the dev menu, tests) */
+    open() {
+      if (this.phase === "down") this.wait = 0;
+    }
+    _block(on) {
+      const [x0, y0, x1, y1] = this.rect, map = this.city.map;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) map.block(x, y, on);
+    }
+    /** is the world point on the span? */
+    contains(x, y) {
+      const T5 = this.T, [x0, y0, x1, y1] = this.rect;
+      return x >= x0 * T5 && x < (x1 + 1) * T5 && y >= y0 * T5 && y < (y1 + 1) * T5;
+    }
+    /** a leaf's geometry now: { x0, x1 (across), a (the hinge's coordinate along the road), dir (+1 or -1: toward the
+     *  canal), L (its length), c (its reach along the road: L cos angle), h (its tip's height: L sin angle) } */
+    leafGeom(l) {
+      const T5 = this.T, [x0, y0, x1, y1] = l.rect, ns = this.axis === "y", th = this.angle;
+      const L3 = (ns ? y1 - y0 + 1 : x1 - x0 + 1) * T5, start = l.hinge === "n" || l.hinge === "w";
+      const a = ns ? start ? y0 * T5 : (y1 + 1) * T5 : start ? x0 * T5 : (x1 + 1) * T5;
+      return { u0: (ns ? x0 : y0) * T5, u1: ((ns ? x1 : y1) + 1) * T5, a, dir: start ? 1 : -1, L: L3, c: L3 * Math.cos(th), h: L3 * Math.sin(th) };
+    }
+    /** the leaves' surface height under a world point (a deck: 0 when down), or null (off the span, or past a raised
+     *  leaf's tip over the open water) */
+    heightAt(x, y) {
+      if (!this.contains(x, y)) return null;
+      const ns = this.axis === "y", along = ns ? y : x;
+      for (const l of this.leaves) {
+        const G = this.leafGeom(l), d = (along - G.a) * G.dir;
+        if (d < 0 || d > G.L) continue;
+        return d <= G.c ? d * Math.tan(this.angle) : null;
+      }
+      return null;
+    }
+  };
+
   // src/motor/render/city-render.js
   var T = 16;
   var CH = 256;
@@ -12318,12 +12746,19 @@ root.My3D2dge = E;
       this.props = /* @__PURE__ */ new Map();
       this.deckCells = /* @__PURE__ */ new Map();
       this.signs = [];
+      this.water = /* @__PURE__ */ new Map();
       const add = (m, x, y, v) => {
         const k = Math.floor(y / CH) * 64 + Math.floor(x / CH);
         let a = m.get(k);
         if (!a) m.set(k, a = []);
         a.push(v);
       };
+      for (let cy = 0; cy < city.h; cy++) for (let cx = 0; cx < city.w; cx++) {
+        const s = city.surfaceAt(cx, cy);
+        if (s !== "water" && s !== "deep") continue;
+        const h = E.hash2(cx * 13 + 1, cy * 7 + 5);
+        if (h < 0.3) add(this.water, (cx + 0.5) * T, (cy + 0.5) * T, [cx, cy, h]);
+      }
       for (const p of city.props) if (p.kind !== "pillar") add(this.props, p.x, p.y, p);
       else add(this.props, p.x, p.y, p);
       for (const d of city.decks) {
@@ -12332,6 +12767,7 @@ root.My3D2dge = E;
       }
       for (const s of city.signs) this.signs.push(placeSign(city, s));
       this.fadeUnder = null;
+      this.bridges = [];
     }
     /** queue what stands within radius (world units) of (fx, fy) */
     queue(stage, fx, fy, radius = 640, night = true, player = null) {
@@ -12345,6 +12781,27 @@ root.My3D2dge = E;
           const c = dc.c, z = Math.max(c.z0, c.z1);
           if (stage.onScreen((c.cx + 0.5) * T, (c.cy + 0.5) * T, z - dc.d.thickness, z + 8, 12)) this._deck(stage, dc, fade);
         }
+      }
+      for (const b of this.bridges) {
+        const T5 = this.city.T, [x0, y0, x1, y1] = b.rect, mx = (x0 + x1 + 1) / 2 * T5, my = (y0 + y1 + 1) / 2 * T5;
+        if (Math.abs(mx - fx) > radius + 160 || Math.abs(my - fy) > radius + 160) continue;
+        for (const l of b.leaves) {
+          const G = b.leafGeom(l), ns = b.axis === "y", along = G.a + G.dir * G.c / 2, across = (G.u0 + G.u1) / 2, cx = ns ? across : along, cy = ns ? along : across;
+          if (stage.onScreen(cx, cy, 0, G.h + 8, Math.max(G.L, G.u1 - G.u0) / 2)) stage.shape(cx, cy, G.h / 2, (g, P2) => drawLeaf(g, P2, b, l, this.city.painter.leafTexture(l.rect)));
+        }
+        if (b.closed) for (const end of [-1, 1]) {
+          const ns = b.axis === "y", gy = ns ? end < 0 ? y0 * T5 - 6 : (y1 + 1) * T5 + 6 : my, gx = ns ? mx : end < 0 ? x0 * T5 - 6 : (x1 + 1) * T5 + 6;
+          if (stage.onScreen(gx, gy, 0, 14, 80)) stage.shape(gx, gy, 0, (g, P2) => drawGate(g, P2, b, gx, gy));
+        }
+      }
+      const glints = [];
+      for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) {
+        const w = this.water.get(j * 64 + i);
+        if (w) glints.push(w);
+      }
+      if (glints.length) {
+        const t = stage.game.real;
+        stage.floor((g, P2) => drawGlints(g, P2, glints, t, stage.r.bw, stage.r.bh));
       }
       for (const s of this.signs) if (Math.abs(s.x - fx) < radius && Math.abs(s.y - fy) < radius && stage.onScreen(s.x, s.y, s.z, s.z, 48)) {
         stage.shape(s.x, s.y, s.z, (g, P2) => drawSign(g, P2, s, night), { bias: 0.01 });
@@ -12363,7 +12820,7 @@ root.My3D2dge = E;
       if (spr) {
         const lamp = p.kind === "lamp";
         stage.prop(spr, p.x, p.y, p.z || 0, { light: night && lamp, halo: false, lightRadius: 88, size: p.kind === "palm" ? 1.3 : 1 });
-        if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow);
+        if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow, { reflect: lampSmear });
         return;
       }
       const m = PROP_MODELS[p.kind];
@@ -12396,6 +12853,84 @@ root.My3D2dge = E;
     g.globalCompositeOperation = "lighter";
     g.drawImage(cv, Math.round(sx - R - 1), Math.round(sy - R - 1));
     g.globalCompositeOperation = op;
+  }
+  function lampSmear(g, sx, sy, k, wet) {
+    const w = Math.max(2, Math.round(2.5 * k)), h = Math.max(10, Math.round(22 * k)), key = "s" + w + "x" + h;
+    let cv = GLOWS.get(key);
+    if (!cv) {
+      cv = E.mkCanvas(w * 2 + 1, h);
+      const c = E.ctx2d(cv);
+      for (let y = 0; y < h; y++) {
+        const f = 1 - y / h, half = Math.max(0, Math.round(w * (0.35 + 0.65 * f) * (E.hash2(y, 7) < 0.3 ? 0.5 : 1)));
+        if (E.hash2(y * 3, 11) < 0.22 * (1 - f) + 0.08) continue;
+        c.fillStyle = `rgba(255,${210 + Math.round(30 * f)},${140 + Math.round(60 * f)},${(0.5 * f * f + 0.06).toFixed(3)})`;
+        c.fillRect(w - half, y, half * 2 + 1, 1);
+      }
+      GLOWS.set(key, cv);
+    }
+    const op = g.globalCompositeOperation, a = g.globalAlpha;
+    g.globalCompositeOperation = "lighter";
+    g.globalAlpha = Math.min(1, wet);
+    g.drawImage(cv, Math.round(sx - w), Math.round(sy + 1));
+    g.globalCompositeOperation = op;
+    g.globalAlpha = a;
+  }
+  function drawGlints(g, P2, lists, t, W, H3) {
+    g.fillStyle = "rgba(200,226,255,.55)";
+    for (const list of lists) for (const [cx, cy, h] of list) {
+      const ph = Math.sin(t * (1.3 + h * 4) + h * 40);
+      if (ph < 0.55) continue;
+      const q = P2.proj((cx + h * 2.6) * T, (cy + 0.3 + h * 1.5) * T, 0);
+      if (!q || q[0] < -4 || q[1] < -4 || q[0] > W + 4 || q[1] > H3 + 4) continue;
+      const len = Math.max(2, Math.round((ph - 0.4) * 6 * Math.min(2, q[2])));
+      g.fillRect(Math.round(q[0]), Math.round(q[1]), len, 1);
+    }
+  }
+  function drawLeaf(g, P2, b, l, tex) {
+    const G = b.leafGeom(l), ns = b.axis === "y", th = 4, W = G.u1 - G.u0;
+    const pt = (s, tl, dz) => {
+      const t = G.dir > 0 ? tl : 1 - tl, u = G.u0 + s * W, v = G.a + G.dir * t * G.c, z = t * G.h + dz;
+      return ns ? P2.proj(u, v, z) : P2.proj(v, u, z);
+    };
+    const xy = (sx, sy, dz) => ns ? pt(sx, sy, dz) : pt(sy, sx, dz);
+    const top = (sx, sy) => xy(sx, sy, 0.6), c = [top(0, 0), top(0, 1), top(1, 1), top(1, 0)];
+    if (!c.every(Boolean)) return;
+    if (cross(c) < 0) texturedFace(g, top, tex, 0, 0, tex.width, tex.height, "#3a3a42");
+    else quad(g, [xy(0, 0, -th), xy(0, 1, -th), xy(1, 1, -th), xy(1, 0, -th)], "#2a2a32");
+    const tip = G.dir > 0 ? 1 : 0;
+    if (G.h > 0.5) {
+      const e = [pt(0, tip, 0.6), pt(1, tip, 0.6), pt(1, tip, -th), pt(0, tip, -th)];
+      if (e.every(Boolean)) quad(g, e, "#5a5a64");
+    }
+    for (const s of [0, 1]) {
+      const r = [pt(s, 0, 0.6), pt(s, 1, 0.6), pt(s, 1, 7), pt(s, 0, 7)];
+      if (r.every(Boolean)) quad(g, r, "rgba(150,150,160,.8)");
+    }
+    g._c = null;
+  }
+  function drawGate(g, P2, b, x, y) {
+    const ns = b.axis === "y", T5 = b.T, half = ((ns ? b.rect[2] - b.rect[0] : b.rect[3] - b.rect[1]) + 1) * T5 / 2 - 4;
+    const p = (a, z) => ns ? P2.proj(x + a, y, z) : P2.proj(x, y + a, z);
+    for (const a of [-half, half]) {
+      const q0 = p(a, 0), q1 = p(a, 14);
+      if (q0 && q1) {
+        g.fillStyle = "#2a2a30";
+        g.fillRect(Math.round(q0[0]) - 1, Math.round(q1[1]), 2, Math.max(1, Math.round(q0[1] - q1[1])));
+      }
+    }
+    const n = 8;
+    for (let i = 0; i < n; i++) {
+      const a = p(-half + 2 * half * i / n, 10), c = p(-half + 2 * half * (i + 1) / n, 10);
+      if (!a || !c) continue;
+      g.strokeStyle = i % 2 ? "#f0f0f0" : "#d8302a";
+      g.lineWidth = Math.max(1, Math.round(a[2] * 1.5));
+      g.beginPath();
+      g.moveTo(a[0], a[1]);
+      g.lineTo(c[0], c[1]);
+      g.stroke();
+    }
+    g.lineWidth = 1;
+    g._c = null;
   }
   var PILLARS = /* @__PURE__ */ new Map();
   function PILLAR(top) {
@@ -12782,6 +13317,8 @@ root.My3D2dge = E;
       { rect: [0, 2, 1, 151], type: { h: 32, top: "#5a6a4a", side: "#7a7468", face: "stone", roof: "grass" } }
     ],
     props: { lampEvery: 6, clutter: 0.3 },
+    // Dock Road's bridge over the canal lifts for the boats (PLAN.md 9.1): its span, sidewalks and all
+    drawbridges: [{ id: "dock", rect: [124, 124, 132, 131], axis: "y" }],
     // a loop through all four neighbourhoods on the streets, under the Loop twice (perf runs, the attract camera)
     tour: [[32, 30], [128, 30], [128, 118], [32, 118]],
     zones: [
@@ -13454,6 +13991,23 @@ root.My3D2dge = E;
 
   // src/game/scenes/play.js
   var cached = null;
+  function standIns() {
+    const r = E.rng(77), pick = (l) => l[Math.floor(r() * l.length)], peds = [], cars = [];
+    for (let i = 0; i < 40; i++) {
+      const c = pick(["#c84a3a", "#3a6ac8", "#e8c040", "#3a8a5a", "#8a3a8a", "#e0e0e4"]);
+      peds.push({ ox: (r() * 2 - 1) * 170, oy: (r() * 2 - 1) * 150, ph: r() * 6.3, sp: 30 + r() * 25, rig: new E.Humanoid({
+        size: 0.9,
+        style: "classic",
+        build: pick(["slim", "average", "heroic"]),
+        outfit: pick(["shirt", "coat", "dress"]),
+        hair: pick(["short", "spiky", "long", "bald"]),
+        weapon: null,
+        colors: { skin: pick(["#c8906a", "#8a5a3a", "#e0b090", "#5a3a2a"]), hair: pick(["#1e1a22", "#6a4a2a", "#c8a050"]), cloth: c, coat: E.shade(c, -0.3), pants: pick(["#2a3048", "#3a3a3a", "#5a4a3a"]), boot: "#18161c" }
+      }) });
+    }
+    for (let i = 0; i < 20; i++) cars.push({ ox: (r() * 2 - 1) * 190, oy: (r() * 2 - 1) * 160, h: pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]), model: carModel({ color: pick(["#c8423a", "#3a6ac8", "#d8c8a0", "#3a8a5a", "#2a2a30", "#e0e0e4"]) }) });
+    return { peds, cars };
+  }
   function lowtown(seed) {
     if (!cached || cached.seed !== seed) {
       const city = buildCity("lowtown", seed);
@@ -13464,7 +14018,7 @@ root.My3D2dge = E;
   def("scenes", "play", {
     make(app2) {
       const { game: game2, views, human, footprint, links: links2, stage } = app2;
-      let city, map, cityR, floor, hero, rig, clock, hoodName = "", tour = null, rec = null;
+      let city, map, cityR, floor, hero, rig, clock, weather, bridges = [], hoodName = "", tour = null, rec = null, crowd = null;
       const TOUR_SPEED = 300;
       return {
         pausable: true,
@@ -13474,8 +14028,14 @@ root.My3D2dge = E;
           floor = new FloorChunks({ w: map.w * map.T, h: map.h * map.T, paint: (g, x0, y0, x1, y1) => city.painter.paint(g, x0, y0, x1, y1) });
           stage.setWorld({ map, city, floor });
           clock = new WorldClock(links2.query.get("time") || "night");
+          const w = links2.query.get("weather");
+          weather = new Weather(w ? { state: w, fixed: true } : {});
+          bridges = city.drawbridges.map((b) => new Drawbridge(b, city));
+          cityR.bridges = bridges;
+          if (links2.query.get("bridge") === "up") bridges.forEach((b) => b.raiseNow());
           tour = links2.query.get("tour") === "1" && city.tour.length ? { leg: 0 } : null;
           rec = links2.query.get("perf") === "1" ? { update: [], render: [], frames: 0 } : null;
+          crowd = links2.query.get("crowd") === "1" ? standIns() : null;
           const at = tour ? { x: city.tour[0][0], y: city.tour[0][1] } : city.poi(data && data.route && data.route[1] || "safehouse") || city.poi("safehouse");
           hero = new E.Mover({ x: at.x, y: at.y });
           hero.actor = new Actor("ped", { x: at.x, y: at.y, faction: "crew" });
@@ -13489,21 +14049,27 @@ root.My3D2dge = E;
           });
           game2.cam.bounds = (v) => map.bounds(v);
           if (!game2.headless) floor.warm(hero.x, hero.y, 420);
-          expose("snapshot", () => ({ scene: "play", view: views.active, hero: [hero.x, hero.y, hero.z].map((v) => Math.round(v)), hood: hoodName, time: clock.label() }));
+          expose("snapshot", () => ({ scene: "play", view: views.active, hero: [hero.x, hero.y, hero.z].map((v) => Math.round(v)), hood: hoodName, time: clock.label(), weather: weather.state }));
           expose("teleport", (x, y) => {
             hero.x = x;
             hero.y = y;
           });
           expose("city", city);
           expose("clock", clock);
+          expose("weather", weather);
+          expose("bridges", bridges);
           expose("perf", () => ({ ...rec, floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length, depth: stage.depth ? { ...stage.depth.stats } : null }));
-          game2.stateHash = () => [Math.round(hero.x * 8), Math.round(hero.y * 8), Math.round(hero.z * 8), Math.round(clock.hour * 60)];
+          game2.stateHash = () => [Math.round(hero.x * 8), Math.round(hero.y * 8), Math.round(hero.z * 8), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map((b) => Math.round(b.lift * 100))];
         },
         exit() {
           game2.lights.enabled = false;
         },
         update(dt) {
+          const h0 = clock.hour;
           clock.update(dt);
+          const hours = (clock.hour - h0 + 24) % 24;
+          weather.update(dt, hours);
+          for (const b of bridges) b.update(dt, hours, (br) => br.contains(hero.x, hero.y));
           const I = human.update("onFoot", hero);
           if (tour) {
             const to = city.tour[(tour.leg + 1) % city.tour.length], dx = to[0] - hero.x, dy = to[1] - hero.y, d = Math.hypot(dx, dy), step = TOUR_SPEED * dt;
@@ -13537,9 +14103,20 @@ root.My3D2dge = E;
             rec.render.push(+st.renderMs.toFixed(3));
             rec.frames++;
           }
-          stage.setSky(skyAt(clock.hour));
+          stage.setSky(skyAt(clock.hour, weather));
           stage.begin(r, { focus: [hero.x, hero.y], vel: [hero.vx, hero.vy], player: [hero.x, hero.y, hero.z] });
           cityR.queue(stage, hero.x, hero.y, stage.depth === stage.side7 ? 700 : 520, stage.world.lamps, [hero.x, hero.y, hero.z]);
+          if (crowd) {
+            const t = game2.real;
+            for (const p of crowd.peds) {
+              const x = hero.x + p.ox + Math.sin(t * 0.4 + p.ph) * 40, y = hero.y + p.oy, vx = Math.cos(t * 0.4 + p.ph) * 16;
+              stage.actor(x, y, 0, (g, sx, sy, v) => p.rig.draw(g, sx, sy, v), { shadow: 4, crowd: true, key: p.rig, pose: (dt) => p.rig.update(dt, { x, y, z: 0, vx, vy: 0, vz: 0, facing: vx >= 0 ? 0 : Math.PI, air: false }) });
+            }
+            for (const c of crowd.cars) {
+              const x = hero.x + c.ox, y = hero.y + c.oy;
+              stage.shape(x, y, 0, (g, P2) => drawBoxModel(g, P2, c.model, x, y, 0, c.h, { lit: true }), { kept: { key: c, r: 34, h: 24 } });
+            }
+          }
           stage.actor(hero.x, hero.y, hero.z, (g, x, y, v) => rig.draw(g, x, y, v), { shadow: 5, xray: true });
           stage.end();
           r.overlay((g) => E.font.text(g, (hoodName || "LOWTOWN").toUpperCase() + "  •  " + clock.label() + "  •  " + (views.spec.label || views.active).toUpperCase(), 6, 6, "#ffe066", { shadow: "#000" }));

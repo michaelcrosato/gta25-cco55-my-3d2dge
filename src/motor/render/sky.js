@@ -22,9 +22,21 @@ export const BACKDROPS = {
 const mixHex = (a, b, t) => { const p = E.hex(a), q = E.hex(b); return '#' + p.map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
 const ease = t => t * t * (3 - 2 * t);
 
-/** the look at an hour (0-24): { ambient, dark [r, g, b], tint, sky [3 colours], fog, top (TOP's ground colour beyond
- *  the map), phase ('night' | 'dusk' | 'day'), lamps (the street lamps are on), night (windows and neon lit) } */
-export function skyAt(hour) {
+/** the look at an hour (0-24) in a weather ({ cloud, rain, fog, wet, flash }: world/weather.js, or none): { ambient,
+ *  dark [r, g, b], tint, sky [3 colours], fog (its colour), top (TOP's ground colour beyond the map), phase ('night' |
+ *  'dusk' | 'day'), lamps (the street lamps are on), night (windows and neon lit), haze, rain, wet, flash (0..1) } */
+export function skyAt(hour, w = null) {
+  const s = clearSky(hour); if (!w) return s;
+  const c = w.cloud || 0, f = w.fog || 0, day = E.clamp((s.ambient - .62) / .38, 0, 1);
+  s.ambient *= 1 - c * (.34 * day + .12 * (1 - day));   // clouds dim a day a lot, a night a little
+  s.sky = s.sky.map(col => mixHex(col, '#5a6070', .6 * c)); s.top = mixHex(s.top, '#3e424c', .5 * c);
+  s.fog = mixHex(s.fog, s.ambient > .6 ? '#a4aab4' : '#3a3c48', Math.min(1, .8 * f + .35 * c));
+  s.lamps = s.ambient < .8; s.night = s.ambient < .66;   // (a storm by day puts the lamps on)
+  s.haze = f; s.rain = w.rain || 0; s.wet = w.wet || 0; s.flash = w.flash || 0;
+  if (s.flash > 0) s.ambient = Math.min(1, s.ambient + s.flash * 2.2);   // lightning lights the whole city for a moment
+  return s;
+}
+function clearSky(hour) {
   const h = ((hour % 24) + 24) % 24;
   let i = 0; while (i < KEYS.length - 2 && KEYS[i + 1][0] <= h) i++;
   const [h0, a] = KEYS[i], [h1, b] = KEYS[i + 1], t = ease(h1 > h0 ? (h - h0) / (h1 - h0) : 0);
@@ -33,6 +45,6 @@ export function skyAt(hour) {
     hour: h, ambient, tint: a.tint + (b.tint - a.tint) * t,
     dark: a.dark.map((v, k) => Math.round(v + (b.dark[k] - v) * t)),
     sky: a.sky.map((c, k) => mixHex(c, b.sky[k], t)), fog: mixHex(a.fog, b.fog, t), top: mixHex(a.top, b.top, t),
-    phase: t < .5 ? a.phase : b.phase, lamps: ambient < .8, night: ambient < .66,
+    phase: t < .5 ? a.phase : b.phase, lamps: ambient < .8, night: ambient < .66, haze: 0, rain: 0, wet: 0, flash: 0,
   };
 }

@@ -27,12 +27,18 @@ export const PROP_MODELS = {
 export class CityRenderer {
   /** city: a CityMap */
   constructor(city) {
-    this.city = city; this.props = new Map(); this.deckCells = new Map(); this.signs = [];
+    this.city = city; this.props = new Map(); this.deckCells = new Map(); this.signs = []; this.water = new Map();
     const add = (m, x, y, v) => { const k = Math.floor(y / CH) * 64 + Math.floor(x / CH); let a = m.get(k); if (!a) m.set(k, a = []); a.push(v); };
+    // the water's glints: a few cells in four, hashed, each with its own phase (the floor chunks hold still water)
+    for (let cy = 0; cy < city.h; cy++) for (let cx = 0; cx < city.w; cx++) {
+      const s = city.surfaceAt(cx, cy); if (s !== 'water' && s !== 'deep') continue;
+      const h = E.hash2(cx * 13 + 1, cy * 7 + 5); if (h < .3) add(this.water, (cx + .5) * T, (cy + .5) * T, [cx, cy, h]);
+    }
     for (const p of city.props) if (p.kind !== 'pillar') add(this.props, p.x, p.y, p); else add(this.props, p.x, p.y, p);
     for (const d of city.decks) { const map = d._cellMap(); for (const c of d.cells) add(this.deckCells, (c.cx + .5) * T, (c.cy + .5) * T, { d, c, map }); }
     for (const s of city.signs) this.signs.push(placeSign(city, s));
     this.fadeUnder = null;   // set per frame: [x, y, z] of the player, to fade deck slabs over them
+    this.bridges = [];   // the live drawbridges (world/drawbridge.js), set by the scene that steps them
   }
   /** queue what stands within radius (world units) of (fx, fy) */
   queue(stage, fx, fy, radius = 640, night = true, player = null) {
@@ -43,6 +49,22 @@ export class CityRenderer {
       for (const p of this.props.get(k) || []) if (stage.onScreen(p.x, p.y, p.z || 0, (p.z || 0) + (p.top || 60), 24)) this._prop(stage, p, night);
       for (const dc of this.deckCells.get(k) || []) { const c = dc.c, z = Math.max(c.z0, c.z1); if (stage.onScreen((c.cx + .5) * T, (c.cy + .5) * T, z - dc.d.thickness, z + 8, 12)) this._deck(stage, dc, fade); }
     }
+    // drawbridges: each leaf a slab turning on its hinge, its top painted as the road; the gates while it is not down
+    for (const b of this.bridges) {
+      const T = this.city.T, [x0, y0, x1, y1] = b.rect, mx = (x0 + x1 + 1) / 2 * T, my = (y0 + y1 + 1) / 2 * T;
+      if (Math.abs(mx - fx) > radius + 160 || Math.abs(my - fy) > radius + 160) continue;
+      for (const l of b.leaves) {
+        const G = b.leafGeom(l), ns = b.axis === 'y', along = G.a + G.dir * G.c / 2, across = (G.u0 + G.u1) / 2, cx = ns ? across : along, cy = ns ? along : across;
+        if (stage.onScreen(cx, cy, 0, G.h + 8, Math.max(G.L, G.u1 - G.u0) / 2)) stage.shape(cx, cy, G.h / 2, (g, P) => drawLeaf(g, P, b, l, this.city.painter.leafTexture(l.rect)));
+      }
+      if (b.closed) for (const end of [-1, 1]) {
+        const ns = b.axis === 'y', gy = ns ? (end < 0 ? y0 * T - 6 : (y1 + 1) * T + 6) : my, gx = ns ? mx : (end < 0 ? x0 * T - 6 : (x1 + 1) * T + 6);
+        if (stage.onScreen(gx, gy, 0, 14, 80)) stage.shape(gx, gy, 0, (g, P) => drawGate(g, P, b, gx, gy));
+      }
+    }
+    // the water's glints: blinking highlights on the floor, before anything stands on it
+    const glints = []; for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) { const w = this.water.get(j * 64 + i); if (w) glints.push(w); }
+    if (glints.length) { const t = stage.game.real; stage.floor((g, P) => drawGlints(g, P, glints, t, stage.r.bw, stage.r.bh)); }
     for (const s of this.signs) if (Math.abs(s.x - fx) < radius && Math.abs(s.y - fy) < radius && stage.onScreen(s.x, s.y, s.z, s.z, 48)) {
       stage.shape(s.x, s.y, s.z, (g, P) => drawSign(g, P, s, night), { bias: .01 });
       if (night) stage.glow(s.x, s.y, s.z, (g, sx, sy, k) => { const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * .75)), true); g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2)); }, { iso: true });   // (neon: lit after the dark)
@@ -53,7 +75,7 @@ export class CityRenderer {
     const spr = SPRITES[p.kind];
     if (spr) {
       const lamp = p.kind === 'lamp'; stage.prop(spr, p.x, p.y, p.z || 0, { light: night && lamp, halo: false, lightRadius: 88, size: p.kind === 'palm' ? 1.3 : 1 });
-      if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow);
+      if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow, { reflect: lampSmear });
       return;
     }
     const m = PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0));
@@ -75,6 +97,56 @@ function lampGlow(g, sx, sy, k) {
     c.fillStyle = gr; c.fillRect(0, 0, cv.width, cv.height); GLOWS.set(key, cv);
   }
   const op = g.globalCompositeOperation; g.globalCompositeOperation = 'lighter'; g.drawImage(cv, Math.round(sx - R - 1), Math.round(sy - R - 1)); g.globalCompositeOperation = op;
+}
+/** a lamp's light on a wet street: a broken warm streak down the screen from its foot, the reflection of its head
+ *  (rows with gaps, narrowing and fading; one image per size) */
+function lampSmear(g, sx, sy, k, wet) {
+  const w = Math.max(2, Math.round(2.5 * k)), h = Math.max(10, Math.round(22 * k)), key = 's' + w + 'x' + h; let cv = GLOWS.get(key);
+  if (!cv) {
+    cv = E.mkCanvas(w * 2 + 1, h); const c = E.ctx2d(cv);
+    for (let y = 0; y < h; y++) {
+      const f = 1 - y / h, half = Math.max(0, Math.round(w * (.35 + .65 * f) * (E.hash2(y, 7) < .3 ? .5 : 1)));
+      if (E.hash2(y * 3, 11) < .22 * (1 - f) + .08) continue;   // (gaps, more of them down the streak)
+      c.fillStyle = `rgba(255,${210 + Math.round(30 * f)},${140 + Math.round(60 * f)},${(.5 * f * f + .06).toFixed(3)})`; c.fillRect(w - half, y, half * 2 + 1, 1);
+    }
+    GLOWS.set(key, cv);
+  }
+  const op = g.globalCompositeOperation, a = g.globalAlpha; g.globalCompositeOperation = 'lighter'; g.globalAlpha = Math.min(1, wet);
+  g.drawImage(cv, Math.round(sx - w), Math.round(sy + 1)); g.globalCompositeOperation = op; g.globalAlpha = a;
+}
+/** the water's glints on screen: short bright dashes that blink in and out, each cell on its own phase */
+function drawGlints(g, P, lists, t, W, H) {
+  g.fillStyle = 'rgba(200,226,255,.55)';
+  for (const list of lists) for (const [cx, cy, h] of list) {
+    const ph = Math.sin(t * (1.3 + h * 4) + h * 40); if (ph < .55) continue;
+    const q = P.proj((cx + h * 2.6) * T, (cy + .3 + h * 1.5) * T, 0); if (!q || q[0] < -4 || q[1] < -4 || q[0] > W + 4 || q[1] > H + 4) continue;
+    const len = Math.max(2, Math.round((ph - .4) * 6 * Math.min(2, q[2]))); g.fillRect(Math.round(q[0]), Math.round(q[1]), len, 1);
+  }
+}
+/** a drawbridge leaf: its top (the road, painted) from the hinge out to its tip at the leaf's angle, the underside
+ *  where the camera sees that instead, the tip's edge, and a rail along each side */
+export function drawLeaf(g, P, b, l, tex) {
+  const G = b.leafGeom(l), ns = b.axis === 'y', th = 4, W = G.u1 - G.u0;
+  // a point on the leaf: s across the road, tl along it from the leaf's low (north or west) end, dz off its top
+  const pt = (s, tl, dz) => { const t = G.dir > 0 ? tl : 1 - tl, u = G.u0 + s * W, v = G.a + G.dir * t * G.c, z = t * G.h + dz; return ns ? P.proj(u, v, z) : P.proj(v, u, z); };
+  const xy = (sx, sy, dz) => ns ? pt(sx, sy, dz) : pt(sy, sx, dz);   // (the map's own orientation: sx along x, sy along y)
+  const top = (sx, sy) => xy(sx, sy, .6), c = [top(0, 0), top(0, 1), top(1, 1), top(1, 0)];   // (wound to face up, like a deck slab)
+  if (!c.every(Boolean)) return;
+  if (cross(c) < 0) texturedFace(g, top, tex, 0, 0, tex.width, tex.height, '#3a3a42');
+  else quad(g, [xy(0, 0, -th), xy(0, 1, -th), xy(1, 1, -th), xy(1, 0, -th)], '#2a2a32');   // (its underside, from the far side)
+  const tip = G.dir > 0 ? 1 : 0;
+  if (G.h > .5) { const e = [pt(0, tip, .6), pt(1, tip, .6), pt(1, tip, -th), pt(0, tip, -th)]; if (e.every(Boolean)) quad(g, e, '#5a5a64'); }
+  for (const s of [0, 1]) { const r = [pt(s, 0, .6), pt(s, 1, .6), pt(s, 1, 7), pt(s, 0, 7)]; if (r.every(Boolean)) quad(g, r, 'rgba(150,150,160,.8)'); }
+  g._c = null;
+}
+/** a drawbridge's gate: a red and white arm across the road on two posts, closed while the bridge is not down */
+function drawGate(g, P, b, x, y) {
+  const ns = b.axis === 'y', T = b.T, half = ((ns ? b.rect[2] - b.rect[0] : b.rect[3] - b.rect[1]) + 1) * T / 2 - 4;
+  const p = (a, z) => ns ? P.proj(x + a, y, z) : P.proj(x, y + a, z);
+  for (const a of [-half, half]) { const q0 = p(a, 0), q1 = p(a, 14); if (q0 && q1) { g.fillStyle = '#2a2a30'; g.fillRect(Math.round(q0[0]) - 1, Math.round(q1[1]), 2, Math.max(1, Math.round(q0[1] - q1[1]))); } }
+  const n = 8;
+  for (let i = 0; i < n; i++) { const a = p(-half + (2 * half) * i / n, 10), c = p(-half + (2 * half) * (i + 1) / n, 10); if (!a || !c) continue; g.strokeStyle = i % 2 ? '#f0f0f0' : '#d8302a'; g.lineWidth = Math.max(1, Math.round(a[2] * 1.5)); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(c[0], c[1]); g.stroke(); }
+  g.lineWidth = 1; g._c = null;
 }
 const PILLARS = new Map();
 function PILLAR(top) { let m = PILLARS.get(top); if (!m) { m = { parts: [box(-3, -3, 0, 3, 3, top, '#7a7a82')] }; PILLARS.set(top, m); } return m; }

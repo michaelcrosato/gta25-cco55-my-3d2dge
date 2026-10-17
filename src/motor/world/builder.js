@@ -55,6 +55,16 @@ export function buildDistrict(spec, o = {}) {
     const outer = r.axis === 'y' ? (x === r.walks[0][0] || x === r.walks[1][2]) : (y === r.walks[0][1] || y === r.walks[1][3]);
     if (outer && C.surface[I(x, y)] === SURF.bridge) cells[I(x, y)] = -2;   // (a railing type, made below)
   }
+  // drawbridges: a bridge's span split into two leaves hinged at the banks (world/drawbridge.js lifts them); the water
+  // shows under them (the painter's mask), and their railings ride on the leaves, not as walls
+  C.drawbridges = []; C.drawMask = new Uint8Array(W * H);
+  for (const B of spec.drawbridges || []) {
+    const [x0, y0, x1, y1] = B.rect, ns = (B.axis || 'y') === 'y';
+    rect(B.rect, (x, y, i) => { C.drawMask[i] = 1; if (cells[i] === -2) cells[i] = 0; });
+    const mid = ns ? Math.floor((y0 + y1) / 2) : Math.floor((x0 + x1) / 2);
+    const leaves = ns ? [{ rect: [x0, y0, x1, mid], hinge: 'n' }, { rect: [x0, mid + 1, x1, y1], hinge: 's' }] : [{ rect: [x0, y0, mid, y1], hinge: 'w' }, { rect: [mid + 1, y0, x1, y1], hinge: 'e' }];
+    C.drawbridges.push({ id: B.id, rect: B.rect.slice(), axis: ns ? 'y' : 'x', leaves, every: B.every, up: B.up });
+  }
   // intersections (carriageway overlaps) and crosswalks (a carriageway across another road's sidewalk)
   for (const a of C.roads) for (const b of C.roads) if (a.axis === 'y' && b.axis === 'x') {
     const ix = [Math.max(a.band[0], b.band[0]), Math.max(a.band[1], b.band[1]), Math.min(a.band[2], b.band[2]), Math.min(a.band[3], b.band[3])];

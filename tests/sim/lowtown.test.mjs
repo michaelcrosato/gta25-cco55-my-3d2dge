@@ -62,3 +62,24 @@ test('the decks: the Loop is level at z 64, its ramps climb from the street, the
   assert.equal(C.deckAt(...at(56, 78), 0), null, 'from the street, the Loop is overhead, not underfoot');
   assert.equal(C.deckAt(...at(56, 78), 64).z, 64, 'from the deck, it is underfoot');
 });
+
+test('the drawbridge: it lifts every 3 game hours unless someone is on it, blocks its span while not down, and is a ramp half raised', async () => {
+  const { M, E } = await motor();
+  const C = M.buildCity('lowtown', 1999), b = new M.Drawbridge(C.drawbridges[0], C), T = C.T, [x0, y0, x1, y1] = b.rect;
+  const mid = [(x0 + x1 + 1) / 2 * T, (y0 + y1 + 1) / 2 * T], walkable = () => C.map.walkable(Math.floor(mid[0] / T), Math.floor(mid[1] / T));
+  assert.equal(b.phase, 'down'); assert.ok(walkable(), 'down: the span is a street');
+  assert.equal(C.surfaceAt(x0 + 4, y0 + 2), 'bridge');
+  const step = (s, busy) => { for (let t = 0; t < s; t += 1 / 60) b.update(1 / 60, 1 / 3600, busy); };   // (a game minute a real second)
+  step(180 - 5); assert.equal(b.phase, 'down', 'not before three game hours (180 real seconds)');
+  step(10, () => true); assert.equal(b.phase, 'down', 'it waits while someone stands on it');
+  step(1 / 30); assert.equal(b.phase, 'raising'); assert.ok(!walkable(), 'the span is blocked as the gates close');
+  step(3); const h = b.heightAt(mid[0], y0 * T + 24), tip = b.leafGeom(b.leaves[0]);
+  assert.ok(h > 5 && h < tip.h, `half raised, the north leaf is a ramp: ${h.toFixed(1)} of ${tip.h.toFixed(1)}`);
+  step(6); assert.equal(b.phase, 'up'); assert.equal(b.heightAt(mid[0], mid[1]), null, 'fully up: open water at the middle of the span');
+  step(20 + 8.5); assert.equal(b.phase, 'down'); assert.ok(walkable(), 'down again: open to traffic');
+  // on foot: a walker pushed south down Dock Road stops at the gates while it is up
+  b.raiseNow();
+  const m = new E.Mover({ x: mid[0], y: (y0 - 3) * T });
+  for (let t = 0; t < 3; t += 1 / 120) m.update(1 / 120, C.map, { move: [0, 1] });
+  assert.ok(m.y < y0 * T, `stopped at the edge of the lifted span: y ${m.y.toFixed(0)} < ${y0 * T}`);
+});

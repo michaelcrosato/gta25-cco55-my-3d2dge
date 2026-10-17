@@ -136,3 +136,22 @@ and where it landed.
   most. An image-space turn of the last frame was tried first: rotating the ground plane under ISO's projection
   smears everything upright into streaks.
 - **Answered:** no. **Landed in:** M2.
+
+## D13 · 2026-10-17 · The perf gate measured with stand-ins; crowds drawn as kept images of the classic rig
+- **Principle:** measure what will ship (PLAN.md 7.11). PLAN.md 8.4's gate is ISO at night in the rain with 20 cars
+  and 40 peds in view, but cars arrive in M4 and peds in M5.
+- **Call:**
+  - `?crowd=1` puts stand-ins in view: 40 walkers and 20 parked cars at fixed offsets round the focus, drawn the way
+    the real ones will be. They are presentation only. `tools/perf.mjs` runs them as `lowtown-gate` (ISO),
+    `lowtown-gate-top` and `lowtown-gate-side7`.
+  - A crowd body is the engine's classic rig, not the detailed one. The protagonists and named characters keep HD:
+    a classic rig draws about three times cheaper, and reads as GTA2's simple peds against the detailed hero.
+  - A crowd body is drawn into an image of its own every `TUNE.crowdEvery` frames: 4, so 15 a second, the rate of
+    classic townsfolk. Its rig is posed only then. The image is reused where the body stands in between, and the
+    redraws are staggered across the crowd. The engine's own `every` does this on its composite path only, which costs
+    more than the fast path it would replace.
+  - A shape that looks the same each frame, such as a parked car, can be kept the same way (`stage.shape(..., {
+    kept })`). Its image is redrawn when the view or its size on screen changes.
+- **Measured:** ISO at the gate, 9.3-10.0 ms median over three runs (the gate is 10.4); TOP 8.4 ms. MODE 7 is 14-16 ms
+  against 12.7, and 11.8-13.1 ms with no crowd. D10 gave MODE 7's crowd lever to M7, and M7 keeps it.
+- **Answered:** no. **Landed in:** M2.
