@@ -7,3 +7,6 @@ check-output/
 
 # local probes (dev only)
 tools/_*.mjs
+
+# workers' git worktrees (Claude Code workflows): never part of the tree
+.claude/worktrees/
