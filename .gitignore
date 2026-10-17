@@ -1,0 +1,12 @@
+node_modules/
+check-output/
+.cache/
+*.log
+.DS_Store
+/tmp/
+
+# local probes (dev only)
+tools/_*.mjs
+
+# workers' git worktrees (Claude Code workflows): never part of the tree
+.claude/worktrees/

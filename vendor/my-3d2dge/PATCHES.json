@@ -1,0 +1,40 @@
+{
+  "note": "GTM-PATCH(n) entries: n, file, title, and the patched file's sha256 (vendor-check.mjs). Human notes: PATCHES.md.",
+  "patches": [
+    {
+      "n": 1,
+      "file": "engine/my-3d2dge.js",
+      "title": "TileMap.queueWalls scans the visible cell window (tall walls kept), map.cutAt cut-away hook, blocks validated by neighbour heights"
+    },
+    {
+      "n": 2,
+      "file": "engine/my-3d2dge.js",
+      "title": "TileMap wall-block cache: one pixel-bounded LRU across views, tight block images, prebakeWalls"
+    },
+    {
+      "n": 3,
+      "file": "engine/my-3d2dge.js",
+      "title": "map.addSolids (one version bump, shapes or ready boxes) and a bucket grid for collide, groundAt, heightAt and the render lift"
+    },
+    {
+      "n": 4,
+      "file": "engine/my-3d2dge.js",
+      "title": "Input raw state: every key, every pad (analog values), the active pad, an activity clock"
+    },
+    {
+      "n": 7,
+      "file": "engine/my-3d2dge.js",
+      "title": "Lighting: a reduced-resolution light field (lights.res) and the tint curve from a table"
+    },
+    {
+      "n": 8,
+      "file": "engine/my-3d2dge.js",
+      "title": "Humanoid weaponDraw hook: a game's own weapon models drawn among the limbs, in place of the built-in one"
+    }
+  ],
+  "files": {
+    "engine/my-3d2dge.js": {
+      "sha256": "c729cf0e0ff77246c8a98f167f4caad1e8d50691784a4df4300c6ca64dc8afee"
+    }
+  }
+}

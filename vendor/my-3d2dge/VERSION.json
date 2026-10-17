@@ -1,0 +1,117 @@
+{
+  "upstream": "https://github.com/michaelcrosato/my-3d2dge",
+  "version": "0.46.1",
+  "commit": "cfa866aa45474868350cad1a7fc015e612f9305f",
+  "license": "MIT",
+  "note": "Pristine hashes of the upstream files. Patched files are listed in PATCHES.md; vendor-check.mjs verifies both.",
+  "files": {
+    "engine/my-3d2dge.js": {
+      "from": "engine/my-3d2dge.js",
+      "sha256": "41b0ea21462c04d6642683c2c874a4b27094e5fcdbaff56b62a56574419f185d"
+    },
+    "API.md": {
+      "from": "API.md",
+      "sha256": "4ba9b78e3f98890e9c212b9a85ca2f856594371416d6f312811c2d6030ae6718"
+    },
+    "API-INDEX.md": {
+      "from": "API-INDEX.md",
+      "sha256": "a5c8da145f5da90ea7983ec189b81a40b4ac7599ee0cb1999f780f9c495ecd6c"
+    },
+    "AI_GUIDE.md": {
+      "from": "AI_GUIDE.md",
+      "sha256": "d5895a873e874dfbd0c73d92752facbb46e30f732c91ce2fd45f32a82105fee6"
+    },
+    "docs/STANDARD-FEATURES.md": {
+      "from": "docs/STANDARD-FEATURES.md",
+      "sha256": "9924e226700b1214ee36a3e8c9cb56591fb2b22a4ce199f02ddd0e1b94909593"
+    },
+    "docs/ASSETS.md": {
+      "from": "docs/ASSETS.md",
+      "sha256": "668d4422c4b35fea3a27ebba9bf58be8a9960f56665be489e93bfd36ed345197"
+    },
+    "docs/MOCAP.md": {
+      "from": "docs/MOCAP.md",
+      "sha256": "9ed54c2769df49db071f371d32edb7a3c679da9efb80ba83ede7b22503af1c4c"
+    },
+    "docs/LAB-3D.md": {
+      "from": "docs/LAB-3D.md",
+      "sha256": "335c8150542624f7200e8bad5af8370e3badb926405c516166fb03212f505de9"
+    },
+    "tools/check.mjs": {
+      "from": "tools/check.mjs",
+      "sha256": "359519a0d74d24978a5b79d36d447be000cd0e58cf08f1c52558896b23c9d5d3"
+    },
+    "tools/filmstrip.mjs": {
+      "from": "tools/filmstrip.mjs",
+      "sha256": "1a9b1a4473f1ba1ffe9e8a4221b2a180e257ab3fa21d2e871ba63691ae222847"
+    },
+    "tools/replay.mjs": {
+      "from": "tools/replay.mjs",
+      "sha256": "8713ce79b2cb80028859c4f0ea352ac7bdb07573138a9c608a7b51c1d92eb41b"
+    },
+    "tools/anim-set.mjs": {
+      "from": "tools/anim-set.mjs",
+      "sha256": "117964fecbac6215a16c892c45dce2f258e8bcd51af3ee04f956140a938f32b9"
+    },
+    "tools/mocap-lib.mjs": {
+      "from": "tools/mocap-lib.mjs",
+      "sha256": "197f4e02509357b76918f39087d27ff41ee43e4121ca41bb18f4d183a4a42701"
+    },
+    "mocap/readable.js": {
+      "from": "src/mocap/readable.js",
+      "sha256": "627ab2b65c6a4c88fd326c1f5039aba50afabc4a79875085e1d7c54fcc72144e"
+    },
+    "mocap/mocap.js": {
+      "from": "src/mocap/mocap.js",
+      "sha256": "d8b9c91f1b0615df25d078c120e70033e009e8c50e6250722d87d921f7acb73a"
+    },
+    "mocap/catalogs/quaternius.json": {
+      "from": "src/mocap/catalogs/quaternius.json",
+      "sha256": "9847f4e0ae67f343559e40bc2453dd40f6d1ed686178cc1529e9b454bc27c34b"
+    },
+    "mocap/catalogs/mesh2motion.json": {
+      "from": "src/mocap/catalogs/mesh2motion.json",
+      "sha256": "b2cbb70f0d2b1fd79b9ce9adf6af99f6d3154bf284c70f24f49c28a9e6369573"
+    },
+    "mocap/sets/quaternius.js": {
+      "from": "src/mocap/sets/quaternius.js",
+      "sha256": "c5ea4a45f039cb8676fafaa26f26041a0a34d527ba1d18e13e9fce1dfad5afc1"
+    },
+    "mocap/sets/mesh2motion.js": {
+      "from": "src/mocap/sets/mesh2motion.js",
+      "sha256": "a1f90daff84348244e85743ac4668a49644901d1c907a46374ee3d6419e2f091"
+    },
+    "reference/stress.game.js": {
+      "from": "src/stress.game.js",
+      "sha256": "923ba3efe1d0e92bde10db935758af986b756c31c73b1f563f803f929702ae3a"
+    },
+    "reference/starter-30-shooter.js": {
+      "from": "src/starter/30-shooter.js",
+      "sha256": "a9df883a04ba421475ba2a13fab0391e190a5127da385dbd72f12eeda6490a41"
+    },
+    "reference/starter-50-brawler.js": {
+      "from": "src/starter/50-brawler.js",
+      "sha256": "4319e870e7c5a378586232d00aca74aa89b94ecc3d298ed11cbed80b26a87eaa"
+    },
+    "reference/starter-70-stealth.js": {
+      "from": "src/starter/70-stealth.js",
+      "sha256": "fb959859ab1d9a95e73d6979d12209a298abc1d163b6e1f213bb65db8ece96a2"
+    },
+    "reference/handoff-test.mjs": {
+      "from": "src/handoff/game/test.mjs",
+      "sha256": "c800488189567c2c8b7d57e96e100a70e530d7de7603cb09c2e7e1b4d779b633"
+    },
+    "reference/emberdeep-93-autopilot.js": {
+      "from": "src/emberdeep/93-autopilot.js",
+      "sha256": "f4ea52207683d7f2c675e875191ba06abbeb878080b96aaef3adbc4916a93683"
+    },
+    "LICENSE": {
+      "from": "LICENSE",
+      "sha256": "c2dc82a5e44da313c93eb50e9c932d1736fb062902ba0f9c2d7c11cd137b2d27"
+    },
+    "UPSTREAM-README.md": {
+      "from": "README.md",
+      "sha256": "b90ccc091d2fd14c5a4042ba3182ec047fbcf544b02890ceabc6b20cccab2681"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "grand-theft-moto",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GRAND THEFT MOTO (GrandTheftMoto-5S): a GTA2-style spiritual successor built on my-3D2dge and the MOTOR open-city layer.",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "dev": "node tools/serve.mjs --watch",
+    "lint": "eslint . && node tools/boundary-check.mjs && node tools/vendor-check.mjs && node tools/goal-sync.mjs",
+    "test": "node tools/test-run.mjs",
+    "test:full": "node tools/test-run.mjs --full",
+    "check": "node vendor/my-3d2dge/tools/check.mjs dist/index.html",
+    "vendor:sync": "node tools/vendor-sync.mjs"
+  },
+  "engines": { "node": ">=22" },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "esbuild": "0.28.2",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "playwright": "1.56.1"
+  }
+}

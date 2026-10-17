@@ -1,0 +1,42 @@
+// The view manager: owns which view is active. ISO is the engine's own view; MOTOR's depth views (top, side7: M7) plug
+// in with addView. It wraps this game instance's setView, so the engine's tools that cycle game.views through setView
+// (vendor/my-3d2dge/tools/check.mjs:77-79) exercise every view, and the simulation never reads any of it.
+import { E } from '../engine.js';
+import { BUS } from '../core/bus.js';
+
+export class ViewManager {
+  /** game: the E.Game; base: the engine view MOTOR draws ISO with */
+  constructor(game, base = 'iso') {
+    this.game = game; this.views = new Map(); this.active = base; this.listeners = [];
+    const engineSetView = game.setView.bind(game);
+    this.views.set(base, { id: base, label: 'ISO', engine: true });
+    game.views = [base];
+    // route ids MOTOR owns to their renderer; engine ids go to the engine
+    game.setView = id => {
+      const key = typeof id === 'string' ? id : id && id.id;
+      const v = this.views.get(key), prev = this.active;
+      if (v && !v.engine) { this.active = key; this._notify(prev); return game; }
+      this.active = key || this.active; engineSetView(id); this._notify(prev); return game;
+    };
+  }
+  /** add a MOTOR view: { id, label, enter(), exit(), draw(r) } */
+  addView(spec) { this.views.set(spec.id, spec); if (!this.game.views.includes(spec.id)) this.game.views.push(spec.id); return spec; }
+  /** the active view's spec */
+  get spec() { return this.views.get(this.active); }
+  /** a direction pushed on screen (x right, y down) -> a world ground direction, through the active view */
+  screenDirToGround(dx, dy) { const v = this.spec; return v && v.screenDirToGround ? v.screenDirToGround(dx, dy) : this.game.view.screenDirToGround(dx, dy); }
+  /** a world offset (x, y, z) as a screen offset [x, y] in the active view, linear and camera-free: the lock-on's cone
+   *  is judged on screen (PLAN.md 8.12) without reading the frame being drawn (ISO: the engine view's axes; TOP:
+   *  north up; MODE 7: the rail's) */
+  screenVec(x, y, z = 0) {
+    const s = this.spec; if (s && s.screenVec) return s.screenVec(x, y, z);
+    const v = this.game.view; return v && v.ax !== undefined ? [v.ax * x + v.ay * y, v.bx * x + v.by * y + v.bz * z] : [x, y - z];
+  }
+  /** the ground point under the mouse in the active view, or null */
+  mouseGround() { const v = this.spec; return v && v.mouseGround ? v.mouseGround() : this.game.mouseGround(); }
+  /** cycle to the next view in game.views */
+  next() { const ids = this.game.views, i = ids.indexOf(this.active); this.game.setView(ids[(i + 1) % ids.length]); return this.active; }
+  onChange(fn) { this.listeners.push(fn); }
+  _notify(prev) { for (const fn of this.listeners) fn(this.active); if (prev !== this.active) BUS.emit('view', { view: this.active, prev }); }
+}
+export { E };
