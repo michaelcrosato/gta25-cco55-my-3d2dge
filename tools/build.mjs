@@ -3,6 +3,7 @@
 // esbuild into one IIFE). A rebuild of an unchanged tree is byte-identical: no dates, no hashes, sorted inputs.
 //   node tools/build.mjs            write dist/index.html
 //   node tools/build.mjs --check    fail if dist/index.html is not what the sources build (CI, the test gate)
+//   node tools/build.mjs --out x    write the page to x instead (a worker's own build: never dist/)
 // Other tools import bundle() to get the game script without writing anything.
 import { build } from 'esbuild';
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from 'node:fs';
@@ -12,7 +13,7 @@ import vm from 'node:vm';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const ENGINE = join(ROOT, 'vendor/my-3d2dge/engine/my-3d2dge.js');
-const OUT = join(ROOT, 'dist/index.html');
+const outArg = process.argv.indexOf('--out'), OUT = outArg > 0 ? resolve(process.argv[outArg + 1]) : join(ROOT, 'dist/index.html');
 
 /** every .js file under src/game, sorted by path: content registers itself when imported */
 export function contentFiles() {
@@ -80,6 +81,6 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     mkdirSync(dirname(OUT), { recursive: true }); writeFileSync(OUT, html);
     const again = await page();
     if (again !== html) { console.error('the build is not repeatable: two builds of the same tree differ'); process.exit(1); }
-    console.log('wrote dist/index.html (' + (html.length / 1024).toFixed(0) + ' KB, ' + contentFiles().length + ' content files)');
+    console.log('wrote ' + relative(ROOT, OUT) + ' (' + (html.length / 1024).toFixed(0) + ' KB, ' + contentFiles().length + ' content files)');
   }
 }

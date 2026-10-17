@@ -1,0 +1,332 @@
+// The Fleet (PLAN.md 8.8): every vehicle in a world, stepped together, and what they do to each other and to the city.
+//   - each vehicle steps on its driver's Intent (or its AI, or nobody's: it rolls to a stop), against the world: the
+//     map's walls and solids, the decks and drawbridge leaves underfoot (ground), the surfaces' grip, oil slicks, water;
+//   - tow joints, then car against car (towing pairs aside), boats against boats;
+//   - against peds: pushed out of the way, or knocked down and hurt by the closing speed (Combat.hurt, kind 'vehicle');
+//     a bike's rider is thrown off in a hard crash;
+//   - against the street furniture: lamps fall, hydrants burst, bins and benches scatter (world.breaks);
+//   - damage: crashes dent and hurt (actors/vehicle.js); burning ends in an explosion (a blast through Combat), and an
+//     explosion sets off the vehicles beside it a moment later (chains), and any burning vehicle a blast reaches;
+//   - the L's trains run their loop and kill what stands on the track;
+//   - the vehicle tools: the roof MG, oil, mines, the Pumper's water cannon, the Hookline's hook;
+//   - presentation lists the renderer reads (skid marks, smoke, sparks, debris, water jets), never hashed.
+// Deterministic: fixed steps, no RNG but the 'combat' stream's (through Combat), iteration in insertion order.
+//   const F = new Fleet({ city, combat, bridges });  F.spawn('cortez', x, y, heading);  F.update(dt, { intent, peds, night })
+import { E } from '../engine.js';
+import { TUNE, knob } from '../core/tune.js';
+import { BUS } from '../core/bus.js';
+import { collideCars, SURFACE_GRIP } from '../sim/vehicle/body.js';
+import { TowJoint } from '../sim/vehicle/tow.js';
+import { RailLine, Train } from '../sim/vehicle/rail.js';
+import { Damage } from '../sim/vehicle/damage.js';
+import { Vehicle } from './vehicle.js';
+
+knob('Vehicles', 'carBlastDamage', 'Car blast damage', 160, 0, 600, 5, 'A vehicle\'s explosion: damage at its centre');
+knob('Vehicles', 'carBlastSplash', 'Car blast reach', 96, 20, 300, 2, 'A vehicle\'s explosion: its radius (u)');
+knob('Vehicles', 'carChain', 'Chain reach', 34, 0, 120, 1, 'A vehicle whose body is this near an explosion goes up with it, a moment later (u)');
+knob('Vehicles', 'carBlastLift', 'Blast lift', 170, 0, 500, 5, 'How hard an exploding vehicle jumps (u/s up)');
+knob('Vehicles', 'knockSpeed', 'Knockdown speed', 50, 10, 200, 5, 'A vehicle closing on a ped faster than this knocks it down (u/s)');
+knob('Vehicles', 'runOver', 'Run-over damage', .6, 0, 4, .05, 'Health a ped loses per u/s of closing speed past the knockdown speed');
+knob('Vehicles', 'propBreak', 'Breaks props above', 40, 0, 200, 5, 'A vehicle faster than this knocks over lamps, hydrants, bins and benches (u/s)');
+knob('Vehicles', 'bikeThrow', 'Rider thrown at', 90, 20, 400, 5, 'A bike crash with this change of speed throws its rider (u/s)');
+knob('Vehicles', 'skidSlip', 'Skid marks at', .2, .05, 1, .01, 'Rear slip (radians) past which the tyres leave marks');
+
+const LAND = new Set(['car', 'truck', 'tow', 'bike']);
+const SKID_MAX = 900;
+
+export class Fleet {
+  /** o: { city (a CityMap), map (its TileMap, by default), combat (a Combat world: boxes, blasts, hurt; optional),
+   *  bridges (the live Drawbridges), game (for sounds) } */
+  constructor(o = {}) {
+    this.city = o.city || null; this.map = o.map || (this.city && this.city.map) || null; this.combat = o.combat || null;
+    this.bridges = o.bridges || []; this.game = o.game || null;
+    this.vehicles = []; this.trains = []; this.lines = []; this.tows = [];
+    this.skids = []; this.fx = []; this.slicks = []; this.mines = []; this.broken = []; this.jets = [];
+    this.t = 0; this._n = 0; this._seen = new Set();
+    // street furniture an earlier scene knocked over comes back (the city outlives scenes)
+    if (this.city) for (const p of this.city.props) if (p.broken) { const s = p.solidRef; if (s && s.top0 !== undefined) s.top = s.top0; p.x = p.broken.x0; p.y = p.broken.y0; p.facing = p.broken.f0; p.broken = null; }
+    const C = this.city, T = C ? C.T : 16;
+    this.world = {
+      map: this.map, wet: 0, night: false,
+      /** the grip under a point: the surface's (a deck's above the street), an oil slick's */
+      surface: (x, y, z = 0) => {
+        for (const s of this.slicks) if ((x - s.x) ** 2 + (y - s.y) ** 2 < s.r * s.r && Math.abs(z - s.z) < 6) return SURFACE_GRIP.oil;
+        if (z > 4) return 1;
+        if (C) return SURFACE_GRIP[C.surfaceAtPoint(x, y)] ?? 1;
+        const tag = this.map && this.map.floorAt ? this.map.floorAt(x, y) : null; return tag === null || tag === undefined ? 1 : SURFACE_GRIP[tag] ?? 1;   // (a map with no CityMap: its floor tags)
+      },
+      /** the ground under a point for a body at height z: a deck's top, a drawbridge leaf's (a leaf raised steeper than
+       *  a ramp reads as a wall: the body's step refuses it) */
+      ground: (x, y, z) => {
+        let g = 0; if (C) { const d = C.deckAt(x, y, z, 6); if (d) g = d.z; }
+        for (const b of this.bridges) { const h = b.heightAt(x, y); if (h !== null && h > g) g = h; }
+        return g;
+      },
+      /** water a boat floats on and a car sinks in: the sea, the harbour, the canal (under a raised drawbridge too) */
+      water: (cx, cy) => {
+        if (!C) return false; const s = C.surfaceAt(cx, cy); if (s === 'water' || s === 'deep') return true;
+        if (s === 'bridge') for (const b of this.bridges) if (b.lift > .9) { const [x0, y0, x1, y1] = b.rect; if (cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1) return true; }
+        return false;
+      },
+      breaks: (s, body) => this._break(s, body),
+    };
+    this.T = T;
+  }
+  /** add a vehicle (Combat sees it as a box) */
+  add(v) { this.vehicles.push(v); if (this.combat && !this.combat.boxes.includes(v)) this.combat.boxes.push(v); return v; }
+  /** a new vehicle of a definition at (x, y) facing heading; o: Vehicle's options */
+  spawn(defId, x, y, heading = 0, o = {}) { return this.add(new Vehicle(defId, { x, y, heading, ...o })); }
+  remove(v) {
+    const i = this.vehicles.indexOf(v); if (i >= 0) this.vehicles.splice(i, 1);
+    if (this.combat) { const j = this.combat.boxes.indexOf(v); if (j >= 0) this.combat.boxes.splice(j, 1); }
+    for (const t of this.tows.filter(t => t.a === v.body || t.b === v.body)) this._untow(t);
+    for (const p of v.seats) if (p) v.unseat(p);
+  }
+  byId(id) { return this.vehicles.find(v => v.id === id) || null; }
+  /** the vehicles within r of (x, y), nearest first (pred filters) */
+  near(x, y, r, pred = null) {
+    const out = [];
+    for (const v of this.vehicles) { if (!v.body) continue; const d = Math.hypot(v.x - x, v.y - y); if (d <= r + v.hl && (!pred || pred(v))) out.push([d, v]); }
+    return out.sort((a, b) => a[0] - b[0]).map(a => a[1]);
+  }
+  /** a rail line (o: RailLine's options) and trains on it (each { s, cars, id }) */
+  addLine(o, trains = []) {
+    const line = new RailLine(o); this.lines.push(line);
+    for (const t of trains) { const tr = new Train(line, t); this.trains.push(tr); for (const c of tr.cars) { c.hurt = () => ({ health: 0, armor: 0 }); if (this.combat) this.combat.boxes.push(c); } }
+    return line;
+  }
+  /** hook car behind truck (the Hookline): its nearer end goes on the hook */
+  tow(truck, car) {
+    if (truck.towing || car.towedBy) return null;
+    const hook = truck.model.hook || [-truck.hl - 4, 0], [hx, hy] = truck.toWorld(hook[0], hook[1]), [fx, fy] = car.toWorld(car.hl, 0), [rx, ry] = car.toWorld(-car.hl, 0);
+    const end = Math.hypot(fx - hx, fy - hy) <= Math.hypot(rx - hx, ry - hy) ? 'front' : 'rear';
+    const j = new TowJoint(truck.body, car.body, { hook, end }); j.truck = truck; j.car = car;
+    this.tows.push(j); truck.towing = j; car.towedBy = truck; return j;
+  }
+  _untow(j) { j.release(); if (j.truck) j.truck.towing = null; if (j.car) j.car.towedBy = null; this.tows = this.tows.filter(t => t !== j); }
+
+  /** one step. o: { intent(v) -> the Intent of v's driver (null: none), peds: [Ped] (bodies cars meet), night, wet } */
+  update(dt, o = {}) {
+    this.t += dt; const W = this.world; W.wet = o.wet || 0; W.night = !!o.night;
+    const peds = o.peds || [];
+    for (const v of this.vehicles) {
+      const I = v.driver && o.intent ? o.intent(v) : null;
+      v.update(dt, I, W);
+      if (I && v.driver && !v.wrecked) this._tools(dt, v, I);
+      if (v.cls === 'heli' && v.wrecked) v.body.falling = true;
+    }
+    for (const j of [...this.tows]) { if (j.truck.wrecked || j.car.wrecked || j.length > j.rest * 4 + 40) this._untow(j); else j.update(dt); }
+    // vehicles against vehicles (towing pairs aside; boats only meet boats; helis fly over it all)
+    const L = this.vehicles;
+    for (let i = 0; i < L.length; i++) for (let k = i + 1; k < L.length; k++) {
+      const a = L[i], b = L[k]; if (!a.body || !b.body || a.cls === 'heli' || b.cls === 'heli') continue;
+      if ((a.cls === 'boat') !== (b.cls === 'boat')) continue;
+      if (a.towing && a.towing.car === b || b.towing && b.towing.car === a) continue;
+      collideCars(a.body, b.body);
+    }
+    this._riders(dt);
+    this._peds(dt, peds);
+    this._trains(dt, peds);
+    this._mines(dt);
+    // damage: burning runs out into an explosion; chains count down; blasts reach burning vehicles; the sunk go under
+    for (const v of [...this.vehicles]) {
+      if (v.damage.update(dt) === 'explode') this.explode(v, v.lastBy);
+      if (v.chainT >= 0) { v.chainT -= dt; if (v.chainT < 0) this.explode(v, v.chainBy); }
+      if (v.lastCrash > 2) { BUS.emit('vehicleDamage', { vehicle: v.id, amount: Math.round(v.lastCrash), x: v.x, y: v.y, by: v.driver ? v.driver.id : null }); }
+      v.lastCrash = 0;
+      if (v.sunk && v.sunkAt === undefined) this._sink(v);
+      if (v.sunkAt !== undefined && this.t - v.sunkAt > 2.5) this.remove(v);
+    }
+    if (this.combat) for (const b of this.combat.explosives.blasts) {
+      if (this._seen.has(b)) continue; this._seen.add(b);
+      for (const v of this.vehicles) {
+        if (v.wrecked || v.chainT >= 0 || !v.body) continue;
+        const d = boxDistance(v, b.x, b.y);
+        if (d <= TUNE.carChain || (v.damage.burning && d <= b.splash * .9)) { v.chainT = TUNE.chainDelay + .1 * (this._n++ % 3); v.chainBy = b.by; }
+      }
+    }
+    if (this._seen.size > 64) this._seen = new Set(this.combat ? this.combat.explosives.blasts : []);
+    this._presentation(dt);
+  }
+  /** blow a vehicle up now: a blast through Combat (it hurts, lights fire, chains), the wreck thrown up, its people killed */
+  explode(v, by = null) {
+    if (v.blownAt !== null) return;
+    v.damage.explode(); v.blownAt = this.t; v.chainT = -1; v.siren = false;
+    const who = by ?? v.lastBy ?? null;
+    if (this.combat) this.combat.explosives.blast({ x: v.x, y: v.y, z: v.z + 10, damage: TUNE.carBlastDamage, splash: TUNE.carBlastSplash, by: who, source: 'car' });
+    if (v.body && LAND.has(v.cls)) v.body.launch(TUNE.carBlastLift, ((this._n++ % 3) - 1) * 3.5);
+    for (const p of [...v.seats]) if (p) { const [sx, sy] = v.seatAt(v.seats.indexOf(p)); v.unseat(p); p.place(sx, sy, v.z); if (this.combat) this.combat.hurt(p, { amount: 999, kind: 'explosion', by: who }); else p.vitals.hit({ amount: 999, kind: 'explosion' }); }
+    if (v.towing) this._untow(v.towing); if (v.towedBy && v.towedBy.towing) this._untow(v.towedBy.towing);
+    BUS.emit('vehicleDestroyed', { vehicle: v.id, by: who });
+    this.fx.push({ kind: 'explosion', x: v.x, y: v.y, z: v.z + 8, t: 0 });
+  }
+  // a land vehicle gone under: its people swim to the nearest dry ground
+  _sink(v) {
+    v.sunkAt = this.t; v.damage.state = 'wrecked';
+    for (const p of [...v.seats]) if (p) {
+      v.unseat(p); let [cx, cy] = [Math.floor(v.x / this.T), Math.floor(v.y / this.T)];
+      if (this.city) [cx, cy] = this.city.nearestWalkable(cx, cy, 16); p.place((cx + .5) * this.T, (cy + .5) * this.T, 0);
+    }
+    this.fx.push({ kind: 'splash', x: v.x, y: v.y, z: 0, t: 0 });
+  }
+  // a bike's rider is thrown off by a hard crash
+  _riders() {
+    for (const v of this.vehicles) {
+      if (v.cls !== 'bike' || !v.driver || !v.body) continue;
+      const dv = v.body.felt.hit / v.body.h.mass; if (dv < TUNE.bikeThrow && !v.wrecked) continue;
+      const p = v.driver; v.unseat(p); const b = v.body, sp = Math.max(60, b.speed + dv * .5), hx = Math.cos(b.heading), hy = Math.sin(b.heading);
+      p.place(b.x + hx * (v.hl + 6), b.y + hy * (v.hl + 6), b.z);
+      if (this.combat) this.combat.hurt(p, { amount: 8 + dv * .08, kind: 'vehicle', by: null, knock: sp * .6, knockdown: true, dir: [hx, hy] });
+      v.ejected = this.t;
+    }
+  }
+  // peds in the way: pushed out, or knocked down by the closing speed
+  _peds(dt, peds) {
+    for (const v of this.vehicles) {
+      if (!v.body || v.cls === 'heli' || v.cls === 'boat' || v.sunk) continue;
+      const b = v.body, reach = v.hl + 12;
+      for (const p of peds) {
+        if (p.seat || p.held || (p.boarding && p.boarding.v === v)) continue;
+        const m = p.mover; if (Math.abs(m.x - b.x) > reach || Math.abs(m.y - b.y) > reach || m.z > b.z + v.height || m.z + 30 < b.z) continue;
+        const hit = circleObb(v, m.x, m.y, p.r || 6); if (!hit) continue;
+        const closing = (b.vx - m.vx) * hit.nx + (b.vy - m.vy) * hit.ny;
+        m.x += hit.nx * hit.depth; m.y += hit.ny * hit.depth;
+        if (closing > TUNE.knockSpeed && !p.dead && !p.anchored && !p.floored) {
+          const sp = Math.hypot(b.vx, b.vy) || 1, dir = [b.vx / sp * .7 + hit.nx * .3, b.vy / sp * .7 + hit.ny * .3], by = v.driver ? v.driver.id : null;
+          const amount = (closing - TUNE.knockSpeed * .7) * TUNE.runOver;
+          if (this.combat) this.combat.hurt(p, { amount, kind: 'vehicle', by, knock: closing * .8, knockdown: true, dir }); else p.hurt({ amount, kind: 'vehicle', knock: closing * .8, knockdown: true, dir });
+          b.setVelocity(b.vx * .94, b.vy * .94);
+          if (by) BUS.emit('crime', { type: 'runOver', x: m.x, y: m.y, by, victim: p.id, severity: 2 });
+        } else if (closing > 0) { m.vx += hit.nx * closing; m.vy += hit.ny * closing; }
+      }
+    }
+  }
+  // the L: its trains move on, and kill what stands on their track
+  _trains(dt, peds) {
+    for (const tr of this.trains) {
+      tr.update(dt);
+      for (const c of tr.cars) {
+        for (const p of peds) {
+          if (p.seat || p.dead) continue; const m = p.mover;
+          if (Math.abs(m.z - c.z) > 10 || Math.abs(m.x - c.x) > c.hl + 10 || Math.abs(m.y - c.y) > c.hl + 10) continue;
+          if (!circleObb(c, m.x, m.y, p.r || 6)) continue;
+          const d = [Math.cos(c.heading), Math.sin(c.heading)];
+          if (this.combat) this.combat.hurt(p, { amount: 999, kind: 'train', by: null, knock: 320, knockdown: true, dir: d }); else p.hurt({ amount: 999, kind: 'train', knock: 320, knockdown: true, dir: d });
+        }
+        for (const v of this.vehicles) {
+          if (!v.body || v.wrecked || Math.abs(v.z - c.z) > 12 || Math.abs(v.x - c.x) > c.hl + v.hl || Math.abs(v.y - c.y) > c.hl + v.hl) continue;
+          if (obbOverlap(c, v)) { v.damage.hit(999); this.explode(v, null); }
+        }
+      }
+    }
+  }
+  // armed mines go off under the first vehicle over them
+  _mines(dt) {
+    for (const mn of this.mines) {
+      mn.arm -= dt; if (mn.arm > 0 || mn.gone) continue;
+      for (const v of this.vehicles) if (v.body && LAND.has(v.cls) && !v.wrecked && boxDistance(v, mn.x, mn.y) < 4 && Math.abs(v.z - mn.z) < 8) {
+        mn.gone = true; if (this.combat) this.combat.explosives.blast({ x: mn.x, y: mn.y, z: mn.z + 2, damage: 120, splash: 56, by: mn.by, source: 'mine' }); break;
+      }
+    }
+    this.mines = this.mines.filter(m => !m.gone);
+    for (const s of this.slicks) s.t -= dt; this.slicks = this.slicks.filter(s => s.t > 0);
+  }
+  // what the vehicle's fire button does: the roof MG, oil, mines, the water cannon, the hook
+  _tools(dt, v, I) {
+    const b = v.body, hx = Math.cos(b.heading), hy = Math.sin(b.heading), C = this.combat, by = v.driver.id;
+    v._cool = Math.max(-1, (v._cool || 0) - dt);
+    if (v.def.tool === 'hook' && I.tap.fire) {
+      if (v.towing) this._untow(v.towing);
+      else { const hook = v.model.hook || [-v.hl - 4, 0], [x, y] = v.toWorld(hook[0], hook[1]); const car = this.near(x, y, 24, c => c !== v && LAND.has(c.cls) && c.cls !== 'bike' && !c.towedBy && !c.wrecked).find(c => Math.min(Math.hypot(...sub(c.toWorld(c.hl, 0), [x, y])), Math.hypot(...sub(c.toWorld(-c.hl, 0), [x, y]))) < 22); if (car) this.tow(v, car); }
+      return;
+    }
+    if (v.def.tool === 'cannon' && I.down.fire) {   // the water cannon: knocks peds over, puts fires out
+      if (v._cool <= 0) {
+        v._cool += .06; const reach = 150, zx = v.toWorld(v.hl * .1, 0);
+        this.jets.push({ x: zx[0], y: zx[1], z: b.z + v.height + 6, dx: hx, dy: hy, t: 0, life: .5 });
+        for (let k = 30; k <= reach; k += 30) { const x = zx[0] + hx * k, y = zx[1] + hy * k; if (C && C.fire) C.fire.douse(x, y, 10); }
+        if (C) for (const p of C.bodies) { if (p.dead || p.seat) continue; const dx = p.x - zx[0], dy = p.y - zx[1], along = dx * hx + dy * hy, side = Math.abs(-dx * hy + dy * hx); if (along > 0 && along < reach && side < 14 && !p.floored) C.hurt(p, { amount: 1, kind: 'water', by, knock: 180, knockdown: true, dir: [hx, hy] }); }
+      }
+      return;
+    }
+    const w = v.mods.weapon || (v.mods.roofMG ? 'mg' : v.mods.oil > 0 ? 'oil' : v.mods.mines > 0 ? 'mines' : null);
+    if (w === 'mg' && v.mods.roofMG && I.down.fire && C) {
+      while (v._cool <= 0) {
+        v._cool += 1 / 8; const [mx, my] = v.toWorld(v.hl * .2, 0);
+        C.shots.fire({ x: mx + hx * (v.hl * .8 + 4), y: my + hy * (v.hl * .8 + 4), z: b.z + v.height + 2, dir: [hx, hy, 0], speed: 900, range: 420, damage: 9, by, team: v.driver.faction, weapon: 'roofmg', vehicle: v.id, kind: 'bullet', tracer: true, casing: null });
+        BUS.emit('crime', { type: 'shooting', x: v.x, y: v.y, by, victim: null, severity: 1 });
+      }
+    } else if (w === 'oil' && I.tap.fire && v.mods.oil > 0) { v.mods.oil--; const [x, y] = v.toWorld(-v.hl - 14, 0); this.slicks.push({ x, y, z: b.z, r: 22, t: 40 }); }
+    else if (w === 'mines' && I.tap.fire && v.mods.mines > 0) { v.mods.mines--; const [x, y] = v.toWorld(-v.hl - 8, 0); this.mines.push({ x, y, z: b.z, arm: 1.2, by }); }
+    if (v._cool < 0 && !I.down.fire) v._cool = 0;
+  }
+  // street furniture a fast vehicle meets gives way (true) instead of stopping it
+  _break(s, body) {
+    if (body.speed < TUNE.propBreak) return false;
+    const p = s.prop; if (!p || p.broken) return true;
+    const sp = body.speed, k = Math.min(1.2, sp / 200);
+    p.broken = { t: 0, x0: p.x, y0: p.y, f0: p.facing || 0, dir: Math.atan2(body.vy, body.vx), vx: body.vx * k, vy: body.vy * k, spin: (this._n++ % 2 ? 1 : -1) * (4 + sp / 40), spray: p.kind === 'hydrant' ? 10 : 0 };
+    s.top0 = s.top; s.top = s.z + 1;   // (down: no longer in anyone's way)
+    body.setVelocity(body.vx * (p.kind === 'lamp' ? .82 : .93), body.vy * (p.kind === 'lamp' ? .82 : .93));
+    this.broken.push(p); this.fx.push({ kind: p.kind === 'hydrant' ? 'burst' : 'debris', x: p.x, y: p.y, z: 6, t: 0, color: p.kind === 'lamp' ? '#5a5a62' : '#7a7a82' });
+    return true;
+  }
+  // the knocked-over furniture settles; skid marks, smoke and sparks for the renderer
+  _presentation(dt) {
+    for (const p of this.broken) {
+      const B = p.broken; if (!B) continue; B.t += dt;
+      if (p.kind !== 'lamp' && p.kind !== 'hydrant') { p.x += B.vx * dt; p.y += B.vy * dt; const f = Math.exp(-4 * dt); B.vx *= f; B.vy *= f; p.facing = (p.facing || 0) + B.spin * dt; B.spin *= f; }
+      if (B.spray > 0) B.spray -= dt;
+    }
+    for (const v of this.vehicles) {
+      const b = v.body; if (!b || !LAND.has(v.cls) || b.airborne || v.wrecked) { if (v) v._skid = null; continue; }
+      const C = v.ctlNow, sp = b.speed, slip = Math.abs(b.felt.slip);
+      const skid = (slip > TUNE.skidSlip && sp > 40) || (b.felt.wheelspin > .4 && sp > 4) || (C.handbrake && sp > 30) || (C.brake > .85 && sp > 140);
+      if (skid) {
+        const rear = v.model.wheels.filter(w => w.x < 0), pts = (rear.length ? rear : v.model.wheels).map(w => v.toWorld(w.x, w.y));
+        if (v._skid) for (let i = 0; i < pts.length && i < v._skid.length; i++) { this.skids.push([v._skid[i][0], v._skid[i][1], pts[i][0], pts[i][1], this.t, b.z]); }
+        v._skid = pts;
+        if (sp > 60 && (this._n++ % 4) === 0) for (const q of pts) this.fx.push({ kind: 'smoke', x: q[0], y: q[1], z: b.z + 2, t: 0 });
+      } else v._skid = null;
+      if (b.felt.hit / b.h.mass > 30) this.fx.push({ kind: 'sparks', x: b.felt.hitX, y: b.felt.hitY, z: b.z + 6, t: 0, n: Math.min(12, Math.round(b.felt.hit / b.h.mass / 12)) });
+      if (v.damage.smoking && (this._n++ % (v.damage.burning ? 2 : 5)) === 0) { const [x, y] = v.toWorld(v.hl * .6, 0); this.fx.push({ kind: v.damage.burning ? 'flame' : 'engine', x, y, z: b.z + v.height * .6, t: 0 }); }
+    }
+    if (this.skids.length > SKID_MAX) this.skids.splice(0, this.skids.length - SKID_MAX);
+    for (const f of this.fx) f.t += dt; this.fx = this.fx.filter(f => f.t < .4);
+    for (const j of this.jets) j.t += dt; this.jets = this.jets.filter(j => j.t < j.life);
+  }
+  /** for state hashes (presentation lists left out) */
+  hash() {
+    let h = 0; for (const v of this.vehicles) for (const n of v.hash()) h = (h * 31 + n) >>> 0;
+    for (const t of this.trains) h = (h * 31 + t.hash()) >>> 0;
+    return (h * 31 + this.tows.length * 7 + this.broken.length * 13 + this.mines.length * 17 + this.slicks.length * 19) >>> 0;
+  }
+}
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+/** how far a point is from a vehicle's (or rail car's) box (0 inside) */
+export function boxDistance(v, x, y) {
+  const c = Math.cos(v.heading), s = Math.sin(v.heading), dx = x - v.x, dy = y - v.y, lx = dx * c + dy * s, ly = -dx * s + dy * c;
+  const ox = Math.max(0, Math.abs(lx) - v.hl), oy = Math.max(0, Math.abs(ly) - v.hw); return Math.hypot(ox, oy);
+}
+/** a circle against a vehicle's box: null, or { nx, ny (out of the box toward the circle), depth } */
+export function circleObb(v, x, y, r) {
+  const c = Math.cos(v.heading), s = Math.sin(v.heading), dx = x - v.x, dy = y - v.y, lx = dx * c + dy * s, ly = -dx * s + dy * c;
+  const qx = E.clamp(lx, -v.hl, v.hl), qy = E.clamp(ly, -v.hw, v.hw), ex = lx - qx, ey = ly - qy, d = Math.hypot(ex, ey);
+  let nlx, nly, depth;
+  if (d > r) return null;
+  if (d > 1e-6) { nlx = ex / d; nly = ey / d; depth = r - d; }
+  else { const px = v.hl - Math.abs(lx), py = v.hw - Math.abs(ly); if (px < py) { nlx = Math.sign(lx) || 1; nly = 0; depth = px + r; } else { nlx = 0; nly = Math.sign(ly) || 1; depth = py + r; } }
+  return { nx: nlx * c - nly * s, ny: nlx * s + nly * c, depth };
+}
+/** do two boxes (vehicles or rail cars) overlap? (separating axes) */
+function obbOverlap(A, B) {
+  const ax = [[Math.cos(A.heading), Math.sin(A.heading)], [-Math.sin(A.heading), Math.cos(A.heading)]], bx = [[Math.cos(B.heading), Math.sin(B.heading)], [-Math.sin(B.heading), Math.cos(B.heading)]];
+  const dx = B.x - A.x, dy = B.y - A.y;
+  for (const [nx, ny] of [...ax, ...bx]) {
+    const ra = A.hl * Math.abs(ax[0][0] * nx + ax[0][1] * ny) + A.hw * Math.abs(ax[1][0] * nx + ax[1][1] * ny);
+    const rb = B.hl * Math.abs(bx[0][0] * nx + bx[0][1] * ny) + B.hw * Math.abs(bx[1][0] * nx + bx[1][1] * ny);
+    if (Math.abs(dx * nx + dy * ny) > ra + rb) return false;
+  }
+  return true;
+}
+export { Damage };

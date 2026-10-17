@@ -4,7 +4,7 @@
 // blow, setting each other off. Hold L1 (Q) for the weapon wheel; L2 (right mouse) locks on, R2 (left mouse) fires;
 // the d-pad steps through the weapons. ?bench=1 runs the weapons bench at entry (each weapon's DPS against its spec,
 // in the readout); the accept tests run the same bench headless.
-import { E, def, get, all, FloorChunks, Ped, Combat, CombatFX, WeaponWheel, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent, measureDps, benchable, drawBoxModel, carModel, makeBody, TUNE } from '../../motor/index.js';
+import { E, def, get, all, FloorChunks, Ped, Combat, CombatFX, WeaponWheel, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent, measureDps, benchable, drawBoxModel, modelOf, makeBody, TUNE } from '../../motor/index.js';
 import { drawLamp } from './city-zones.js';
 
 const BARREL = { parts: [{ box: [-3.2, -3.2, 0, 3.2, 3.2, 10], color: '#b8322a', role: 'body' }, { box: [-3.4, -3.4, 3.5, 3.4, 3.4, 4.5], color: '#8a2420', role: 'cabin' }, { box: [-1, -1, 10, 1, 1, 10.6], color: '#e8c040', role: 'body' }] };
@@ -33,7 +33,7 @@ def('provingZones', 'range', {
           blow: () => { t.hp = 0; t.dead = true; } };
           combat.boxes.push(t); combat.explosive.push(t); return t; };
         things = map.barrels.map(([x, y], i) => thing(x, y, { id: 'barrel' + i, hl: 3.2, hw: 3.2, height: 10, hp: 25, damage: 80, splash: 60, source: 'barrel' }));
-        car = makeBody('cortez', map.carBay[0], map.carBay[1], 0); car.color = car.def.palette[1]; carModelK = carModel({ ...car.def.model, color: car.color });
+        car = makeBody('cortez', map.carBay[0], map.carBay[1], 0); car.color = car.def.palette[1]; carModelK = modelOf(car.def);
         things.push(thing(car.x, car.y, { id: 'car', hl: car.hl, hw: car.hw, height: 20, hp: 160, damage: 120, splash: 80, source: 'car' }));
         wheel = new WeaponWheel(B); idle = makeIntent(); fx = new CombatFX(game);
         bench = links.query.get('bench') === '1' ? all('weapons').filter(benchable).map(w => measureDps(w.id)) : null;
@@ -64,7 +64,7 @@ def('provingZones', 'range', {
         for (const t of things) {
           if (t.blown) { stage.floor((g, P) => { const q = P.proj(t.x, t.y, 0); if (q) { g.fillStyle = 'rgba(12,8,6,.6)'; g.beginPath(); g.ellipse(q[0], q[1], 10 * q[2], 5 * q[2], 0, 0, 7); g.fill(); g._c = null; } }); if (t.source !== 'car') continue; }
           const m = t.source === 'car' ? carModelK : BARREL;
-          stage.shape(t.x, t.y, 0, (g, P) => drawBoxModel(g, P, m, t.x, t.y, 0, t.heading, { lit: true, tint: t.blown ? '#2a2422' : undefined }));
+          stage.shape(t.x, t.y, 0, (g, P) => drawBoxModel(g, P, m, t.x, t.y, 0, t.heading, { lit: true, paint: t.source === 'car' ? car.color : undefined, burnt: t.blown }));
         }
         for (const d of dummies) {
           d.draw(stage, {});

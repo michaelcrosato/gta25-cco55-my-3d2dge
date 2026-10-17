@@ -8,16 +8,25 @@
 //   Collisions: the car is an oriented box. Against wall cells taller than the curb step (4 u: curbs are climbed),
 //   map solids and other cars: separating axes for the push-out, an impulse with spin at the deepest corner
 //   (restitution .2, scraping friction), so a glancing hit turns the car and a square hit stops it.
+//   Height (M4): world.ground(x, y, z) gives the ground under the car (a deck's smooth top, ramps included): the car
+//   follows it up and down, and leaves it where it falls away (a ramp's lip, the Loop's unfinished end) to fly
+//   ballistically, landing with a squash (felt.land). Deck slabs are ridden, never hit, unless far above the wheels; in
+//   the air the tyres do nothing and a roll (rollW, set by a blast or a hard hit) turns the body over: landing past 90
+//   degrees leaves it on its roof (flipped: it slides to a stop and burns, damage.js).
+//   A towed car rides on one axle (lifted: 'front' | 'rear': that axle has no grip and its wheels don't steer).
 //   Determinism: plain arithmetic at the fixed step; substeps keep a step's travel under 6 u (no tunnelling at 400 u/s).
 //   Units: world units (16 per tile) and seconds. Grip and brake are accelerations (u/s²): arcade numbers, tuned on the
 //   Proving Ground's pad.
 import { E } from '../../engine.js';
 
 /** surface grip multipliers by floor tag (unknown tags: 1); weather multiplies again (wet: .8) */
-export const SURFACE_GRIP = { road: 1, asphalt: 1, deck: 1, walk: .95, curb: .95, crosswalk: .97, lot: .8, dirt: .7, grass: .6, sand: .5, water: .3 };
+export const SURFACE_GRIP = { road: 1, asphalt: 1, deck: 1, bridge: 1, walk: .95, curb: .95, crosswalk: .97, alley: .95, plaza: .95, quay: .9, pier: .9, rail: .9,
+  lot: .8, yard: .8, dirt: .7, grass: .6, park: .6, sand: .5, water: .3, deep: .3, oil: .25 };
 const CURB = 4;   // a wall cell this low (or lower) is climbed, not hit
 const PEAK = .12; // the slip angle (radians) where a tyre's grip peaks
 const MAX_STEP = 6;   // units a substep may travel
+const DECK_STEP = 10;   // a deck slab whose top is this close above the wheels is driven onto, not hit
+export const CAR_GRAVITY = 600;   // u/s²: an arcade fall (a storey of 24 in .28 s)
 
 /** the handling of a vehicle class: every number a TUNE-able default; a vehicle def overrides any of them */
 export const HANDLING = {
@@ -42,6 +51,9 @@ export class VehicleBody {
     /** what the last step felt: lateral and forward acceleration, rear slip (drift) angle, contact this step */
     this.felt = { lat: 0, lon: 0, slip: 0, hit: 0, hitX: 0, hitY: 0, wheelspin: 0 };
     this.gear = 1; this.rpm = 0; this.airborne = false;
+    /** lifted: the axle off the ground while towed ('front' | 'rear' | null); flipped: on its roof; rollA, rollW: the
+     *  body's roll (radians) and its rate in the air */
+    this.lifted = null; this.flipped = false; this.rollA = 0; this.rollW = 0; this.felt.land = 0;
   }
   /** the half length and width, and the corners [x, y] in the world (front-left, front-right, rear-right, rear-left) */
   get hl() { return this.h.length / 2; }
@@ -58,33 +70,36 @@ export class VehicleBody {
   /** set the world velocity (keeps the yaw rate) */
   setVelocity(vx, vy) { const c = Math.cos(this.heading), s = Math.sin(this.heading); this.u = vx * c + vy * s; this.v = -vx * s + vy * c; }
 
-  /** one simulation step against the map. ctl: { throttle 0..1, brake 0..1, steer -1..1 (right +), handbrake };
-   *  world: { map, wet, surface(x, y) -> grip multiplier }. Cars meet cars in collidePairs, once per step */
+  /** one simulation step against the map. ctl: { throttle 0..1, brake 0..1, steer -1..1 (right +), handbrake, boost
+   *  (nitro: a factor on power) }; world: { map, wet, surface(x, y) -> grip multiplier, ground(x, y, z) -> the ground's
+   *  height }. Cars meet cars in collidePairs, once per step */
   step(dt, ctl, world = {}) {
     Object.assign(this.ctl, ctl);
     const n = Math.max(1, Math.ceil(this.speed * dt / MAX_STEP));
-    this.felt.hit = 0;
+    this.felt.hit = 0; this.felt.land = 0;
     for (let i = 0; i < n; i++) this._sub(dt / n, world);
     this._gearbox();
   }
   _sub(dt, world) {
-    const h = this.h, C = this.ctl, m = h.mass, g = 400;
+    const h = this.h, C = this.ctl, m = h.mass, g = 400, contact = !this.airborne && !this.flipped;
     // steering: toward the stick, slower to turn the faster it goes (an arcade car stays drivable at speed)
     const want = E.clamp(C.steer, -1, 1) * h.steer * (1 - h.steerFade * Math.min(1, Math.abs(this.u) / h.top));
     this.steerAngle += E.clamp(want - this.steerAngle, -h.steerRate * dt, h.steerRate * dt);
-    const d = this.steerAngle, cd = Math.cos(d), sd = Math.sin(d), u = this.u, v = this.v, w = this.w;
+    const d = this.lifted === 'front' ? 0 : this.steerAngle, cd = Math.cos(d), sd = Math.sin(d), u = this.u, v = this.v, w = this.w;
     const mu = this._grip(world), wet = world.wet ? .8 : 1, grip = h.grip * mu * wet;
     // the throttle drives forward, or backward once stopped with the brake held a moment (and the brake pedal brakes)
     this.held = Math.abs(u) < 1 && C.brake > 0 && !(C.throttle > 0) ? (this.held || 0) + dt : 0;
     const fwd = u > .5 || (u > -.5 && C.throttle >= C.brake), rev = !fwd && C.brake > 0 && u < 2 && (u < -.5 || this.held > .2);
     let drive = 0, braking = 0;
-    if (fwd && C.throttle > 0) drive = C.throttle * Math.min(h.accel, this.P / Math.max(1, Math.abs(u)));
-    if (rev) drive = -C.brake * (Math.abs(u) < h.reverseTop ? h.accel * .6 : 0);
-    if (fwd && C.brake > 0 && u > .5) braking = C.brake * h.brake;
-    if (!fwd && C.throttle > 0 && u < -.5) braking = C.throttle * h.brake;   // the throttle brakes a reversing car
+    if (contact) {
+      if (fwd && C.throttle > 0) drive = C.throttle * Math.min(h.accel * (C.boost || 1), this.P * (C.boost || 1) / Math.max(1, Math.abs(u)));
+      if (rev) drive = -C.brake * (Math.abs(u) < h.reverseTop ? h.accel * .6 : 0);
+      if (fwd && C.brake > 0 && u > .5) braking = C.brake * h.brake;
+      if (!fwd && C.throttle > 0 && u < -.5) braking = C.throttle * h.brake;   // the throttle brakes a reversing car
+    }
     // the load on each axle, shifted by the last step's forward acceleration (braking loads the front)
     const shift = E.clamp(this.felt.lon * h.cgHeight / g, -.3, .3), Nf = E.clamp(this.b / h.wheelbase - shift, .2, .8), Nr = 1 - Nf;
-    let Ff = m * grip * Nf, Fr = m * grip * Nr;   // each axle's grip (force)
+    let Ff = contact && this.lifted !== 'front' ? m * grip * Nf : 0, Fr = contact && this.lifted !== 'rear' ? m * grip * Nr : 0;   // each axle's grip (force)
     // longitudinal forces at each axle: drive by the drive type, brakes 60/40, the handbrake locks the rear
     const dir = Math.sign(u) || 1, hand = C.handbrake && Math.abs(u) > 2;
     let FxF = 0, FxR = 0;
@@ -93,37 +108,65 @@ export class VehicleBody {
     FxF -= dir * braking * m * .6; FxR -= dir * braking * m * .4;
     if (hand) { Fr *= h.drift; FxR -= dir * Fr * .7; }
     // the friction circle: driving or braking spends grip that cornering then lacks (wheelspin when it asks too much)
-    this.felt.wheelspin = Math.max(0, Math.abs(FxR) - Fr) / Math.max(1, Fr);
+    this.felt.wheelspin = Fr > 0 ? Math.max(0, Math.abs(FxR) - Fr) / Fr : 0;
     FxF = E.clamp(FxF, -Ff, Ff); FxR = E.clamp(FxR, -Fr, Fr);
     const latF = Math.sqrt(Math.max(0, Ff * Ff - FxF * FxF)), latR = Math.sqrt(Math.max(0, Fr * Fr - FxR * FxR));
     // slip angles: the front axle's velocity in its wheel's frame; the rear's in the body's
     const vfl = u * cd + (v + this.a * w) * sd, vfs = -u * sd + (v + this.a * w) * cd, vr = v - this.b * w;
     const af = Math.atan2(vfs, Math.abs(vfl) + 1), ar = Math.atan2(vr, Math.abs(u) + 1);
     const Fyf = -latF * tyre(af / PEAK), Fyr = -latR * tyre(ar / PEAK);
-    // body forces: the front's (turned with the wheel), the rear's, drag and rolling resistance
-    const Fx = FxF * cd - Fyf * sd + FxR - m * (this.cd * u * Math.abs(u) + h.rolling * u);
+    // body forces: the front's (turned with the wheel), the rear's, drag and rolling resistance (in the air: drag only)
+    const Fx = FxF * cd - Fyf * sd + FxR - m * (this.cd * u * Math.abs(u) + (contact ? h.rolling * u : 0));
     const Fy = FxF * sd + Fyf * cd + Fyr;
     const Mz = this.a * (FxF * sd + Fyf * cd) - this.b * Fyr;
     let du = (Fx / m + v * w) * dt, dv = (Fy / m - u * w) * dt, dw = Mz / this.I * dt;
     // brakes never push a car backward: a braking step that would reverse the car stops it instead
     if ((braking > 0 || hand) && Math.sign(u + du) !== Math.sign(u) && Math.abs(u) < 40) du = -u;
     this.u += du; this.v += dv; this.w += dw;
-    // below walking pace (all of it: a car sliding sideways off a wall is not slow), turn like a kinematic bicycle and
-    // let the slip die (the slip model is singular at rest)
-    const s = Math.hypot(this.u, this.v), kin = E.clamp(1 - (s - 6) / 24, 0, 1);
-    if (kin > 0) {
-      const wk = this.u * Math.tan(d) / this.h.wheelbase;
-      this.w += (wk - this.w) * kin; this.v += (wk * this.b - this.v) * kin * .5;
-      if (s < .5 && !drive && !(C.throttle > 0)) { this.u = 0; this.v *= .5; this.w *= .5; if (Math.abs(this.v) < .05) this.v = 0; if (Math.abs(this.w) < 1e-3) this.w = 0; }
+    if (this.flipped) {   // on its roof: it scrapes to a stop
+      const s0 = Math.hypot(this.u, this.v), k = s0 > 0 ? Math.max(0, s0 - 380 * dt) / s0 : 0; this.u *= k; this.v *= k; this.w *= Math.max(0, 1 - 4 * dt);
+    } else if (contact) {
+      // below walking pace (all of it: a car sliding sideways off a wall is not slow), turn like a kinematic bicycle and
+      // let the slip die (the slip model is singular at rest)
+      const s = Math.hypot(this.u, this.v), kin = E.clamp(1 - (s - 6) / 24, 0, 1);
+      if (kin > 0) {
+        const wk = this.lifted === 'front' ? this.w : this.u * Math.tan(d) / this.h.wheelbase;
+        this.w += (wk - this.w) * kin; this.v += (wk * this.b - this.v) * kin * .5;
+        if (s < .5 && !drive && !(C.throttle > 0)) { this.u = 0; this.v *= .5; this.w *= .5; if (Math.abs(this.v) < .05) this.v = 0; if (Math.abs(this.w) < 1e-3) this.w = 0; }
+      }
     }
-    this.felt.lat = Fy / m; this.felt.lon = Fx / m; this.felt.slip = Math.atan2(vr, Math.abs(this.u) + 1);
-    // move, then resolve contacts
-    const c = Math.cos(this.heading), sn = Math.sin(this.heading);
+    this.felt.lat = Fy / m; this.felt.lon = Fx / m; this.felt.slip = contact ? Math.atan2(vr, Math.abs(this.u) + 1) : 0;
+    // move, then follow (or leave) the ground, then resolve contacts
+    const c = Math.cos(this.heading), sn = Math.sin(this.heading), px = this.x, py = this.y;
     this.x += (this.u * c - this.v * sn) * dt; this.y += (this.u * sn + this.v * c) * dt; this.heading += this.w * dt;
-    if (world.map) this._collideMap(world.map);
+    if (!this._height(dt, world)) {   // the ground ahead rose like a wall (a raised bridge leaf): stopped short
+      this.x = px; this.y = py; const hit = Math.abs(this.u) * this.h.mass * 1.2; this.u *= -.2; this.v *= .5; this.w *= .5;
+      this.felt.hit += hit; this.felt.hitX = px + c * this.hl; this.felt.hitY = py + sn * this.hl;
+    }
+    if (world.map) this._collideMap(world.map, world);
+  }
+  /** the ground under the car: follow it (a slope's climb gives the body its vertical speed), or fly off it. Returns
+   *  false when the ground ahead is a wall (more than a ramp's climb above the wheels) */
+  _height(dt, world) {
+    const gz = world.ground ? world.ground(this.x, this.y, this.z) : 0;
+    if (gz > this.z + 8) return false;
+    if (this.airborne) {
+      this.vz -= CAR_GRAVITY * dt; this.z += this.vz * dt; this.rollA += this.rollW * dt;
+      if (this.z <= gz) {
+        this.felt.land = Math.max(this.felt.land, -this.vz); this.z = gz; this.vz = 0; this.airborne = false;
+        const r = Math.atan2(Math.sin(this.rollA), Math.cos(this.rollA));
+        if (Math.abs(r) > Math.PI / 2) { this.flipped = true; this.rollA = Math.PI; } else this.rollA = 0;
+        this.rollW = 0;
+      }
+      return true;
+    }
+    if (gz < this.z - 3) { this.airborne = true; return true; }   // (the ground fell away: it flies on with the slope's speed; a blast sets airborne itself)
+    this.vz = (gz - this.z) / dt; this.z = gz;
+    if (this.vz < 0) this.vz = Math.max(this.vz, -60);   // (down a ramp it keeps to the slope)
+    return true;
   }
   _grip(world) {
-    if (world.surface) return world.surface(this.x, this.y);
+    if (world.surface) return world.surface(this.x, this.y, this.z);
     const M = world.map; if (!M || !M.floorAt) return 1;
     const tag = M.floorAt(this.x, this.y); return tag === null || tag === undefined ? 1 : (SURFACE_GRIP[tag] ?? 1);
   }
@@ -133,11 +176,12 @@ export class VehicleBody {
     const g = Math.min(n, 1 + Math.floor(f * n * .999)); this.gear = this.u < -1 ? -1 : g;
     this.rpm = E.clamp(.25 + .75 * ((f * n) - (g - 1)), .2, 1) * (this.ctl.throttle > 0 || Math.abs(this.u) > 1 ? 1 : .3);
   }
-  /** push out of wall cells taller than a curb, and out of map solids */
-  _collideMap(map) {
+  /** push out of wall cells taller than a curb, and out of map solids (street furniture that world.breaks(solid, body)
+   *  says gives way is driven through: the Fleet knocks it over) */
+  _collideMap(map, world = {}) {
     const T = map.T, cs = this.corners(); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     for (const [x, y] of cs) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-    const tall = (cx, cy) => { const id = map.cell(cx, cy); return id < 0 || (id > 0 && map.types[id].h > this.z + CURB); };
+    const tall = (cx, cy) => this._blocked(map, cx, cy);
     for (let it = 0; it < 2; it++) for (let cy = Math.floor(y0 / T); cy <= Math.floor(y1 / T); cy++) for (let cx = Math.floor(x0 / T); cx <= Math.floor(x1 / T); cx++) {
       if (!tall(cx, cy)) continue;
       // the faces this cell shows (a face against another tall cell is inside a wall: never pushed through)
@@ -146,11 +190,15 @@ export class VehicleBody {
       if (hit) this._resolve(hit, null);
     }
     if (map.solidsNear) for (const s of map.solidsNear(this.x, this.y, this.hl + 8)) {
-      if (s.top <= this.z + CURB || s.z >= this.z + this.h.height) continue;
+      if (s.top <= this.z + (s.deck ? DECK_STEP : CURB) || s.z >= this.z + this.h.height) continue;   // (on top of it, or wholly above)
       const hit = obbVsBox(this, s.x, s.y, s.hx, s.hy, s.c, s.s, null);
-      if (hit) this._resolve(hit, null);
+      if (hit && !(s.breakable && world.breaks && world.breaks(s, this))) this._resolve(hit, null);
     }
   }
+  /** throw the body into the air (a blast under it, a hard hit): vz up (u/s), rollW (radians a second about its length) */
+  launch(vz, rollW = 0) { this.airborne = true; this.vz = Math.max(this.vz, vz); this.rollW += rollW; }
+  /** is a cell a wall to this body (a land vehicle: a wall taller than a curb above its wheels)? Boats override it */
+  _blocked(map, cx, cy) { const id = map.cell(cx, cy); return id < 0 || (id > 0 && map.types[id].h > this.z + CURB); }
   /** push out by the hit's depth along its normal, then an impulse at its contact point (restitution .2, friction .3) */
   _resolve(hit, other) {
     const [nx, ny] = hit.n;

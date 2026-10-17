@@ -72,3 +72,17 @@ export class Deck {
     return c.z0 + (c.z1 - c.z0) * f;
   }
 }
+
+/** a small stand-in for a CityMap over a plain TileMap (the Proving Ground's yards): the surface lookups, no decks,
+ *  props or roads, so the systems that read a city (Fire, the Fleet) run on it. surfaceAt(cx, cy) -> a surface name */
+export function standInCity(map, surfaceAt = () => 'road') {
+  const T = map.T, w = map.w, h = map.h;
+  const C = { w, h, T, map, decks: [], props: [], pois: [], zones: [], roads: [], lots: [], signs: [], hoods: [],
+    surfaceAt: (cx, cy) => (cx < 0 || cy < 0 || cx >= w || cy >= h ? 'deep' : surfaceAt(cx, cy)),
+    surfaceAtPoint: (x, y) => C.surfaceAt(Math.floor(x / T), Math.floor(y / T)),
+    deckAt: () => null, hoodAt: () => null, hoodAtPoint: () => null, poi: () => null, zonesAt: () => [],
+    inside: (cx, cy) => cx >= 0 && cy >= 0 && cx < w && cy < h,
+    walkable: (cx, cy) => C.inside(cx, cy) && map.cell(cx, cy) === 0 && !BLOCKING.has(C.surfaceAt(cx, cy)),
+    nearestWalkable: (cx, cy, max = 12) => { for (let r = 0; r <= max; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r && C.walkable(cx + dx, cy + dy)) return [cx + dx, cy + dy]; return [cx, cy]; } };
+  return C;
+}

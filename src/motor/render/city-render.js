@@ -33,6 +33,13 @@ export const PROP_MODELS = {
   barrel: { parts: [box(-3, -3, 0, 3, 3, 9, '#4a6a8a'), box(-3.3, -3.3, 3, 3.3, 3.3, 4, '#3a5a7a', 'cabin')] },
   bollard: { parts: [box(-1.5, -1.5, 0, 1.5, 1.5, 5, '#2a2a30'), box(-2, -2, 5, 2, 2, 6, '#3a3a40', 'cabin')] },
 };
+/** street furniture once a vehicle has knocked it over */
+const BROKEN = {
+  lamp: { parts: [box(0, -1, 0, 44, 1, 2.2, '#4a4a52'), box(40, -3, 0, 46, 3, 3.5, '#2a2a30', 'cabin'), box(-2, -2, 0, 2, 2, 3, '#3a3a40', 'cabin')] },   // (the pole drawn lying along +x; upright while it falls)
+  hydrant: { parts: [box(-1.8, -1.8, 0, 1.8, 1.8, 2.5, '#c83a2a'), box(-1, -1, 2.5, 1, 1, 3.2, '#8a8a92', 'cabin')] },
+  bin: { parts: [box(-4, -3.2, -3.2, 4, 3.2, 3.2, '#3a5a46'), box(4, -2.6, -2.6, 4.8, 2.6, 2.6, '#1a2a20', 'cabin')] },
+  payphone: { parts: [box(-3, -2, 0, 3, 2, 3, '#3a3a40'), box(-2, -1.5, 3, 2, 1.5, 4, '#c8c8d0', 'cabin')] },
+};
 const CONTAINERS = new Map();
 /** a shipping container in a colour (one model per colour) */
 function containerModel(color) {
@@ -102,6 +109,12 @@ export class CityRenderer {
   }
   _prop(stage, p, night) {
     if (p.kind === 'pillar') { stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, PILLAR(p.top), p.x, p.y, 0, 0)); return; }
+    if (p.broken) {   // knocked over by a vehicle (actors/fleet.js): a lamp lies along the way it was hit, its light out
+      const B = p.broken, m = BROKEN[p.kind] || PROP_MODELS[p.kind], a = p.kind === 'lamp' ? B.dir : p.facing || 0;
+      if (p.kind === 'lamp') { const f = Math.min(1, B.t / .45); stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, 0, a, { pitch: -(1 - f) * Math.PI / 2 * .98 })); }
+      else if (m) stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, 0, a, { roll: p.kind === 'bin' ? Math.PI / 2 : 0 }));
+      return;
+    }
     const spr = SPRITES[p.kind];
     if (spr) {
       const lamp = p.kind === 'lamp'; stage.prop(spr, p.x, p.y, p.z || 0, { light: night && lamp, halo: false, lightRadius: 88, size: p.kind === 'palm' ? 1.3 : 1 });

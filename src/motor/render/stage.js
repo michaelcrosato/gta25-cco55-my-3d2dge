@@ -300,7 +300,8 @@ export class Stage {
   /** a shape drawn through a projector: draw(g, P) with P.proj(x, y, z) -> [sx, sy, k] (vehicles, props, markers).
    *  o: the engine queue's options in ISO ({ emissive, bias, hides, footprint }), and kept: { key, r, h } for a shape
    *  that looks the same from frame to frame (a parked car): drawn once into an image of its own (r: its reach round
-   *  (x, y), h: its height, in world units) and put where it stands until the view or its size changes */
+   *  (x, y), h: its height, in world units; sig: a string that changes when its look does) and put where it stands
+   *  until the view, its size or its sig changes */
   shape(x, y, z, draw, o) {
     const d = this.depth, r = this.r, kept = o && o.kept;
     if (!d) { r.queue(x, y, z, kept ? g => this._keptShape(g, this._isoProj(r), r.view, x, y, z, draw, kept) : g => draw(g, this._isoProj(r)), o); return; }
@@ -310,7 +311,7 @@ export class Stage {
   _keptShape(g, P, view, x, y, z, draw, kp) {
     const q = P.proj(x, y, z); if (!q) return;
     const k = q[2], key = kp.key; let K = this._kept.get(key);
-    const tag = view.id + ':' + (view.yawDeg | 0) + ':' + (this.depth ? this.depth.heading : 0) + ':' + (this.depth ? 0 : view.scale);
+    const tag = view.id + ':' + (view.yawDeg | 0) + ':' + (this.depth ? this.depth.heading : 0) + ':' + (this.depth ? 0 : view.scale) + ':' + (kp.sig || '');   // (sig: the shape's own state: a parked car's dents, lights, doors)
     if (!K || K.tag !== tag || Math.abs(K.k - k) > K.k * .06 || (this.depth && this.frameNo - K.n >= 8)) {
       const w = Math.ceil((kp.r * 2 * k * 1.15 + 8) / 16) * 16, h = Math.ceil(((kp.r + kp.h * 1.4) * k + 8) / 16) * 16, ax = w / 2, ay = Math.ceil(kp.r * .8 * k) + 4 + Math.ceil(kp.h * 1.2 * k);   // (sizes in steps of 16: a canvas is never resized for a pixel)
       if (!K) { K = { cv: E.mkCanvas(w, h) }; this._kept.set(key, K); }

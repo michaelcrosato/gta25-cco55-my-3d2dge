@@ -25,6 +25,8 @@ function stream(seed, name) {
 
 /** build spec (a districts registry entry: { id, size: [w, h], seed, hoods, hoodMap, water, roads, decks, lots, styles,
  *  props, pois, zones }) into a CityMap */
+/** the prop kinds a vehicle knocks over instead of stopping at */
+export const BREAKABLE = new Set(['lamp', 'hydrant', 'bin', 'bench', 'newsstand', 'payphone']);
 export function buildDistrict(spec, o = {}) {
   const seed = o.seed ?? spec.seed ?? 1, [W, H] = spec.size, C = new CityMap(W, H, 16), T = 16;
   C.id = spec.id; C.seed = seed; C.spec = spec;
@@ -201,7 +203,8 @@ export function buildDistrict(spec, o = {}) {
   }
   for (const pr of spec.propList || []) addProp(pr.kind, pr.at[0] * T, pr.at[1] * T, pr);
   C.props = props;
-  for (const p of props) if (p.solid) solids.push({ x: p.x, y: p.y, z: p.z || 0, top: (p.z || 0) + p.solid.top, hx: p.solid.hx, hy: p.solid.hy });
+  // (street furniture a car knocks over: lamps fall, hydrants burst, bins and benches scatter; fleet.js breaks them)
+  for (const p of props) if (p.solid) solids.push({ x: p.x, y: p.y, z: p.z || 0, top: (p.z || 0) + p.solid.top, hx: p.solid.hx, hy: p.solid.hy, prop: p, breakable: BREAKABLE.has(p.kind) && !p.roof });
 
   // 7. points of interest, zones, signs
   C.pois = (spec.pois || []).map(p => ({ ...p, x: (p.at[0] + .5) * T, y: (p.at[1] + .5) * T }));
@@ -223,7 +226,7 @@ export function buildDistrict(spec, o = {}) {
   // the TileMap: walls, floor tags (the surfaces), blocked water
   const floor = Array.from(C.surface, s => SURFACES[s]);
   const map = new E.TileMap({ w: W, h: H, cells: Array.from(cells), floor, types, block: ['water', 'deep'] });
-  map.addSolids(solids);
+  for (const sol of map.addSolids(solids)) if (sol.prop) sol.prop.solidRef = sol;   // (a prop knows its solid: a fallen lamp lowers it)
   C.map = map; map.city = C;
   return C;
 }

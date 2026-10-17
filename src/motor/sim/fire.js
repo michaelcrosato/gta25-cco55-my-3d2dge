@@ -35,6 +35,12 @@ export class Fire {
       this.heat[i] = Math.max(this.heat[i], heat); this.fuel[i] = Math.max(this.fuel[i], own + fuel); this.vigor[i] = Math.max(this.vigor[i], vigor); this.live.add(i);
     }
   }
+  /** put out the cells within r of a point (the Pumper's water cannon): they stop burning, scorched */
+  douse(x, y, r = 8) {
+    const T = this.T; let n = 0;
+    for (const i of [...this.live]) { const cx = i % this.w, cy = (i / this.w) | 0; if (Math.hypot((cx + .5) * T - x, (cy + .5) * T - y) > r + T * .5) continue; this.heat[i] = 0; this.fuel[i] = 0; this.vigor[i] = 0; this.burnt[i] = 1; this.live.delete(i); n++; }
+    return n;
+  }
   /** a burning body crossing a point lights it (if it burns at all) */
   ignite(x, y) { this.add(x, y, 0, .7, 0, .6); }
   /** step: dt seconds; wet: the streets' wetness 0..1 (rain damps the fire) */
