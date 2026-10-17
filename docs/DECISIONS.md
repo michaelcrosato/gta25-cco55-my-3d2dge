@@ -214,3 +214,36 @@ and where it landed.
     least 15% longer, skidpad grip, a handbrake drift, no tunnelling at 400 u/s. Boats, the heli and the L have their
     own checks. FAN-OUT A1's workers tuned against it.
 - **Answered:** no. **Landed in:** M4.
+
+## D16 · 2026-10-17 · M4's close: box models in a painter's order, three reactions carried, the run handed off
+- **Principle:** fix every look note at its cause (the renderer, not each model); keep the architecture and one
+  working instance; never cut silently (the `/goal`); the owner's word on scope.
+- **Calls:**
+  - **Box models are drawn in a painter's order.** The models were first drawn in a fixed role order (wheels, body,
+    trim, glass, roof, lamps, siren). Far-end lamps and bumpers then showed through the body, so content had to layer
+    lids and end caps against it. A first fix sorted the outside parts by their centres against the model's middle.
+    FAN-OUT A1's review found where that fails:
+    - a light bar on a cab roof is lost from behind;
+    - on a long body, a locker on the near flank at the far end vanishes, and one on the far flank at the near end
+      shows through.
+
+    The order is now pairwise: two parts a plane separates go far one first, by the side of the plane the camera is
+    on. That side comes from the view's depth gradient (`P.depth3`) in the model's frame. Overlapping parts keep their
+    roles' order, except an outside part sunk into a core box: it is drawn after the box only when the face it pokes
+    out of faces the camera. The order is kept per model for each of the 8 octants, so a frame only reads it. Open
+    doors are fitted in each frame. A wreck on its roof needs no special case. The models made for the role order
+    look the same or better (checked from 8 headings in every view).
+  - **Carried, not cut.** Three reactions need systems that come later. Until then the hooks fire and the BUS carries
+    the event:
+    - the carjacked driver's flee-or-fight comes with PedBrain (M5): the driver is thrown down and `carjack` is
+      emitted;
+    - the heat from a break-in or a carjack comes with the wanted system (M6): `crime` is emitted;
+    - the Boom Box Garage's shop screen comes with M8. The mods (paint, armour, nitro, oil, mines, the roof MG, the
+      car bomb) work and are tested.
+  - **The run is handed off after M4.** The owner asked for M4 to be finished, for M5 not to be started, and for
+    the pull request to be merged, with a fresh session to continue.
+    - Work begun on M5 during M4 is parked in `docs/handoff/m5-draft/`, out of the build, lint and tests. It holds
+      the lane graph, the GPS and the signals, which work and are tested, and a draft DriverBrain that still stalls.
+    - `docs/HANDOFF.md` says where the next session starts, and gives its `/goal` prompt.
+    - `GOAL.md` and PLAN.md section 20 keep the original prompt unchanged: it is the contract's.
+- **Answered:** the handoff was the owner's request. **Landed in:** M4.

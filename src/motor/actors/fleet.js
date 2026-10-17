@@ -285,8 +285,8 @@ export class Fleet {
     }
     if (v.def.tool === 'cannon' && I.down.fire) {   // the water cannon: knocks peds over, puts fires out
       if (v._cool <= 0) {
-        v._cool += .06; const reach = 150, zx = v.toWorld(v.hl * .1, 0);
-        this.jets.push({ x: zx[0], y: zx[1], z: b.z + v.height + 6, dx: hx, dy: hy, t: 0, life: .5 });
+        v._cool += .06; const reach = 150, nz = v.model.nozzle, zx = v.toWorld(nz ? nz[0] : v.hl * .1, nz ? nz[1] : 0);   // (from the model's nozzle)
+        this.jets.push({ x: zx[0], y: zx[1], z: b.z + (nz ? nz[2] : v.height + 6), dx: hx, dy: hy, t: 0, life: .5 });
         for (let k = 30; k <= reach; k += 30) { const x = zx[0] + hx * k, y = zx[1] + hy * k; if (C && C.fire) C.fire.douse(x, y, 10); }
         if (C) for (const p of C.bodies) { if (p.dead || p.seat) continue; const dx = p.x - zx[0], dy = p.y - zx[1], along = dx * hx + dy * hy, side = Math.abs(-dx * hy + dy * hx); if (along > 0 && along < reach && side < 14 && !p.floored) C.hurt(p, { amount: 1, kind: 'water', by, knock: 180, knockdown: true, dir: [hx, hy] }); }
       }

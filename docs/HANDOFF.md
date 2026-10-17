@@ -87,7 +87,6 @@ started the run; this page says where the run stands, how the repository is work
 
 - **Night glows** (the head, tail and siren lights' halos) ignore occlusion: from some angles a far tail lamp's glow
   shows over the roof at night.
-- **Open doors** draw after the whole model, so a far door that is open shows over the cabin.
 
 ## Continuing the run: the /goal prompt
 

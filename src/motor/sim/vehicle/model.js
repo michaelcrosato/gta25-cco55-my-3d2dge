@@ -10,7 +10,7 @@
 //   wheels: [{ x, y, r, steer }] (front wheels steer visibly); seats: [{ x, y }] driver first; doors: [{ id, x, y,
 //          side (-1 left, 1 right, 0 the back), seat }] where a body stands to get in; lights: { head: [[x, y, z]],
 //          tail, siren } (where the lights shine from); hook: [x, y] (a tow truck's), hitch: [x, y] (where a towed car is
-//          held: its front bumper by default).
+//          held: its front bumper by default), nozzle: [x, y, z] (where a water cannon's jet leaves).
 //   kits: { name: { parts, lights, hook, hitch, about } }: extra parts (and lights) a definition switches on with
 //          kit: 'name' (the Medic's stripe and light bar on the Hauler, the Drill Rig's flatbed on the Hookline).
 import { declare, get } from '../../core/registry.js';
@@ -24,7 +24,7 @@ declare('vehicleModels', shape({
   length: { type: 'number', req: true, min: 8 }, width: { type: 'number', req: true, min: 4 }, height: { type: 'number', req: true, min: 4 },
   parts: { type: 'array', req: true }, wheels: { type: 'array', def: [] }, seats: { type: 'array', def: [] }, doors: { type: 'array', def: [] },
   lights: { type: 'object', def: { head: [], tail: [], siren: [] } }, hook: { type: 'array', def: null }, hitch: { type: 'array', def: null },
-  kits: { type: 'object', def: {} }, about: { type: 'string', def: '' },
+  nozzle: { type: 'array', def: null }, kits: { type: 'object', def: {} }, about: { type: 'string', def: '' },
 }));
 /** a model by id (throws on an unknown one: content asks for real models) */
 export function vehicleModel(id) { const m = get('vehicleModels', id); if (!m) throw new Error('MOTOR: unknown vehicle model "' + id + '"'); return m; }
@@ -120,7 +120,7 @@ export function truckParts(o = {}) {
   if (kind === 'tow') { parts.push(P([-L, -W, wheel * .5, L - cabL - 1, W, wheel * 1.4], DARK, 'trim'), P([-L + 4, -2, wheel * 1.4, -L + 10, 2, height * .9], '#e8a030', 'trim'), P([-L - 2, -1.5, height * .7, -L + 6, 1.5, height * .9], '#e8a030', 'trim'), P([L - cabL + 2, -5, height * .9, L - cabL + 7, 5, height * .9 + 2.5], '#ffa030', 'siren')); hook = [-L - 4, 0]; }
   if (kind === 'flatbed') parts.push(P([-L, -W, wheel * 1.2, L - cabL - 1, W, wheel * 1.9], '#7a7a82', 'trim'));
   const w = wheels(L, W, wheel, [L * .62], [-L * .45, -L * .72]); parts.push(...w.parts);
-  return { parts, wheels: w.list, hook, seats: [{ x: L - cabL * .5, y: -5 }, { x: L - cabL * .5, y: 5 }],
+  return { parts, wheels: w.list, hook: hook || undefined, seats: [{ x: L - cabL * .5, y: -5 }, { x: L - cabL * .5, y: 5 }],
     doors: [{ id: 'fl', x: L - cabL * .5, y: -W - 6, side: -1, seat: 0 }, { id: 'fr', x: L - cabL * .5, y: W + 6, side: 1, seat: 1 }],
     lights: { head: lamps(L, W, low - 4), tail: lamps(L, W, wheel * 1.2 + 1.5, false), siren: kind !== 'flatbed' ? [[L - cabL + 4, 0, height * .9 + 2]] : [] } };
 }

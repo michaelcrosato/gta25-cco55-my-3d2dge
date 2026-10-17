@@ -71,6 +71,7 @@ def('vehicleModels', 'pumper', {
   seats: [{ x: 30, y: -5 }, { x: 30, y: 5 }],
   doors: [{ id: 'fl', x: 30, y: -hw - 6, side: -1, seat: 0 }, { id: 'fr', x: 30, y: hw + 6, side: 1, seat: 1 }],
   lights: { head: [[hl, -11.75, 10.5], [hl, 11.75, 10.5]], tail: [[-hl, -hw + 2, 18.5], [-hl, hw - 2, 18.5]], siren: [[38, 0, roof + 3]] },
+  nozzle: [14.5, 0, top + 4.5],   // (the cannon's mouth: the jet leaves from here)
   about: 'A cab-over fire engine: a crew cab with a light bar, a pump body with lockers down both sides, a ladder on top and the water cannon behind the cab.',
 });
 

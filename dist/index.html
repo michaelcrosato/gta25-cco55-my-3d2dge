@@ -11650,6 +11650,7 @@ root.My3D2dge = E;
     lights: { type: "object", def: { head: [], tail: [], siren: [] } },
     hook: { type: "array", def: null },
     hitch: { type: "array", def: null },
+    nozzle: { type: "array", def: null },
     kits: { type: "object", def: {} },
     about: { type: "string", def: "" }
   }));
@@ -11786,7 +11787,7 @@ root.My3D2dge = E;
     return {
       parts: parts2,
       wheels: w4.list,
-      hook,
+      hook: hook || void 0,
       seats: [{ x: L9 - cabL * 0.5, y: -5 }, { x: L9 - cabL * 0.5, y: 5 }],
       doors: [{ id: "fl", x: L9 - cabL * 0.5, y: -W11 - 6, side: -1, seat: 0 }, { id: "fr", x: L9 - cabL * 0.5, y: W11 + 6, side: 1, seat: 1 }],
       lights: { head: lamps(L9, W11, low2 - 4), tail: lamps(L9, W11, wheel3 * 1.2 + 1.5, false), siren: kind !== "flatbed" ? [[L9 - cabL + 4, 0, height * 0.9 + 2]] : [] }
@@ -17847,8 +17848,8 @@ root.My3D2dge = E;
       if (v.def.tool === "cannon" && I.down.fire) {
         if (v._cool <= 0) {
           v._cool += 0.06;
-          const reach = 150, zx = v.toWorld(v.hl * 0.1, 0);
-          this.jets.push({ x: zx[0], y: zx[1], z: b.z + v.height + 6, dx: hx, dy: hy, t: 0, life: 0.5 });
+          const reach = 150, nz = v.model.nozzle, zx = v.toWorld(nz ? nz[0] : v.hl * 0.1, nz ? nz[1] : 0);
+          this.jets.push({ x: zx[0], y: zx[1], z: b.z + (nz ? nz[2] : v.height + 6), dx: hx, dy: hy, t: 0, life: 0.5 });
           for (let k = 30; k <= reach; k += 30) {
             const x = zx[0] + hx * k, y = zx[1] + hy * k;
             if (C && C.fire) C.fire.douse(x, y, 10);
@@ -21317,6 +21318,8 @@ root.My3D2dge = E;
     seats: [{ x: 30, y: -5 }, { x: 30, y: 5 }],
     doors: [{ id: "fl", x: 30, y: -hw2 - 6, side: -1, seat: 0 }, { id: "fr", x: 30, y: hw2 + 6, side: 1, seat: 1 }],
     lights: { head: [[hl2, -11.75, 10.5], [hl2, 11.75, 10.5]], tail: [[-hl2, -hw2 + 2, 18.5], [-hl2, hw2 - 2, 18.5]], siren: [[38, 0, roof + 3]] },
+    nozzle: [14.5, 0, top + 4.5],
+    // (the cannon's mouth: the jet leaves from here)
     about: "A cab-over fire engine: a crew cab with a light bar, a pump body with lockers down both sides, a ladder on top and the water cannon behind the cab."
   });
   def("vehicles", "pumper", {
