@@ -34,7 +34,13 @@ kits and the baseline definition. Put each model and its definitions in a file o
   role }`. Roles: `body` (takes the vehicle's paint), `cabin` (a roof: drawn over its glass), `glass`, `wheel` (front
   ones steer), `light` (head lamps: lit at night), `tail` (brake lights), `siren` (alternates red and blue; the box's
   side decides which), `bumper`, `trim`, `rotor` (a heli's blade: spun, drawn twice crossed). `paint: true` puts a part
-  of any role in the paint (a roof). Parts are drawn in role order, so keep boxes convex and inside the body's outline.
+  of any role in the paint (a roof).
+- **Draw order** (`render/box-model.js`): the nested core (`wheel`, `body`, `glass`, `cabin`) is drawn in that role
+  order, and in list order within a role; the parts fixed on the outside (`bumper`, `trim`, `light`, `tail`, `siren`)
+  are sorted by depth in every view: those beyond the model's middle go before the core (the body hides them), the
+  near ones after it; `rotor` goes last. So keep core boxes convex and nested (a roof inside its glass, the glass on the
+  body), put details on a face as outside roles, and remember a kit only appends parts: one that adds face details may
+  need to re-add a thin `body` lid over them (the Cortez's kits do). The far end's lamps no longer show through.
 - The builders make the usual shapes from sizes and return `{ parts, wheels, seats, doors, lights, hook }` to spread
   into the spec (`src/motor/sim/vehicle/model.js` has their options):
   - `carParts({ length, width, height, cabin (share of the length), cabinAt (its centre, share), wheel (radius), style:

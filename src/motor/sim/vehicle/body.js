@@ -30,7 +30,7 @@ export const CAR_GRAVITY = 600;   // u/s²: an arcade fall (a storey of 24 in .2
 
 /** the handling of a vehicle class: every number a TUNE-able default; a vehicle def overrides any of them */
 export const HANDLING = {
-  length: 58, width: 26, height: 22, wheelbase: 36, cg: .5,   // cg: where the centre of mass sits, 0 at the rear axle, 1 at the front
+  length: 58, width: 26, height: 22, wheelbase: 36, cg: .5,   // cg: where the centre of mass sits, 0 at the front axle, 1 at the rear (below .5: nose-heavy)
   mass: 1200, top: 260, accel: 150, reverseTop: 80, brake: 640, grip: 460, drift: .32,   // drift: the rear's grip with the handbrake on
   steer: .55, steerRate: 3.2, steerFade: .55, drag: 0, rolling: .06, drive: 'rwd', gears: 5, cgHeight: .25,
 };

@@ -22,9 +22,10 @@ It also includes:
 
 Under it sits **MOTOR**, an open-city engine layer on top of my-3D2dge, built to carry the full game.
 
-> **Status: implementation in progress (M1 of M13 done: the core, the input, the three views' renderers, vehicle
-> physics).** `PROGRESS.md` has the current milestone and its evidence. `PLAN.md` is the full plan and `GOAL.md` is the
-> `/goal` prompt that runs it.
+> **Status: implementation in progress (M3 of M13 done: the core and input, the three views' renderers, Lowtown,
+> on foot and combat; M4, the vehicles, is closing).** `PROGRESS.md` has each milestone's evidence.
+> `PLAN.md` is the full plan, `GOAL.md` is the `/goal` prompt that started the run, and `docs/HANDOFF.md` is where the
+> next session picks it up (M5).
 
 ## Source Information
 
@@ -34,7 +35,8 @@ Under it sits **MOTOR**, an open-city engine layer on top of my-3D2dge, built to
 | **SOURCE** | *Grand Theft Auto 2* (PC, 1999; DMA Design / Rockstar Games), with depth, features and gameplay drawn from *Grand Theft Auto V* (2013; Rockstar North). In the my-3D2dge 2D pixel style, with the views isometric (primary), top-down (secondary), and the engine's side scrolling with depth (Mode 7). |
 | **GAME ENGINE** | **my-3D2dge v0.46.1**, commit `cfa866a` (`cfa866aa45474868350cad1a7fc015e612f9305f`, 2026-10-15), <https://github.com/michaelcrosato/my-3d2dge> (MIT). It is vendored at `vendor/my-3d2dge/` and extended by MOTOR (`src/motor/`). |
 | **Environment** | Claude Code (container build 2.1.302) in Anthropic's managed cloud environment: a claude.ai/code remote session, started from the Claude desktop app. Linux: Ubuntu 24.04.5 LTS, x86_64. Node.js 22.22.0. Headless Chromium 141 (Playwright build 1194) for tests. The game targets desktop browsers and runs from one HTML file. |
-| **Model and Effort Level** | AI lab: **Anthropic**. *Planning* effort: **max**, confirmed from the session's metadata. *Implementation* effort: recommended **xhigh** with `ultracode` (`PLAN.md` section 16). The exact model is given in each session's chat report: this environment keeps model identifiers out of files pushed to the repository. |
+| **Model and Effort Level** | AI lab: **Anthropic**. *Planning* effort: **max**, confirmed from the session's metadata. *Implementation* effort: recommended **xhigh** with `ultracode` (`PLAN.md` section 16); the owner ran M0-M4 at
+**max**, with `ultracode`. The exact model is given in each session's chat report: this environment keeps model identifiers out of files pushed to the repository. |
 
 ## Game engine analysis
 
@@ -50,9 +52,12 @@ This is kept separate from the Source Information above.
 - **Develop:** `npm run dev` serves it on `localhost:5173` and rebuilds on every change.
 - **Test:** `npm test` (the fast gate) or `npm run test:full`. In a Claude Code cloud session the SessionStart hook
   installs everything; elsewhere, run `npx playwright install chromium` once.
-- **Deep links:** `#title`, `#play`, `#attract`; the Proving Ground's `#proving/scale` (a 160×160 city), `#proving/views`
-  (the three views, 40 walkers) and `#proving/pad` (drive the Cortez). Options: `?view=iso|top|side7`, `?seed=`,
-  `?mode=walk|auto`, `?wet=1`, `?zoom=.65`, `?record=1`. More arrive with each milestone.
+- **Deep links:** `#title`, `#play` (or `#play/<spawn>`, such as `#play/precinct`), `#attract`; the Proving Ground's
+  `#proving/scale` (a 160×160 city), `#proving/views` (the view lab), `#proving/pad` (the handling track),
+  `#proving/range` (the combat range) and `#proving/garage` (every vehicle, with its handling bench). Options:
+  `?view=iso|top|side7`, `?time=day|dusk|night`, `?weather=`, `?seed=`, `?mode=walk|auto`, `?wet=1`, `?zoom=.65`,
+  `?record=1`, `?perf=1`, `?selftest=1`; in the garage `?only=<ids>`, `?night=1`, `?siren=1`, `?bench=1`. More arrive
+  with each milestone.
 - **Views:** R3 (keyboard `V`) cycles ISO → TOP-DOWN → MODE 7.
 
 The controls are in `PLAN.md` section 11. A PS5 DualSense is the primary controller; keyboard and mouse map onto the
@@ -68,4 +73,4 @@ same model.
 | `src/motor/`, `src/game/`, `src/main.js` | MOTOR (the engine layer) and the game's content |
 | `vendor/my-3d2dge/` | the pinned engine, its tools and docs (`VERSION.json`, `PATCHES.md`) |
 | `tools/`, `tests/` | build, dev server, the checks, and the test suites |
-| `docs/` | `ARCHITECTURE.md`, `DECISIONS.md`, `CONTENT-GUIDE.md`, and later the engine analysis |
+| `docs/` | `ARCHITECTURE.md`, `DECISIONS.md`, `CONTENT-GUIDE.md`, `HANDOFF.md` (where the next session starts), `media/` (each milestone's evidence), and later the engine analysis |

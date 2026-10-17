@@ -11281,7 +11281,7 @@ root.My3D2dge = E;
     height: 22,
     wheelbase: 36,
     cg: 0.5,
-    // cg: where the centre of mass sits, 0 at the rear axle, 1 at the front
+    // cg: where the centre of mass sits, 0 at the front axle, 1 at the rear (below .5: nose-heavy)
     mass: 1200,
     top: 260,
     accel: 150,
@@ -19153,7 +19153,8 @@ root.My3D2dge = E;
       { def: "cortez", near: "safehouse" },
       { def: "hauler", near: "kwik-lux-harbor" }
     ],
-    water: [{ def: "bilgerat", at: [142, 116], heading: "S" }],
+    water: [{ def: "bilgerat", at: [143.5, 115.4], heading: "E" }],
+    // (in the slip, alongside the south pier, bow out to sea)
     rail: [{ deck: "L", def: "thel", trains: 2, gauge: 10 }],
     air: [{ def: "eye", alt: 150, patrol: [[93, 70], [128, 30], [32, 30], [32, 118], [128, 118]] }]
   });

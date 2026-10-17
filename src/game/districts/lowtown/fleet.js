@@ -17,7 +17,7 @@ def('fleets', 'lowtown', {
     { def: 'brute', near: 'boom-box' }, { def: 'zephyr', near: 'hotel-marquee' }, { def: 'saint', near: 'car-wash' },
     { def: 'retiree', near: 'palm-park' }, { def: 'cortez', near: 'safehouse' }, { def: 'hauler', near: 'kwik-lux-harbor' },
   ],
-  water: [{ def: 'bilgerat', at: [142, 116], heading: 'S' }],
+  water: [{ def: 'bilgerat', at: [143.5, 115.4], heading: 'E' }],   // (in the slip, alongside the south pier, bow out to sea)
   rail: [{ deck: 'L', def: 'thel', trains: 2, gauge: 10 }],
   air: [{ def: 'eye', alt: 150, patrol: [[93, 70], [128, 30], [32, 30], [32, 118], [128, 118]] }],
 });

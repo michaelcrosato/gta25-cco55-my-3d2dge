@@ -45,7 +45,7 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The floor chunks (world-space bakes, LRU, one affine blit per chunk in ISO) | `src/motor/render/floor-chunks.js` | M1 (S2) |
 | The Stage: how scenes draw the world, the same code in every view | `src/motor/render/stage.js` | M1 (S1) |
 | The depth renderer: spans, wall textures, textured faces, SIDE7, TOP | `src/motor/render/depth/` | M1 (S1) |
-| Box-part models through the projector | `src/motor/render/box-model.js` | M1 (S3) |
+| Box-part models through the projector (the outside parts sorted by `P.depth3`: M4) | `src/motor/render/box-model.js` | M1 (S3), M4 |
 | Vehicle physics (bicycle model, collisions) and the `vehicles` registry | `src/motor/sim/vehicle/` | M1 (S3) |
 | The staged mission DSL's shape (`defMission`, `defActivity`, bot hints) | `src/motor/mission/dsl.js` | M1 (the runtime: M8) |
 | The Proving Ground: zones `scale`, `views`, `pad` | `src/game/proving/`, `src/game/scenes/proving.js` | M1 |
@@ -77,6 +77,7 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | A district's fleet: curb parking by neighbourhood, landmark spots, moorings, the L, the heli's patrol | `src/motor/world/fleet-spawn.js`, `src/game/districts/lowtown/fleet.js` | M4 |
 | The vehicle renderer (paint, dents, steering, doors, lights, beams, sirens, rotors, wakes) and VehicleFX (skids, smoke, sparks, slicks, mines, jets) | `src/motor/render/vehicle-draw.js`, `box-model.js` | M4 |
 | The radio stub (`stations`), the vehicle HUD panel, the Proving Ground's `garage` and the model sheet | `src/motor/audio/stations.js`, `src/motor/ui/hud.js`, `src/game/proving/garage-zone.js`, `tools/model-sheet.mjs` | M4 |
+| The slice's vehicles: 13 models and 19 definitions (FAN-OUT A1) | `src/game/vehicles/` | M4 |
 
 ## Frozen contracts (M1)
 
@@ -120,7 +121,8 @@ stage.end()
 ```
 
 - **A projector** `P` has `P.proj(x, y, z) -> [sx, sy, k] | null` (buffer pixels; `k` is pixels per world unit
-  there; null behind the camera). Drawing code uses only `proj`, so it draws right in every view.
+  there; null behind the camera). Drawing code uses only `proj`, so it draws right in every view. Each projector also
+  has `P.depth3(x, y, z)`: a draw-order key in 3D, bigger is farther (a box model sorts its outside parts by it).
 - **The depth views** (`Side7View`, `TopView`) are projectors with more:
   - `depth(x, y)`: the draw-order key, bigger is farther;
   - `view(k)`: the engine View a rig is drawn with at that scale;
