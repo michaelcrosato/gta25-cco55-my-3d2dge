@@ -40,6 +40,8 @@ def('districts', 'lowtown', {
     { rect: [0, 2, 1, 151], type: { h: 32, top: '#5a6a4a', side: '#7a7468', face: 'stone', roof: 'grass' } },
   ],
   props: { lampEvery: 6, clutter: .3 },
+  // a loop through all four neighbourhoods on the streets, under the Loop twice (perf runs, the attract camera)
+  tour: [[32, 30], [128, 30], [128, 118], [32, 118]],
   zones: [
     { kind: 'patrol', rect: [80, 0, 159, 76], name: 'Neon Mile beat' }, { kind: 'patrol', rect: [0, 0, 79, 76], name: 'Palm beat' },
     { kind: 'patrol', rect: [0, 77, 159, 151], name: 'Docks beat' },

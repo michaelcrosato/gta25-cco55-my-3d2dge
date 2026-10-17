@@ -194,3 +194,34 @@ test('GTM-PATCH(3): solidsNear is the public query, a fresh array each call', ()
   assert.ok(!a.some(s => s.x === 830), 'nothing far away');
 });
 
+
+/* ---- GTM-PATCH 7: the canvas lighting's cost ---- */
+/** a headless game's lights wired to stand-in canvases (no DOM here), and a stand-in renderer over a view */
+function litRig(E, res) {
+  const game = new E.Game({ headless: true }).start({ update() {}, draw() {} }), L = game.lights;
+  const ctx = () => ({ createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }), putImageData() {}, drawImage() {}, save() {}, restore() {} });
+  L._cv = { width: 0, height: 0, getContext: ctx }; L._g = ctx(); L._build(); L.res = res;
+  const view = E.VIEWS.iso, p = view.p(400, 400, 0);
+  const r = { view, bw: 482, bh: 272, ix: Math.round(p[0] - 241), iy: Math.round(p[1] - 136), ctx: { save() {}, restore() {}, drawImage() {}, set globalCompositeOperation(v) {}, set imageSmoothingEnabled(v) {} } };
+  E.style.trans = 'alpha'; L.ambient = .4; L.enabled = true;
+  for (const [x, y] of [[400, 400], [470, 380], [330, 450], [420, 520]]) L.add(x, y, 30, 88, 1, { color: '#ffe0a0' });
+  return { L, r };
+}
+test('GTM-PATCH(7): lights.res = 2 works the light field out on a grid twice as coarse, matching the full field there', () => {
+  const E = engineWithPads([]);
+  const a = litRig(E, 1); a.L.render(a.r); const full = Float32Array.from(a.L._I), W = 482;
+  const b = litRig(E, 2); b.L.render(b.r); const half = b.L._I, HW = Math.ceil(482 / 2), HH = Math.ceil(272 / 2);
+  assert.equal(half.length, HW * HH, 'a quarter of the cells');
+  let worst = 0;
+  for (let j = 0; j < HH - 1; j++) for (let i = 0; i < HW - 1; i++) {
+    const avg = (full[(2 * j) * W + 2 * i] + full[(2 * j) * W + 2 * i + 1] + full[(2 * j + 1) * W + 2 * i] + full[(2 * j + 1) * W + 2 * i + 1]) / 4;
+    worst = Math.max(worst, Math.abs(half[j * HW + i] - avg));
+  }
+  assert.ok(worst < .03, 'each coarse cell is the light at its four pixels\' centre (within ' + worst.toFixed(4) + ')');
+  assert.ok(full.some(v => v > 1) && full.some(v => Math.abs(v - .4) < 1e-6), 'pools and plain ambient both in view');
+});
+test('GTM-PATCH(7): the tint curve from the table is the exp curve, step for step', () => {
+  const E = engineWithPads([]), { L, r } = litRig(E, 1); L.tint = .32; L.render(r);
+  const tint = .32 * 255, Q = L._qL;
+  for (let i = 0; i <= 1024; i++) { const x = i / 128; assert.equal(Q[i], Math.round((1 - Math.exp(-x)) * tint / 8) * 8, 'x ' + x); }
+});

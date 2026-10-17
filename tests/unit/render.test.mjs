@@ -45,3 +45,15 @@ test('the chunk range under an iso screen covers the screen corners\' ground, at
     assert.ok((i1 - i0 + 1) * (j1 - j0 + 1) <= 25);
   }
 });
+
+const { SpeedZoom } = await import('../../src/motor/render/speed-zoom.js');
+test('the speed zoom: 1 on foot, .8 driving, .65 fast; it comes back in only well below (hysteresis), never faster than its dwell', () => {
+  const z = new SpeedZoom(), run = (s, driving, speed) => { let l; for (let t = 0; t < s; t += 1 / 60) l = z.update(1 / 60, driving, speed); return l; };
+  assert.equal(run(1, false, 0), 1);
+  assert.equal(run(1, true, 60), .8, 'in a car');
+  assert.equal(run(1, true, 200), .65, 'fast');
+  assert.equal(run(2, true, 170), .65, 'between the thresholds: it stays out');
+  assert.equal(z.update(1 / 60, true, 120), .8, 'slow again: back in');
+  assert.equal(z.update(1 / 60, true, 250), .8, 'not straight after a change: it dwells');
+  assert.equal(run(1, true, 250), .65);
+});

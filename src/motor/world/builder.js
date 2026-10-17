@@ -152,6 +152,10 @@ export function buildDistrict(spec, o = {}) {
       if (C.hoods[C.hood[I(cx, cy)]]?.trees && s % 4 === 1 && rp.chance(.6)) addProp('palm', (ns ? cx + (wi === 0 ? .2 : .8) : cx + .5) * T, (ns ? cy + .5 : cy + (wi === 0 ? .2 : .8)) * T, { solid: { hx: 2, hy: 2, top: 60 } });
     }
   }
+  // lamps over plazas and parks too, on a grid (a big square is never a black hole at night)
+  for (const lot of C.lots) if (lot.kind === 'plaza' || lot.kind === 'park') rect(lot.rect, (x, y, i) => {
+    if ((x - lot.rect[0]) % 6 === 3 && (y - lot.rect[1]) % 6 === 3 && C.lot[i] === lot.index && (C.surface[i] === SURF.plaza || C.surface[i] === SURF.park) && !cells[i]) addProp('lamp', (x + .5) * T, (y + .5) * T, { solid: { hx: 1.5, hy: 1.5, top: 44 } });
+  });
   for (const lot of C.lots) if (lot.kind === 'park') rect(lot.rect, (x, y) => { if (C.surface[I(x, y)] === SURF.park && (x + y * 3) % 5 === 0 && rp.chance(.55)) addProp(rp.chance(.5) ? 'tree' : 'palm', (x + .5) * T, (y + .5) * T, { solid: { hx: 3, hy: 3, top: 56 } }); });
   for (const pr of spec.propList || []) addProp(pr.kind, pr.at[0] * T, pr.at[1] * T, pr);
   C.props = props;
@@ -160,6 +164,7 @@ export function buildDistrict(spec, o = {}) {
   // 7. points of interest, zones, signs
   C.pois = (spec.pois || []).map(p => ({ ...p, x: (p.at[0] + .5) * T, y: (p.at[1] + .5) * T }));
   C.zones = (spec.zones || []).map(z => ({ ...z }));
+  C.tour = (spec.tour || []).map(([x, y]) => [(x + .5) * T, (y + .5) * T]);   // a loop of road corners (perf runs, the attract camera)
   for (const h of C.hoods) if (h.rects) for (const r of h.rects) C.zones.push({ kind: 'hood', hood: h.id, gang: h.gang || null, rect: r });
   C.signs = C.lots.filter(l => l.sign).map(l => ({ lot: l.index, ...l.sign, rect: l.rect }));
 

@@ -40,6 +40,31 @@ test('L3 + R3 together is the ability; L3 alone is crouch after the chord window
   let c = false; for (let i = 0; i < 30; i++) { step(b); c ||= b.tap('crouch'); }
   assert.ok(c, 'L3 alone crouches');
 });
+test('R3 is the view button on release; held, a right-stick flick turns the camera instead', () => {
+  const I = fakeInput([pad(0)]), b = new Bindings(I); b.setContext('onFoot');
+  const run = (n, fn) => { let hit = false; for (let i = 0; i < n; i++) { step(b); hit ||= fn(); } return hit; };
+  I.raw.pads[0] = pad(0, { pressed: [11] });
+  assert.ok(!run(20, () => b.tap('view')), 'not while R3 is held (the chord window and the release window)');
+  I.raw.pads[0] = pad(0); step(b);
+  assert.ok(b.tap('view'), 'let go: the view cycles');
+  I.raw.pads[0] = pad(0, { pressed: [11] }); step(b, 4);
+  I.raw.pads[0] = pad(0, { pressed: [11], axes: [0, 0, -.9, 0] }); step(b);
+  assert.ok(b.tap('turnLeft') && !b.tap('turnRight'), 'R3 held, the right stick flicked left: a turn');
+  assert.ok(b.modifierHeld(), 'the right stick is spoken for (no aiming)');
+  I.raw.pads[0] = pad(0, { pressed: [11] }); step(b, 2); I.raw.pads[0] = pad(0); step(b);
+  assert.ok(!b.tap('view'), 'R3 spent on a turn: no view change as it is let go');
+  I.raw.pads[0] = pad(0, { pressed: [11] }); step(b, 90); I.raw.pads[0] = pad(0); step(b);
+  assert.ok(!b.tap('view'), 'held past the release window: no view change');
+});
+test('[ and ] turn the camera; V cycles the view; each in both contexts', () => {
+  const I = fakeInput(), b = new Bindings(I);
+  for (const ctx of ['onFoot', 'vehicle']) {
+    b.setContext(ctx);
+    I.held.add('BracketLeft'); step(b); assert.ok(b.tap('turnLeft'), ctx); I.held.delete('BracketLeft'); step(b);
+    I.held.add('BracketRight'); step(b); assert.ok(b.tap('turnRight'), ctx); I.held.delete('BracketRight'); step(b);
+    I.held.add('KeyV'); step(b); assert.ok(b.tap('view'), ctx); I.held.delete('KeyV'); step(b);
+  }
+});
 test('movement comes from the stick and WASD, never the d-pad', () => {
   const I = fakeInput([pad(0, { pressed: [12] })]), b = new Bindings(I); b.setContext('onFoot'); step(b);
   assert.deepEqual(b.direction('onFoot'), [0, 0]);

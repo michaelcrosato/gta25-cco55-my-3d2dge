@@ -1,14 +1,15 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M2 in progress (the world layer, Lowtown, the street painter, the city renderer and the ISO cut-away are in;
-rotation, the speed zoom, day/night, the drawbridge and the measured walk-through are next). Blockers: none. The run started inside the planning
+Now: M2 in progress (in: the world layer, Lowtown, the street painter, the city renderer, the ISO cut-away, the quarter
+turn, the speed zoom, the clock and day/night in every view, night ISO inside budget; next: rain and the water
+shimmer, the drawbridge, the measured walk-through with screenshots). Blockers: none. The run started inside the planning
 session (DECISIONS D5).
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
 | M0 Bootstrap | done | see the acceptance log · `npm test` all steps pass (lint, boundary, vendor, goal-sync, dist current, 9 unit + sim, e2e smoke 6/6, engine check) |
 | M1 Core + spikes | done | core, input, attract loop (`c76395c`); S2 floor and scale (`064fcae`): GTM-PATCHes 1-3, floor chunks, the scale yard · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65; S1 depth renderer (`dda0356`): SIDE7, TOP, the Stage, the view lab · TOP 6.1-6.2 ms, SIDE7 11.3-11.9 ms with 41 rigs; S3 vehicle physics (`7039af1`): the handling suite, the pad, the replay round-trip; the frozen contracts, D10 budgets · 69 unit + sim tests, 2 e2e · `docs/media/m1/` |
-| M2 Lowtown + ISO | in progress | the world layer and Lowtown (builds in ~80 ms, validator clean on 3 seeds), the street painter, the city renderer, the cut-away (GTM-PATCH 1: `cutTop`) · 75 unit + sim tests · `docs/media/lowtown-map-sheet.png`, `docs/media/m2-cutaway-bank.png` |
+| M2 Lowtown + ISO | in progress | the world layer and Lowtown (builds in ~80 ms, validator clean on 3 seeds), the street painter, the city renderer, the cut-away (GTM-PATCH 1: `cutTop`) (`b781439`); the quarter turn (D12), the speed zoom, the clock and sky, GTM-PATCH 7 and MOTOR glows (D11) · night ISO 6.0 ms standing, 7.6 ms touring; TOP 6.6, MODE 7 11.6 · 83 unit + sim tests · `docs/media/lowtown-map-sheet.png`, `docs/media/m2-cutaway-bank.png` |
 | M3 On foot + combat | | |
 | M4 Vehicles | | |
 | M5 Roads, traffic, peds | | |

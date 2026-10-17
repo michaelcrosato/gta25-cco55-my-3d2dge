@@ -3,15 +3,17 @@
 // rebind conflict check spans one map. Here each context (onFoot, vehicle, menu, wheel, phone, photo) has its own map
 // of action -> codes, read every step from GTM-PATCH(4)'s input.raw, so a held button survives a context switch.
 //   Codes: key codes ('KeyE', 'Space', 'ShiftLeft'), 'Mouse0' / 'Mouse2', 'Pad<n>' (button n of the pad in use; 6 and 7
-//   are the analog triggers), 'LS<Dir>' / 'RS<Dir>' (a stick pushed past halfway: LSUp, RSLeft...), and chords
-//   'Pad10+Pad11' (both within the chord window).
+//   are the analog triggers), 'LS<Dir>' / 'RS<Dir>' (a stick pushed past halfway: LSUp, RSLeft...), chords
+//   'Pad10+Pad11' (both within the chord window), held modifiers 'Pad11>RSLeft' (RSLeft pressed while R3 is held) and
+//   release taps 'Pad11^' (R3 let go within the release window, unless it served as a modifier or a chord half).
 import { E } from '../engine.js';
 
 /** the standard gamepad layout, DualSense names: 0 ✕, 1 ○, 2 □, 3 △, 4 L1, 5 R1, 6 L2, 7 R2, 8 Create, 9 Options,
  *  10 L3, 11 R3, 12-15 d-pad up/down/left/right, 16 PS, 17 touchpad (Chromium) */
 const NAV = { up: ['Pad12', 'ArrowUp', 'KeyW', 'LSUp'], down: ['Pad13', 'ArrowDown', 'KeyS', 'LSDown'], left: ['Pad14', 'ArrowLeft', 'KeyA', 'LSLeft'], right: ['Pad15', 'ArrowRight', 'KeyD', 'LSRight'] };
-const SHARED = { view: ['Pad11', 'KeyV'], ability: ['Pad10+Pad11', 'KeyF'], phone: ['Pad12', 'KeyT'], switch: ['Pad13', 'KeyZ'],
-  map: ['Pad17', 'KeyM', 'Tab'], pause: ['Pad9', 'Escape'], photo: ['Pad8', 'KeyB'] };
+// R3 is the view button on release; held, a flick of the right stick turns the camera a quarter (ISO yaw, the MODE 7 rail)
+const SHARED = { view: ['Pad11^', 'KeyV'], turnLeft: ['Pad11>RSLeft', 'BracketLeft'], turnRight: ['Pad11>RSRight', 'BracketRight'],
+  ability: ['Pad10+Pad11', 'KeyF'], phone: ['Pad12', 'KeyT'], switch: ['Pad13', 'KeyZ'], map: ['Pad17', 'KeyM', 'Tab'], pause: ['Pad9', 'Escape'], photo: ['Pad8', 'KeyB'] };
 export const DEFAULT_BINDINGS = {
   onFoot: { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'],
     sprint: ['Pad0', 'ShiftLeft', 'ShiftRight'], jump: ['Pad2', 'Space'], roll: ['Pad1', 'KeyX'], interact: ['Pad3', 'KeyE'],
@@ -25,7 +27,7 @@ export const DEFAULT_BINDINGS = {
   wheel: { ...NAV, wheel: ['Pad4', 'KeyQ'], confirm: ['Pad0', 'Enter'], back: ['Pad1', 'Escape'] },
   phone: { ...NAV, confirm: ['Pad0', 'Enter', 'Space'], back: ['Pad1', 'Escape', 'Backspace', 'KeyT'] },
   photo: { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], zoomIn: ['Pad7', 'KeyE'], zoomOut: ['Pad6', 'KeyQ'],
-    view: ['Pad11', 'KeyV'], snap: ['Pad0', 'Space', 'Enter'], back: ['Pad1', 'Escape', 'Pad8', 'KeyB'] },
+    view: ['Pad11^', 'KeyV'], snap: ['Pad0', 'Space', 'Enter'], back: ['Pad1', 'Escape', 'Pad8', 'KeyB'] },
 };
 /** codes that may not be rebound: the menus and the browser keep them (the engine's BINDABLE rule, ENG:1047) */
 const LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt)/;
@@ -35,10 +37,11 @@ const TRIGGER = .35, STICK = .5;
 export class Bindings {
   /** input: the engine's game.input (GTM-PATCH(4) gives it .raw) */
   constructor(input, saved = null) {
-    this.input = input; this.context = 'onFoot'; this.chordWindow = .12;
+    this.input = input; this.context = 'onFoot'; this.chordWindow = .12; this.releaseWindow = .5;
     this.map = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
     if (saved) this._overlay(saved);
     this._down = new Set(); this._prev = new Set(); this._pressAt = {}; this._pending = []; this._taps = new Set(); this._chorded = new Set(); this.t = 0;
+    this._combos = new Set(); this._released = new Set(); this._modded = new Set();   // this step's modifier taps and release taps; modifiers spent this hold
   }
   _overlay(saved) { for (const [c, acts] of Object.entries(saved || {})) if (this.map[c]) for (const [a, codes] of Object.entries(acts)) if (Array.isArray(codes)) this.map[c][a] = codes.slice(); }
   /** the pad in use, raw ({ buttons, axes }) or null */
@@ -67,9 +70,20 @@ export class Bindings {
   /** read the devices: call once per step, before any controller reads an action */
   update(dt) {
     this.t += dt; const prev = this._prev; this._prev = this._down; this._down = prev; this._down.clear(); this._taps.clear();
-    const codes = new Set(); for (const c of Object.values(this.map)) for (const list of Object.values(c)) for (const code of list) for (const p of code.split('+')) codes.add(p);
+    const codes = new Set(); for (const c of Object.values(this.map)) for (const list of Object.values(c)) for (const code of list) for (const p of code.replace(/\^$/, '').split(/[+>]/)) codes.add(p);
     for (const c of codes) if (this.codeDown(c)) this._down.add(c);
     for (const c of this._down) if (!this._prev.has(c)) this._pressAt[c] = this.t;
+    // held modifiers: 'A>B' taps when B goes down while A is held (A is then spent: its release tap won't fire)
+    this._combos.clear(); this._released.clear();
+    for (const ctx of Object.values(this.map)) for (const list of Object.values(ctx)) for (const code of list) if (code.includes('>')) {
+      const [a, b] = code.split('>');
+      if (this._down.has(a) && this._down.has(b) && !this._prev.has(b)) { this._combos.add(code); this._modded.add(a); }
+    }
+    // release taps: let go within the release window, unless the button was spent as a modifier or a chord half
+    for (const c of this._prev) if (!this._down.has(c)) {
+      if (!this._modded.has(c) && !this._chorded.has(c) && this.t - (this._pressAt[c] ?? -9) <= this.releaseWindow + 1e-9) this._released.add(c);
+      this._modded.delete(c);
+    }
     // chords: both halves pressed within the window; a chord's halves don't also fire their own taps
     const fresh = c => this._down.has(c) && !this._prev.has(c);
     for (const ctx of Object.values(this.map)) for (const list of Object.values(ctx)) for (const code of list) if (code.includes('+')) {
@@ -88,11 +102,14 @@ export class Bindings {
   /** the codes bound to an action in the live context (or the one named) */
   codes(action, ctx = this.context) { return (this.map[ctx] && this.map[ctx][action]) || []; }
   /** is the action held? */
-  down(action, ctx) { return this.codes(action, ctx).some(c => c.includes('+') ? c.split('+').every(p => this._down.has(p)) : this._down.has(c)); }
-  /** was the action pressed this step? (a chord half waits out the chord window first) */
-  tap(action, ctx) { return this.codes(action, ctx).some(c => this._taps.has(c)); }
+  down(action, ctx) { return this.codes(action, ctx).some(c => /[+>]/.test(c) ? c.split(/[+>]/).every(p => this._down.has(p)) : this._down.has(c.replace(/\^$/, ''))); }
+  /** was the action pressed this step? (a chord half waits out the chord window first; a release tap fires as it is
+   *  let go; a held modifier's combo as its second code goes down) */
+  tap(action, ctx) { return this.codes(action, ctx).some(c => c.endsWith('^') ? this._released.has(c.slice(0, -1)) : c.includes('>') ? this._combos.has(c) : this._taps.has(c)); }
+  /** is a held modifier of the live context down (its second codes, the right stick for one, aren't free for aiming)? */
+  modifierHeld(ctx = this.context) { return Object.values(this.map[ctx] || {}).some(list => list.some(c => c.includes('>') && this._down.has(c.split('>')[0]))); }
   /** the action's analog value 0..1 (the strongest of its codes) */
-  value(action, ctx) { let v = 0; for (const c of this.codes(action, ctx)) v = Math.max(v, this.codeValue(c)); return v; }
+  value(action, ctx) { let v = 0; for (const c of this.codes(action, ctx)) v = Math.max(v, c.includes('>') ? (this._down.has(c.split('>')[0]) ? this.codeValue(c.split('>')[1]) : 0) : this.codeValue(c.replace(/\^$/, ''))); return v; }
   /** a direction from four actions (up/down/left/right) plus a stick: screen x right, y down, length <= 1 */
   direction(ctx = this.context, stick = 'LS') {
     let [x, y] = this.stick(stick);

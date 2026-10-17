@@ -1,15 +1,15 @@
 // The Proving Ground's vehicle pad (spike S3, PLAN.md 8.8): drive the Cortez (the vehicle bindings: throttle R2 / W,
 // brake and reverse L2 / S, steer the left stick / A D, handbrake R1 / Space), crash into the barriers, the lamps and the
 // parked cars, drift round the skidpad, climb the curb, cross grass and dirt. ?wet=1 wets the road; ?mode=auto drives a
-// lap of the pad by itself (screenshots, perf).
-import { E, def, get, FloorChunks, makeBody, collidePairs, drawBoxModel, carModel } from '../../motor/index.js';
+// lap of the pad by itself (screenshots, perf). The ISO camera zooms out with speed (SpeedZoom); ?zoom=.8 holds one zoom.
+import { E, def, get, FloorChunks, makeBody, collidePairs, drawBoxModel, carModel, SpeedZoom } from '../../motor/index.js';
 import { drawLamp } from './city-zones.js';
 
 def('provingZones', 'pad', {
   title: 'Vehicle pad',
   make(app) {
     const { game, views, human, links, stage } = app;
-    let map, floor, car, cars, wet, auto, wp, look;
+    let map, floor, car, cars, wet, auto, wp, look, zoom;
     const models = new Map(), modelFor = b => { const k = b.def.id + b.color; let m = models.get(k); if (!m) { m = carModel({ ...b.def.model, color: b.color }); models.set(k, m); } return m; };
     return {
       enter() {
@@ -21,7 +21,8 @@ def('provingZones', 'pad', {
         cars = [car, ...map.bays.map(([x, y, h], i) => { const b = makeBody('cortez', x, y, h); b.color = b.def.palette[1 + i % (b.def.palette.length - 1)]; return b; })];
         look = { roll: 0, pitch: 0 };
         game.cam.bounds = v => map.bounds(v);
-        game.setZoom(+(links.query.get('zoom') || .8));   // a driving zoom
+        const fixed = +links.query.get('zoom'); zoom = fixed ? null : new SpeedZoom();
+        game.setZoom(fixed || zoom.update(0, true, 0));   // a driving zoom: held, or by speed
         if (!game.headless) floor.warm(car.x, car.y, 400);
         return { map, floor };
       },
@@ -40,6 +41,7 @@ def('provingZones', 'pad', {
         car.step(dt, ctl, { map, wet });
         for (const b of cars) if (b !== car) b.step(dt, { throttle: 0, brake: .4, steer: 0, handbrake: true }, { map, wet });   // parked: in gear, handbrake on
         collidePairs(cars);
+        if (zoom) stage.zoomTo(zoom.update(dt, true, car.speed));
         game.focus(car.x, car.y, 12);
       },
       draw(r) {

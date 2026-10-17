@@ -4,7 +4,7 @@
 // player does, and hash tests drive Intents directly.
 /** every button an intent carries: down[name] while held, tap[name] in the step it was pressed */
 export const BUTTONS = ['sprint', 'jump', 'roll', 'crouch', 'attack', 'aim', 'interact', 'reload', 'ability', 'wheel',
-  'phone', 'map', 'pause', 'view', 'switch', 'horn', 'fire', 'nitro', 'handbrake', 'photo',
+  'phone', 'map', 'pause', 'view', 'turnLeft', 'turnRight', 'switch', 'horn', 'fire', 'nitro', 'handbrake', 'photo',
   'weaponPrev', 'weaponNext', 'radioPrev', 'radioNext'];
 
 export function makeIntent() {

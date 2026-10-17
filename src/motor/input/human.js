@@ -20,7 +20,7 @@ export class HumanController {
       I.move[0] = d[0]; I.move[1] = d[1];
     }
     // aim: the right stick (screen-relative) or the mouse's ground point
-    const rs = B.stick('RS');
+    const rs = B.modifierHeld() ? [0, 0] : B.stick('RS');   // (R3 held: the stick turns the camera instead)
     if (rs[0] || rs[1]) { const a = this.views.screenDirToGround(rs[0], rs[1]), l = Math.hypot(a[0], a[1]) || 1; I.aim = [a[0] / l, a[1] / l]; }
     else if (actor && this.game.input.lastDevice === 'mouse' && this.game.input.mouse.active) {
       const p = this.views.mouseGround();

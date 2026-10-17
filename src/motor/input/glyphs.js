@@ -59,6 +59,7 @@ export const glyphSet = style => get('glyphSets', style) || get('glyphSets', 'xb
 /** draw one code as a glyph at (x, y) (9 px tall); returns its width. style: the pad family; input: for key labels */
 export function drawGlyph(g, code, x, y, style = 'playstation', input = null) {
   const set = glyphSet(style);
+  if (code.endsWith('^')) return drawGlyph(g, code.slice(0, -1), x, y, style, input);   // (a release tap shows its button)
   let m = /^Pad(\d+)$/.exec(code);
   if (m) {
     const n = +m[1];
@@ -69,7 +70,7 @@ export function drawGlyph(g, code, x, y, style = 'playstation', input = null) {
     if (n >= 12 && n <= 15) return dpad(g, x, y, set.names[n]);
     return pill(g, x, y, set.names[n] || ('B' + n));
   }
-  if (code.includes('+')) { let w = 0; for (const [i, part] of code.split('+').entries()) { if (i) w += pill(g, x + w, y, '+', '#f4f0ff', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)') - 2; w += drawGlyph(g, part, x + w, y, style, input); } return w; }
+  if (/[+>]/.test(code)) { let w = 0; for (const [i, part] of code.split(/[+>]/).entries()) { if (i) w += pill(g, x + w, y, '+', '#f4f0ff', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)') - 2; w += drawGlyph(g, part, x + w, y, style, input); } return w; }
   m = /^(LS|RS)(Up|Down|Left|Right)?$/.exec(code);
   if (m) return stickIcon(g, x, y, m[1][0], m[2]);
   if (code === 'Mouse0' || code === 'Mouse2') return pill(g, x, y, code === 'Mouse0' ? 'LMB' : 'RMB');
@@ -78,9 +79,10 @@ export function drawGlyph(g, code, x, y, style = 'playstation', input = null) {
 }
 /** how wide drawGlyph would draw a code (layout before drawing) */
 export function glyphWidth(code, style = 'playstation', input = null) {
+  if (code.endsWith('^')) return glyphWidth(code.slice(0, -1), style, input);
   const set = glyphSet(style), m = /^Pad(\d+)$/.exec(code);
   if (m) { const n = +m[1]; return n <= 3 || (n >= 12 && n <= 15) ? 10 : Math.max(9, E.font.width(set.names[n] || 'B' + n) + 6) + 1; }
-  if (code.includes('+')) return code.split('+').reduce((w, p, i) => w + glyphWidth(p, style, input) + (i ? Math.max(9, E.font.width('+') + 6) - 1 : 0), 0);
+  if (/[+>]/.test(code)) return code.split(/[+>]/).reduce((w, p, i) => w + glyphWidth(p, style, input) + (i ? Math.max(9, E.font.width('+') + 6) - 1 : 0), 0);
   if (/^(LS|RS)/.test(code)) return 10;
   const label = code === 'Mouse0' ? 'LMB' : code === 'Mouse2' ? 'RMB' : input && input.codeLabel ? input.codeLabel(code) : code.replace(/^Key|^Digit/, '');
   return Math.max(9, E.font.width(label.toUpperCase()) + 6) + 1;

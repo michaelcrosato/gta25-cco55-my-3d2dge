@@ -17,7 +17,13 @@ export const SCENARIOS = {
   'views-side7': { hash: '#proving/views', query: 'perf=1&view=side7', what: 'the view lab in SIDE-SCROLL MODE 7, a lap at 300 u/s' },
   'scale-side7': { hash: '#proving/scale', query: 'perf=1&view=side7', what: 'the 160x160 scale yard lap in SIDE-SCROLL MODE 7 (no walkers)' },
   'scale-top': { hash: '#proving/scale', query: 'perf=1&view=top', what: 'the 160x160 scale yard lap in TOP-DOWN (no walkers)' },
-  'pad-iso': { hash: '#proving/pad', query: 'perf=1&mode=auto', what: 'the vehicle pad: the Cortez driving itself, 4 parked cars, ISO at zoom .8' },
+  'pad-iso': { hash: '#proving/pad', query: 'perf=1&mode=auto&zoom=0.8', what: 'the vehicle pad: the Cortez driving itself, 4 parked cars, ISO at zoom .8' },
+  'lowtown-walk': { hash: '#play/bank-door', query: 'perf=1&time=night', what: 'Lowtown at night in ISO, standing at the First Lowtown Bank (Neon Mile)' },
+  'lowtown-tour': { hash: '#play', query: 'perf=1&tour=1&time=night', what: 'Lowtown at night in ISO: the tour through all four neighbourhoods at 300 u/s' },
+  'lowtown-tour-day': { hash: '#play', query: 'perf=1&tour=1&time=day', what: 'the Lowtown tour by day in ISO (no lighting pass)' },
+  'lowtown-tour-top': { hash: '#play', query: 'perf=1&tour=1&time=night&view=top', what: 'the Lowtown tour at night in TOP-DOWN' },
+  'lowtown-tour-side7': { hash: '#play', query: 'perf=1&tour=1&time=night&view=side7', what: 'the Lowtown tour at night in SIDE-SCROLL MODE 7' },
+  'pad-iso-speedzoom': { hash: '#proving/pad', query: 'perf=1&mode=auto', what: 'the vehicle pad lap with the speed zoom stepping between .8 and .65' },
 };
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const q = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : 0; };
@@ -36,7 +42,7 @@ export async function measure(name, { seconds = 12, warm = 3 } = {}) {
     const p = await page.evaluate(() => window.__gtm.perf()), buf = await page.evaluate(() => [window.__gtm.game.screen.W, window.__gtm.game.screen.H]);
     const upd = p.update.slice(skip), ren = p.render.slice(skip);
     return { scenario: name, what: sc.what, buffer: buf.join('x'), frames: ren.length, fps: +(ren.length / seconds).toFixed(1),
-      renderMs: { median: q(ren, .5), p90: q(ren, .9), p99: q(ren, .99) }, updateMs: { median: q(upd, .5), p90: q(upd, .9), p99: q(upd, .99) },
+      renderMs: { median: q(ren, .5), p90: q(ren, .9), p99: q(ren, .99), max: Math.max(0, ...ren), over33: ren.filter(v => v > 33).length }, updateMs: { median: q(upd, .5), p90: q(upd, .9), p99: q(upd, .99) },
       floor: p.floor, walls: p.walls, solids: p.solids, errors };
   } finally { await browser.close(); }
 }

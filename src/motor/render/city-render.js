@@ -40,15 +40,22 @@ export class CityRenderer {
     const under = player && this.city.deckAt(player[0], player[1], 1e9); const fade = under && under.z > (player[2] || 0) + 24 ? player : null;
     for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) {
       const k = j * 64 + i;
-      for (const p of this.props.get(k) || []) this._prop(stage, p, night);
-      for (const dc of this.deckCells.get(k) || []) this._deck(stage, dc, fade);
+      for (const p of this.props.get(k) || []) if (stage.onScreen(p.x, p.y, p.z || 0, (p.z || 0) + (p.top || 60), 24)) this._prop(stage, p, night);
+      for (const dc of this.deckCells.get(k) || []) { const c = dc.c, z = Math.max(c.z0, c.z1); if (stage.onScreen((c.cx + .5) * T, (c.cy + .5) * T, z - dc.d.thickness, z + 8, 12)) this._deck(stage, dc, fade); }
     }
-    for (const s of this.signs) if (Math.abs(s.x - fx) < radius && Math.abs(s.y - fy) < radius) stage.shape(s.x, s.y, s.z, (g, P) => drawSign(g, P, s, night), { emissive: true, bias: .01 });
+    for (const s of this.signs) if (Math.abs(s.x - fx) < radius && Math.abs(s.y - fy) < radius && stage.onScreen(s.x, s.y, s.z, s.z, 48)) {
+      stage.shape(s.x, s.y, s.z, (g, P) => drawSign(g, P, s, night), { bias: .01 });
+      if (night) stage.glow(s.x, s.y, s.z, (g, sx, sy, k) => { const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * .75)), true); g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2)); }, { iso: true });   // (neon: lit after the dark)
+    }
   }
   _prop(stage, p, night) {
     if (p.kind === 'pillar') { stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, PILLAR(p.top), p.x, p.y, 0, 0)); return; }
     const spr = SPRITES[p.kind];
-    if (spr) { stage.prop(spr, p.x, p.y, p.z || 0, { light: night && p.kind === 'lamp', lightRadius: 64, size: p.kind === 'palm' ? 1.3 : 1 }); return; }
+    if (spr) {
+      const lamp = p.kind === 'lamp'; stage.prop(spr, p.x, p.y, p.z || 0, { light: night && lamp, halo: false, lightRadius: 88, size: p.kind === 'palm' ? 1.3 : 1 });
+      if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow);
+      return;
+    }
     const m = PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0));
   }
   _deck(stage, { d, c, map }, fade) {
@@ -56,6 +63,18 @@ export class CityRenderer {
     const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72;
     stage.shape(x, y, z, (g, P) => drawDeckCell(g, P, d, c, map, near ? .3 : 1));
   }
+}
+const LAMP_HEAD = 32;   // the streetlamp sprite's lamp, in world units over its foot (its glowAt: .13 of 52 pixels down, at sqrt 2 a unit)
+const GLOWS = new Map();
+/** a lamp's halo: two soft warm discs, added (one image per size) */
+function lampGlow(g, sx, sy, k) {
+  const R = Math.max(7, Math.round(12 * k)), key = R; let cv = GLOWS.get(key);
+  if (!cv) {
+    cv = E.mkCanvas(R * 2 + 2, R * 2 + 2); const c = E.ctx2d(cv), gr = c.createRadialGradient(R + 1, R + 1, 0, R + 1, R + 1, R);
+    gr.addColorStop(0, 'rgba(255,252,232,1)'); gr.addColorStop(.18, 'rgba(255,240,190,.9)'); gr.addColorStop(.42, 'rgba(255,226,150,.42)'); gr.addColorStop(.75, 'rgba(255,210,130,.12)'); gr.addColorStop(1, 'rgba(255,200,120,0)');
+    c.fillStyle = gr; c.fillRect(0, 0, cv.width, cv.height); GLOWS.set(key, cv);
+  }
+  const op = g.globalCompositeOperation; g.globalCompositeOperation = 'lighter'; g.drawImage(cv, Math.round(sx - R - 1), Math.round(sy - R - 1)); g.globalCompositeOperation = op;
 }
 const PILLARS = new Map();
 function PILLAR(top) { let m = PILLARS.get(top); if (!m) { m = { parts: [box(-3, -3, 0, 3, 3, top, '#7a7a82')] }; PILLARS.set(top, m); } return m; }
@@ -119,9 +138,17 @@ function placeSign(C, s) {
  *  the view, never below the font's own size) */
 export function drawSign(g, P, s, night) {
   const p = P.proj(s.x, s.y, s.z); if (!p) return;
-  const k = Math.max(1, Math.round(p[2] * .75)), text = s.text, w = E.font.width(text, { scale: k }) + 6, h = 7 * k + 4, x = Math.round(p[0] - w / 2), y = Math.round(p[1] - h / 2);
-  g.fillStyle = 'rgba(10,8,20,.85)'; g.fillRect(x, y, w, h);
-  g.fillStyle = s.color; g.globalAlpha = night ? .35 : .15; g.fillRect(x - 2, y - 2, w + 4, h + 4); g.globalAlpha = 1;
-  E.font.text(g, text, x + 3, y + 2, night ? s.color : E.shade(s.color, -.2), { scale: k });
-  g._c = null;
+  const k = Math.max(1, Math.round(p[2] * .75)), cv = signImage(s.text, s.color, k, night);
+  g.drawImage(cv, Math.round(p[0] - cv.width / 2), Math.round(p[1] - cv.height / 2));
+}
+const SIGNS = new Map();
+/** a sign's board, drawn once per text, colour, size and lighting (the pixel font is slow to draw every frame) */
+function signImage(text, color, k, night) {
+  const key = text + '|' + color + '|' + k + '|' + (night ? 1 : 0); let cv = SIGNS.get(key); if (cv) return cv;
+  const w = E.font.width(text, { scale: k }) + 6, h = 7 * k + 4; cv = E.mkCanvas(w + 4, h + 4); const g = E.ctx2d(cv);
+  g.fillStyle = color; g.globalAlpha = night ? .35 : .15; g.fillRect(0, 0, w + 4, h + 4); g.globalAlpha = 1;
+  g.fillStyle = 'rgba(10,8,20,.85)'; g.clearRect(2, 2, w, h); g.fillRect(2, 2, w, h);
+  E.font.text(g, text, 5, 4, night ? color : E.shade(color, -.2), { scale: k });
+  if (SIGNS.size > 200) SIGNS.clear();
+  SIGNS.set(key, cv); return cv;
 }

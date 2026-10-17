@@ -50,9 +50,7 @@ function cityZone(id, size, nWalkers) {
             const I = human.update('onFoot', hero);
             hero.update(dt, map, { move: I.move, sprint: I.down.sprint, jumpPressed: I.tap.jump });
             if (I.tap.view) views.next();
-            // [ and ] turn the camera a quarter (M2 binds R3 held with a flick): the rail in MODE 7, the yaw in ISO
-            const turn = (game.input.raw.pressed.has('BracketRight') ? 1 : 0) - (game.input.raw.pressed.has('BracketLeft') ? 1 : 0);
-            if (turn) { if (stage.depth === stage.side7) stage.side7.setHeading(stage.side7.heading + 90 * turn, hero.x, hero.y); else if (!stage.depth) game.rotateView(90 * turn); }
+            if (I.tap.turnLeft || I.tap.turnRight) stage.turn(I.tap.turnRight ? 1 : -1);   // ([ ] or R3 held with a flick: the yaw in ISO, the rail in MODE 7)
           } else {
             // the lap: straight legs between the route's corners at car speed (the floor and walls stream as it goes)
             const to = map.route[(leg + 1) % map.route.length], dx = to[0] - hero.x, dy = to[1] - hero.y, d = Math.hypot(dx, dy), step = SPEED * dt;

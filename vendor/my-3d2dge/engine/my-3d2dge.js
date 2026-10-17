@@ -1295,8 +1295,11 @@ class Lighting {
   heat(x, y, z, width, strength = 1) { this._heats.push({ x, y, z, w: width, s: strength }); }
   /** darken the frame by the lights (the renderer calls it after the queue, when enabled) */
   render(r) {
-    const W = r.bw, H = r.bh, n = W * H, al = E.style.trans !== 'dither';
-    if (!this._I || this._I.length !== n) {
+    // GTM-PATCH(7): lights.res = 2 (or 3, 4) works the light field out on a grid that much coarser (a quarter of the
+    // pixels at 2) and scales the dark and the lights' colours up smoothly over the frame; 1, the default, is the
+    // engine's own, pixel for pixel. W, H are the field's size; S the buffer pixels per field cell; hs a cell's centre
+    const al = E.style.trans !== 'dither', S = al && this.res > 1 ? Math.min(4, this.res | 0) : 1, hs = (S - 1) / 2, W = Math.ceil(r.bw / S), H = Math.ceil(r.bh / S), n = W * H;
+    if (!this._I || this._I.length !== n || this._cv.width !== W) {
       this._I = new Float32Array(n); this._cv.width = W; this._cv.height = H;
       this._img = this._g.createImageData(W, H); this._u32 = new Uint32Array(this._img.data.buffer);
       this._CR = new Float32Array(n); this._CG = new Float32Array(n); this._CB = new Float32Array(n);
@@ -1314,16 +1317,17 @@ class Lighting {
         x0 = Math.min(x0, s[0]); x1 = Math.max(x1, s[0]); y0 = Math.min(y0, s[1]); y1 = Math.max(y1, s[1]);
       }
       if (!inv) { const s = view.p(L.x, L.y, L.z), rr = R * view.scale; x0 = s[0] - rr; x1 = s[0] + rr; y0 = s[1] - rr; y1 = s[1] + rr; }
-      const X0 = Math.max(0, Math.floor(x0 - ix)), X1 = Math.min(W - 1, Math.ceil(x1 - ix)), Y0 = Math.max(0, Math.floor(y0 - iy)), Y1 = Math.min(H - 1, Math.ceil(y1 - iy));
+      const X0 = Math.max(0, Math.floor((x0 - ix) / S)), X1 = Math.min(W - 1, Math.ceil((x1 - ix) / S)), Y0 = Math.max(0, Math.floor((y0 - iy) / S)), Y1 = Math.min(H - 1, Math.ceil((y1 - iy) / S));
       if (X0 > X1 || Y0 > Y1) continue;
       if (inv) {
+        const sx0 = X0 * S + hs + ix, ex = inv[0] * S, ey = inv[2] * S;
         for (let py = Y0; py <= Y1; py++) {
-          const sy = py + iy; let gx = inv[0] * (X0 + ix) + inv[1] * sy - L.x, gy = inv[2] * (X0 + ix) + inv[3] * sy - L.y, k = py * W + X0;
-          for (let pxx = X0; pxx <= X1; pxx++, k++, gx += inv[0], gy += inv[2]) { const d2 = gx * gx + gy * gy; if (d2 < R2) { const f = (1 - d2 / R2) * L.i; I[k] += f; if (al) { CR[k] += f * cr; CG[k] += f * cg; CB[k] += f * cb; } } }
+          const sy = py * S + hs + iy; let gx = inv[0] * sx0 + inv[1] * sy - L.x, gy = inv[2] * sx0 + inv[3] * sy - L.y, k = py * W + X0;
+          for (let pxx = X0; pxx <= X1; pxx++, k++, gx += ex, gy += ey) { const d2 = gx * gx + gy * gy; if (d2 < R2) { const f = (1 - d2 / R2) * L.i; I[k] += f; if (al) { CR[k] += f * cr; CG[k] += f * cg; CB[k] += f * cb; } } }
         }
       } else {
         const s = view.p(L.x, L.y, L.z), rr = R * view.scale, rr2 = rr * rr;
-        for (let py = Y0; py <= Y1; py++) for (let pxx = X0; pxx <= X1; pxx++) { const dx = pxx + ix - s[0], dy = py + iy - s[1], d2 = dx * dx + dy * dy; if (d2 < rr2) { const k = py * W + pxx, f = (1 - d2 / rr2) * L.i; I[k] += f; if (al) { CR[k] += f * cr; CG[k] += f * cg; CB[k] += f * cb; } } }
+        for (let py = Y0; py <= Y1; py++) for (let pxx = X0; pxx <= X1; pxx++) { const dx = pxx * S + hs + ix - s[0], dy = py * S + hs + iy - s[1], d2 = dx * dx + dy * dy; if (d2 < rr2) { const k = py * W + pxx, f = (1 - d2 / rr2) * L.i; I[k] += f; if (al) { CR[k] += f * cr; CG[k] += f * cg; CB[k] += f * cb; } } }
       }
     }
     const u = this._u32, cols = this._cols, NL = this.levels.length - 1;
@@ -1331,7 +1335,10 @@ class Lighting {
       // PS1-style lighting: a smooth cool darkness where light is weak, then the lights' own colors added on top
       const d = this.dark, maxA = this.darkness === undefined ? .9 : this.darkness, base = (d[2] << 16) | (d[1] << 8) | d[0], u2 = this._u32b, tint = (this.tint === undefined ? .32 : this.tint) * 255;
       let lit = false;
-      const q = x => Math.round((1 - Math.exp(-x)) * tint / 8) * 8;   // saturates: overlapping lights warm a surface, they never bleach it white
+      // saturates: overlapping lights warm a surface, they never bleach it white. GTM-PATCH(7): the curve from a table
+      // made once per tint (1/128 steps up to 8, then flat), not Math.exp three times for every lit pixel of every frame
+      if (this._qT !== tint) { this._qT = tint; const L = this._qL || (this._qL = new Uint8Array(1025)); for (let i = 0; i <= 1024; i++) L[i] = Math.round((1 - Math.exp(-i / 128)) * tint / 8) * 8; }
+      const QL = this._qL, q = x => QL[x >= 8 ? 1024 : (x * 128) | 0];
       for (let k = 0; k < n; k++) {
         const v = I[k];
         const a8 = v >= 1 ? 0 : Math.min(255, Math.round((1 - Math.max(0, v)) * maxA * 16) * 16);
@@ -1341,8 +1348,10 @@ class Lighting {
         lit = true;
         u2[k] = (255 << 24 | q(bb) << 16 | q(gg) << 8 | q(rr)) >>> 0;
       }
-      this._g.putImageData(this._img, 0, 0); r.ctx.drawImage(this._cv, 0, 0);
-      if (lit) { this._g2.putImageData(this._img2, 0, 0); const c = r.ctx; c.save(); c.globalCompositeOperation = 'lighter'; c.drawImage(this._cv2, 0, 0); c.restore(); }
+      const c = r.ctx; c.save(); if (S > 1) c.imageSmoothingEnabled = true;
+      this._g.putImageData(this._img, 0, 0); c.drawImage(this._cv, 0, 0, W * S, H * S);
+      if (lit) { this._g2.putImageData(this._img2, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(this._cv2, 0, 0, W * S, H * S); }
+      c.restore();
       return;
     }
     for (let py = 0, k = 0; py < H; py++) for (let pxx = 0; pxx < W; pxx++, k++) {

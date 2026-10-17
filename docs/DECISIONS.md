@@ -102,3 +102,37 @@ and where it landed.
   - The present (the upscale to the screen, and the raster of the frame's queued drawing) is 3-7 ms in this GPU-less
     browser and near zero on a real GPU. The gates keep it in, as the worst case.
 - **Answered:** no. **Landed in:** M1.
+
+## D11 · 2026-10-17 · Night in ISO: GTM-PATCH 7 for the lighting, and MOTOR's own glows instead of the engine's glow mask
+- **Principle:** budgets come from measurement (PLAN.md 7.11); patch only where an extension can't reach (PLAN.md 12).
+- **What was measured:** Lowtown at night in ISO drew in 24.4 ms standing at the bank and 22.9 ms on the tour (the
+  budget is 10.4). `lights.render` cost 8.2 ms (its tint curve alone, `Math.exp` three times a lit pixel, 17% of the
+  frame); the engine's glow mask, which redraws every glow after the dark and masks it behind whatever stands in
+  front, cost three full-frame composites (about 3 ms in this GPU-less browser); and the city renderer queued 1,626
+  deck slabs a frame, almost all off screen (7.1 ms).
+- **Call:**
+  - GTM-PATCH 7 (not in the plan's list of six; 5 is still audio, 6 still unneeded): a light-field table for the
+    tint, and `lights.res`, the light field on a grid twice as coarse, scaled up smoothly. `TUNE.lightRes` is 2.
+  - Lamp halos and neon are MOTOR glows (`stage.glow`): drawn after the lights in an overlay, each only where no wall
+    drawn this frame stands in front of it (checked down the screen from the point against the walls' drawn heights,
+    the cut-away included). Nothing is queued as emissive, so the engine never builds its mask. A glow is all or
+    nothing: one half behind a corner shows whole (rare at these sizes). Turning the mask off instead let halos float
+    over rooftops.
+  - The city renderer culls to the screen (`stage.onScreen`); sign boards are drawn once per size and blitted.
+- **Result:** 6.0 ms standing and 7.6 ms on the tour at night (p99 15.8); 5.7 ms by day. TOP 6.6 ms, MODE 7 11.6 ms
+  on the night tour.
+- **Known gap:** the canvas light has no heights, so roofs catch pools from the street behind them (a light patch,
+  or a dark one where no lamp reaches). The GPU path's height buffer is the lever if it reads badly in the
+  neighbourhood screenshots.
+- **Answered:** no. **Landed in:** M2.
+
+## D12 · 2026-10-17 · The ISO quarter turn orbits, with flat blocks while it turns
+- **Principle:** the plan's reason, not its letter. PLAN.md 5.1 says never rotate continuously, because every new yaw
+  re-bakes every wall block.
+- **Call:** a quarter turn orbits the camera in 3° steps for 0.3 s, but the walls are drawn as flat-shaded boxes (one
+  `r.box` a building lot, at its cut-away height) while it turns, so nothing bakes at the in-between yaws. The final
+  yaw's wall blocks bake within a time budget during the orbit (9 ms a frame, 14 while it waits at the end; a fresh
+  screenful is about 120-145 ms of baking), and the textured walls return when they are ready, or after 0.45 s at
+  most. An image-space turn of the last frame was tried first: rotating the ground plane under ISO's projection
+  smears everything upright into streaks.
+- **Answered:** no. **Landed in:** M2.

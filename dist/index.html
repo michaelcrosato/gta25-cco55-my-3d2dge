@@ -1333,8 +1333,11 @@ class Lighting {
   heat(x, y, z, width, strength = 1) { this._heats.push({ x, y, z, w: width, s: strength }); }
   /** darken the frame by the lights (the renderer calls it after the queue, when enabled) */
   render(r) {
-    const W = r.bw, H = r.bh, n = W * H, al = E.style.trans !== 'dither';
-    if (!this._I || this._I.length !== n) {
+    // GTM-PATCH(7): lights.res = 2 (or 3, 4) works the light field out on a grid that much coarser (a quarter of the
+    // pixels at 2) and scales the dark and the lights' colours up smoothly over the frame; 1, the default, is the
+    // engine's own, pixel for pixel. W, H are the field's size; S the buffer pixels per field cell; hs a cell's centre
+    const al = E.style.trans !== 'dither', S = al && this.res > 1 ? Math.min(4, this.res | 0) : 1, hs = (S - 1) / 2, W = Math.ceil(r.bw / S), H = Math.ceil(r.bh / S), n = W * H;
+    if (!this._I || this._I.length !== n || this._cv.width !== W) {
       this._I = new Float32Array(n); this._cv.width = W; this._cv.height = H;
       this._img = this._g.createImageData(W, H); this._u32 = new Uint32Array(this._img.data.buffer);
       this._CR = new Float32Array(n); this._CG = new Float32Array(n); this._CB = new Float32Array(n);
@@ -1352,16 +1355,17 @@ class Lighting {
         x0 = Math.min(x0, s[0]); x1 = Math.max(x1, s[0]); y0 = Math.min(y0, s[1]); y1 = Math.max(y1, s[1]);
       }
       if (!inv) { const s = view.p(L.x, L.y, L.z), rr = R * view.scale; x0 = s[0] - rr; x1 = s[0] + rr; y0 = s[1] - rr; y1 = s[1] + rr; }
-      const X0 = Math.max(0, Math.floor(x0 - ix)), X1 = Math.min(W - 1, Math.ceil(x1 - ix)), Y0 = Math.max(0, Math.floor(y0 - iy)), Y1 = Math.min(H - 1, Math.ceil(y1 - iy));
+      const X0 = Math.max(0, Math.floor((x0 - ix) / S)), X1 = Math.min(W - 1, Math.ceil((x1 - ix) / S)), Y0 = Math.max(0, Math.floor((y0 - iy) / S)), Y1 = Math.min(H - 1, Math.ceil((y1 - iy) / S));
       if (X0 > X1 || Y0 > Y1) continue;
       if (inv) {
+        const sx0 = X0 * S + hs + ix, ex = inv[0] * S, ey = inv[2] * S;
         for (let py = Y0; py <= Y1; py++) {
-          const sy = py + iy; let gx = inv[0] * (X0 + ix) + inv[1] * sy - L.x, gy = inv[2] * (X0 + ix) + inv[3] * sy - L.y, k = py * W + X0;
-          for (let pxx = X0; pxx <= X1; pxx++, k++, gx += inv[0], gy += inv[2]) { const d2 = gx * gx + gy * gy; if (d2 < R2) { const f = (1 - d2 / R2) * L.i; I[k] += f; if (al) { CR[k] += f * cr; CG[k] += f * cg; CB[k] += f * cb; } } }
+          const sy = py * S + hs + iy; let gx = inv[0] * sx0 + inv[1] * sy - L.x, gy = inv[2] * sx0 + inv[3] * sy - L.y, k = py * W + X0;
+          for (let pxx = X0; pxx <= X1; pxx++, k++, gx += ex, gy += ey) { const d2 = gx * gx + gy * gy; if (d2 < R2) { const f = (1 - d2 / R2) * L.i; I[k] += f; if (al) { CR[k] += f * cr; CG[k] += f * cg; CB[k] += f * cb; } } }
         }
       } else {
         const s = view.p(L.x, L.y, L.z), rr = R * view.scale, rr2 = rr * rr;
-        for (let py = Y0; py <= Y1; py++) for (let pxx = X0; pxx <= X1; pxx++) { const dx = pxx + ix - s[0], dy = py + iy - s[1], d2 = dx * dx + dy * dy; if (d2 < rr2) { const k = py * W + pxx, f = (1 - d2 / rr2) * L.i; I[k] += f; if (al) { CR[k] += f * cr; CG[k] += f * cg; CB[k] += f * cb; } } }
+        for (let py = Y0; py <= Y1; py++) for (let pxx = X0; pxx <= X1; pxx++) { const dx = pxx * S + hs + ix - s[0], dy = py * S + hs + iy - s[1], d2 = dx * dx + dy * dy; if (d2 < rr2) { const k = py * W + pxx, f = (1 - d2 / rr2) * L.i; I[k] += f; if (al) { CR[k] += f * cr; CG[k] += f * cg; CB[k] += f * cb; } } }
       }
     }
     const u = this._u32, cols = this._cols, NL = this.levels.length - 1;
@@ -1369,7 +1373,10 @@ class Lighting {
       // PS1-style lighting: a smooth cool darkness where light is weak, then the lights' own colors added on top
       const d = this.dark, maxA = this.darkness === undefined ? .9 : this.darkness, base = (d[2] << 16) | (d[1] << 8) | d[0], u2 = this._u32b, tint = (this.tint === undefined ? .32 : this.tint) * 255;
       let lit = false;
-      const q = x => Math.round((1 - Math.exp(-x)) * tint / 8) * 8;   // saturates: overlapping lights warm a surface, they never bleach it white
+      // saturates: overlapping lights warm a surface, they never bleach it white. GTM-PATCH(7): the curve from a table
+      // made once per tint (1/128 steps up to 8, then flat), not Math.exp three times for every lit pixel of every frame
+      if (this._qT !== tint) { this._qT = tint; const L = this._qL || (this._qL = new Uint8Array(1025)); for (let i = 0; i <= 1024; i++) L[i] = Math.round((1 - Math.exp(-i / 128)) * tint / 8) * 8; }
+      const QL = this._qL, q = x => QL[x >= 8 ? 1024 : (x * 128) | 0];
       for (let k = 0; k < n; k++) {
         const v = I[k];
         const a8 = v >= 1 ? 0 : Math.min(255, Math.round((1 - Math.max(0, v)) * maxA * 16) * 16);
@@ -1379,8 +1386,10 @@ class Lighting {
         lit = true;
         u2[k] = (255 << 24 | q(bb) << 16 | q(gg) << 8 | q(rr)) >>> 0;
       }
-      this._g.putImageData(this._img, 0, 0); r.ctx.drawImage(this._cv, 0, 0);
-      if (lit) { this._g2.putImageData(this._img2, 0, 0); const c = r.ctx; c.save(); c.globalCompositeOperation = 'lighter'; c.drawImage(this._cv2, 0, 0); c.restore(); }
+      const c = r.ctx; c.save(); if (S > 1) c.imageSmoothingEnabled = true;
+      this._g.putImageData(this._img, 0, 0); c.drawImage(this._cv, 0, 0, W * S, H * S);
+      if (lit) { this._g2.putImageData(this._img2, 0, 0); c.globalCompositeOperation = 'lighter'; c.drawImage(this._cv2, 0, 0, W * S, H * S); }
+      c.restore();
       return;
     }
     for (let py = 0, k = 0; py < H; py++) for (let pxx = 0; pxx < W; pxx++, k++) {
@@ -8807,6 +8816,7 @@ root.My3D2dge = E;
   __export(motor_exports, {
     Activity: () => Activity,
     Actor: () => Actor,
+    BACKDROPS: () => BACKDROPS,
     BUS: () => BUS,
     BUTTONS: () => BUTTONS,
     Bindings: () => Bindings,
@@ -8829,11 +8839,14 @@ root.My3D2dge = E;
     SURFACES: () => SURFACES,
     SURFACE_GRIP: () => SURFACE_GRIP,
     Spans: () => Spans,
+    SpeedZoom: () => SpeedZoom,
     Stage: () => Stage,
     SurfacePainter: () => SurfacePainter,
+    TIMES: () => TIMES,
     TUNE: () => TUNE,
     VehicleBody: () => VehicleBody,
     ViewManager: () => ViewManager,
+    WorldClock: () => WorldClock,
     all: () => all,
     buildCity: () => buildCity,
     buildDistrict: () => buildDistrict,
@@ -8875,6 +8888,7 @@ root.My3D2dge = E;
     route: () => route,
     sections: () => sections,
     shape: () => shape,
+    skyAt: () => skyAt,
     tapButton: () => tapButton,
     tuneLoad: () => tuneLoad,
     tuneReset: () => tuneReset,
@@ -9930,20 +9944,27 @@ root.My3D2dge = E;
     constructor(city) {
       this.city = city;
       this.cut = /* @__PURE__ */ new Set();
-      this.on = false;
+      this.sets = /* @__PURE__ */ new Map();
       this.radius = 13;
       city.map.cutAt = (cx, cy, view) => {
-        if (!this.on || !view.inv || view.isTop) return false;
+        const set = view.inv && !view.isTop ? this.sets.get(view) : null;
+        if (!set) return false;
         const lot = city.lot[cy * city.w + cx];
-        return lot >= 0 && this.cut.has(lot);
+        return lot >= 0 && set.has(lot);
       };
     }
-    /** pick the buildings that hide a body at (x, y, z) in the engine view: wall cells in front of it (nearer the camera)
-     *  whose drawn box covers its sprite on screen. Call each ISO frame, before the walls are queued */
+    /** this frame's cut for the view being drawn, round a body at (x, y, z). Call each ISO frame, before the walls are
+     *  queued; it forgets the cuts of other views */
     update(view, x, y, z = 0) {
-      this.cut.clear();
-      this.on = !!view.inv && !view.isTop;
-      if (!this.on) return;
+      this.sets.clear();
+      this.cut = this.also(view, x, y, z);
+      return this.cut;
+    }
+    /** the cut for another view this frame (one being prebaked), kept beside the drawn view's */
+    also(view, x, y, z = 0) {
+      const set = /* @__PURE__ */ new Set();
+      if (!view.inv || view.isTop) return set;
+      this.sets.set(view, set);
       const C = this.city, T5 = C.T, map = C.map, s = view.scale, own = view.fx * x + view.fy * y, [px, py] = view.p(x, y, z);
       const bx0 = px - 10 * s, bx1 = px + 10 * s, by0 = py - 40 * s, by1 = py + 2 * s;
       const cx0 = Math.floor(x / T5), cy0 = Math.floor(y / T5), R = this.radius;
@@ -9951,19 +9972,67 @@ root.My3D2dge = E;
         const id = map.cell(cx, cy);
         if (id <= 0) continue;
         const lot = C.lot[cy * C.w + cx];
-        if (lot < 0 || this.cut.has(lot)) continue;
+        if (lot < 0 || set.has(lot)) continue;
         const mx = (cx + 0.5) * T5, my = (cy + 0.5) * T5;
         if (view.fx * mx + view.fy * my <= own + 6) continue;
         const h = C.types[id].h, a = view.p(cx * T5, cy * T5, 0), b = view.p(cx * T5 + T5, cy * T5 + T5, 0), c = view.p(cx * T5 + T5, cy * T5, 0), d = view.p(cx * T5, cy * T5 + T5, 0);
         const sx0 = Math.min(a[0], b[0], c[0], d[0]), sx1 = Math.max(a[0], b[0], c[0], d[0]), sy1 = Math.max(a[1], b[1], c[1], d[1]), sy0 = Math.min(a[1], b[1], c[1], d[1]) + view.bz * h;
-        if (sx1 > bx0 && sx0 < bx1 && sy1 > by0 && sy0 < by1) this.cut.add(lot);
+        if (sx1 > bx0 && sx0 < bx1 && sy1 > by0 && sy0 < by1) set.add(lot);
       }
+      return set;
     }
   };
 
+  // src/motor/render/sky.js
+  var NIGHT = { ambient: 0.4, dark: [10, 6, 24], tint: 0.32, sky: ["#07081c", "#1c1a48", "#5a2a5a"], fog: "#2a1f3e", top: "#0a0812", phase: "night" };
+  var DAWN = { ambient: 0.66, dark: [44, 26, 52], tint: 0.22, sky: ["#2a2458", "#8a5a88", "#f0a088"], fog: "#9a7088", top: "#3a2a3a", phase: "dusk" };
+  var DAY = { ambient: 1, dark: [30, 30, 50], tint: 0, sky: ["#3a78d8", "#78b0ee", "#c8e4f8"], fog: "#a8c4e0", top: "#5a6a7a", phase: "day" };
+  var DUSK = { ambient: 0.62, dark: [48, 20, 44], tint: 0.26, sky: ["#1a1440", "#7a3a70", "#f0906a"], fog: "#8a5068", top: "#2a1a2a", phase: "dusk" };
+  var KEYS = [[0, NIGHT], [4.5, NIGHT], [6, DAWN], [7.5, DAY], [17.5, DAY], [19, DUSK], [20.5, NIGHT], [24, NIGHT]];
+  var BACKDROPS = {
+    night: "city-night",
+    dusk: {
+      sky: ["#1a1440", "#6a3a78", "#e0766a", "#f8c080"],
+      sun: { x: 0.3, y: 0.62, r: 16, color: "#ffd8a0" },
+      layers: [{ kind: "city", color: "#3a2448", y: 0.62, height: 0.42, parallax: 0.08, windows: "#ffd87a" }, { kind: "city", color: "#241634", y: 0.76, height: 0.36, parallax: 0.22, windows: "#ffb85a", seed: 7 }]
+    },
+    day: {
+      sky: ["#3a78d8", "#78b0ee", "#c8e4f8"],
+      sun: { x: 0.8, y: 0.18, r: 10, color: "#fff8d8" },
+      layers: [{ kind: "clouds", color: "#ffffff", y: 0.28, height: 0.16, parallax: 0.05, drift: 4 }, { kind: "city", color: "#7a88a8", y: 0.62, height: 0.42, parallax: 0.08 }, { kind: "city", color: "#5a6888", y: 0.76, height: 0.36, parallax: 0.22, seed: 7 }]
+    }
+  };
+  var mixHex = (a, b, t) => {
+    const p = E.hex(a), q = E.hex(b);
+    return "#" + p.map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, "0")).join("");
+  };
+  var ease = (t) => t * t * (3 - 2 * t);
+  function skyAt(hour) {
+    const h = (hour % 24 + 24) % 24;
+    let i = 0;
+    while (i < KEYS.length - 2 && KEYS[i + 1][0] <= h) i++;
+    const [h0, a] = KEYS[i], [h1, b] = KEYS[i + 1], t = ease(h1 > h0 ? (h - h0) / (h1 - h0) : 0);
+    const ambient = a.ambient + (b.ambient - a.ambient) * t;
+    return {
+      hour: h,
+      ambient,
+      tint: a.tint + (b.tint - a.tint) * t,
+      dark: a.dark.map((v, k) => Math.round(v + (b.dark[k] - v) * t)),
+      sky: a.sky.map((c, k) => mixHex(c, b.sky[k], t)),
+      fog: mixHex(a.fog, b.fog, t),
+      top: mixHex(a.top, b.top, t),
+      phase: t < 0.5 ? a.phase : b.phase,
+      lamps: ambient < 0.8,
+      night: ambient < 0.66
+    };
+  }
+
   // src/motor/render/stage.js
+  knob("Graphics", "lightRes", "Light field coarseness", 2, 1, 4, 1, "ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work");
   var CROWD = { outline: false, rim: false };
   var XRAY = { xray: true };
+  var TURN = { time: 0.3, most: 0.45, bakeMs: 9, holdMs: 14, step: 3 };
+  var ZOOM = { time: 0.25, most: 0.35, bakeMs: 9 };
   var Stage = class {
     /** game: the E.Game; views: the ViewManager (it learns the depth views here) */
     constructor(game2, views) {
@@ -9972,6 +10041,13 @@ root.My3D2dge = E;
       this.items = [];
       this.world = null;
       this.last = 0;
+      this.fx = null;
+      this.zx = null;
+      this.lamps = [];
+      this.glows = [];
+      this.backdrops = /* @__PURE__ */ new Map();
+      this.skyNow = null;
+      this._maxH = null;
       this.side7 = new Side7View({});
       this.top = new TopView({});
       for (const v of [this.top, this.side7]) views.addView({
@@ -10015,12 +10091,41 @@ root.My3D2dge = E;
       this.top.ready = false;
       this.side7.heading = 0;
     }
+    /** the hour's look (render/sky.js skyAt): the engine's canvas lighting and ISO's backdrop, MODE 7's sky and fog,
+     *  TOP's ground, and MOTOR's light pass in the depth views. Presentation only */
+    setSky(s) {
+      const L3 = this.game.lights, W = this.world || (this.world = {});
+      this.skyNow = s;
+      if (L3) {
+        L3.enabled = s.ambient < 0.98;
+        L3.ambient = s.ambient;
+        L3.dark = s.dark;
+        L3.tint = s.tint;
+        L3.res = TUNE.lightRes;
+      }
+      W.night = s.night;
+      W.lamps = s.lamps;
+      let b = this.backdrops.get(s.phase);
+      if (!b) {
+        b = new E.Backdrop(BACKDROPS[s.phase]);
+        this.backdrops.set(s.phase, b);
+      }
+      W.backdrop = b;
+      this.side7.sky = s.sky;
+      if (this.side7.fog !== s.fog) {
+        this.side7.fog = s.fog;
+        this.side7.fogRGB = E.hex(s.fog);
+      }
+      this.top.bg = s.top;
+    }
     /** start a frame: o.focus [x, y] (the possessed actor), o.vel [vx, vy] and o.speed01 (0..1 of top speed) steer the
      *  depth cameras; o.player [x, y, z] (the focus by default) is who the cut-away keeps in sight. Presentation only:
      *  the simulation never reads it */
     begin(r, o = {}) {
       this.r = r;
       this.items.length = 0;
+      this.lamps.length = 0;
+      this.glows.length = 0;
       this.focus = o.focus || null;
       this.isoP = null;
       const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, 0.1);
@@ -10031,17 +10136,255 @@ root.My3D2dge = E;
           const p = o.player || this.focus;
           if (p) this.cutaway.update(r.view, p[0], p[1], p[2] || 0);
         }
+        r.overlay((g) => this._isoGlows(g, r));
         if (W.backdrop) W.backdrop.draw(r);
         if (W.engineFloor && W.map) W.map.drawFloor(r);
         else if (W.floor) W.floor.drawIso(r);
-        if (W.map) {
+        if (this.fx) this._turnFrame(r, dt, o.player || this.focus);
+        else if (W.map) {
           W.map.queueWalls(r);
-          W.map.prebakeWalls(r);
+          if (this.zx) this._zoomFrame(r, dt, o.player || this.focus);
+          else W.map.prebakeWalls(r);
         }
         return;
       }
       if (this.focus) d === this.top ? d.follow(dt, this.focus[0], this.focus[1], (o.vel || [0, 0])[0], (o.vel || [0, 0])[1], o.speed01 || 0) : d.follow(dt, this.focus[0], this.focus[1]);
       d.frame(r);
+    }
+    /** turn the camera a quarter, dir -1 (turnLeft) or 1 (turnRight): ISO's yaw, MODE 7's rail; TOP-DOWN stays north-up.
+     *  Returns true if it turns */
+    turn(dir) {
+      const d = this.depth, f = this.focus;
+      if (d === this.side7) {
+        d.setHeading(d.heading + 90 * dir, f ? f[0] : d.x, f ? f[1] : d.y);
+        return true;
+      }
+      if (d || !dir) return false;
+      if (this.fx || this.zx) {
+        (this.fx || this.zx).queued = dir;
+        return true;
+      }
+      const g = this.game, b = g.baseView || g.view, from = g.yaw || 0, to = ((from + 90 * dir) % 360 + 360) % 360;
+      if (g.headless || !this.world || !this.world.map) {
+        g.rotateView(90 * dir);
+        return true;
+      }
+      this.fx = { dir, t: 0, from, to, view: new E.View(b.id, b.label, b.yawDeg + to, b.pitchDeg, b.scale * (g.zoom || 1), b.zBoost), left: 1 };
+      return true;
+    }
+    /** is a quarter turn under way? */
+    get turning() {
+      return !!this.fx;
+    }
+    /** step the ISO zoom to z (SpeedZoom's levels: 1, .8, .65). Zooming out, the wider view's walls bake for a few frames
+     *  first, then the view changes and eases out from the old framing; zooming in, the frame eases in while the closer
+     *  view's walls bake, then the view changes. A quarter second either way, scaled about the player. Elsewhere (TOP,
+     *  MODE 7, headless) the zoom just changes */
+    zoomTo(z) {
+      const g = this.game, now = g.zoom || 1;
+      if (this.zx ? this.zx.to === z : Math.abs(now - z) < 1e-6) return;
+      if (this.zx) {
+        this.zx.next = z;
+        return;
+      }
+      if (this.fx) {
+        this.zoomWanted = z;
+        return;
+      }
+      if (g.headless || this.depth || !this.world || !this.world.map) {
+        g.setZoom(z);
+        return;
+      }
+      const b = g.baseView || g.view, yaw = b.pitchDeg < 5 ? 0 : g.yaw || 0;
+      this.zx = { from: now, to: z, t: 0, out: z < now, switched: false, view: new E.View(b.id, b.label, b.yawDeg + yaw, b.pitchDeg, b.scale * z, b.zBoost), left: 1 };
+    }
+    /** is a zoom step under way? */
+    get zooming() {
+      return !!this.zx;
+    }
+    _zoomFrame(r, dt, at) {
+      const zx = this.zx, W = this.world, g = this.game;
+      zx.t += dt;
+      if (at && !zx.switched) {
+        if (this.cutaway) this.cutaway.also(zx.view, at[0], at[1], at[2] || 0);
+        zx.left = W.map.prebakeWalls(r, { view: zx.view, at: [at[0], at[1]], ms: ZOOM.bakeMs });
+      } else if (zx.switched) W.map.prebakeWalls(r);
+      let k = 1, act = null;
+      if (zx.out) {
+        if (!zx.switched) {
+          if (zx.left === 0 || zx.t >= ZOOM.most) act = () => {
+            g.setZoom(zx.to);
+            zx.switched = true;
+            zx.t0 = zx.t;
+          };
+        } else {
+          const e = Math.min(1, (zx.t - zx.t0) / ZOOM.time), q = e * e * (3 - 2 * e);
+          k = Math.pow(zx.from / zx.to, 1 - q);
+          if (e >= 1) act = () => this._zoomDone();
+        }
+      } else {
+        const e = Math.min(1, zx.t / ZOOM.time), q = e * e * (3 - 2 * e);
+        k = Math.pow(zx.to / zx.from, q);
+        if (e >= 1 && (zx.left === 0 || zx.t >= ZOOM.time + ZOOM.most)) act = () => {
+          g.setZoom(zx.to);
+          this._zoomDone();
+        };
+      }
+      r.overlay((gg) => {
+        if (at && k !== 1) this._scaleDraw(gg, r, at, k);
+        if (act) act();
+      });
+    }
+    _zoomDone() {
+      const zx = this.zx;
+      this.zx = null;
+      if (zx.next !== void 0) this.zoomTo(zx.next);
+      if (zx.queued) this.turn(zx.queued);
+    }
+    // the frame scaled by k about the player (the engine's own zoom preview does the same for the player's zoom)
+    _scaleDraw(g, r, at, k) {
+      const cv = this._fxCv || (this._fxCv = E.mkCanvas(r.bw, r.bh));
+      if (cv.width !== r.bw || cv.height !== r.bh) {
+        cv.width = r.bw;
+        cv.height = r.bh;
+      }
+      const cg = cv.getContext("2d");
+      cg.clearRect(0, 0, cv.width, cv.height);
+      cg.drawImage(g.canvas, 0, 0);
+      const [fx, fy] = r.w(at[0], at[1], at[2] || 0);
+      g.save();
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = "source-over";
+      g.imageSmoothingEnabled = false;
+      g.fillStyle = "#0a0812";
+      g.fillRect(0, 0, r.bw, r.bh);
+      g.setTransform(k, 0, 0, k, fx * (1 - k), fy * (1 - k));
+      g.drawImage(cv, 0, 0);
+      g.restore();
+      g._c = null;
+    }
+    // a frame of the turn: flat blocks at this frame's yaw, the final yaw's walls baking; after it, the next frame's yaw
+    _turnFrame(r, dt, at) {
+      const fx = this.fx, W = this.world, g = this.game;
+      fx.t += dt;
+      if (at) {
+        if (this.cutaway) this.cutaway.also(fx.view, at[0], at[1], at[2] || 0);
+        fx.left = W.map.prebakeWalls(r, { view: fx.view, at: [at[0], at[1]], ms: fx.t > TURN.time ? TURN.holdMs : TURN.bakeMs });
+      }
+      this._flatWalls(r);
+      const e = Math.min(1, fx.t / TURN.time), k = e * e * (3 - 2 * e), done = e >= 1 && (fx.left === 0 || fx.t >= TURN.most);
+      const yaw = done || e >= 1 ? fx.to : ((fx.from + fx.dir * Math.round(90 * k / TURN.step) * TURN.step) % 360 + 360) % 360;
+      r.overlay(() => {
+        if (done) this.fx = null;
+        if (yaw !== (g.yaw || 0)) g.rotateView(yaw - (g.yaw || 0));
+        if (done && fx.queued) this.turn(fx.queued);
+        if (done && this.zoomWanted !== void 0) {
+          const z = this.zoomWanted;
+          this.zoomWanted = void 0;
+          this.zoomTo(z);
+        }
+      });
+    }
+    // the walls as flat-shaded blocks: one box a building lot (its full height, or its stub where the cut-away drops it),
+    // one a cell for walls with no lot (railings, embankments); queued with the actors, so they sort and occlude
+    _flatWalls(r) {
+      const W = this.world, map = W.map, C = W.city, T5 = map.T, v = r.view, types = map.types;
+      let mh = 0;
+      for (const k in types) mh = Math.max(mh, +types[k].h || 0);
+      const pad = Math.ceil(mh * Math.abs(v.bz) / Math.max(0.2, Math.hypot(v.bx, v.by)) / T5) + 2;
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const [sx, sy] of [[0, 0], [r.bw, 0], [0, r.bh], [r.bw, r.bh]]) {
+        const p = v.toGround(r.ix + sx, r.iy + sy);
+        if (!p) return;
+        x0 = Math.min(x0, p[0]);
+        x1 = Math.max(x1, p[0]);
+        y0 = Math.min(y0, p[1]);
+        y1 = Math.max(y1, p[1]);
+      }
+      const c0 = Math.max(0, Math.floor(x0 / T5) - pad), c1 = Math.min(map.w - 1, Math.ceil(x1 / T5) + pad), r0 = Math.max(0, Math.floor(y0 / T5) - pad), r1 = Math.min(map.h - 1, Math.ceil(y1 / T5) + pad);
+      const seen = /* @__PURE__ */ new Set(), cut = this.cutaway ? this.cutaway.cut : null;
+      for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
+        const id = map.cell(cx, cy);
+        if (id <= 0) continue;
+        const t = types[id], lot = C ? C.lot[cy * C.w + cx] : -1;
+        if (lot >= 0) {
+          if (seen.has(lot)) continue;
+          seen.add(lot);
+          const L3 = C.lots[lot], [a, b, c, d] = L3.rect, h = cut && cut.has(lot) ? t.cutH || 6 : t.h, top = h < t.h && t.cutTop ? t.cutTop : t.top;
+          r.queue((a + c + 1) / 2 * T5, (b + d + 1) / 2 * T5, 0, (g) => r.box(g, a * T5, b * T5, 0, (c + 1) * T5, (d + 1) * T5, h, top, t.side), { occluder: true });
+        } else r.queue((cx + 0.5) * T5, (cy + 0.5) * T5, 0, (g) => r.box(g, cx * T5, cy * T5, 0, cx * T5 + T5, cy * T5 + T5, t.h, t.top, t.side), { occluder: true });
+      }
+    }
+    /** something that shines at (x, y, z): a lamp's head, a neon sign. draw(g, sx, sy, k) draws it at its screen point, k
+     *  pixels a unit. In ISO glows are drawn after the lights, so the dark never dims them, and only where no wall drawn
+     *  this frame stands in front of the point (the walls' tops checked down the screen from it: no full-frame mask, the
+     *  cut-away included); o.iso: ISO only (a sign the depth views already draw as a shape). In TOP and MODE 7 they sort
+     *  with everything else */
+    glow(x, y, z, draw, o = {}) {
+      const d = this.depth;
+      if (!d) {
+        this.glows.push([x, y, z, draw]);
+        return;
+      }
+      if (o.iso) return;
+      this.items.push({ k: d.depth(x, y) - 0.01, fn: (g) => {
+        const q = d.proj(x, y, z);
+        if (q) draw(g, q[0], q[1], q[2]);
+      } });
+    }
+    _isoGlows(g, r) {
+      if (!this.glows.length) return;
+      const k = r.view.scale;
+      g.save();
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = "source-over";
+      for (const [x, y, z, draw] of this.glows) {
+        const [sx, sy] = r.w(x, y, z);
+        if (sx < -40 || sy < -40 || sx > r.bw + 40 || sy > r.bh + 40 || this._hidden(r, x, y, z)) continue;
+        draw(g, sx, sy, k);
+      }
+      g.restore();
+      g._c = null;
+    }
+    // is the screen point of (x, y, z) behind a wall drawn this frame (ISO)? Down the screen from the point, past its own
+    // ground spot (toward the camera), any wall whose drawn top reaches up to the point covers it
+    _hidden(r, x, y, z) {
+      const W = this.world, map = W && W.map;
+      if (!map) return false;
+      const v = r.view, up = -v.bz, T5 = map.T;
+      if (!(up > 0)) return false;
+      if (this._maxH === null || this._maxMap !== map) {
+        let m = 0;
+        for (const t in map.types) m = Math.max(m, +map.types[t].h || 0);
+        this._maxH = m;
+        this._maxMap = map;
+      }
+      const [sx, sy] = r.w(x, y, z), X = sx + r.ix, Y = sy + r.iy, k0 = Math.ceil(up * z / 2) + 1, k1 = Math.ceil(up * this._maxH / 2);
+      for (let k = k0; k <= k1; k++) {
+        const p = v.toGround(X, Y + 2 * k);
+        if (!p) return false;
+        const cx = Math.floor(p[0] / T5), cy = Math.floor(p[1] / T5), id = map.cell(cx, cy);
+        if (id <= 0) continue;
+        const t = map.types[id], h = map.cutAt && map.cutAt(cx, cy, v) ? t.cutH || 6 : t.h;
+        if (2 * k <= up * h) return true;
+      }
+      return false;
+    }
+    /** could something at (x, y), from height z0 up to z1, about rad units across, be on screen this frame? A cheap cull
+     *  for whoever queues many small things (deck slabs, props, signs): nothing queued off screen costs a draw */
+    onScreen(x, y, z0 = 0, z1 = z0, rad = 16) {
+      const d = this.depth, r = this.r;
+      if (!r) return true;
+      if (!d) {
+        const s = r.view.scale, m2 = rad * s + 8, a2 = r.w(x, y, z0), b2 = r.w(x, y, z1);
+        return Math.max(a2[0], b2[0]) > -m2 && Math.min(a2[0], b2[0]) < r.bw + m2 && Math.max(a2[1], b2[1]) > -m2 && Math.min(a2[1], b2[1]) < r.bh + m2;
+      }
+      const a = d.proj(x, y, z0), b = d.proj(x, y, z1);
+      if (!a && !b) return false;
+      if (!a || !b) return true;
+      const m = rad * Math.max(a[2], b[2]) + 8;
+      return Math.max(a[0], b[0]) > -m && Math.min(a[0], b[0]) < r.bw + m && Math.max(a[1], b[1]) > -m && Math.min(a[1], b[1]) < r.bh + m;
     }
     /** an actor drawn by code with an engine View (a rig): o { shadow: radius, xray, alpha, crowd }. A crowd actor takes
      *  the engine's fast path in ISO (no outline or rim: the composite costs about half a millisecond a body); the player
@@ -10094,13 +10437,14 @@ root.My3D2dge = E;
       const p = E.prop(name, o.size ? { size: o.size } : void 0);
       if (!p) return;
       const spr = p.frames[0];
+      if (o.light && p.light) this.lamps.push([x, y, z, o.lightRadius || 70]);
       this.items.push({ k: d.depth(x, y), fn: (g) => {
         const q = d.proj(x, y, z);
         if (!q) return;
         const s = q[2] / Math.SQRT2, w = spr.w * s, h = spr.h * s;
         if (h < 1) return;
         g.drawImage(spr.cv, Math.round(q[0] - w / 2), Math.round(q[1] - h), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
-        if (p.glowAt && o.light) {
+        if (p.glowAt && o.light && o.halo !== false) {
           const gx = q[0] - w / 2 + w * p.glowAt[0], gy = q[1] - h + h * p.glowAt[1], R = Math.max(2, w * 0.9);
           g.globalAlpha = 0.25;
           g.fillStyle = p.glowAt[2];
@@ -10110,6 +10454,42 @@ root.My3D2dge = E;
           g.globalAlpha = 1;
         }
       } });
+    }
+    // MOTOR's light pass for TOP and MODE 7: the dark over the whole frame (the engine's own numbers: ambient, dark and
+    // darkness, so every view matches the hour), the lamps' pools cut out of it on the ground (round from above,
+    // flattened along MODE 7's floor), then a little of their warmth added back
+    _depthLight(g, d) {
+      const L3 = this.game.lights, r = this.r, W = r.bw, H3 = r.bh, a = E.clamp((1 - L3.ambient) * (L3.darkness === void 0 ? 0.9 : L3.darkness), 0, 1);
+      if (a < 0.01) return;
+      let cv = this._lcv;
+      if (!cv || cv.width !== W || cv.height !== H3) cv = this._lcv = E.mkCanvas(W, H3);
+      const lg = cv.getContext("2d"), dk = L3.dark || [10, 6, 24], flat = d === this.top ? 1 : 0.34, pools = [];
+      for (const [x, y, , R] of this.lamps) {
+        const q = d.proj(x, y, 0);
+        if (q && R * q[2] >= 2 && q[0] > -R * q[2] && q[0] < W + R * q[2]) pools.push([q[0], q[1], R * q[2]]);
+      }
+      lg.globalCompositeOperation = "source-over";
+      lg.clearRect(0, 0, W, H3);
+      lg.fillStyle = `rgba(${dk[0]},${dk[1]},${dk[2]},${a.toFixed(3)})`;
+      lg.fillRect(0, 0, W, H3);
+      const pool = (c, x, y, rad, inner, outer) => {
+        c.save();
+        c.translate(x, y);
+        c.scale(1, flat);
+        const gr = c.createRadialGradient(0, 0, 0, 0, 0, rad);
+        gr.addColorStop(0, inner);
+        gr.addColorStop(1, outer);
+        c.fillStyle = gr;
+        c.fillRect(-rad, -rad, rad * 2, rad * 2);
+        c.restore();
+      };
+      lg.globalCompositeOperation = "destination-out";
+      for (const [x, y, rad] of pools) pool(lg, x, y, rad, "rgba(0,0,0,.95)", "rgba(0,0,0,0)");
+      g.drawImage(cv, 0, 0);
+      g.globalCompositeOperation = "lighter";
+      const warm = Math.round(40 * (L3.tint === void 0 ? 0.32 : L3.tint) / 0.32);
+      for (const [x, y, rad] of pools) pool(g, x, y, rad * 0.8, `rgba(${warm},${Math.round(warm * 0.75)},${Math.round(warm * 0.4)},1)`, "rgba(0,0,0,1)");
+      g.globalCompositeOperation = "source-over";
     }
     /** finish the frame: in a depth view, the sky, the floor, then the spans and everything queued, far to near */
     end() {
@@ -10134,7 +10514,7 @@ root.My3D2dge = E;
           d.spanItems(spans, this.items, this.focus, W.night);
         }
       } else {
-        g.fillStyle = "#0a0812";
+        g.fillStyle = d.bg || "#0a0812";
         g.fillRect(0, 0, r.bw, r.bh);
         if (W.floor) {
           const [i0, j0, i1, j1] = d.range(S, S / 2);
@@ -10154,6 +10534,7 @@ root.My3D2dge = E;
         it.fn(g);
         if (it.actor) actors++;
       }
+      if (this.game.lights && this.game.lights.enabled) this._depthLight(g, d);
       g.restore();
       g._c = null;
       d.stats.actors = actors;
@@ -10208,6 +10589,8 @@ root.My3D2dge = E;
     "map",
     "pause",
     "view",
+    "turnLeft",
+    "turnRight",
     "switch",
     "horn",
     "fire",
@@ -10677,7 +11060,9 @@ root.My3D2dge = E;
   // src/motor/input/bindings.js
   var NAV = { up: ["Pad12", "ArrowUp", "KeyW", "LSUp"], down: ["Pad13", "ArrowDown", "KeyS", "LSDown"], left: ["Pad14", "ArrowLeft", "KeyA", "LSLeft"], right: ["Pad15", "ArrowRight", "KeyD", "LSRight"] };
   var SHARED = {
-    view: ["Pad11", "KeyV"],
+    view: ["Pad11^", "KeyV"],
+    turnLeft: ["Pad11>RSLeft", "BracketLeft"],
+    turnRight: ["Pad11>RSRight", "BracketRight"],
     ability: ["Pad10+Pad11", "KeyF"],
     phone: ["Pad12", "KeyT"],
     switch: ["Pad13", "KeyZ"],
@@ -10737,7 +11122,7 @@ root.My3D2dge = E;
       right: ["KeyD"],
       zoomIn: ["Pad7", "KeyE"],
       zoomOut: ["Pad6", "KeyQ"],
-      view: ["Pad11", "KeyV"],
+      view: ["Pad11^", "KeyV"],
       snap: ["Pad0", "Space", "Enter"],
       back: ["Pad1", "Escape", "Pad8", "KeyB"]
     }
@@ -10752,6 +11137,7 @@ root.My3D2dge = E;
       this.input = input;
       this.context = "onFoot";
       this.chordWindow = 0.12;
+      this.releaseWindow = 0.5;
       this.map = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
       if (saved) this._overlay(saved);
       this._down = /* @__PURE__ */ new Set();
@@ -10761,6 +11147,9 @@ root.My3D2dge = E;
       this._taps = /* @__PURE__ */ new Set();
       this._chorded = /* @__PURE__ */ new Set();
       this.t = 0;
+      this._combos = /* @__PURE__ */ new Set();
+      this._released = /* @__PURE__ */ new Set();
+      this._modded = /* @__PURE__ */ new Set();
     }
     _overlay(saved) {
       for (const [c, acts] of Object.entries(saved || {})) if (this.map[c]) {
@@ -10816,9 +11205,22 @@ root.My3D2dge = E;
       this._down.clear();
       this._taps.clear();
       const codes = /* @__PURE__ */ new Set();
-      for (const c of Object.values(this.map)) for (const list of Object.values(c)) for (const code of list) for (const p of code.split("+")) codes.add(p);
+      for (const c of Object.values(this.map)) for (const list of Object.values(c)) for (const code of list) for (const p of code.replace(/\^$/, "").split(/[+>]/)) codes.add(p);
       for (const c of codes) if (this.codeDown(c)) this._down.add(c);
       for (const c of this._down) if (!this._prev.has(c)) this._pressAt[c] = this.t;
+      this._combos.clear();
+      this._released.clear();
+      for (const ctx of Object.values(this.map)) for (const list of Object.values(ctx)) for (const code of list) if (code.includes(">")) {
+        const [a, b] = code.split(">");
+        if (this._down.has(a) && this._down.has(b) && !this._prev.has(b)) {
+          this._combos.add(code);
+          this._modded.add(a);
+        }
+      }
+      for (const c of this._prev) if (!this._down.has(c)) {
+        if (!this._modded.has(c) && !this._chorded.has(c) && this.t - (this._pressAt[c] ?? -9) <= this.releaseWindow + 1e-9) this._released.add(c);
+        this._modded.delete(c);
+      }
       const fresh = (c) => this._down.has(c) && !this._prev.has(c);
       for (const ctx of Object.values(this.map)) for (const list of Object.values(ctx)) for (const code of list) if (code.includes("+")) {
         const [a, b] = code.split("+");
@@ -10850,16 +11252,21 @@ root.My3D2dge = E;
     }
     /** is the action held? */
     down(action, ctx) {
-      return this.codes(action, ctx).some((c) => c.includes("+") ? c.split("+").every((p) => this._down.has(p)) : this._down.has(c));
+      return this.codes(action, ctx).some((c) => /[+>]/.test(c) ? c.split(/[+>]/).every((p) => this._down.has(p)) : this._down.has(c.replace(/\^$/, "")));
     }
-    /** was the action pressed this step? (a chord half waits out the chord window first) */
+    /** was the action pressed this step? (a chord half waits out the chord window first; a release tap fires as it is
+     *  let go; a held modifier's combo as its second code goes down) */
     tap(action, ctx) {
-      return this.codes(action, ctx).some((c) => this._taps.has(c));
+      return this.codes(action, ctx).some((c) => c.endsWith("^") ? this._released.has(c.slice(0, -1)) : c.includes(">") ? this._combos.has(c) : this._taps.has(c));
+    }
+    /** is a held modifier of the live context down (its second codes, the right stick for one, aren't free for aiming)? */
+    modifierHeld(ctx = this.context) {
+      return Object.values(this.map[ctx] || {}).some((list) => list.some((c) => c.includes(">") && this._down.has(c.split(">")[0])));
     }
     /** the action's analog value 0..1 (the strongest of its codes) */
     value(action, ctx) {
       let v = 0;
-      for (const c of this.codes(action, ctx)) v = Math.max(v, this.codeValue(c));
+      for (const c of this.codes(action, ctx)) v = Math.max(v, c.includes(">") ? this._down.has(c.split(">")[0]) ? this.codeValue(c.split(">")[1]) : 0 : this.codeValue(c.replace(/\^$/, "")));
       return v;
     }
     /** a direction from four actions (up/down/left/right) plus a stick: screen x right, y down, length <= 1 */
@@ -10989,6 +11396,7 @@ root.My3D2dge = E;
   var glyphSet = (style) => get("glyphSets", style) || get("glyphSets", "xbox");
   function drawGlyph(g, code, x, y, style = "playstation", input = null) {
     const set = glyphSet(style);
+    if (code.endsWith("^")) return drawGlyph(g, code.slice(0, -1), x, y, style, input);
     let m = /^Pad(\d+)$/.exec(code);
     if (m) {
       const n = +m[1];
@@ -11004,9 +11412,9 @@ root.My3D2dge = E;
       if (n >= 12 && n <= 15) return dpad(g, x, y, set.names[n]);
       return pill(g, x, y, set.names[n] || "B" + n);
     }
-    if (code.includes("+")) {
+    if (/[+>]/.test(code)) {
       let w = 0;
-      for (const [i, part2] of code.split("+").entries()) {
+      for (const [i, part2] of code.split(/[+>]/).entries()) {
         if (i) w += pill(g, x + w, y, "+", "#f4f0ff", "rgba(0,0,0,0)", "rgba(0,0,0,0)") - 2;
         w += drawGlyph(g, part2, x + w, y, style, input);
       }
@@ -11019,12 +11427,13 @@ root.My3D2dge = E;
     return pill(g, x, y, label.toUpperCase());
   }
   function glyphWidth(code, style = "playstation", input = null) {
+    if (code.endsWith("^")) return glyphWidth(code.slice(0, -1), style, input);
     const set = glyphSet(style), m = /^Pad(\d+)$/.exec(code);
     if (m) {
       const n = +m[1];
       return n <= 3 || n >= 12 && n <= 15 ? 10 : Math.max(9, E.font.width(set.names[n] || "B" + n) + 6) + 1;
     }
-    if (code.includes("+")) return code.split("+").reduce((w, p, i) => w + glyphWidth(p, style, input) + (i ? Math.max(9, E.font.width("+") + 6) - 1 : 0), 0);
+    if (/[+>]/.test(code)) return code.split(/[+>]/).reduce((w, p, i) => w + glyphWidth(p, style, input) + (i ? Math.max(9, E.font.width("+") + 6) - 1 : 0), 0);
     if (/^(LS|RS)/.test(code)) return 10;
     const label = code === "Mouse0" ? "LMB" : code === "Mouse2" ? "RMB" : input && input.codeLabel ? input.codeLabel(code) : code.replace(/^Key|^Digit/, "");
     return Math.max(9, E.font.width(label.toUpperCase()) + 6) + 1;
@@ -11095,7 +11504,7 @@ root.My3D2dge = E;
         I.move[0] = d[0];
         I.move[1] = d[1];
       }
-      const rs = B.stick("RS");
+      const rs = B.modifierHeld() ? [0, 0] : B.stick("RS");
       if (rs[0] || rs[1]) {
         const a = this.views.screenDirToGround(rs[0], rs[1]), l = Math.hypot(a[0], a[1]) || 1;
         I.aim = [a[0] / l, a[1] / l];
@@ -11476,6 +11885,9 @@ root.My3D2dge = E;
         if (C.hoods[C.hood[I(cx, cy)]]?.trees && s % 4 === 1 && rp.chance(0.6)) addProp("palm", (ns ? cx + (wi === 0 ? 0.2 : 0.8) : cx + 0.5) * T5, (ns ? cy + 0.5 : cy + (wi === 0 ? 0.2 : 0.8)) * T5, { solid: { hx: 2, hy: 2, top: 60 } });
       }
     }
+    for (const lot of C.lots) if (lot.kind === "plaza" || lot.kind === "park") rect(lot.rect, (x, y, i) => {
+      if ((x - lot.rect[0]) % 6 === 3 && (y - lot.rect[1]) % 6 === 3 && C.lot[i] === lot.index && (C.surface[i] === SURF.plaza || C.surface[i] === SURF.park) && !cells[i]) addProp("lamp", (x + 0.5) * T5, (y + 0.5) * T5, { solid: { hx: 1.5, hy: 1.5, top: 44 } });
+    });
     for (const lot of C.lots) if (lot.kind === "park") rect(lot.rect, (x, y) => {
       if (C.surface[I(x, y)] === SURF.park && (x + y * 3) % 5 === 0 && rp.chance(0.55)) addProp(rp.chance(0.5) ? "tree" : "palm", (x + 0.5) * T5, (y + 0.5) * T5, { solid: { hx: 3, hy: 3, top: 56 } });
     });
@@ -11484,6 +11896,7 @@ root.My3D2dge = E;
     for (const p of props) if (p.solid) solids.push({ x: p.x, y: p.y, z: p.z || 0, top: (p.z || 0) + p.solid.top, hx: p.solid.hx, hy: p.solid.hy });
     C.pois = (spec.pois || []).map((p) => ({ ...p, x: (p.at[0] + 0.5) * T5, y: (p.at[1] + 0.5) * T5 }));
     C.zones = (spec.zones || []).map((z) => ({ ...z }));
+    C.tour = (spec.tour || []).map(([x, y]) => [(x + 0.5) * T5, (y + 0.5) * T5]);
     for (const h of C.hoods) if (h.rects) for (const r of h.rects) C.zones.push({ kind: "hood", hood: h.id, gang: h.gang || null, rect: r });
     C.signs = C.lots.filter((l) => l.sign).map((l) => ({ lot: l.index, ...l.sign, rect: l.rect }));
     {
@@ -11778,7 +12191,8 @@ root.My3D2dge = E;
     props: { type: "object", def: {} },
     propList: { type: "array", def: [] },
     pois: { type: "array", def: [] },
-    zones: { type: "array", def: [] }
+    zones: { type: "array", def: [] },
+    tour: { type: "array", def: [] }
   }));
   declare("landmarks", shape({ district: { type: "string", req: true }, name: { type: "string", req: true }, lots: { type: "array", def: [] }, pois: { type: "array", def: [] }, props: { type: "array", def: [] } }));
   function buildCity(id, seed) {
@@ -11847,6 +12261,40 @@ root.My3D2dge = E;
     return null;
   }
 
+  // src/motor/world/clock.js
+  knob("World", "dayMinutes", "Day length", 24, 2, 120, 1, "Real minutes for one game day (24: a game minute each real second)");
+  var TIMES = { dawn: 6, morning: 9, day: 12, noon: 12, afternoon: 15.5, dusk: 19, evening: 20.5, night: 23, midnight: 0 };
+  var WorldClock = class {
+    /** hour: the start (0-24) */
+    constructor(hour = TIMES.night) {
+      this.hour = TIMES.night;
+      this.day = 0;
+      this.running = true;
+      this.set(hour);
+    }
+    // (an unknown start is night)
+    /** an hour (0-24), or a name from TIMES; unknown values keep the hour */
+    set(h) {
+      const v = typeof h === "string" ? h in TIMES ? TIMES[h] : parseFloat(h) : h;
+      if (Number.isFinite(v)) this.hour = (v % 24 + 24) % 24;
+      return this;
+    }
+    /** advance by dt seconds of game time */
+    update(dt) {
+      if (!this.running) return;
+      this.hour += dt * 24 / (TUNE.dayMinutes * 60);
+      while (this.hour >= 24) {
+        this.hour -= 24;
+        this.day++;
+      }
+    }
+    /** 'HH:MM' */
+    label() {
+      const m = Math.floor(this.hour * 60) % 1440;
+      return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+    }
+  };
+
   // src/motor/render/city-render.js
   var T = 16;
   var CH = 256;
@@ -11892,10 +12340,19 @@ root.My3D2dge = E;
       const fade = under && under.z > (player[2] || 0) + 24 ? player : null;
       for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) {
         const k = j * 64 + i;
-        for (const p of this.props.get(k) || []) this._prop(stage, p, night);
-        for (const dc of this.deckCells.get(k) || []) this._deck(stage, dc, fade);
+        for (const p of this.props.get(k) || []) if (stage.onScreen(p.x, p.y, p.z || 0, (p.z || 0) + (p.top || 60), 24)) this._prop(stage, p, night);
+        for (const dc of this.deckCells.get(k) || []) {
+          const c = dc.c, z = Math.max(c.z0, c.z1);
+          if (stage.onScreen((c.cx + 0.5) * T, (c.cy + 0.5) * T, z - dc.d.thickness, z + 8, 12)) this._deck(stage, dc, fade);
+        }
       }
-      for (const s of this.signs) if (Math.abs(s.x - fx) < radius && Math.abs(s.y - fy) < radius) stage.shape(s.x, s.y, s.z, (g, P2) => drawSign(g, P2, s, night), { emissive: true, bias: 0.01 });
+      for (const s of this.signs) if (Math.abs(s.x - fx) < radius && Math.abs(s.y - fy) < radius && stage.onScreen(s.x, s.y, s.z, s.z, 48)) {
+        stage.shape(s.x, s.y, s.z, (g, P2) => drawSign(g, P2, s, night), { bias: 0.01 });
+        if (night) stage.glow(s.x, s.y, s.z, (g, sx, sy, k) => {
+          const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * 0.75)), true);
+          g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2));
+        }, { iso: true });
+      }
     }
     _prop(stage, p, night) {
       if (p.kind === "pillar") {
@@ -11904,7 +12361,9 @@ root.My3D2dge = E;
       }
       const spr = SPRITES[p.kind];
       if (spr) {
-        stage.prop(spr, p.x, p.y, p.z || 0, { light: night && p.kind === "lamp", lightRadius: 64, size: p.kind === "palm" ? 1.3 : 1 });
+        const lamp = p.kind === "lamp";
+        stage.prop(spr, p.x, p.y, p.z || 0, { light: night && lamp, halo: false, lightRadius: 88, size: p.kind === "palm" ? 1.3 : 1 });
+        if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow);
         return;
       }
       const m = PROP_MODELS[p.kind];
@@ -11916,6 +12375,28 @@ root.My3D2dge = E;
       stage.shape(x, y, z, (g, P2) => drawDeckCell(g, P2, d, c, map, near ? 0.3 : 1));
     }
   };
+  var LAMP_HEAD = 32;
+  var GLOWS = /* @__PURE__ */ new Map();
+  function lampGlow(g, sx, sy, k) {
+    const R = Math.max(7, Math.round(12 * k)), key = R;
+    let cv = GLOWS.get(key);
+    if (!cv) {
+      cv = E.mkCanvas(R * 2 + 2, R * 2 + 2);
+      const c = E.ctx2d(cv), gr = c.createRadialGradient(R + 1, R + 1, 0, R + 1, R + 1, R);
+      gr.addColorStop(0, "rgba(255,252,232,1)");
+      gr.addColorStop(0.18, "rgba(255,240,190,.9)");
+      gr.addColorStop(0.42, "rgba(255,226,150,.42)");
+      gr.addColorStop(0.75, "rgba(255,210,130,.12)");
+      gr.addColorStop(1, "rgba(255,200,120,0)");
+      c.fillStyle = gr;
+      c.fillRect(0, 0, cv.width, cv.height);
+      GLOWS.set(key, cv);
+    }
+    const op = g.globalCompositeOperation;
+    g.globalCompositeOperation = "lighter";
+    g.drawImage(cv, Math.round(sx - R - 1), Math.round(sy - R - 1));
+    g.globalCompositeOperation = op;
+  }
   var PILLARS = /* @__PURE__ */ new Map();
   function PILLAR(top) {
     let m = PILLARS.get(top);
@@ -12024,16 +12505,54 @@ root.My3D2dge = E;
   function drawSign(g, P2, s, night) {
     const p = P2.proj(s.x, s.y, s.z);
     if (!p) return;
-    const k = Math.max(1, Math.round(p[2] * 0.75)), text = s.text, w = E.font.width(text, { scale: k }) + 6, h = 7 * k + 4, x = Math.round(p[0] - w / 2), y = Math.round(p[1] - h / 2);
-    g.fillStyle = "rgba(10,8,20,.85)";
-    g.fillRect(x, y, w, h);
-    g.fillStyle = s.color;
-    g.globalAlpha = night ? 0.35 : 0.15;
-    g.fillRect(x - 2, y - 2, w + 4, h + 4);
-    g.globalAlpha = 1;
-    E.font.text(g, text, x + 3, y + 2, night ? s.color : E.shade(s.color, -0.2), { scale: k });
-    g._c = null;
+    const k = Math.max(1, Math.round(p[2] * 0.75)), cv = signImage(s.text, s.color, k, night);
+    g.drawImage(cv, Math.round(p[0] - cv.width / 2), Math.round(p[1] - cv.height / 2));
   }
+  var SIGNS = /* @__PURE__ */ new Map();
+  function signImage(text, color, k, night) {
+    const key = text + "|" + color + "|" + k + "|" + (night ? 1 : 0);
+    let cv = SIGNS.get(key);
+    if (cv) return cv;
+    const w = E.font.width(text, { scale: k }) + 6, h = 7 * k + 4;
+    cv = E.mkCanvas(w + 4, h + 4);
+    const g = E.ctx2d(cv);
+    g.fillStyle = color;
+    g.globalAlpha = night ? 0.35 : 0.15;
+    g.fillRect(0, 0, w + 4, h + 4);
+    g.globalAlpha = 1;
+    g.fillStyle = "rgba(10,8,20,.85)";
+    g.clearRect(2, 2, w, h);
+    g.fillRect(2, 2, w, h);
+    E.font.text(g, text, 5, 4, night ? color : E.shade(color, -0.2), { scale: k });
+    if (SIGNS.size > 200) SIGNS.clear();
+    SIGNS.set(key, cv);
+    return cv;
+  }
+
+  // src/motor/render/speed-zoom.js
+  knob("Camera", "zoomFoot", "ISO zoom on foot", 1, 0.8, 1.2, 0.05, "The camera zoom walking (1 is the base view)");
+  knob("Camera", "zoomDrive", "ISO zoom driving", 0.8, 0.6, 1, 0.05, "The camera zoom in a vehicle below the fast speed");
+  knob("Camera", "zoomFast", "ISO zoom driving fast", 0.65, 0.5, 0.9, 0.05, "The camera zoom in a vehicle above the fast speed");
+  knob("Camera", "zoomFastAbove", "Fast above", 190, 80, 400, 5, "Speed (u/s) past which the camera pulls out to the fast zoom");
+  knob("Camera", "zoomFastBelow", "Back below", 140, 40, 380, 5, "Speed (u/s) under which it comes back in (lower than the first: hysteresis)");
+  knob("Camera", "zoomDwell", "Zoom dwell", 0.8, 0, 3, 0.1, "Seconds a zoom level holds before the next change");
+  var SpeedZoom = class {
+    constructor() {
+      this.level = TUNE.zoomFoot;
+      this.t = 1e9;
+    }
+    /** the level for this step: driving (in a vehicle?) and speed (u/s) */
+    update(dt, driving, speed) {
+      this.t += dt;
+      const fast = this.level === TUNE.zoomFast;
+      const want = !driving ? TUNE.zoomFoot : (fast ? speed >= TUNE.zoomFastBelow : speed > TUNE.zoomFastAbove) ? TUNE.zoomFast : TUNE.zoomDrive;
+      if (want !== this.level && this.t >= TUNE.zoomDwell) {
+        this.level = want;
+        this.t = 0;
+      }
+      return this.level;
+    }
+  };
 
   // src/motor/app.js
   function createApp({ game: game2, links: links2 }) {
@@ -12263,6 +12782,8 @@ root.My3D2dge = E;
       { rect: [0, 2, 1, 151], type: { h: 32, top: "#5a6a4a", side: "#7a7468", face: "stone", roof: "grass" } }
     ],
     props: { lampEvery: 6, clutter: 0.3 },
+    // a loop through all four neighbourhoods on the streets, under the Loop twice (perf runs, the attract camera)
+    tour: [[32, 30], [128, 30], [128, 118], [32, 118]],
     zones: [
       { kind: "patrol", rect: [80, 0, 159, 76], name: "Neon Mile beat" },
       { kind: "patrol", rect: [0, 0, 79, 76], name: "Palm beat" },
@@ -12715,11 +13236,7 @@ root.My3D2dge = E;
               const I = human.update("onFoot", hero);
               hero.update(dt, map, { move: I.move, sprint: I.down.sprint, jumpPressed: I.tap.jump });
               if (I.tap.view) views.next();
-              const turn = (game2.input.raw.pressed.has("BracketRight") ? 1 : 0) - (game2.input.raw.pressed.has("BracketLeft") ? 1 : 0);
-              if (turn) {
-                if (stage.depth === stage.side7) stage.side7.setHeading(stage.side7.heading + 90 * turn, hero.x, hero.y);
-                else if (!stage.depth) game2.rotateView(90 * turn);
-              }
+              if (I.tap.turnLeft || I.tap.turnRight) stage.turn(I.tap.turnRight ? 1 : -1);
             } else {
               const to = map.route[(leg + 1) % map.route.length], dx = to[0] - hero.x, dy = to[1] - hero.y, d = Math.hypot(dx, dy), step = SPEED * dt;
               if (d <= step) {
@@ -12793,7 +13310,7 @@ root.My3D2dge = E;
     title: "Vehicle pad",
     make(app2) {
       const { game: game2, views, human, links: links2, stage } = app2;
-      let map, floor, car, cars, wet, auto, wp, look2;
+      let map, floor, car, cars, wet, auto, wp, look2, zoom;
       const models = /* @__PURE__ */ new Map(), modelFor = (b) => {
         const k = b.def.id + b.color;
         let m = models.get(k);
@@ -12820,7 +13337,9 @@ root.My3D2dge = E;
           })];
           look2 = { roll: 0, pitch: 0 };
           game2.cam.bounds = (v) => map.bounds(v);
-          game2.setZoom(+(links2.query.get("zoom") || 0.8));
+          const fixed = +links2.query.get("zoom");
+          zoom = fixed ? null : new SpeedZoom();
+          game2.setZoom(fixed || zoom.update(0, true, 0));
           if (!game2.headless) floor.warm(car.x, car.y, 400);
           return { map, floor };
         },
@@ -12843,6 +13362,7 @@ root.My3D2dge = E;
           car.step(dt, ctl, { map, wet });
           for (const b of cars) if (b !== car) b.step(dt, { throttle: 0, brake: 0.4, steer: 0, handbrake: true }, { map, wet });
           collidePairs(cars);
+          if (zoom) stage.zoomTo(zoom.update(dt, true, car.speed));
           game2.focus(car.x, car.y, 12);
         },
         draw(r) {
@@ -12944,15 +13464,19 @@ root.My3D2dge = E;
   def("scenes", "play", {
     make(app2) {
       const { game: game2, views, human, footprint, links: links2, stage } = app2;
-      let city, map, cityR, floor, hero, rig, hoodName = "";
+      let city, map, cityR, floor, hero, rig, clock, hoodName = "", tour = null, rec = null;
+      const TOUR_SPEED = 300;
       return {
         pausable: true,
         enter(data) {
           ({ city, render: cityR } = lowtown(+(links2.query.get("seed") || 1999)));
           map = city.map;
           floor = new FloorChunks({ w: map.w * map.T, h: map.h * map.T, paint: (g, x0, y0, x1, y1) => city.painter.paint(g, x0, y0, x1, y1) });
-          stage.setWorld({ map, city, floor, backdrop: new E.Backdrop("city-night") });
-          const at = city.poi(data && data.route && data.route[1] || "safehouse") || city.poi("safehouse");
+          stage.setWorld({ map, city, floor });
+          clock = new WorldClock(links2.query.get("time") || "night");
+          tour = links2.query.get("tour") === "1" && city.tour.length ? { leg: 0 } : null;
+          rec = links2.query.get("perf") === "1" ? { update: [], render: [], frames: 0 } : null;
+          const at = tour ? { x: city.tour[0][0], y: city.tour[0][1] } : city.poi(data && data.route && data.route[1] || "safehouse") || city.poi("safehouse");
           hero = new E.Mover({ x: at.x, y: at.y });
           hero.actor = new Actor("ped", { x: at.x, y: at.y, faction: "crew" });
           rig = new E.Humanoid({
@@ -12964,39 +13488,61 @@ root.My3D2dge = E;
             colors: { skin: "#c8906a", hair: "#1e1a22", cloth: "#d23a3a", coat: "#2a2630", pants: "#2a3048", boot: "#18161c", belt: "#3a2a22" }
           });
           game2.cam.bounds = (v) => map.bounds(v);
-          game2.lights.enabled = true;
-          game2.lights.ambient = 0.34;
           if (!game2.headless) floor.warm(hero.x, hero.y, 420);
-          expose("snapshot", () => ({ scene: "play", view: views.active, hero: [hero.x, hero.y, hero.z].map((v) => Math.round(v)), hood: hoodName }));
+          expose("snapshot", () => ({ scene: "play", view: views.active, hero: [hero.x, hero.y, hero.z].map((v) => Math.round(v)), hood: hoodName, time: clock.label() }));
           expose("teleport", (x, y) => {
             hero.x = x;
             hero.y = y;
           });
           expose("city", city);
-          game2.stateHash = () => [Math.round(hero.x * 8), Math.round(hero.y * 8), Math.round(hero.z * 8)];
+          expose("clock", clock);
+          expose("perf", () => ({ ...rec, floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length, depth: stage.depth ? { ...stage.depth.stats } : null }));
+          game2.stateHash = () => [Math.round(hero.x * 8), Math.round(hero.y * 8), Math.round(hero.z * 8), Math.round(clock.hour * 60)];
         },
         exit() {
           game2.lights.enabled = false;
         },
         update(dt) {
+          clock.update(dt);
           const I = human.update("onFoot", hero);
-          hero.update(dt, map, { move: I.move, sprint: I.down.sprint, jumpPressed: I.tap.jump });
+          if (tour) {
+            const to = city.tour[(tour.leg + 1) % city.tour.length], dx = to[0] - hero.x, dy = to[1] - hero.y, d = Math.hypot(dx, dy), step = TOUR_SPEED * dt;
+            if (d <= step) {
+              hero.x = to[0];
+              hero.y = to[1];
+              tour.leg = (tour.leg + 1) % city.tour.length;
+            } else {
+              hero.x += dx / d * step;
+              hero.y += dy / d * step;
+            }
+            hero.vx = dx / (d || 1) * TOUR_SPEED;
+            hero.vy = dy / (d || 1) * TOUR_SPEED;
+            hero.facing = Math.atan2(dy, dx);
+          } else hero.update(dt, map, { move: I.move, sprint: I.down.sprint, jumpPressed: I.tap.jump });
           hero.actor.x = hero.x;
           hero.actor.y = hero.y;
           hero.actor.z = hero.z;
           rig.update(dt, hero.rigState());
           if (I.tap.view) views.next();
+          if (I.tap.turnLeft || I.tap.turnRight) stage.turn(I.tap.turnRight ? 1 : -1);
           footprint.update(hero.x, hero.y);
           const h = city.hoodAtPoint(hero.x, hero.y);
           hoodName = h ? h.name : "";
           game2.focus(hero.x, hero.y, 16);
         },
         draw(r) {
+          if (rec) {
+            const st = game2.stats;
+            rec.update.push(+st.updateMs.toFixed(3));
+            rec.render.push(+st.renderMs.toFixed(3));
+            rec.frames++;
+          }
+          stage.setSky(skyAt(clock.hour));
           stage.begin(r, { focus: [hero.x, hero.y], vel: [hero.vx, hero.vy], player: [hero.x, hero.y, hero.z] });
-          cityR.queue(stage, hero.x, hero.y, stage.depth === stage.side7 ? 700 : 520, true, [hero.x, hero.y, hero.z]);
+          cityR.queue(stage, hero.x, hero.y, stage.depth === stage.side7 ? 700 : 520, stage.world.lamps, [hero.x, hero.y, hero.z]);
           stage.actor(hero.x, hero.y, hero.z, (g, x, y, v) => rig.draw(g, x, y, v), { shadow: 5, xray: true });
           stage.end();
-          r.overlay((g) => E.font.text(g, (hoodName || "LOWTOWN").toUpperCase() + "  •  " + (views.spec.label || views.active).toUpperCase(), 6, 6, "#ffe066", { shadow: "#000" }));
+          r.overlay((g) => E.font.text(g, (hoodName || "LOWTOWN").toUpperCase() + "  •  " + clock.label() + "  •  " + (views.spec.label || views.active).toUpperCase(), 6, 6, "#ffe066", { shadow: "#000" }));
         }
       };
     }

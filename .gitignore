@@ -4,3 +4,6 @@ check-output/
 *.log
 .DS_Store
 /tmp/
+
+# local probes (dev only)
+tools/_*.mjs
