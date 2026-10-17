@@ -1,15 +1,17 @@
 // Free roam (M1: the hello block and the possessed protagonist driven through the HumanController's Intent; the city,
 // vehicles and everything else replace the pieces here milestone by milestone).
-import { E, def, get, expose, Actor } from '../../motor/index.js';
+import { E, def, get, expose, Actor, FloorChunks, paintTileMapFloor } from '../../motor/index.js';
 
 def('scenes', 'play', {
   make(app) {
-    const { game, views, human, footprint } = app;
-    let map, hero, rig, bg;
+    const { game, views, human, footprint, links } = app;
+    let map, hero, rig, bg, floor;
     return {
       pausable: true, view: 'iso',
       enter() {
         map = get('maps', 'hello').build();
+        // ?floor=chunks draws this floor with MOTOR's chunks instead of the engine's bake (the side-by-side check, PLAN.md 8.4)
+        floor = links.query.get('floor') === 'chunks' ? new FloorChunks({ w: map.w * map.T, h: map.h * map.T, paint: paintTileMapFloor(map), size: 128 }) : null;
         const s = map.find('hero');
         hero = new E.Mover({ x: s.x, y: s.y }); hero.actor = new Actor('ped', { x: s.x, y: s.y, faction: 'crew' });
         rig = new E.Humanoid({ size: 1, build: 'heroic', outfit: 'coat', hair: 'spiky', weapon: null,
@@ -31,7 +33,7 @@ def('scenes', 'play', {
       },
       draw(r) {
         bg.draw(r);
-        map.drawFloor(r);
+        if (floor) floor.drawIso(r); else map.drawFloor(r);
         r.shadow(hero.x, hero.y, 5);
         map.queueWalls(r);
         r.actor(hero.x, hero.y, hero.z, (g, ox, oy) => rig.draw(g, ox, oy, r.view), { xray: true });

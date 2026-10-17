@@ -4250,7 +4250,7 @@ class TileMap {
    *  even on its back half, where its own point sorts before the shape's */
   _liftSolids(view, x, y, z, k) {
     const own = view.order(x, y, z);
-    for (const so of this.solids) {
+    for (const so of this._solidsNear(x, y, 0)) {   // GTM-PATCH(3): the solids under the point, not all
       if (z < so.top - 1) continue;
       const dx = x - so.x, dy = y - so.y, lx = dx * so.c + dy * so.s, ly = -dx * so.s + dy * so.c;
       if (Math.abs(lx) <= so.hx && Math.abs(ly) <= so.hy) {   // (just after the shape, and the things on it in their own order)
@@ -4443,6 +4443,9 @@ class TileMap {
     }
   }
   _isFront(cx, cy, view) {
+    // GTM-PATCH(1): a game's own cut-away rule comes first: map.cutAt(cx, cy, view) -> true lowers the wall cell to its
+    // cutH, false keeps it whole, null or undefined leaves it to the rule below (a player-relative cut-away, for one)
+    if (this.cutAt) { const v = this.cutAt(cx, cy, view); if (v !== undefined && v !== null) return !!v; }
     if (!this.cutaway || view.isTop || view.pitchDeg > 75) return false;
     const t = this.types[this.cell(cx, cy)]; if (!t || !t.cut) return false;
     const bx = -Math.round(view.fx), by = -Math.round(view.fy);
@@ -4452,36 +4455,112 @@ class TileMap {
   /** queue every visible wall box. Call once per frame after drawFloor. */
   queueWalls(r) {
     const view = r.view, T = this.T; r._map = this;
-    for (let cy = 0; cy < this.h; cy++) for (let cx = 0; cx < this.w; cx++) {
+    // GTM-PATCH(1): scan only the cells under the screen (its corners taken to the ground, with room below for the
+    // tallest wall to rise into view), not all w * h, and keep a wall whose top reaches the screen even when its foot
+    // is far below it (tall walls popped in at the bottom edge)
+    let mh = 0; for (const k in this.types) mh = Math.max(mh, +this.types[k].h || 0);
+    const drop = Math.max(90, 20 - view.bz * mh), win = this._window(r, drop);
+    for (let cy = win[1]; cy <= win[3]; cy++) for (let cx = win[0]; cx <= win[2]; cx++) {
       const id = this.cell(cx, cy); if (id <= 0) continue;
       const t = this.types[id], h = this._isFront(cx, cy, view) ? (t.cutH || 6) : t.h;
       const [sx, sy] = r.w(cx * T + T / 2, cy * T + T / 2, 0);
-      if (sx < -40 || sx > r.W + 40 || sy < -20 || sy > r.H + 90) continue;
+      if (sx < -40 || sx > r.W + 40 || sy < -20 || sy > r.H + Math.max(90, 20 - view.bz * h)) continue;
       r.queue(cx * T + T / 2, cy * T + T / 2, 0, g => this._boxCached(g, r, cx, cy, t, h), { occluder: true });
     }
   }
-  /** each wall block is baked once per view into a small image (pixel-identical: camera offsets are whole pixels), for the
-   *  last four views (a zoom or turn and back is drawn from them) */
+  /** GTM-PATCH(1): the cells [c0, r0, c1, r1] under the buffer, its edges pushed out 40 pixels (and `drop` at the
+   *  bottom, m more all round), from its corners taken to the ground; the whole map in a view with no inverse (side
+   *  views) */
+  _window(r, drop, m = 0) {
+    const view = r.view, T = this.T, all = [0, 0, this.w - 1, this.h - 1]; if (!view.inv) return all;
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [bx, by] of [[-40 - m, -20 - m], [r.bw + 40 + m, -20 - m], [-40 - m, r.bh + drop + m], [r.bw + 40 + m, r.bh + drop + m]]) {
+      const q = view.toGround(bx + r.ix, by + r.iy); x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]);
+    }
+    return [Math.max(0, Math.floor(x0 / T) - 1), Math.max(0, Math.floor(y0 / T) - 1), Math.min(this.w - 1, Math.floor(x1 / T) + 1), Math.min(this.h - 1, Math.floor(y1 / T) + 1)];
+  }
+  /** each wall block is baked once per view into a small image (pixel-identical: camera offsets are whole pixels), kept
+   *  in one cache for every view, bounded by pixels (GTM-PATCH(2)) */
   _boxCached(g, r, cx, cy, t, h) {
-    const view = r.view, key = view.id + ':' + view.yawDeg + ':' + view.pitchDeg + ':' + view.scale + ':' + this.version, wc = this._wcs || (this._wcs = new Map());
-    let c = wc.get(key); if (!c) { if (wc.size >= 4) wc.delete(wc.keys().next().value); wc.set(key, c = { m: new Map() }); }
-    const idx = cy * this.w + cx; let e = c.m.get(idx);
-    if (!e || e.h !== h) {
-      const T = this.T; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-      for (const z of [0, h]) for (const [x, y] of [[cx * T, cy * T], [cx * T + T, cy * T], [cx * T, cy * T + T], [cx * T + T, cy * T + T]]) { const q = view.p(x, y, z); x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
-      e = { h, x0: Math.floor(x0) - 2, y0: Math.floor(y0) - 2, w: Math.ceil(x1) - Math.floor(x0) + 5, hh: Math.ceil(y1) - Math.floor(y0) + 5, cv: null, info: null };
+    // GTM-PATCH(2): one cache for every view, bounded by pixels (map.wallCacheMax, 16M by default), the blocks used
+    // longest ago dropped first; a long drive no longer keeps every block it passed, and a zoom or turn and back keeps
+    // what fits instead of four whole views
+    const view = r.view, key = view.id + ':' + view.yawDeg + ':' + view.pitchDeg + ':' + view.scale, wc = this._wcs || (this._wcs = new Map());
+    let c = wc.get(key); if (!c) wc.set(key, c = { m: new Map() }); this._wcPx = this._wcPx || 0;
+    const idx = cy * this.w + cx, id = this.cells[idx]; let e = c.m.get(idx);
+    // GTM-PATCH(1): a block is baked from its type, its height and its neighbours' drawn heights (a cut-away can lower
+    // them as the player moves), so it checks those instead of the map's version
+    const nh = (x, y) => { const n = this.cell(x, y); return n > 0 ? (this._isFront(x, y, view) ? (this.types[n].cutH || 6) : this.types[n].h) : 0; };
+    const n0 = nh(cx, cy - 1), n1 = nh(cx, cy + 1), n2 = nh(cx - 1, cy), n3 = nh(cx + 1, cy), rN = this.height(cx, cy - 1), rW = this.height(cx - 1, cy);
+    if (!e || e.h !== h || e.id !== id || e.n0 !== n0 || e.n1 !== n1 || e.n2 !== n2 || e.n3 !== n3 || e.rN !== rN || e.rW !== rW) {
+      if (e) this._wcPx -= ((e.cv ? 1 : 0) + (e.info ? 1 : 0)) * e.w * e.hh;
+      // GTM-PATCH(2): the image covers what the block draws (its top, and the faces it shows down to each neighbour's
+      // height), not its whole prism: a roof cell inside a building is its top alone, a seventh of the pixels to blend
+      const T = this.T, X0 = cx * T, Y0 = cy * T, X1 = X0 + T, Y1 = Y0 + T; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      const add = (x, y, z) => { const q = view.p(x, y, z); x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); };
+      add(X0, Y0, h); add(X1, Y0, h); add(X0, Y1, h); add(X1, Y1, h);
+      if (!view.isTop) for (const [nx, ny, A, B, n] of [[0, -1, [X1, Y0], [X0, Y0], n0], [0, 1, [X0, Y1], [X1, Y1], n1], [-1, 0, [X0, Y0], [X0, Y1], n2], [1, 0, [X1, Y1], [X1, Y0], n3]])
+        if (nx * view.fx + ny * view.fy > .02 && n < h) { add(A[0], A[1], n); add(B[0], B[1], n); }
+      e = { h, id, n0, n1, n2, n3, rN, rW, x0: Math.floor(x0) - 3, y0: Math.floor(y0) - 3, w: Math.ceil(x1) - Math.floor(x0) + 7, hh: Math.ceil(y1) - Math.floor(y0) + 7, cv: null, info: null, t: 0 };
       c.m.set(idx, e);
     }
+    e.t = r._frameNo || 0;
     const bake = info => {
       const c = mkCanvas(e.w, e.hh), cg = info ? c.getContext('2d') : ctx2d(c);
       if (info) { cg._info = true; cg._r = r; cg._mat = '#000'; }
       const sx = r.ix, sy = r.iy; r.ix = e.x0; r.iy = e.y0;
       try { this._box(cg, r, cx, cy, t, h); } finally { r.ix = sx; r.iy = sy; }
+      this._wcPx += e.w * e.hh; if (this._wcPx > (this.wallCacheMax || 16e6)) this._wcTrim(e.t);
       return c;
     };
     if (g._info) { if (!e.info) e.info = bake(true); g.drawImage(e.info, e.x0 - r.ix, e.y0 - r.iy); }
     else { if (!e.cv) e.cv = bake(false); g.drawImage(e.cv, e.x0 - r.ix, e.y0 - r.iy); }
   }
+  /** GTM-PATCH(2): drop the wall blocks used longest ago until the cache holds three quarters of map.wallCacheMax
+   *  pixels (never one used in frame `now`); map.wallCache() reports { blocks, px } */
+  _wcTrim(now) {
+    const all = [];
+    for (const [k, c] of this._wcs) for (const [i, e] of c.m) if (e.t !== now) all.push({ k, c, i, e });
+    all.sort((a, b) => a.e.t - b.e.t);
+    const goal = (this.wallCacheMax || 16e6) * .75;
+    for (const q of all) {
+      if (this._wcPx <= goal) break;
+      this._wcPx -= ((q.e.cv ? 1 : 0) + (q.e.info ? 1 : 0)) * q.e.w * q.e.hh; q.c.m.delete(q.i);
+      if (!q.c.m.size) this._wcs.delete(q.k);
+    }
+  }
+  /** GTM-PATCH(2): bake wall blocks before they are drawn, for at most o.ms milliseconds (1.5) a call: those within
+   *  o.margin pixels (64) beyond the screen's edges, nearest the centre first, so a fast camera finds the blocks that
+   *  scroll in already baked. o.view and o.at ([x, y]: the ground point that will be at the screen's centre, by default
+   *  the one there now) bake for a view about to be used instead: the next zoom step, a turn. Returns how many blocks
+   *  there are still to bake */
+  prebakeWalls(r, o = {}) {
+    const view = o.view || r.view, m = o.margin === undefined ? 64 : o.margin, ms = o.ms === undefined ? 1.5 : o.ms, T = this.T, t0 = performance.now();
+    let ix = r.ix, iy = r.iy;
+    if (o.view || o.at) {
+      const at = o.at || (r.view.inv ? r.view.toGround(r.ix + r.bw / 2, r.iy + r.bh / 2) : null); if (!at) return 0;
+      const p = view.p(at[0], at[1], 0); ix = Math.round(p[0] - r.bw / 2); iy = Math.round(p[1] - r.bh / 2);
+    }
+    const rr = Object.create(r, { view: { value: view }, ix: { value: ix, writable: true }, iy: { value: iy, writable: true },
+      w: { value(x, y, z = 0) { return [view.ax * x + view.ay * y - this.ix, view.bx * x + view.by * y + view.bz * z - this.iy]; } } });
+    const key = view.id + ':' + view.yawDeg + ':' + view.pitchDeg + ':' + view.scale, c = this._wcs && this._wcs.get(key);
+    let mh = 0; for (const k in this.types) mh = Math.max(mh, +this.types[k].h || 0);
+    const win = this._window(rr, Math.max(90, 20 - view.bz * mh), m), todo = [];
+    for (let cy = win[1]; cy <= win[3]; cy++) for (let cx = win[0]; cx <= win[2]; cx++) {
+      const id = this.cell(cx, cy); if (id <= 0) continue;
+      const t = this.types[id], h = this._isFront(cx, cy, view) ? (t.cutH || 6) : t.h, e = c && c.m.get(cy * this.w + cx);
+      if (e && e.cv && e.h === h && e.id === id) continue;
+      const [sx, sy] = rr.w(cx * T + T / 2, cy * T + T / 2, 0);
+      if (sx < -40 - m || sx > rr.W + 40 + m || sy < -20 - m || sy > rr.H + Math.max(90, 20 - view.bz * h) + m) continue;
+      todo.push([Math.abs(sx - rr.W / 2) + Math.abs(sy - rr.H / 2), cx, cy, t, h]);
+    }
+    todo.sort((a, b) => a[0] - b[0]);
+    const g = { drawImage() {} }; let n = 0;
+    for (const [, cx, cy, t, h] of todo) { if (performance.now() - t0 > ms) break; this._boxCached(g, rr, cx, cy, t, h); n++; }
+    return todo.length - n;
+  }
+  /** GTM-PATCH(2): the wall-block cache's size: { blocks, px, views } */
+  wallCache() { let blocks = 0; for (const c of (this._wcs || new Map()).values()) blocks += c.m.size; return { blocks, px: this._wcPx || 0, views: this._wcs ? this._wcs.size : 0 }; }
   /**
    * a wall face's painter, for types[id].decorate(face) and the facade options (windows, door, shutters, balcony, arch).
    * It is called as each wall face is baked, so whatever it paints is cached with the wall. face: { side ('north' | 'south'
@@ -7082,12 +7161,51 @@ function solidPush(sol, x, y, r) {
   else { dx /= d; dy /= d; }
   const m = r - d; return [(dx * sol.c - dy * sol.s) * m, (dx * sol.s + dy * sol.c) * m];
 }
+/** GTM-PATCH(3): many solids with one version bump (each solid() bumps it, and every bump rebuilds what keys on it):
+ *  map.addSolids([{ id, x, y, z, o }, ...]) with solid()'s placement, or ready boxes { x, y, z, top, hx, hy, c, s } (a
+ *  deck slab, a pillar: no shape needed; c, s turn it, 1 and 0 by default). Returns the solids added */
+TileMap.prototype.addSolids = function (list) {
+  const out = [], all = this.solids || (this.solids = []);
+  for (const q of list || []) {
+    let sol = null;
+    if (q.hx !== undefined) sol = Object.assign({ c: 1, s: 0, px: q.x, py: q.y, shape: null }, q, { z: q.z || 0 });
+    else { const b = E.shapeBox(q.id, q.x, q.y, q.z || 0, q.o || {}); if (b) sol = Object.assign(b, { shape: q.id, px: q.x, py: q.y }); }
+    if (sol) { all.push(sol); out.push(sol); }
+  }
+  this.version++; return out;
+};
+/** GTM-PATCH(3): the solids whose footprints may come within r of (x, y), in map.solids order: every solid while there
+ *  are few, else the cells of a bucket grid (64 units) the query box touches. The grid is rebuilt when map.solids is
+ *  replaced or changes length, or the map's version moves (call map.solidsMoved() after moving a solid in place) */
+TileMap.prototype._solidsNear = function (x, y, r) {
+  const S = this.solids; if (!S || S.length < 24) return S || [];
+  let G = this._sg;
+  if (!G || G.list !== S || G.n !== S.length || G.v !== this.version) {
+    const B = 64, cells = new Map();
+    S.forEach((s, i) => {
+      s._si = i; const ex = Math.abs(s.c) * s.hx + Math.abs(s.s) * s.hy, ey = Math.abs(s.s) * s.hx + Math.abs(s.c) * s.hy;
+      for (let gy = Math.floor((s.y - ey) / B); gy <= Math.floor((s.y + ey) / B); gy++) for (let gx = Math.floor((s.x - ex) / B); gx <= Math.floor((s.x + ex) / B); gx++) {
+        const k = (gy + 32768) * 65536 + gx + 32768; let a = cells.get(k); if (!a) cells.set(k, a = []); a.push(s);
+      }
+    });
+    G = this._sg = { list: S, n: S.length, v: this.version, B, cells, out: [], stamp: 0 };
+  }
+  const B = G.B, out = G.out, st = ++G.stamp; out.length = 0; let many = 0;
+  for (let gy = Math.floor((y - r) / B); gy <= Math.floor((y + r) / B); gy++) for (let gx = Math.floor((x - r) / B); gx <= Math.floor((x + r) / B); gx++) {
+    const a = G.cells.get((gy + 32768) * 65536 + gx + 32768); if (!a) continue;
+    many++; for (const s of a) if (s._sq !== st) { s._sq = st; out.push(s); }
+  }
+  if (many > 1) out.sort((p, q) => p._si - q._si);
+  return out;
+};
+/** GTM-PATCH(3): rebuild the solids' bucket grid after moving solids in place */
+TileMap.prototype.solidsMoved = function () { this._sg = null; };
 const _collide = TileMap.prototype.collide, _groundAt = TileMap.prototype.groundAt, _heightAt = TileMap.prototype.heightAt;
 TileMap.prototype.collide = function (b) {
   let hit = _collide.call(this, b);
   if (this.solids && this.solids.length) {
     const zA = typeof b.z === 'number', z = zA ? b.z : 0, h = b.h || HEIGHTS.eye + 2, step = b.step === undefined ? HEIGHTS.step : b.step;
-    for (const s of this.solids) {
+    for (const s of this._solidsNear(b.x, b.y, (b.r || 0) * 2 + 16)) {   // GTM-PATCH(3): the solids near it (with room for the pushes), not all
       if (z >= s.top - step || z + h <= s.z) continue;   // on top of it (or a step below its top), or wholly below it
       const p = solidPush(s, b.x, b.y, b.r || 0); if (p) { b.x += p[0]; b.y += p[1]; hit = true; }
     }
@@ -7096,13 +7214,13 @@ TileMap.prototype.collide = function (b) {
 };
 TileMap.prototype.groundAt = function (x, y, r = 0, z = 1e9, step = 2) {
   let g = _groundAt.call(this, x, y, r, z, step);
-  if (this.solids) for (const s of this.solids) if (s.top <= z + step && s.top > g && solidPush(s, x, y, Math.max(.01, r * .6))) g = s.top;
+  if (this.solids) for (const s of this._solidsNear(x, y, Math.max(.01, r * .6))) if (s.top <= z + step && s.top > g && solidPush(s, x, y, Math.max(.01, r * .6))) g = s.top;   // GTM-PATCH(3)
   return g;
 };
 TileMap.prototype.heightAt = function (x, y) {
   let h = _heightAt.call(this, x, y);
   // a raised solid counts only from what reaches it (a crate on a shelf is not a wall to a bullet under the shelf): passes until none adds
-  if (this.solids) for (let n = 0, up = true; up && n < 8; n++) { up = false; for (const s of this.solids) if (s.top > h && s.z <= h + HEIGHTS.step && solidPush(s, x, y, .01)) { h = s.top; up = true; } }
+  if (this.solids) { const near = this._solidsNear(x, y, .01); for (let n = 0, up = true; up && n < 8; n++) { up = false; for (const s of near) if (s.top > h && s.z <= h + HEIGHTS.step && solidPush(s, x, y, .01)) { h = s.top; up = true; } } }   // GTM-PATCH(3)
   return h;
 };
 
