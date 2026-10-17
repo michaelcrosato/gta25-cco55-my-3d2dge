@@ -33,15 +33,15 @@ export class Stage {
   /** game: the E.Game; views: the ViewManager (it learns the depth views here) */
   constructor(game, views) {
     this.game = game; this.views = views; this.items = []; this.world = null; this.last = 0; this.fx = null; this.zx = null;
-    this.lamps = []; this.glows = []; this.floorFx = []; this.backdrops = new Map(); this.skyNow = null; this._maxH = null; this.wfx = new WeatherFX();
+    this.lamps = []; this.glows = []; this.floorFx = []; this.marks = []; this.backdrops = new Map(); this.skyNow = null; this._maxH = null; this.wfx = new WeatherFX();
     this.frameNo = 0; this._kept = new WeakMap();   // (crowd bodies' kept images in the depth views, by their key)
     this.side7 = new Side7View({}); this.top = new TopView({});
     for (const v of [this.top, this.side7]) views.addView({ id: v.id, label: v.label, depth: v,
-      screenDirToGround: (dx, dy) => v.screenDirToGround(dx, dy),
+      screenDirToGround: (dx, dy) => v.screenDirToGround(dx, dy), screenVec: (x, y, z) => v.screenVec(x, y, z),
       mouseGround: () => { const m = game.input.mouseScreen && game.input.mouseScreen(); return m && v.P ? v.toGround(m[0] - game.screen.ix, m[1] - game.screen.iy) : null; } });
     // the engine's lighting pass and particles draw in its own views only (the stress test does the same, 634-642)
     if (game.lights && game.lights.render) { const render = game.lights.render.bind(game.lights); game.lights.render = r => { if (!this.depthActive) render(r); }; }
-    if (game.particles && game.particles.draw) { const draw = game.particles.draw.bind(game.particles); game.particles.draw = r => { if (!this.depthActive) draw(r); }; }
+    if (game.particles && game.particles.draw) { const draw = game.particles.draw.bind(game.particles); this._partDraw = draw; game.particles.draw = r => { if (!this.depthActive) draw(r); }; }
   }
   /** the active depth view (Side7View or TopView), or null in ISO */
   get depth() { const s = this.views.spec; return (s && s.depth) || null; }
@@ -71,7 +71,7 @@ export class Stage {
    *  depth cameras; o.player [x, y, z] (the focus by default) is who the cut-away keeps in sight. Presentation only:
    *  the simulation never reads it */
   begin(r, o = {}) {
-    this.r = r; this.items.length = 0; this.lamps.length = 0; this.glows.length = 0; this.floorFx.length = 0; this.focus = o.focus || null; this.isoP = null; this.frameNo++;
+    this.r = r; this.items.length = 0; this.lamps.length = 0; this.glows.length = 0; this.floorFx.length = 0; this.marks.length = 0; this.focus = o.focus || null; this.isoP = null; this.frameNo++;
     const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, .1); this.last = now;
     const d = this.depth, W = this.world, sky = this.skyNow;
     if (sky) this.wfx.update(dt, sky, this.focus);
@@ -185,20 +185,46 @@ export class Stage {
    *  pixels a unit. In ISO glows are drawn after the lights, so the dark never dims them, and only where no wall drawn
    *  this frame stands in front of the point (the walls' tops checked down the screen from it: no full-frame mask, the
    *  cut-away included); o.iso: ISO only (a sign the depth views already draw as a shape); o.reflect(g, sx, sy, k, wet):
-   *  its smear of light on a wet street, at the point's foot. In TOP and MODE 7 they sort with everything else */
+   *  its smear of light on a wet street, at the point's foot; o.always: never hidden (a lock-on's mark: over walls, the
+   *  dark and the weather in every view). In TOP and MODE 7 they sort with everything else */
   glow(x, y, z, draw, o = {}) {
     const d = this.depth;
-    if (!d) { this.glows.push([x, y, z, draw, o.reflect || null]); return; }
+    if (!d) { this.glows.push([x, y, z, draw, o.reflect || null, !!o.always]); return; }
     if (o.iso) return;
+    if (o.always) { this.marks.push(() => { const q = d.proj(x, y, z); if (q) draw(this.r.ctx, q[0], q[1], q[2]); }); return; }
     this.items.push({ k: d.depth(x, y) - .01, fn: g => { const q = d.proj(x, y, z); if (q) draw(g, q[0], q[1], q[2]); } });
+  }
+  /** a line that shines from a (where it is hidden-tested in ISO, like a glow) to b: a tracer, a zap's arc. draw(g, A,
+   *  B, k) gets both screen points and the pixels a unit at a */
+  glowLine(a, b, draw) {
+    const d = this.depth;
+    if (!d) { this.glows.push([a[0], a[1], a[2], (g, sx, sy, k) => { const B = this.r.w(b[0], b[1], b[2]); draw(g, [sx, sy], B, k); }, null]); return; }
+    this.items.push({ k: Math.min(d.depth(a[0], a[1]), d.depth(b[0], b[1])) - .02, fn: g => { const A = d.proj(a[0], a[1], a[2]), B = d.proj(b[0], b[1], b[2]); if (A && B) draw(g, A, B, A[2]); } });
+  }
+  /** a light this frame (a muzzle flash, a fire): the engine's canvas lights in ISO, MOTOR's pools in TOP and MODE 7 */
+  light(x, y, z, radius, intensity = 1) {
+    if (!this.depth) { const L = this.game.lights; if (L && L.enabled) L.add(x, y, z, radius, intensity); return; }
+    this.lamps.push([x, y, z, radius * Math.min(1.2, intensity)]);
+  }
+  // the engine's particles in a depth view: its own drawing, through a stand-in renderer whose projection, queue and
+  // cull are the view's (sizes at the focus's scale: MODE 7's far ones a little large)
+  _depthParticles(d) {
+    const P = this.game.particles; if (!P || !P.list.length || !this._partDraw) return;
+    const r = this.r, f = this.focus || [d.x, d.y], q0 = d.proj(f[0], f[1], 0), scale = q0 ? q0[2] : 1, self = this;
+    const fake = { view: { scale, pitchDeg: 10, isTop: false }, ix: 0, iy: 0, bw: r.bw, bh: r.bh,
+      w: (x, y, z) => { const q = d.proj(x, y, z); return q ? [q[0], q[1]] : [-9999, -9999]; },
+      visible: (x, y, z) => self.onScreen(x, y, z, z, 12),
+      queue: (x, y, z, fn, o) => self.items.push({ k: d.depth(x, y) - ((o && o.bias) || 0) * .01, fn }),
+      decal: fn => self.floorFx.push(g => fn(g)), overlay: fn => r.overlay(fn), groundRing() {} };
+    this._partDraw(fake);
   }
   _isoGlows(g, r) {
     if (!this.glows.length) return;
     const k = r.view.scale, wet = this.skyNow ? this.skyNow.wet : 0; g.save(); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-    for (const [x, y, z, draw, reflect] of this.glows) {
+    for (const [x, y, z, draw, reflect, always] of this.glows) {
       const [sx, sy] = r.w(x, y, z); if (sx < -40 || sy < -60 || sx > r.bw + 40 || sy > r.bh + 40) continue;
       if (reflect && wet > .1 && !this._hidden(r, x, y, 1)) { const [fx, fy] = r.w(x, y, 0); reflect(g, fx, fy, k, wet); }
-      if (!this._hidden(r, x, y, z)) draw(g, sx, sy, k);
+      if (always || !this._hidden(r, x, y, z)) draw(g, sx, sy, k);
     }
     g.restore(); g._c = null;
   }
@@ -357,11 +383,13 @@ export class Stage {
       this._floorFx(g, d, 0);
       if (this.spans) { const [i0, j0, i1, j1] = d.range(S); spans = this.spans.range(i0, j0, i1, j1); d.spanItems(spans, this.items, W.night); }
     }
+    this._depthParticles(d);
     // far to near; at equal keys the actor last (it stands in front of the face it touches)
     this.items.sort((a, b) => b.k - a.k || (a.actor ? 1 : 0) - (b.actor ? 1 : 0));
     let actors = 0; for (const it of this.items) { it.fn(g); if (it.actor) actors++; }
     if (this.game.lights && this.game.lights.enabled) this._depthLight(g, d);
     if (this.skyNow) this.wfx.draw(g, d, r.bw, r.bh, this.skyNow);
+    for (const f of this.marks) f();   // (glows that always show: a lock-on's mark, over the dark and the weather)
     g.restore(); g._c = null;
     d.stats.actors = actors; d.stats.spans = spans.length; d.stats.items = this.items.length;
     this.game.stats.actors = actors;   // (the engine's checker counts the characters on screen)

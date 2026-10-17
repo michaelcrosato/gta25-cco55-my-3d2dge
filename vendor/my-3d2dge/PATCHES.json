@@ -25,11 +25,16 @@
       "n": 7,
       "file": "engine/my-3d2dge.js",
       "title": "Lighting: a reduced-resolution light field (lights.res) and the tint curve from a table"
+    },
+    {
+      "n": 8,
+      "file": "engine/my-3d2dge.js",
+      "title": "Humanoid weaponDraw hook: a game's own weapon models drawn among the limbs, in place of the built-in one"
     }
   ],
   "files": {
     "engine/my-3d2dge.js": {
-      "sha256": "c54e2a50361e057439b106bd2c8938554b17509bbe8657cef802752d8bb7bd92"
+      "sha256": "c729cf0e0ff77246c8a98f167f4caad1e8d50691784a4df4300c6ca64dc8afee"
     }
   }
 }

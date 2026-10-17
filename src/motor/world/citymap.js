@@ -43,6 +43,14 @@ export class CityMap {
   }
   /** is the cell walkable on foot at street level (no wall, no water)? */
   walkable(cx, cy) { return this.inside(cx, cy) && this.map.cell(cx, cy) === 0 && !BLOCKING.has(this.surfaceAt(cx, cy)); }
+  /** the nearest cell walkable at street level to (cx, cy), searched outward ring by ring (itself if it is) */
+  nearestWalkable(cx, cy, max = 12) {
+    for (let r = 0; r <= max; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      if (this.walkable(cx + dx, cy + dy)) return [cx + dx, cy + dy];
+    }
+    return [cx, cy];
+  }
   /** is the cell drivable at street level? Every open cell is (a car mounts the sidewalk and crosses the park, as in
    *  GTA2); traffic keeps to its lanes */
   drivable(cx, cy) { return this.walkable(cx, cy); }

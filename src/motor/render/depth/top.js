@@ -16,8 +16,10 @@ export class TopView {
     Object.assign(this, { id: 'top', label: 'TOP-DOWN', x: 0, y: 0, H: 320, Hfoot: 320, Hmax: 640, F: 352, lead: .35, ready: false, zoom: 1,
       views: new Map(), stats: { quads: 0, chunks: 0, actors: 0 } }, o);
   }
-  /** follow the focus, leading along its velocity; H eases up with speed (0..1 of top speed) */
+  /** follow the focus, leading along its velocity; H eases up with speed (0..1 of top speed). While hold is set
+   *  ({ x, y, H }: the switch camera) the camera is exactly there */
   follow(dt, fx, fy, vx = 0, vy = 0, speed01 = 0) {
+    if (this.hold) { this.x = this.hold.x; this.y = this.hold.y; this.H = this.hold.H; this.ready = true; return; }
     const wantH = this.Hfoot + (this.Hmax - this.Hfoot) * E.clamp(speed01, 0, 1), k = 1 - Math.exp(-dt * 3);
     const lx = fx + vx * this.lead * (this.H / this.F), ly = fy + vy * this.lead * (this.H / this.F);
     if (!this.ready) { this.x = lx; this.y = ly; this.H = wantH; this.ready = true; return; }
@@ -34,6 +36,8 @@ export class TopView {
   toGround(bx, by) { const P = this.P; return [this.x + (bx - P.cx) / P.s, this.y + (by - P.cy) / P.s]; }
   /** the draw order key: distance from the centre (bigger is drawn first) */
   depth(x, y) { return Math.hypot(x - this.x, y - this.y); }
+  /** a world offset on screen, linear (north up; height leans out from the centre, so it is left out) */
+  screenVec(x, y) { return [x, y]; }
   screenDirToGround(dx, dy) { if (!dx && !dy) return [0, 0]; const l = Math.hypot(dx, dy) || 1, m = Math.min(1, l); return [dx / l * m, dy / l * m]; }
   /** the engine View a rig is drawn with from straight above at k pixels per unit (whole 1/16ths, reused) */
   view(k) {

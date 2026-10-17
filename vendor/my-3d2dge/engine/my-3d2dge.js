@@ -3617,14 +3617,15 @@ class Humanoid {
       if (o.armor) { const pad = Sp(s > 0 ? J.shR : J.shL, -.1, s * .3, .5), m = tones(C.plate || C.metal); ops.push({ d: sh[2] + .03, f: () => { px.disc(g, pad[0], pad[1], 1.55 * u, far ? m.deep : m.sh); px.disc(g, pad[0] - .6, pad[1] - .6, Math.max(.5, 1.55 * u - 1), far ? m.sh : m.base); px.dot(g, pad[0] - u * .8, pad[1] - u * .8, m.hi); } }); }
     }
     // ---- weapons ----
-    if (o.weapon === 'gun') {
+    if (o.weaponDraw) o.weaponDraw(this._weaponApi(g, Sp, Q, u, ops, view));   // GTM-PATCH(8): a game's own weapon models, sorted with the limbs
+    else if (o.weapon === 'gun') {
       const hd = J.handR, bd = J.bladeDir, Hn = Q.handR, mz = Sp(hd, bd[0] * 5.5, bd[1] * 5.5, bd[2] * 5.5), gp = Sp(hd, -bd[0] * .6, -bd[1] * .6, -bd[2] * .6 - 1.4), m = tones(C.metal);
       ops.push({ d: Hn[2] + .03, f: () => { cap(Hn, gp, .8 * u, .7 * u, m.deep); cap(Hn, mz, .95 * u, .75 * u, m.sh); cap(Hn, mz, Math.max(.4, .95 * u - .8), Math.max(.4, .75 * u - .8), m.base, -.5, -.5); px.dot(g, mz[0], mz[1], '#ffffff'); } });
     } else if (o.weapon === 'staff') {
       const hd = J.handR, bd = J.bladeDir, Hn = Q.handR, top = Sp(hd, bd[0] * 10, bd[1] * 10, bd[2] * 10), bot = Sp(hd, -bd[0] * 7, -bd[1] * 7, -bd[2] * 7), wt = tones(C.staff || '#8a5a32'), ot = tones(C.orb || '#7fe3ff');
       ops.push({ d: (Hn[2] + top[2]) / 2, f: () => { cap(bot, top, .6 * u, .6 * u, wt.sh); px.line(g, bot[0] - .5, bot[1] - .5, top[0] - .5, top[1] - .5, wt.lt); px.glow(g, 1); px.disc(g, top[0], top[1], Math.max(1, u * 1.5), ot.sh); px.disc(g, top[0] - .6, top[1] - .6, Math.max(.6, u * 1.5 - 1), ot.base); px.dot(g, top[0] - 1, top[1] - 1, '#ffffff'); } });
     }
-    if (o.weapon === 'sword') {
+    if (o.weapon === 'sword' && !o.weaponDraw) {
       const hd = J.handR, bd = J.bladeDir, Lb = o.bladeLen, Hn = Q.handR, sl = Math.hypot(bd[0], bd[1]) || 1, gx = -bd[1] / sl * 1.8, gy = bd[0] / sl * 1.8;
       const tip = Sp(hd, bd[0] * Lb, bd[1] * Lb, bd[2] * Lb), b0 = Sp(hd, bd[0] * 1.5, bd[1] * 1.5, bd[2] * 1.5), pom = Sp(hd, -bd[0] * 1.5, -bd[1] * 1.5, -bd[2] * 1.5);
       const g0 = Sp(hd, bd[0] * 1.5 + gx, bd[1] * 1.5 + gy, bd[2] * 1.5), g1 = Sp(hd, bd[0] * 1.5 - gx, bd[1] * 1.5 - gy, bd[2] * 1.5), m = tones(C.metal), h = tones(C.hilt);
@@ -3697,14 +3698,15 @@ class Humanoid {
       seg(sh, el, far ? C.clothDk : C.cloth, lw); seg(el, hd, far ? C.skinDk : C.skin, lw);
       ops.push({ d: hd[2] + .02, f: () => px.rect(g, hd[0] - 1, hd[1] - 1, 2, 2, far ? C.skinDk : C.skin) });
     }
-    if (o.weapon === 'gun') {
+    if (o.weaponDraw) o.weaponDraw(this._weaponApi(g, Sp, Q, sc, ops, view));   // GTM-PATCH(8): as in the HD rig
+    else if (o.weapon === 'gun') {
       const hd = J.handR, bd = J.bladeDir, Hn = Q.handR, mz = Sp(hd, bd[0] * 5, bd[1] * 5, bd[2] * 5), gp = Sp(hd, -bd[0] * .6, -bd[1] * .6, -bd[2] * .6 - 1.2);
       ops.push({ d: Hn[2] + .03, f: () => { px.line(g, Hn[0], Hn[1], gp[0], gp[1], C.metalDk, 2); px.line(g, gp[0], gp[1], mz[0], mz[1], C.metalDk, 2); px.line(g, Hn[0], Hn[1] - 1, mz[0], mz[1] - 1, C.metal); px.dot(g, mz[0], mz[1], '#ffffff'); } });
     } else if (o.weapon === 'staff') {
       const hd = J.handR, bd = J.bladeDir, Hn = Q.handR, top = Sp(hd, bd[0] * 10, bd[1] * 10, bd[2] * 10), bot = Sp(hd, -bd[0] * 7, -bd[1] * 7, -bd[2] * 7);
       ops.push({ d: (Hn[2] + top[2]) / 2, f: () => { px.line(g, bot[0], bot[1], top[0], top[1], C.staff || '#8a5a32', Math.max(1, Math.round(sc * .9))); px.glow(g, 1); px.disc(g, top[0], top[1], Math.max(1, sc * 1.4), C.orb || '#7fe3ff'); px.dot(g, top[0] - 1, top[1] - 1, '#ffffff'); } });
     }
-    if (o.weapon === 'sword') {
+    if (o.weapon === 'sword' && !o.weaponDraw) {
       const hd = J.handR, bd = J.bladeDir, L = o.bladeLen, Hn = Q.handR, sl = Math.hypot(bd[0], bd[1]) || 1, sx = -bd[1] / sl * 1.6, sy = bd[0] / sl * 1.6;
       const tip = Sp(hd, bd[0] * L, bd[1] * L, bd[2] * L), b0 = Sp(hd, bd[0] * 1.4, bd[1] * 1.4, bd[2] * 1.4), pom = Sp(hd, -bd[0] * 1.2, -bd[1] * 1.2, -bd[2] * 1.2);
       const g0 = Sp(hd, bd[0] * 1.4 + sx, bd[1] * 1.4 + sy, bd[2] * 1.4), g1 = Sp(hd, bd[0] * 1.4 - sx, bd[1] * 1.4 - sy, bd[2] * 1.4);
@@ -3718,6 +3720,11 @@ class Humanoid {
     ops.sort((a, b) => a.d - b.d);
     for (const op of ops) op.f();
   }
+  /** GTM-PATCH(8): what o.weaponDraw(api) gets to draw a weapon of its own in the rig's frame, sorted with the limbs:
+   *  { g, P(p, df, dr, dz) (a rig-local [f, r, z] point plus an offset -> [screen x, screen y, depth]), J (the joints:
+   *  handR, handL, bladeDir...), Q (the joints on screen), u (screen pixels a unit), push(depth, fn) (draw fn at that
+   *  depth among the limbs), view, rig, classic (the stick style) } */
+  _weaponApi(g, Sp, Q, u, ops, view) { return { g, P: Sp, J: this.J, Q, u, view, rig: this, classic: this.o.style === 'classic', push: (d, f) => ops.push({ d, f }) }; }
   _hat(g, Sp, J, r, H) {
     const h = this.o.hat, st = h.style || 'cap', c = h.color || '#d83a2a', R = this.o.headR, dk = shade(c, -.3);
     if (st === 'cap') {            // plumber / baseball cap with a brim facing forward

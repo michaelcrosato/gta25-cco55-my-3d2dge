@@ -11,11 +11,12 @@ import { RNG } from './core/rng.js';
 import { expose } from './debug/handle.js';
 import { BUS } from './core/bus.js';
 import { TUNE } from './core/tune.js';
+import { syncMouseButtons } from './input/mouse-chords.js';
 
 export function createApp({ game, links }) {
   const views = new ViewManager(game), bindings = Bindings.load(game.input), activity = new Activity(game.input);
   const seed = +(links.query.get('seed') || 1) >>> 0;
-  RNG.seed(seed);
+  RNG.seed(seed); syncMouseButtons(game);
   const app = { game, links, views, bindings, activity, human: new HumanController(bindings, views, game), footprint: new Footprint(), kiosk: kioskWanted(links), seed, stage: new Stage(game, views) };
   for (const [k, v] of Object.entries(app)) expose(k, v);
   expose('BUS', BUS); expose('TUNE', TUNE);

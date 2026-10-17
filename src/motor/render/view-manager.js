@@ -25,6 +25,13 @@ export class ViewManager {
   get spec() { return this.views.get(this.active); }
   /** a direction pushed on screen (x right, y down) -> a world ground direction, through the active view */
   screenDirToGround(dx, dy) { const v = this.spec; return v && v.screenDirToGround ? v.screenDirToGround(dx, dy) : this.game.view.screenDirToGround(dx, dy); }
+  /** a world offset (x, y, z) as a screen offset [x, y] in the active view, linear and camera-free: the lock-on's cone
+   *  is judged on screen (PLAN.md 8.12) without reading the frame being drawn (ISO: the engine view's axes; TOP:
+   *  north up; MODE 7: the rail's) */
+  screenVec(x, y, z = 0) {
+    const s = this.spec; if (s && s.screenVec) return s.screenVec(x, y, z);
+    const v = this.game.view; return v && v.ax !== undefined ? [v.ax * x + v.ay * y, v.bx * x + v.by * y + v.bz * z] : [x, y - z];
+  }
   /** the ground point under the mouse in the active view, or null */
   mouseGround() { const v = this.spec; return v && v.mouseGround ? v.mouseGround() : this.game.mouseGround(); }
   /** cycle to the next view in game.views */

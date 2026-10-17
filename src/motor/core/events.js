@@ -16,6 +16,7 @@ export const EVENTS = {
   kill: 'target, by, kind',
   explode: 'x, y, z, r, by, power',
   fire: 'x, y, r, by',
+  photo: 'by, x, y, targets',                   // the Snap (M3: a photo objective's shutter)
   // vehicles
   vehicleEnter: 'vehicle, actor, seat',
   vehicleExit: 'vehicle, actor, seat',

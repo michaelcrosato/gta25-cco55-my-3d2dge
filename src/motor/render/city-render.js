@@ -256,9 +256,11 @@ function placeSign(C, s) {
   return { ...s, x: at[0], y: at[1], z, roofZ: h, side: best };
 }
 /** a neon sign: the name in the pixel font on a dark board, glowing, at the board's projected point (it scales with
- *  the view, never below the font's own size) */
+ *  the view, never below the font's own size; seen from far higher than any normal view, the switch camera's climb,
+ *  it is a stroke of its colour the board's width) */
 export function drawSign(g, P, s, night) {
   const p = P.proj(s.x, s.y, s.z); if (!p) return;
+  if (p[2] < .5) { const w = Math.max(2, Math.round(s.text.length * 5 * p[2])); g.fillStyle = s.color; g.fillRect(Math.round(p[0] - w / 2), Math.round(p[1]), w, Math.max(1, Math.round(p[2] * 4))); return; }
   const k = Math.max(1, Math.round(p[2] * .75)), cv = signImage(s.text, s.color, k, night && !s.billboard, s.board);
   if (s.billboard) {   // two posts down to the roof
     const q = P.proj(s.x, s.y, s.roofZ); if (q) { g.fillStyle = '#2a2a30'; const top = Math.round(p[1] + cv.height / 2), w = Math.max(1, Math.round(k)); for (const dx of [-cv.width * .3, cv.width * .3]) g.fillRect(Math.round(p[0] + dx), top, w, Math.max(1, Math.round(q[1]) - top)); }

@@ -155,3 +155,26 @@ and where it landed.
 - **Measured:** ISO at the gate, 9.3-10.0 ms median over three runs (the gate is 10.4); TOP 8.4 ms. MODE 7 is 14-16 ms
   against 12.7, and 11.8-13.1 ms with no crowd. D10 gave MODE 7's crowd lever to M7, and M7 keeps it.
 - **Answered:** no. **Landed in:** M2.
+
+## D14 · 2026-10-17 · M3's calls: weapons drawn in the rig (GTM-PATCH 8), the crew's shared fund, climbing, lock-on on screen
+- **Principle:** extend first, patch only past a private member (PLAN.md 12); the simulation never reads the frame
+  being drawn (7.3).
+- **Calls:**
+  - **GTM-PATCH 8.** The engine draws one model per weapon kind (a pistol, a sword, a staff). A rig's
+    `weaponDraw(api)` hook lets MOTOR draw its eleven weapons among the limbs. A gun on the far side is behind the
+    arm that holds it, which drawing over the rig afterwards can't do without the rig's private projection. The
+    engine's own kind still sets the pose ('gun' points, 'sword' swings).
+  - **Long guns.** A two-handed model brings the left hand to its foregrip by two-bone IK after the rig's pose. Where
+    the grip is out of reach, the hand stops short at the shoulder: a stylized shouldered pose.
+  - **The crew fund.** The three protagonists share one wallet: a simplification of GTA V's three.
+  - **Climbing.** A jump climbs a ledge up to `TUNE.climbMax` 34: one-storey roofs (24), garages (32) and containers.
+    The engine's default of 82 would put most of Lowtown's roofs one jump away.
+  - **Lock-on.** The 70° cone is judged on screen through each view's linear, camera-free projection
+    (`views.screenVec`): a player input, like the stick turned into the world, not the frame being drawn.
+  - **Mouse buttons.** A second mouse button pressed while one is held fires no pointerdown: aim with the right
+    button, fire with the left. MOTOR keeps the engine's held buttons in step with `e.buttons`
+    (`input/mouse-chords.js`), with no patch.
+  - **Weapon rates.** Melee chains at the weapon's rate; the engine's combo alone cuts each move's recovery short.
+    A dry magazine reloads once its last shot has cycled, so a magazine takes mag / rate + reload. The bench measures
+    every gun at its spec's DPS exactly, and fists and the bat within 6%.
+- **Answered:** no. **Landed in:** M3.

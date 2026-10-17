@@ -3,7 +3,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 const DET = 'Determinism: take time from dt / game.time and randomness from MOTOR.rng streams (PLAN.md 7.3)';
-const SIM = ['src/motor/{core,sim,nav,ai,play,mission,save}/**/*.js', 'src/game/**/*.js'];
+const SIM = ['src/motor/{core,sim,nav,ai,play,mission,save,combat,actors}/**/*.js', 'src/game/**/*.js'];
 
 export default [
   { ignores: ['vendor/**', 'dist/**', 'node_modules/**', 'check-output/**', '.cache/**'] },

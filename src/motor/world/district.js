@@ -12,6 +12,8 @@ declare('districts', shape({
   water: { type: 'array', def: [] }, roads: { type: 'array', req: true }, decks: { type: 'array', def: [] }, walls: { type: 'array', def: [] },
   lots: { type: 'array', def: [] }, props: { type: 'object', def: {} }, propList: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, zones: { type: 'array', def: [] },
   tour: { type: 'array', def: [] }, drawbridges: { type: 'array', def: [] },
+  /** pickups placed in the district: [{ kind, item, amount, at: [cx, cy], respawn }] (each lands on the nearest open cell) */
+  pickups: { type: 'array', def: [] },
 }));
 declare('landmarks', shape({ district: { type: 'string', req: true }, name: { type: 'string', req: true }, lots: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, props: { type: 'array', def: [] } }));
 
@@ -22,5 +24,6 @@ export function buildCity(id, seed) {
   const full = { ...spec, lots: [...spec.lots, ...marks.flatMap(m => m.lots.map(l => ({ landmark: m.id, ...l })))], pois: [...spec.pois, ...marks.flatMap(m => m.pois.map(p => ({ landmark: m.id, ...p })))], propList: [...spec.propList, ...marks.flatMap(m => m.props)] };
   const city = buildDistrict(full, { seed: seed ?? spec.seed });
   city.painter = new SurfacePainter(city);
+  city.pickupSpots = spec.pickups.map(p => { const [cx, cy] = city.nearestWalkable(p.at[0], p.at[1]); return { ...p, x: (cx + .5) * city.T, y: (cy + .5) * city.T }; });
   return city;
 }

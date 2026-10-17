@@ -225,3 +225,24 @@ test('GTM-PATCH(7): the tint curve from the table is the exp curve, step for ste
   const tint = .32 * 255, Q = L._qL;
   for (let i = 0; i <= 1024; i++) { const x = i / 128; assert.equal(Q[i], Math.round((1 - Math.exp(-x)) * tint / 8) * 8, 'x ' + x); }
 });
+
+/* ---- GTM-PATCH 8: a game's own weapon models in the rig ---- */
+/** a stand-in 2D context that logs every call (the rig only fills shapes) */
+function logCtx() {
+  const log = [], g = new Proxy({ log }, { get: (o, k) => (k in o ? o[k] : (...a) => { log.push(String(k)); return undefined; }), set: (o, k, v) => { o[k] = v; return true; } });
+  return g;
+}
+test('GTM-PATCH(8): weaponDraw draws a weapon of its own among the limbs, in place of the built-in model, in both styles', () => {
+  const E = engineWithPads([]), view = E.VIEWS.iso;
+  for (const style of ['hd', 'classic']) {
+    const count = o => { const rig = new E.Humanoid({ build: 'heroic', style, ...o }); rig.update(1 / 60, { x: 0, y: 0, z: 0, facing: 0, point: true }); const g = logCtx(); rig.draw(g, 100, 100, view); return g.log.length; };
+    const gun = count({ weapon: 'gun' }), hooked = count({ weapon: 'gun', weaponDraw() {} });
+    assert.ok(hooked < gun, `${style}: with the hook (doing nothing), the built-in gun is not drawn (${hooked} < ${gun} calls)`);
+    // the api, and the depth order: a part pushed far back draws before every limb, one pushed near after them all
+    let api = null; const rig = new E.Humanoid({ build: 'heroic', style, weapon: 'gun', weaponDraw(a) { api = a; a.push(-1e9, () => g.log.push('BACK')); a.push(1e9, () => g.log.push('FRONT')); } });
+    rig.update(1 / 60, { x: 0, y: 0, z: 0, facing: 0, point: true }); const g = logCtx(); rig.draw(g, 100, 100, view);
+    assert.ok(api && api.J.handR && api.Q.handR && api.u > 0 && api.rig === rig && api.classic === (style === 'classic'), style + ': the api');
+    const p = api.P(api.J.handR); assert.deepEqual(p.map(v => +v.toFixed(6)), api.Q.handR.map(v => +v.toFixed(6)), 'P(joint) is the joint on screen');
+    assert.equal(g.log.indexOf('BACK'), 0, style + ': far parts first'); assert.equal(g.log.lastIndexOf('FRONT'), g.log.length - 1, style + ': near parts last');
+  }
+});
