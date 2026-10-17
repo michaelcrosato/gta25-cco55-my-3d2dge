@@ -1,15 +1,13 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M2 in progress (in: the world layer, Lowtown, the street painter, the city renderer, the ISO cut-away, the quarter
-turn, the speed zoom, the clock and day/night in every view, night ISO inside budget; next: rain and the water
-shimmer, the drawbridge, the measured walk-through with screenshots). Blockers: none. The run started inside the planning
+Now: M2 complete; next M3, the protagonists, moving on foot and combat. Blockers: none. The run started inside the planning
 session (DECISIONS D5).
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
 | M0 Bootstrap | done | see the acceptance log · `npm test` all steps pass (lint, boundary, vendor, goal-sync, dist current, 9 unit + sim, e2e smoke 6/6, engine check) |
 | M1 Core + spikes | done | core, input, attract loop (`c76395c`); S2 floor and scale (`064fcae`): GTM-PATCHes 1-3, floor chunks, the scale yard · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65; S1 depth renderer (`dda0356`): SIDE7, TOP, the Stage, the view lab · TOP 6.1-6.2 ms, SIDE7 11.3-11.9 ms with 41 rigs; S3 vehicle physics (`7039af1`): the handling suite, the pad, the replay round-trip; the frozen contracts, D10 budgets · 69 unit + sim tests, 2 e2e · `docs/media/m1/` |
-| M2 Lowtown + ISO | in progress | the world layer and Lowtown (builds in ~80 ms, validator clean on 3 seeds), the street painter, the city renderer, the cut-away (GTM-PATCH 1: `cutTop`) (`b781439`); the quarter turn (D12), the speed zoom, the clock and sky, GTM-PATCH 7 and MOTOR glows (D11) · night ISO 6.0 ms standing, 7.6 ms touring; TOP 6.6, MODE 7 11.6 · 83 unit + sim tests · `docs/media/lowtown-map-sheet.png`, `docs/media/m2-cutaway-bank.png` |
+| M2 Lowtown + ISO | done | the world layer, Lowtown, the street painter, the city renderer, the cut-away (`b781439`); the quarter turn, the speed zoom, the clock and sky, night ISO in budget (`fe4f6dc`); weather, the drawbridge, the stand-in crowd and the gate (`8f175be`); roofs, shopfronts, yards, the shot matrix and the acceptance (this commit) · ISO at the gate 9.3-10.0 ms · 86 unit + sim tests · `docs/media/lowtown-map-sheet.png`, `docs/media/shots/` |
 | M3 On foot + combat | | |
 | M4 Vehicles | | |
 | M5 Roads, traffic, peds | | |
@@ -124,4 +122,50 @@ session (DECISIONS D5).
 - **M1 · the budgets** are logged as DECISIONS D10, from the spikes' measurements. No fallback was taken.
 - **M1 · the gate:** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 69 unit and sim
   tests, the e2e smoke, the e2e replay, and the engine checker across all three views).
+- **M2 · section 8.3, the city builder:**
+  - Lowtown builds headless in about 80 ms (a sim test holds it under 1.5 s);
+  - the validator finds no errors on seeds 1999, 7 and 42;
+  - every point of interest is reachable on foot and by road (the validator's flood fills, checked in the same test);
+  - the map sheet is `docs/media/lowtown-map-sheet.png`.
 
+  Verdict: the sheet reads as the district in PLAN.md 9.1: four neighbourhoods, the Loop round the middle with its
+  gap stub, the L down Motor Avenue, the canal with three bridges, the harbour, every landmark where the plan puts it.
+- **M2 · section 8.4, ISO and the floor chunks**, measured as in D10 (medians over 8-10 s, ±10% between runs):
+
+  | Scenario (`tools/perf.mjs`) | Draw median | p99 |
+  |---|---|---|
+  | `lowtown-walk`: standing at the bank at night | 6.0-6.6 ms | 11-12 ms |
+  | `lowtown-tour`: the tour at 300 u/s at night | 8.3-9.7 ms | 17-20 ms |
+  | `lowtown-tour-rain`: the same in the rain | 7.4 ms | 18 ms |
+  | `lowtown-gate`: in the rain at night, 40 walkers and 20 cars in view (D13) | 9.3-10.0 ms | 18-21 ms |
+  | `lowtown-gate-top`: the gate in TOP-DOWN | 8.4 ms | 17 ms |
+  | `lowtown-gate-side7`: the gate in MODE 7 | 14.4-16.0 ms | 42-52 ms |
+
+  - ISO and TOP-DOWN are inside the gate (10.4 and 12.7 ms). MODE 7's crowd lever is M7's, as D10 set it; with no crowd
+    it draws in 11.8-13.1 ms.
+  - Night went from 24.4 ms to 6.0 ms on the way (D11): GTM-PATCH 7, MOTOR's glows, the screen cull, sign images.
+  - `check.mjs` raises no look notes (208-216 colours in play, every view).
+- **M2 · the neighbourhood screenshots** (`tools/shot-matrix.mjs`): `docs/media/shots/` holds ISO by day, dusk and
+  night for each neighbourhood. Contact sheets: `sheet-iso-clear.jpg`, `sheet-top-clear.jpg`, `sheet-side7-clear.jpg`,
+  and `sheet-iso-rain.jpg`. Verdicts against section 10:
+  - **Palm Terraces:** pass.
+    - Seen: pastel stucco and balconies, the red Gas'n'Sip and its pumps, palms along every walk, billboards, shop neon.
+  - **Neon Mile:** pass, with a note.
+    - Seen: the Hotel Marquee's lit tower and sign, rooftop clutter, lamps.
+    - Note: the street-level neon is thinner here than the name promises. More shop signs go in with the shop
+      interiors and gang fronts (M6, M8).
+  - **Brickyard:** pass.
+    - Seen: brick warehouses, the Boom Box, billboards, and the Loop overhead on its pillars.
+    - MODE 7 used to show a grey wall under the Loop. Now the deck overhead between the camera and the player is cut
+      away.
+  - **Harborfront:** pass.
+    - Seen: the cranes, containers, crates and pallets in the yards, bollards on the quay, glinting water, and the
+      drawbridge (`docs/media/m2/drawbridge-up.png`, `?bridge=up`).
+  - **Every neighbourhood, night and rain:** sodium pools and warm halos, broken streaks on the wet street, rain and
+    splashes. The known gap (D11): roofs catch light pools from the street behind them.
+- **M2 · the views:** all three draw Lowtown by day, dusk and night in every weather, with these fixes:
+  - the cut-away drops a whole building to stubs round a floor (GTM-PATCH 1 `cutTop`; `docs/media/m2/cutaway-bank.png`);
+  - the quarter turn orbits (D12; `docs/media/m2/turn-orbit-flat-blocks.png` is a frame of it);
+  - the speed zoom steps behind a quarter-second scale;
+  - x-ray shows the player through decks.
+- **M2 · the gate:** `npm test` passes every step (86 unit and sim tests, both e2e suites, the engine checker).

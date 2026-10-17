@@ -22,7 +22,24 @@ export const PROP_MODELS = {
   scaffold: { parts: [box(-14, -4, 0, -12, 4, 44, '#8a8a92'), box(12, -4, 0, 14, 4, 44, '#8a8a92'), box(-14, -4, 20, 14, 4, 22, '#c8a03a', 'cabin'), box(-14, -4, 42, 14, 4, 44, '#c8a03a', 'cabin')] },
   crusher: { parts: [box(-20, -14, 0, 20, 14, 8, '#5a5a62'), box(-18, -12, 22, 18, 12, 30, '#c8a03a', 'cabin'), box(-20, -14, 8, -16, 14, 30, '#4a4a52'), box(16, -14, 8, 20, 14, 30, '#4a4a52')] },
   crane: { parts: [box(-6, -6, 0, 6, 6, 110, '#e0b020'), box(-6, -60, 104, 6, 30, 114, '#e0b020', 'cabin'), box(-8, 22, 96, 8, 32, 104, '#5a5a62', 'cabin')] },
+  // roofs: an AC unit, a water tank on legs, a vent
+  ac: { parts: [box(-6, -5, 0, 6, 5, 7, '#8a8e94'), box(-4.5, -3.5, 7, 4.5, 3.5, 7.6, '#4a4e54', 'cabin')] },
+  tank: { parts: [box(-6, -6, 0, -4.5, -4.5, 8, '#3a3028'), box(4.5, -6, 0, 6, -4.5, 8, '#3a3028'), box(-6, 4.5, 0, -4.5, 6, 8, '#3a3028'), box(4.5, 4.5, 0, 6, 6, 8, '#3a3028'),
+    box(-7, -7, 8, 7, 7, 22, '#7a5a3a'), box(-7.5, -7.5, 22, 7.5, 7.5, 24, '#5a4430', 'cabin')] },
+  vent: { parts: [box(-2.5, -2.5, 0, 2.5, 2.5, 6, '#9a9ea4'), box(-3.5, -3.5, 6, 3.5, 3.5, 7, '#6a6e74', 'cabin')] },
+  // yards and quays
+  crate: { parts: [box(-5, -5, 0, 5, 5, 9, '#9a7448'), box(-5.2, -1, 0, 5.2, 1, 9.2, '#7a5a36', 'cabin')] },
+  pallet: { parts: [box(-7, -5, 0, 7, 5, 2, '#8a6a42'), box(-5, -3, 2, 5, 3, 7, '#c8c0a8', 'cabin')] },
+  barrel: { parts: [box(-3, -3, 0, 3, 3, 9, '#4a6a8a'), box(-3.3, -3.3, 3, 3.3, 3.3, 4, '#3a5a7a', 'cabin')] },
+  bollard: { parts: [box(-1.5, -1.5, 0, 1.5, 1.5, 5, '#2a2a30'), box(-2, -2, 5, 2, 2, 6, '#3a3a40', 'cabin')] },
 };
+const CONTAINERS = new Map();
+/** a shipping container in a colour (one model per colour) */
+function containerModel(color) {
+  let m = CONTAINERS.get(color);
+  if (!m) { m = { parts: [box(-20, -8, 0, 20, 8, 16, color), box(-19, -7, 16, 19, 7, 16.6, E.shade(color, -.12), 'cabin'), box(20, -8, 0, 20.4, 8, 16, E.shade(color, -.3), 'cabin')] }; CONTAINERS.set(color, m); }   // (a roof panel and the doors' end)
+  return m;
+}
 
 export class CityRenderer {
   /** city: a CityMap */
@@ -44,10 +61,15 @@ export class CityRenderer {
   queue(stage, fx, fy, radius = 640, night = true, player = null) {
     const ci = Math.floor(fx / CH), cj = Math.floor(fy / CH), n = Math.ceil(radius / CH);
     const under = player && this.city.deckAt(player[0], player[1], 1e9); const fade = under && under.z > (player[2] || 0) + 24 ? player : null;
+    const cut7 = stage.depth === stage.side7 && player ? stage.side7 : null, pz = player ? player[2] || 0 : 0, fd = cut7 ? cut7.depth(player[0], player[1]) : 0, fl = cut7 ? cut7.lateral(player[0], player[1]) : 0;
     for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) {
       const k = j * 64 + i;
-      for (const p of this.props.get(k) || []) if (stage.onScreen(p.x, p.y, p.z || 0, (p.z || 0) + (p.top || 60), 24)) this._prop(stage, p, night);
-      for (const dc of this.deckCells.get(k) || []) { const c = dc.c, z = Math.max(c.z0, c.z1); if (stage.onScreen((c.cx + .5) * T, (c.cy + .5) * T, z - dc.d.thickness, z + 8, 12)) this._deck(stage, dc, fade); }
+      for (const p of this.props.get(k) || []) if (stage.onScreen(p.x, p.y, p.z || 0, (p.z || 0) + (p.top || 60), 24) && !(p.roof && cut7 && this._cut7(cut7, p.lot, fd, fl))) this._prop(stage, p, night);
+      for (const dc of this.deckCells.get(k) || []) {
+        const c = dc.c, z = Math.max(c.z0, c.z1), x = (c.cx + .5) * T, y = (c.cy + .5) * T;
+        if (cut7 && z > pz + 24 && cut7.depth(x, y) < fd - 8) continue;   // (MODE 7: a deck overhead between the camera and the player is cut away)
+        if (stage.onScreen(x, y, z - dc.d.thickness, z + 8, 12)) this._deck(stage, dc, fade);
+      }
     }
     // drawbridges: each leaf a slab turning on its hinge, its top painted as the road; the gates while it is not down
     for (const b of this.bridges) {
@@ -70,6 +92,14 @@ export class CityRenderer {
       if (night) stage.glow(s.x, s.y, s.z, (g, sx, sy, k) => { const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * .75)), true); g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2)); }, { iso: true });   // (neon: lit after the dark)
     }
   }
+  // does MODE 7 cut this lot's building (in front of the player, across the player's line: its own span rule)?
+  _cut7(v, lotIndex, fd, fl) {
+    const L = this.city.lots[lotIndex]; if (!L) return false;
+    const T = this.city.T, [x0, y0, x1, y1] = L.rect, xs = [x0 * T, (x1 + 1) * T], ys = [y0 * T, (y1 + 1) * T];
+    let dMin = 1e9, lMin = 1e9, lMax = -1e9;
+    for (const x of xs) for (const y of ys) { dMin = Math.min(dMin, v.depth(x, y)); const l = v.lateral(x, y); lMin = Math.min(lMin, l); lMax = Math.max(lMax, l); }
+    return dMin < fd - 4 && lMin < fl + 40 && lMax > fl - 40;
+  }
   _prop(stage, p, night) {
     if (p.kind === 'pillar') { stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, PILLAR(p.top), p.x, p.y, 0, 0)); return; }
     const spr = SPRITES[p.kind];
@@ -78,12 +108,15 @@ export class CityRenderer {
       if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow, { reflect: lampSmear });
       return;
     }
-    const m = PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0));
+    if (p.roof && this.city.cutaway && this.city.cutaway.cut.has(p.lot)) return;   // (a building the cut-away drops takes its roof with it)
+    const m = p.kind === 'container' ? containerModel(p.color) : PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0));
   }
   _deck(stage, { d, c, map }, fade) {
     const x = (c.cx + .5) * T, y = (c.cy + .5) * T, z = Math.max(c.z0, c.z1);
-    const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72;
-    stage.shape(x, y, z, (g, P) => drawDeckCell(g, P, d, c, map, near ? .3 : 1));
+    const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72, a = near ? .3 : 1;
+    stage.shape(x, y, z, (g, P) => drawDeckCell(g, P, d, c, map, a), { hides: true });   // (the player shows through it, x-rayed)
+    // its railings sort on their own, just outside their edge: drawn with the cell, the next cell's top cut them to teeth
+    if (d.railing !== false) for (const e of EDGES) if (!map.has((c.cx + e[0]) + ',' + (c.cy + e[1]))) stage.shape(x + e[0] * T * 1.1, y + e[1] * T * 1.1, z, (g, P) => drawDeckRail(g, P, d, c, e, a), { hides: true });
   }
 }
 const LAMP_HEAD = 32;   // the streetlamp sprite's lamp, in world units over its foot (its glowAt: .13 of 52 pixels down, at sqrt 2 a unit)
@@ -178,13 +211,12 @@ export function drawDeckCell(g, P, d, c, map, alpha = 1) {
   const u = [P.proj(x0, y0, zAt(x0, y0) - th), P.proj(x1, y0, zAt(x1, y0) - th), P.proj(x1, y1, zAt(x1, y1) - th), P.proj(x0, y1, zAt(x0, y1) - th)];   // (wound to face down)
   if (u.every(Boolean) && cross(u) < 0) quad(g, u, '#2a2a32');
   // the edge faces: where no deck cell continues (a ramp's open foot has none)
-  for (const [dx, dy, A, B] of [[0, -1, [x1, y0], [x0, y0]], [0, 1, [x0, y1], [x1, y1]], [-1, 0, [x0, y0], [x0, y1]], [1, 0, [x1, y1], [x1, y0]]]) {
-    if (map.has((c.cx + dx) + ',' + (c.cy + dy))) continue;
+  for (const e of EDGES) {
+    const [dx, dy, ea, eb] = e; if (map.has((c.cx + dx) + ',' + (c.cy + dy))) continue;
+    const A = [x0 + ea[0] * T, y0 + ea[1] * T], B = [x0 + eb[0] * T, y0 + eb[1] * T];
     const za = zAt(...A), zb = zAt(...B), f = [P.proj(A[0], A[1], za - th), P.proj(B[0], B[1], zb - th), P.proj(B[0], B[1], zb), P.proj(A[0], A[1], za)];
     if (!f.every(Boolean) || cross(f) >= 0) continue;
     quad(g, f, dy > 0 || dx > 0 ? '#5a5a64' : '#6e6e78');
-    const r = [P.proj(A[0], A[1], za), P.proj(B[0], B[1], zb), P.proj(B[0], B[1], zb + 7), P.proj(A[0], A[1], za + 7)];   // the railing
-    if (r.every(Boolean)) { quad(g, r, 'rgba(150,150,160,.85)'); g.fillStyle = '#c8c8d0'; const a = r[3], b = r[2]; g.fillRect(Math.round(Math.min(a[0], b[0])), Math.round(Math.min(a[1], b[1])), Math.max(1, Math.round(Math.abs(b[0] - a[0]))), 1); }
   }
   // the top
   const top = (s, t) => { const x = x0 + s * T, y = y0 + t * T; return P.proj(x, y, zAt(x, y)); };
@@ -193,6 +225,21 @@ export function drawDeckCell(g, P, d, c, map, alpha = 1) {
   g.globalAlpha = 1; g._c = null;
 }
 const cross = q => (q[1][0] - q[0][0]) * (q[3][1] - q[0][1]) - (q[1][1] - q[0][1]) * (q[3][0] - q[0][0]);
+/** a cell's four edges: the neighbour's offset, then the edge's ends in the cell's unit square (wound so the outside
+ *  face is front-facing) */
+const EDGES = [[0, -1, [1, 0], [0, 0]], [0, 1, [0, 1], [1, 1]], [-1, 0, [0, 0], [0, 1]], [1, 0, [1, 1], [1, 0]]];
+/** a deck cell's railing along one open edge (where the camera sees that side): a translucent panel, its top lit */
+export function drawDeckRail(g, P, d, c, e, alpha = 1) {
+  const x0 = c.cx * T, y0 = c.cy * T, zAt = (x, y) => c.z0 + (c.z1 - c.z0) * (c.axis === 'x' ? (x - x0) / T : (y - y0) / T);
+  const [, , ea, eb] = e, A = [x0 + ea[0] * T, y0 + ea[1] * T], B = [x0 + eb[0] * T, y0 + eb[1] * T], za = zAt(...A), zb = zAt(...B);
+  const f = [P.proj(A[0], A[1], za - d.thickness), P.proj(B[0], B[1], zb - d.thickness), P.proj(B[0], B[1], zb), P.proj(A[0], A[1], za)];
+  if (!f.every(Boolean) || cross(f) >= 0) return;   // (the far side's rail hides behind the slab)
+  const r = [P.proj(A[0], A[1], za), P.proj(B[0], B[1], zb), P.proj(B[0], B[1], zb + 7), P.proj(A[0], A[1], za + 7)];
+  if (!r.every(Boolean)) return;
+  if (alpha < 1) g.globalAlpha = alpha;
+  quad(g, r, 'rgba(150,150,160,.85)'); const t = [P.proj(A[0], A[1], za + 6), P.proj(B[0], B[1], zb + 6), r[2], r[3]]; if (t.every(Boolean)) quad(g, t, '#c8c8d0');   // (the rail's lit top, along the slope)
+  g.globalAlpha = 1; g._c = null;
+}
 function quad(g, q, color) { g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = color; g.beginPath(); g.moveTo(q[0][0], q[0][1]); for (let i = 1; i < q.length; i++) g.lineTo(q[i][0], q[i][1]); g.closePath(); g.fill(); }
 
 /** where a landmark's sign hangs: the middle of the lot's side with the most street beside it, out from the wall */
@@ -204,22 +251,27 @@ function placeSign(C, s) {
   const best = sides.map(([k, f]) => [k, f()]).sort((a, b) => b[1] - a[1])[0][0];
   const mx = (x0 + x1 + 1) / 2 * T, my = (y0 + y1 + 1) / 2 * T;
   const at = { s: [mx, (y1 + 1) * T + 2], e: [(x1 + 1) * T + 2, my], n: [mx, y0 * T - 2], w: [x0 * T - 2, my] }[best];
-  return { ...s, x: at[0], y: at[1], z: Math.min(h - 4, Math.max(14, h * .55)), side: best };
+  // a shop's sign hangs low over its door; a billboard stands on the roof's street edge; a landmark's halfway up
+  const z = s.billboard ? h + 18 : s.low ? Math.min(h - 4, 17) : Math.min(h - 4, Math.max(14, h * .55));
+  return { ...s, x: at[0], y: at[1], z, roofZ: h, side: best };
 }
 /** a neon sign: the name in the pixel font on a dark board, glowing, at the board's projected point (it scales with
  *  the view, never below the font's own size) */
 export function drawSign(g, P, s, night) {
   const p = P.proj(s.x, s.y, s.z); if (!p) return;
-  const k = Math.max(1, Math.round(p[2] * .75)), cv = signImage(s.text, s.color, k, night);
+  const k = Math.max(1, Math.round(p[2] * .75)), cv = signImage(s.text, s.color, k, night && !s.billboard, s.board);
+  if (s.billboard) {   // two posts down to the roof
+    const q = P.proj(s.x, s.y, s.roofZ); if (q) { g.fillStyle = '#2a2a30'; const top = Math.round(p[1] + cv.height / 2), w = Math.max(1, Math.round(k)); for (const dx of [-cv.width * .3, cv.width * .3]) g.fillRect(Math.round(p[0] + dx), top, w, Math.max(1, Math.round(q[1]) - top)); }
+  }
   g.drawImage(cv, Math.round(p[0] - cv.width / 2), Math.round(p[1] - cv.height / 2));
 }
 const SIGNS = new Map();
 /** a sign's board, drawn once per text, colour, size and lighting (the pixel font is slow to draw every frame) */
-function signImage(text, color, k, night) {
-  const key = text + '|' + color + '|' + k + '|' + (night ? 1 : 0); let cv = SIGNS.get(key); if (cv) return cv;
+function signImage(text, color, k, night, board = null) {
+  const key = text + '|' + color + '|' + k + '|' + (night ? 1 : 0) + '|' + board; let cv = SIGNS.get(key); if (cv) return cv;
   const w = E.font.width(text, { scale: k }) + 6, h = 7 * k + 4; cv = E.mkCanvas(w + 4, h + 4); const g = E.ctx2d(cv);
-  g.fillStyle = color; g.globalAlpha = night ? .35 : .15; g.fillRect(0, 0, w + 4, h + 4); g.globalAlpha = 1;
-  g.fillStyle = 'rgba(10,8,20,.85)'; g.clearRect(2, 2, w, h); g.fillRect(2, 2, w, h);
+  g.fillStyle = board ? '#d8d0c0' : color; g.globalAlpha = board ? 1 : night ? .35 : .15; g.fillRect(0, 0, w + 4, h + 4); g.globalAlpha = 1;   // (a billboard: a pale frame)
+  g.fillStyle = board || 'rgba(10,8,20,.85)'; g.clearRect(2, 2, w, h); g.fillRect(2, 2, w, h);
   E.font.text(g, text, 5, 4, night ? color : E.shade(color, -.2), { scale: k });
   if (SIGNS.size > 200) SIGNS.clear();
   SIGNS.set(key, cv); return cv;

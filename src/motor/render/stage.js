@@ -225,6 +225,7 @@ export class Stage {
       const s = r.view.scale, m = rad * s + 8, a = r.w(x, y, z0), b = r.w(x, y, z1);
       return Math.max(a[0], b[0]) > -m && Math.min(a[0], b[0]) < r.bw + m && Math.max(a[1], b[1]) > -m && Math.min(a[1], b[1]) < r.bh + m;
     }
+    if (d === this.side7 && d.depth(x, y) > d.farClip) return false;   // (past MODE 7's far clip the buildings are gone: so is what stands on them)
     const a = d.proj(x, y, z0), b = d.proj(x, y, z1); if (!a && !b) return false; if (!a || !b) return true;
     const m = rad * Math.max(a[2], b[2]) + 8;
     return Math.max(a[0], b[0]) > -m && Math.min(a[0], b[0]) < r.bw + m && Math.max(a[1], b[1]) > -m && Math.min(a[1], b[1]) < r.bh + m;

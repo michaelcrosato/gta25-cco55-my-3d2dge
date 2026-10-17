@@ -69,6 +69,8 @@ export class Side7View {
   }
   /** depth along the rail of a world point: the draw order key (bigger is farther) */
   depth(x, y) { const a = RAIL[this.heading]; return (x - this.x) * a.f[0] + (y - this.y) * a.f[1]; }
+  /** how far right of the rail's centre line a world point is (its screen-across coordinate, in world units) */
+  lateral(x, y) { const a = RAIL[this.heading]; return (x - this.x) * a.r[0] + (y - this.y) * a.r[1]; }
   /** a direction pushed on screen (x right, y down) -> a ground direction: up the screen is along the rail */
   screenDirToGround(dx, dy) {
     if (!dx && !dy) return [0, 0];

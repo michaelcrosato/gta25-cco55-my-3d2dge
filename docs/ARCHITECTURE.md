@@ -50,6 +50,13 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The staged mission DSL's shape (`defMission`, `defActivity`, bot hints) | `src/motor/mission/dsl.js` | M1 (the runtime: M8) |
 | The Proving Ground: zones `scale`, `views`, `pad` | `src/game/proving/`, `src/game/scenes/proving.js` | M1 |
 | Engine patches 1-4 (TileMap scale, wall cache, solids, raw input) | `vendor/my-3d2dge/PATCHES.md` | M1 |
+| The world layer: CityMap, the district builder and validator, `buildCity`, decks | `src/motor/world/citymap.js`, `builder.js`, `validator.js`, `district.js` | M2 |
+| The world clock, the weather, the drawbridge (simulation state, stepped with the clock) | `src/motor/world/clock.js`, `weather.js`, `drawbridge.js` | M2 |
+| The street painter (the city's floor into floor chunks) and the city renderer (props, decks, signs, roofs, yards, glints) | `src/motor/render/surface-paint.js`, `city-render.js` | M2 |
+| The ISO cut-away by lot (per view), the quarter turn, the speed zoom | `src/motor/render/cutaway.js`, `stage.js`, `speed-zoom.js` | M2 |
+| The sky by hour and weather; rain, wet streets, haze and lightning on screen; MOTOR's light pass and glows | `src/motor/render/sky.js`, `weather-fx.js`, `stage.js` | M2 |
+| Lowtown: four neighbourhoods, every landmark, the Loop and the L, the canal and the drawbridge | `src/game/districts/lowtown/` | M2 |
+| Engine patch 7 (canvas lighting cost) and patch 1's `cutTop` | `vendor/my-3d2dge/PATCHES.md` | M2 |
 
 ## Frozen contracts (M1)
 
@@ -79,10 +86,16 @@ Scenes draw the world through the Stage, never through `r.queue` / `r.actor` / `
 overlays go to `r.overlay`):
 
 ```js
-stage.setWorld({ map, floor, backdrop, night, engineFloor })   // a TileMap, its FloorChunks, ISO's sky
-stage.begin(r, { focus: [x, y], vel: [vx, vy], speed01 })      // presentation only: the cameras follow the focus
-stage.actor(x, y, z, (g, sx, sy, view, k) => rig.draw(g, sx, sy, view), { shadow, xray, crowd, alpha })
-stage.shape(x, y, z, (g, P) => drawBoxModel(g, P, model, x, y, z, heading))   // vehicles, props, markers
+stage.setWorld({ map, city, floor, backdrop, night, engineFloor })   // a TileMap (and its CityMap), its FloorChunks, ISO's sky
+stage.setSky(skyAt(clock.hour, weather))                             // the hour's light, sky, fog and weather, every view
+stage.begin(r, { focus: [x, y], vel: [vx, vy], speed01, player: [x, y, z] })   // presentation only: the cameras follow the focus
+stage.actor(x, y, z, (g, sx, sy, view, k) => rig.draw(g, sx, sy, view), { shadow, xray, crowd, key, pose, alpha })
+stage.shape(x, y, z, (g, P) => drawBoxModel(g, P, model, x, y, z, heading), { kept, hides, bias })   // vehicles, props, markers
+stage.prop('streetlamp', x, y, z, { light, halo, lightRadius })      // the engine's prop sprites
+stage.glow(x, y, z, (g, sx, sy, k) => ..., { reflect, iso })         // lamp heads, neon: after the lights, occlusion-checked
+stage.floor((g, P) => ...)                                           // on the floor, under what stands on it (glints, sheen)
+stage.onScreen(x, y, z0, z1, rad)                                    // the cheap cull for whoever queues many small things
+stage.turn(±1); stage.zoomTo(z)                                      // the quarter turn (D12) and the speed zoom's steps
 stage.end()
 ```
 
@@ -95,6 +108,12 @@ stage.end()
   - `screenDirToGround(dx, dy)`.
 - **ISO** is the engine's own view: `stage.actor` becomes `r.actor` (a `crowd` actor takes the fast path, with no
   outline); `stage.shape` becomes `r.queue` with `P.proj = r.w`.
+- **Crowds and kept shapes** (D13): a `crowd` actor with a `key` is drawn into an image of its own every
+  `TUNE.crowdEvery` frames, posed by `pose(seconds)` just before, and the image is reused in between; a shape with
+  `kept: { key, r, h }` is kept the same way until the view or its size changes. Both work in every view.
+- **Night** (D11): the engine's canvas lighting draws ISO's dark and pools (GTM-PATCH 7: `lights.res`), the depth
+  views take MOTOR's light pass with the same numbers, and anything that shines is a `glow`, never an engine emissive
+  item (the glow mask is never built).
 - **The view manager** routes `game.setView(id)`: `iso` goes to the engine, `top` and `side7` to MOTOR. It emits
   `view { view, prev }`. `game.views` is `['iso', 'top', 'side7']`.
 

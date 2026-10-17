@@ -167,6 +167,38 @@ export function buildDistrict(spec, o = {}) {
     if ((x - lot.rect[0]) % 6 === 3 && (y - lot.rect[1]) % 6 === 3 && C.lot[i] === lot.index && (C.surface[i] === SURF.plaza || C.surface[i] === SURF.park) && !cells[i]) addProp('lamp', (x + .5) * T, (y + .5) * T, { solid: { hx: 1.5, hy: 1.5, top: 44 } });
   });
   for (const lot of C.lots) if (lot.kind === 'park') rect(lot.rect, (x, y) => { if (C.surface[I(x, y)] === SURF.park && (x + y * 3) % 5 === 0 && rp.chance(.55)) addProp(rp.chance(.5) ? 'tree' : 'palm', (x + .5) * T, (y + .5) * T, { solid: { hx: 3, hy: 3, top: 56 } }); });
+  // roofs, shopfronts, yards and quays (PLAN.md 8.3, 10): clutter on flat roofs (AC units, water tanks, vents), a
+  // billboard on some tall ones, a neon sign over some street-facing lots, crates and containers in the yards,
+  // bollards along the quays. Their own stream, so the street props above never shift
+  const rr = stream(seed, 'roofs'), NEON = ['#ff4ad8', '#5af0ff', '#ffe066', '#ff7a3a', '#7aff8a', '#ff5a5a'], held = new Uint8Array(W * H);   // (cells a yard prop already stands on)
+  for (const pr of spec.propList || []) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inside(Math.floor(pr.at[0]) + dx, Math.floor(pr.at[1]) + dy)) held[I(Math.floor(pr.at[0]) + dx, Math.floor(pr.at[1]) + dy)] = 1;
+  const shops = spec.shopNames || SHOP_NAMES, brands = spec.billboards || BILLBOARDS;
+  for (const lot of C.lots) {
+    if (lot.kind === 'building' && lot.typeId) {
+      const t = types[lot.typeId], [x0, y0, x1, y1] = lot.rect, w = x1 - x0 + 1, d = y1 - y0 + 1, hood = lot.hood;
+      if (t.roof !== 'tiles' && w >= 3 && d >= 3 && !(t.texture === true)) {   // (tiled roofs are pitched; a container has no roof clutter)
+        const n = Math.min(5, Math.max(1, Math.round(w * d / 14)));
+        for (let k = 0; k < n; k++) addProp(rr.pick(['ac', 'ac', 'tank', 'vent', 'vent']), (rr.int(x0 + 1, x1 - 1) + rr.range(.2, .8)) * T, (rr.int(y0 + 1, y1 - 1) + rr.range(.2, .8)) * T, { z: t.h, lot: lot.index, facing: rr.pick([0, Math.PI / 2]), roof: true });
+      }
+      if (!lot.landmark && !lot.sign && t.h >= 48 && w >= 4 && rr.chance(.16)) lot.sign = { text: rr.pick(brands), color: '#f0e8d0', board: '#2a3a5a', billboard: true };
+      else if (!lot.landmark && !lot.sign && hood !== 'harbor' && rr.chance(.24)) lot.sign = { text: rr.pick(shops), color: rr.pick(NEON), low: true };
+    } else if (lot.kind === 'yard') {
+      const [x0, y0, x1, y1] = lot.rect, area = (x1 - x0 + 1) * (y1 - y0 + 1), harbor = lot.hood === 'harbor', n = Math.floor(area / (harbor ? 10 : 16));
+      for (let k = 0; k < n; k++) {
+        const cx = rr.int(x0, x1), cy = rr.int(y0, y1), kind = harbor ? rr.pick(['container', 'container', 'crate', 'pallet']) : rr.pick(['crate', 'pallet', 'barrel', 'barrel']), facing = rr.pick([0, Math.PI / 2]), color = rr.pick(['#c8423a', '#3a6ac8', '#3a8a5a', '#c8a03a', '#8a3a8a']);
+        const span = kind === 'container' ? 2 : 0, foot = [];   // (a container is three cells long)
+        for (let s2 = -span; s2 <= span; s2++) foot.push(facing ? [cx, cy + s2] : [cx + s2, cy]);
+        if (foot.some(([fx, fy]) => !inside(fx, fy) || cells[I(fx, fy)] || C.lot[I(fx, fy)] !== lot.index || held[I(fx, fy)]) || (spec.pois || []).some(p => Math.abs(p.at[0] - cx) < 3 && Math.abs(p.at[1] - cy) < 3)) continue;   // (never by a door, never on another)
+        for (const [fx, fy] of foot) held[I(fx, fy)] = 1;
+        addProp(kind, (cx + .5) * T, (cy + .5) * T, { facing, color, solid: kind === 'container' ? (facing ? { hx: 8, hy: 20, top: 16 } : { hx: 20, hy: 8, top: 16 }) : { hx: 5, hy: 5, top: 9 } });
+      }
+    }
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {   // bollards on the quay's edge, every few tiles
+    if (C.surface[I(x, y)] !== SURF.quay || (x + y) % 4 || cells[I(x, y)]) continue;
+    const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => inside(x + dx, y + dy) && water[I(x + dx, y + dy)]);
+    if (wet) addProp('bollard', (x + .5 + wet[0] * .35) * T, (y + .5 + wet[1] * .35) * T, { solid: { hx: 2, hy: 2, top: 6 } });
+  }
   for (const pr of spec.propList || []) addProp(pr.kind, pr.at[0] * T, pr.at[1] * T, pr);
   C.props = props;
   for (const p of props) if (p.solid) solids.push({ x: p.x, y: p.y, z: p.z || 0, top: (p.z || 0) + p.solid.top, hx: p.solid.hx, hy: p.solid.hy });
@@ -196,6 +228,10 @@ export function buildDistrict(spec, o = {}) {
   return C;
 }
 
+/** shop signs and billboards for lots with no landmark of their own (a district's shopNames / billboards replace them) */
+const SHOP_NAMES = ['PIZZAZZ PIZZA', 'NOODLE NOOK', 'VIDEO VAULT', 'DONUT DEPOT', 'WASH & WOE', 'LUCKY LIQUOR', 'NEON NAILS', 'CASH-O-MATIC',
+  'BURGER BARON', 'TACO TORNADO', 'HOT DOG HUT', 'DISCO INFERNO', 'CHEAP SUITS', 'MOTEL 2', 'PAWN PALACE', 'KARAOKE KING', 'BAIT & TACKLE', 'SPARE PARTS'];
+const BILLBOARDS = ['DRINK FIZZ-O', 'VOTE NOBODY', 'ZAPPO COLA', 'LAWYER? CALL MOE', 'MOTOPOLIS: NICE!', 'SKYLINE SMOKES', 'BUY A BOAT', 'EAT AT JOE\'S'];
 function pickWeighted(rs, pairs) { let t = 0; for (const k in pairs) t += pairs[k]; let r = rs.next() * t; for (const k in pairs) { if ((r -= pairs[k]) < 0) return k; } return Object.keys(pairs)[0]; }
 const DEFAULT_LOOK = { side: '#8a7a6a', top: '#5a5060', face: 'brick', roof: 'slab', windows: { lit: .3 } };
 const DEFAULT_STYLE = { kinds: { block: 1 }, lots: { block: { kind: 'building', w: [4, 8], d: [4, 8], storeys: [2, 4] } }, looks: [DEFAULT_LOOK], alleys: .2 };

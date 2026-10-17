@@ -9685,6 +9685,11 @@ root.My3D2dge = E;
       const a = RAIL[this.heading];
       return (x - this.x) * a.f[0] + (y - this.y) * a.f[1];
     }
+    /** how far right of the rail's centre line a world point is (its screen-across coordinate, in world units) */
+    lateral(x, y) {
+      const a = RAIL[this.heading];
+      return (x - this.x) * a.r[0] + (y - this.y) * a.r[1];
+    }
     /** a direction pushed on screen (x right, y down) -> a ground direction: up the screen is along the rail */
     screenDirToGround(dx, dy) {
       if (!dx && !dy) return [0, 0];
@@ -10534,6 +10539,7 @@ root.My3D2dge = E;
         const s = r.view.scale, m2 = rad * s + 8, a2 = r.w(x, y, z0), b2 = r.w(x, y, z1);
         return Math.max(a2[0], b2[0]) > -m2 && Math.min(a2[0], b2[0]) < r.bw + m2 && Math.max(a2[1], b2[1]) > -m2 && Math.min(a2[1], b2[1]) < r.bh + m2;
       }
+      if (d === this.side7 && d.depth(x, y) > d.farClip) return false;
       const a = d.proj(x, y, z0), b = d.proj(x, y, z1);
       if (!a && !b) return false;
       if (!a || !b) return true;
@@ -12154,6 +12160,35 @@ root.My3D2dge = E;
     for (const lot of C.lots) if (lot.kind === "park") rect(lot.rect, (x, y) => {
       if (C.surface[I(x, y)] === SURF.park && (x + y * 3) % 5 === 0 && rp.chance(0.55)) addProp(rp.chance(0.5) ? "tree" : "palm", (x + 0.5) * T5, (y + 0.5) * T5, { solid: { hx: 3, hy: 3, top: 56 } });
     });
+    const rr = stream2(seed, "roofs"), NEON = ["#ff4ad8", "#5af0ff", "#ffe066", "#ff7a3a", "#7aff8a", "#ff5a5a"], held = new Uint8Array(W * H3);
+    for (const pr of spec.propList || []) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inside(Math.floor(pr.at[0]) + dx, Math.floor(pr.at[1]) + dy)) held[I(Math.floor(pr.at[0]) + dx, Math.floor(pr.at[1]) + dy)] = 1;
+    const shops = spec.shopNames || SHOP_NAMES, brands = spec.billboards || BILLBOARDS;
+    for (const lot of C.lots) {
+      if (lot.kind === "building" && lot.typeId) {
+        const t = types[lot.typeId], [x0, y0, x1, y1] = lot.rect, w = x1 - x0 + 1, d = y1 - y0 + 1, hood = lot.hood;
+        if (t.roof !== "tiles" && w >= 3 && d >= 3 && !(t.texture === true)) {
+          const n = Math.min(5, Math.max(1, Math.round(w * d / 14)));
+          for (let k = 0; k < n; k++) addProp(rr.pick(["ac", "ac", "tank", "vent", "vent"]), (rr.int(x0 + 1, x1 - 1) + rr.range(0.2, 0.8)) * T5, (rr.int(y0 + 1, y1 - 1) + rr.range(0.2, 0.8)) * T5, { z: t.h, lot: lot.index, facing: rr.pick([0, Math.PI / 2]), roof: true });
+        }
+        if (!lot.landmark && !lot.sign && t.h >= 48 && w >= 4 && rr.chance(0.16)) lot.sign = { text: rr.pick(brands), color: "#f0e8d0", board: "#2a3a5a", billboard: true };
+        else if (!lot.landmark && !lot.sign && hood !== "harbor" && rr.chance(0.24)) lot.sign = { text: rr.pick(shops), color: rr.pick(NEON), low: true };
+      } else if (lot.kind === "yard") {
+        const [x0, y0, x1, y1] = lot.rect, area = (x1 - x0 + 1) * (y1 - y0 + 1), harbor = lot.hood === "harbor", n = Math.floor(area / (harbor ? 10 : 16));
+        for (let k = 0; k < n; k++) {
+          const cx = rr.int(x0, x1), cy = rr.int(y0, y1), kind = harbor ? rr.pick(["container", "container", "crate", "pallet"]) : rr.pick(["crate", "pallet", "barrel", "barrel"]), facing = rr.pick([0, Math.PI / 2]), color = rr.pick(["#c8423a", "#3a6ac8", "#3a8a5a", "#c8a03a", "#8a3a8a"]);
+          const span = kind === "container" ? 2 : 0, foot = [];
+          for (let s2 = -span; s2 <= span; s2++) foot.push(facing ? [cx, cy + s2] : [cx + s2, cy]);
+          if (foot.some(([fx, fy]) => !inside(fx, fy) || cells[I(fx, fy)] || C.lot[I(fx, fy)] !== lot.index || held[I(fx, fy)]) || (spec.pois || []).some((p) => Math.abs(p.at[0] - cx) < 3 && Math.abs(p.at[1] - cy) < 3)) continue;
+          for (const [fx, fy] of foot) held[I(fx, fy)] = 1;
+          addProp(kind, (cx + 0.5) * T5, (cy + 0.5) * T5, { facing, color, solid: kind === "container" ? facing ? { hx: 8, hy: 20, top: 16 } : { hx: 20, hy: 8, top: 16 } : { hx: 5, hy: 5, top: 9 } });
+        }
+      }
+    }
+    for (let y = 0; y < H3; y++) for (let x = 0; x < W; x++) {
+      if (C.surface[I(x, y)] !== SURF.quay || (x + y) % 4 || cells[I(x, y)]) continue;
+      const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => inside(x + dx, y + dy) && water[I(x + dx, y + dy)]);
+      if (wet) addProp("bollard", (x + 0.5 + wet[0] * 0.35) * T5, (y + 0.5 + wet[1] * 0.35) * T5, { solid: { hx: 2, hy: 2, top: 6 } });
+    }
     for (const pr of spec.propList || []) addProp(pr.kind, pr.at[0] * T5, pr.at[1] * T5, pr);
     C.props = props;
     for (const p of props) if (p.solid) solids.push({ x: p.x, y: p.y, z: p.z || 0, top: (p.z || 0) + p.solid.top, hx: p.solid.hx, hy: p.solid.hy });
@@ -12195,6 +12230,27 @@ root.My3D2dge = E;
     map.city = C;
     return C;
   }
+  var SHOP_NAMES = [
+    "PIZZAZZ PIZZA",
+    "NOODLE NOOK",
+    "VIDEO VAULT",
+    "DONUT DEPOT",
+    "WASH & WOE",
+    "LUCKY LIQUOR",
+    "NEON NAILS",
+    "CASH-O-MATIC",
+    "BURGER BARON",
+    "TACO TORNADO",
+    "HOT DOG HUT",
+    "DISCO INFERNO",
+    "CHEAP SUITS",
+    "MOTEL 2",
+    "PAWN PALACE",
+    "KARAOKE KING",
+    "BAIT & TACKLE",
+    "SPARE PARTS"
+  ];
+  var BILLBOARDS = ["DRINK FIZZ-O", "VOTE NOBODY", "ZAPPO COLA", "LAWYER? CALL MOE", "MOTOPOLIS: NICE!", "SKYLINE SMOKES", "BUY A BOAT", "EAT AT JOE'S"];
   function pickWeighted(rs, pairs) {
     let t = 0;
     for (const k in pairs) t += pairs[k];
@@ -12737,8 +12793,33 @@ root.My3D2dge = E;
     mound: { parts: [box(-20, -14, 0, 20, 14, 6, "#7a5a3a"), box(-12, -8, 6, 12, 8, 10, "#8e6c48", "cabin")] },
     scaffold: { parts: [box(-14, -4, 0, -12, 4, 44, "#8a8a92"), box(12, -4, 0, 14, 4, 44, "#8a8a92"), box(-14, -4, 20, 14, 4, 22, "#c8a03a", "cabin"), box(-14, -4, 42, 14, 4, 44, "#c8a03a", "cabin")] },
     crusher: { parts: [box(-20, -14, 0, 20, 14, 8, "#5a5a62"), box(-18, -12, 22, 18, 12, 30, "#c8a03a", "cabin"), box(-20, -14, 8, -16, 14, 30, "#4a4a52"), box(16, -14, 8, 20, 14, 30, "#4a4a52")] },
-    crane: { parts: [box(-6, -6, 0, 6, 6, 110, "#e0b020"), box(-6, -60, 104, 6, 30, 114, "#e0b020", "cabin"), box(-8, 22, 96, 8, 32, 104, "#5a5a62", "cabin")] }
+    crane: { parts: [box(-6, -6, 0, 6, 6, 110, "#e0b020"), box(-6, -60, 104, 6, 30, 114, "#e0b020", "cabin"), box(-8, 22, 96, 8, 32, 104, "#5a5a62", "cabin")] },
+    // roofs: an AC unit, a water tank on legs, a vent
+    ac: { parts: [box(-6, -5, 0, 6, 5, 7, "#8a8e94"), box(-4.5, -3.5, 7, 4.5, 3.5, 7.6, "#4a4e54", "cabin")] },
+    tank: { parts: [
+      box(-6, -6, 0, -4.5, -4.5, 8, "#3a3028"),
+      box(4.5, -6, 0, 6, -4.5, 8, "#3a3028"),
+      box(-6, 4.5, 0, -4.5, 6, 8, "#3a3028"),
+      box(4.5, 4.5, 0, 6, 6, 8, "#3a3028"),
+      box(-7, -7, 8, 7, 7, 22, "#7a5a3a"),
+      box(-7.5, -7.5, 22, 7.5, 7.5, 24, "#5a4430", "cabin")
+    ] },
+    vent: { parts: [box(-2.5, -2.5, 0, 2.5, 2.5, 6, "#9a9ea4"), box(-3.5, -3.5, 6, 3.5, 3.5, 7, "#6a6e74", "cabin")] },
+    // yards and quays
+    crate: { parts: [box(-5, -5, 0, 5, 5, 9, "#9a7448"), box(-5.2, -1, 0, 5.2, 1, 9.2, "#7a5a36", "cabin")] },
+    pallet: { parts: [box(-7, -5, 0, 7, 5, 2, "#8a6a42"), box(-5, -3, 2, 5, 3, 7, "#c8c0a8", "cabin")] },
+    barrel: { parts: [box(-3, -3, 0, 3, 3, 9, "#4a6a8a"), box(-3.3, -3.3, 3, 3.3, 3.3, 4, "#3a5a7a", "cabin")] },
+    bollard: { parts: [box(-1.5, -1.5, 0, 1.5, 1.5, 5, "#2a2a30"), box(-2, -2, 5, 2, 2, 6, "#3a3a40", "cabin")] }
   };
+  var CONTAINERS = /* @__PURE__ */ new Map();
+  function containerModel(color) {
+    let m = CONTAINERS.get(color);
+    if (!m) {
+      m = { parts: [box(-20, -8, 0, 20, 8, 16, color), box(-19, -7, 16, 19, 7, 16.6, E.shade(color, -0.12), "cabin"), box(20, -8, 0, 20.4, 8, 16, E.shade(color, -0.3), "cabin")] };
+      CONTAINERS.set(color, m);
+    }
+    return m;
+  }
   var CityRenderer = class {
     /** city: a CityMap */
     constructor(city) {
@@ -12774,12 +12855,14 @@ root.My3D2dge = E;
       const ci = Math.floor(fx / CH), cj = Math.floor(fy / CH), n = Math.ceil(radius / CH);
       const under = player && this.city.deckAt(player[0], player[1], 1e9);
       const fade = under && under.z > (player[2] || 0) + 24 ? player : null;
+      const cut7 = stage.depth === stage.side7 && player ? stage.side7 : null, pz = player ? player[2] || 0 : 0, fd = cut7 ? cut7.depth(player[0], player[1]) : 0, fl = cut7 ? cut7.lateral(player[0], player[1]) : 0;
       for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) {
         const k = j * 64 + i;
-        for (const p of this.props.get(k) || []) if (stage.onScreen(p.x, p.y, p.z || 0, (p.z || 0) + (p.top || 60), 24)) this._prop(stage, p, night);
+        for (const p of this.props.get(k) || []) if (stage.onScreen(p.x, p.y, p.z || 0, (p.z || 0) + (p.top || 60), 24) && !(p.roof && cut7 && this._cut7(cut7, p.lot, fd, fl))) this._prop(stage, p, night);
         for (const dc of this.deckCells.get(k) || []) {
-          const c = dc.c, z = Math.max(c.z0, c.z1);
-          if (stage.onScreen((c.cx + 0.5) * T, (c.cy + 0.5) * T, z - dc.d.thickness, z + 8, 12)) this._deck(stage, dc, fade);
+          const c = dc.c, z = Math.max(c.z0, c.z1), x = (c.cx + 0.5) * T, y = (c.cy + 0.5) * T;
+          if (cut7 && z > pz + 24 && cut7.depth(x, y) < fd - 8) continue;
+          if (stage.onScreen(x, y, z - dc.d.thickness, z + 8, 12)) this._deck(stage, dc, fade);
         }
       }
       for (const b of this.bridges) {
@@ -12811,6 +12894,20 @@ root.My3D2dge = E;
         }, { iso: true });
       }
     }
+    // does MODE 7 cut this lot's building (in front of the player, across the player's line: its own span rule)?
+    _cut7(v, lotIndex, fd, fl) {
+      const L3 = this.city.lots[lotIndex];
+      if (!L3) return false;
+      const T5 = this.city.T, [x0, y0, x1, y1] = L3.rect, xs = [x0 * T5, (x1 + 1) * T5], ys = [y0 * T5, (y1 + 1) * T5];
+      let dMin = 1e9, lMin = 1e9, lMax = -1e9;
+      for (const x of xs) for (const y of ys) {
+        dMin = Math.min(dMin, v.depth(x, y));
+        const l = v.lateral(x, y);
+        lMin = Math.min(lMin, l);
+        lMax = Math.max(lMax, l);
+      }
+      return dMin < fd - 4 && lMin < fl + 40 && lMax > fl - 40;
+    }
     _prop(stage, p, night) {
       if (p.kind === "pillar") {
         stage.shape(p.x, p.y, 0, (g, P2) => drawBoxModel(g, P2, PILLAR(p.top), p.x, p.y, 0, 0));
@@ -12823,13 +12920,17 @@ root.My3D2dge = E;
         if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow, { reflect: lampSmear });
         return;
       }
-      const m = PROP_MODELS[p.kind];
+      if (p.roof && this.city.cutaway && this.city.cutaway.cut.has(p.lot)) return;
+      const m = p.kind === "container" ? containerModel(p.color) : PROP_MODELS[p.kind];
       if (m) stage.shape(p.x, p.y, p.z || 0, (g, P2) => drawBoxModel(g, P2, m, p.x, p.y, p.z || 0, p.facing || 0));
     }
     _deck(stage, { d, c, map }, fade) {
       const x = (c.cx + 0.5) * T, y = (c.cy + 0.5) * T, z = Math.max(c.z0, c.z1);
-      const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72;
-      stage.shape(x, y, z, (g, P2) => drawDeckCell(g, P2, d, c, map, near ? 0.3 : 1));
+      const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72, a = near ? 0.3 : 1;
+      stage.shape(x, y, z, (g, P2) => drawDeckCell(g, P2, d, c, map, a), { hides: true });
+      if (d.railing !== false) {
+        for (const e of EDGES) if (!map.has(c.cx + e[0] + "," + (c.cy + e[1]))) stage.shape(x + e[0] * T * 1.1, y + e[1] * T * 1.1, z, (g, P2) => drawDeckRail(g, P2, d, c, e, a), { hides: true });
+      }
     }
   };
   var LAMP_HEAD = 32;
@@ -12972,18 +13073,13 @@ root.My3D2dge = E;
     if (alpha < 1) g.globalAlpha = alpha;
     const u = [P2.proj(x0, y0, zAt(x0, y0) - th), P2.proj(x1, y0, zAt(x1, y0) - th), P2.proj(x1, y1, zAt(x1, y1) - th), P2.proj(x0, y1, zAt(x0, y1) - th)];
     if (u.every(Boolean) && cross(u) < 0) quad(g, u, "#2a2a32");
-    for (const [dx, dy, A, B] of [[0, -1, [x1, y0], [x0, y0]], [0, 1, [x0, y1], [x1, y1]], [-1, 0, [x0, y0], [x0, y1]], [1, 0, [x1, y1], [x1, y0]]]) {
+    for (const e of EDGES) {
+      const [dx, dy, ea, eb] = e;
       if (map.has(c.cx + dx + "," + (c.cy + dy))) continue;
+      const A = [x0 + ea[0] * T, y0 + ea[1] * T], B = [x0 + eb[0] * T, y0 + eb[1] * T];
       const za = zAt(...A), zb = zAt(...B), f = [P2.proj(A[0], A[1], za - th), P2.proj(B[0], B[1], zb - th), P2.proj(B[0], B[1], zb), P2.proj(A[0], A[1], za)];
       if (!f.every(Boolean) || cross(f) >= 0) continue;
       quad(g, f, dy > 0 || dx > 0 ? "#5a5a64" : "#6e6e78");
-      const r = [P2.proj(A[0], A[1], za), P2.proj(B[0], B[1], zb), P2.proj(B[0], B[1], zb + 7), P2.proj(A[0], A[1], za + 7)];
-      if (r.every(Boolean)) {
-        quad(g, r, "rgba(150,150,160,.85)");
-        g.fillStyle = "#c8c8d0";
-        const a = r[3], b = r[2];
-        g.fillRect(Math.round(Math.min(a[0], b[0])), Math.round(Math.min(a[1], b[1])), Math.max(1, Math.round(Math.abs(b[0] - a[0]))), 1);
-      }
     }
     const top = (s, t) => {
       const x = x0 + s * T, y = y0 + t * T;
@@ -12995,6 +13091,21 @@ root.My3D2dge = E;
     g._c = null;
   }
   var cross = (q) => (q[1][0] - q[0][0]) * (q[3][1] - q[0][1]) - (q[1][1] - q[0][1]) * (q[3][0] - q[0][0]);
+  var EDGES = [[0, -1, [1, 0], [0, 0]], [0, 1, [0, 1], [1, 1]], [-1, 0, [0, 0], [0, 1]], [1, 0, [1, 1], [1, 0]]];
+  function drawDeckRail(g, P2, d, c, e, alpha = 1) {
+    const x0 = c.cx * T, y0 = c.cy * T, zAt = (x, y) => c.z0 + (c.z1 - c.z0) * (c.axis === "x" ? (x - x0) / T : (y - y0) / T);
+    const [, , ea, eb] = e, A = [x0 + ea[0] * T, y0 + ea[1] * T], B = [x0 + eb[0] * T, y0 + eb[1] * T], za = zAt(...A), zb = zAt(...B);
+    const f = [P2.proj(A[0], A[1], za - d.thickness), P2.proj(B[0], B[1], zb - d.thickness), P2.proj(B[0], B[1], zb), P2.proj(A[0], A[1], za)];
+    if (!f.every(Boolean) || cross(f) >= 0) return;
+    const r = [P2.proj(A[0], A[1], za), P2.proj(B[0], B[1], zb), P2.proj(B[0], B[1], zb + 7), P2.proj(A[0], A[1], za + 7)];
+    if (!r.every(Boolean)) return;
+    if (alpha < 1) g.globalAlpha = alpha;
+    quad(g, r, "rgba(150,150,160,.85)");
+    const t = [P2.proj(A[0], A[1], za + 6), P2.proj(B[0], B[1], zb + 6), r[2], r[3]];
+    if (t.every(Boolean)) quad(g, t, "#c8c8d0");
+    g.globalAlpha = 1;
+    g._c = null;
+  }
   function quad(g, q, color) {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.fillStyle = color;
@@ -13035,27 +13146,36 @@ root.My3D2dge = E;
     const best = sides.map(([k, f]) => [k, f()]).sort((a, b) => b[1] - a[1])[0][0];
     const mx = (x0 + x1 + 1) / 2 * T, my = (y0 + y1 + 1) / 2 * T;
     const at = { s: [mx, (y1 + 1) * T + 2], e: [(x1 + 1) * T + 2, my], n: [mx, y0 * T - 2], w: [x0 * T - 2, my] }[best];
-    return { ...s, x: at[0], y: at[1], z: Math.min(h - 4, Math.max(14, h * 0.55)), side: best };
+    const z = s.billboard ? h + 18 : s.low ? Math.min(h - 4, 17) : Math.min(h - 4, Math.max(14, h * 0.55));
+    return { ...s, x: at[0], y: at[1], z, roofZ: h, side: best };
   }
   function drawSign(g, P2, s, night) {
     const p = P2.proj(s.x, s.y, s.z);
     if (!p) return;
-    const k = Math.max(1, Math.round(p[2] * 0.75)), cv = signImage(s.text, s.color, k, night);
+    const k = Math.max(1, Math.round(p[2] * 0.75)), cv = signImage(s.text, s.color, k, night && !s.billboard, s.board);
+    if (s.billboard) {
+      const q = P2.proj(s.x, s.y, s.roofZ);
+      if (q) {
+        g.fillStyle = "#2a2a30";
+        const top = Math.round(p[1] + cv.height / 2), w = Math.max(1, Math.round(k));
+        for (const dx of [-cv.width * 0.3, cv.width * 0.3]) g.fillRect(Math.round(p[0] + dx), top, w, Math.max(1, Math.round(q[1]) - top));
+      }
+    }
     g.drawImage(cv, Math.round(p[0] - cv.width / 2), Math.round(p[1] - cv.height / 2));
   }
   var SIGNS = /* @__PURE__ */ new Map();
-  function signImage(text, color, k, night) {
-    const key = text + "|" + color + "|" + k + "|" + (night ? 1 : 0);
+  function signImage(text, color, k, night, board = null) {
+    const key = text + "|" + color + "|" + k + "|" + (night ? 1 : 0) + "|" + board;
     let cv = SIGNS.get(key);
     if (cv) return cv;
     const w = E.font.width(text, { scale: k }) + 6, h = 7 * k + 4;
     cv = E.mkCanvas(w + 4, h + 4);
     const g = E.ctx2d(cv);
-    g.fillStyle = color;
-    g.globalAlpha = night ? 0.35 : 0.15;
+    g.fillStyle = board ? "#d8d0c0" : color;
+    g.globalAlpha = board ? 1 : night ? 0.35 : 0.15;
     g.fillRect(0, 0, w + 4, h + 4);
     g.globalAlpha = 1;
-    g.fillStyle = "rgba(10,8,20,.85)";
+    g.fillStyle = board || "rgba(10,8,20,.85)";
     g.clearRect(2, 2, w, h);
     g.fillRect(2, 2, w, h);
     E.font.text(g, text, 5, 4, night ? color : E.shade(color, -0.2), { scale: k });
