@@ -14,4 +14,5 @@ expose('content', CONTENT_FILES);
 const scenes = wrapScenes(app, all('scenes'));
 const scene = scenes[parts[0]] ? parts[0] : app.kiosk ? 'attract' : 'title';
 game.start({ scenes, scene, data: { route: parts }, boot: { title: GAME.title, messages: ['Paving Lowtown', 'Waking the traffic lights'] } });
+if (links.query.get('view') && game.views.includes(links.query.get('view'))) game.setView(links.query.get('view'));   // ?view=iso|top|side7
 H.ready = true;

@@ -9,6 +9,8 @@ export { readLinks, route } from './debug/deeplinks.js';
 export { expose, installHandle, handle } from './debug/handle.js';
 export { ViewManager } from './render/view-manager.js';
 export { FloorChunks, paintTileMapFloor } from './render/floor-chunks.js';
+export { Stage } from './render/stage.js';
+export { Spans } from './render/depth/spans.js';
 export { Actor, resetActorIds } from './sim/actor.js';
 export { makeIntent, clearIntent, tapButton, BUTTONS } from './sim/intent.js';
 export { Footprint } from './sim/footprint.js';

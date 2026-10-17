@@ -12,6 +12,11 @@ export const SCENARIOS = {
   'scale-lap': { hash: '#proving/scale', query: 'perf=1', what: 'the 160x160 scale yard in ISO, a lap at 300 u/s (floor chunks + patched walls)' },
   'scale-walk': { hash: '#proving/scale', query: 'perf=1&mode=walk', what: 'the scale yard in ISO, standing at the first corner' },
   'scale-lap-65': { hash: '#proving/scale', query: 'perf=1&zoom=0.65', what: 'the scale yard lap at the widest driving zoom (.65)' },
+  'views-iso': { hash: '#proving/views', query: 'perf=1&view=iso', what: 'the view lab (64x64, 40 walkers) in ISO, a lap at 300 u/s' },
+  'views-top': { hash: '#proving/views', query: 'perf=1&view=top', what: 'the view lab in TOP-DOWN, a lap at 300 u/s (H at its driving height)' },
+  'views-side7': { hash: '#proving/views', query: 'perf=1&view=side7', what: 'the view lab in SIDE-SCROLL MODE 7, a lap at 300 u/s' },
+  'scale-side7': { hash: '#proving/scale', query: 'perf=1&view=side7', what: 'the 160x160 scale yard lap in SIDE-SCROLL MODE 7 (no walkers)' },
+  'scale-top': { hash: '#proving/scale', query: 'perf=1&view=top', what: 'the 160x160 scale yard lap in TOP-DOWN (no walkers)' },
 };
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const q = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : 0; };

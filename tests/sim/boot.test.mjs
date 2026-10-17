@@ -22,5 +22,18 @@ test('#play opens play directly, and the protagonist walks on D (screen right, t
 test('the console handle and the view list are in place', async () => {
   const { gtm, game } = await loadGame();
   assert.ok(gtm && gtm.game === game && gtm.views && gtm.bindings && gtm.activity);
-  assert.deepEqual([...game.views], ['iso']);
+  assert.deepEqual([...game.views], ['iso', 'top', 'side7'], 'ISO, then TOP-DOWN, then SIDE-SCROLL MODE 7 (R3 cycles them)');
 });
+test('the view cycles ISO -> TOP-DOWN -> MODE 7 -> ISO on R3 / V, and walking stays screen-relative in each', async () => {
+  const { game, snap, gtm } = await loadGame({ hash: 'play' });
+  game.advance(.2);
+  const seen = [];
+  for (let i = 0; i < 3; i++) { seen.push(snap().view); holdCode(game, 'KeyV'); }
+  assert.deepEqual(seen, ['iso', 'top', 'side7']); assert.equal(snap().view, 'iso');
+  // in MODE 7 (north rail) pushing up walks north, into the screen
+  holdCode(game, 'KeyV'); holdCode(game, 'KeyV'); assert.equal(snap().view, 'side7');
+  const a = snap().hero; holdCode(game, 'KeyW', .6); const b = snap().hero;
+  assert.ok(b[1] < a[1] - 15 && Math.abs(b[0] - a[0]) < 3, `up the screen is north on the north rail: ${a} -> ${b}`);
+  assert.equal(gtm.stage.depth, gtm.stage.side7);
+});
+

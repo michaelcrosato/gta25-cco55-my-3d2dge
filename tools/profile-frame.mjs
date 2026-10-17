@@ -18,7 +18,8 @@ const out = await page.evaluate(async seconds => {
   if (Y) { wrap(Y.floor, 'drawIso', 'floor.drawIso'); wrap(Y.floor, 'bake', 'floor.bake'); wrap(Y.map, 'queueWalls', 'map.queueWalls'); wrap(Y.map, '_box', 'wall bake (_box)'); if (Y.map.prebakeWalls) wrap(Y.map, 'prebakeWalls', 'map.prebakeWalls (incl. its bakes)'); wrap(Y.map, '_boxCached', 'wall blocks (_boxCached, incl. bakes)'); }
   wrap(G.screen, '_present', 'screen._present'); wrap(G.r, '_flush', 'r._flush (sort + queued draws)'); wrap(G.lights, 'render', 'lights.render');
   if (Y && Y.bg) wrap(Y.bg, 'draw', 'backdrop.draw');
-  if (G.scene && G.scene.draw) wrap(G.scene, 'draw', 'scene.draw (queueing)'); wrap(G.r, '_finish', 'r._finish (sort+flush+present)'); wrap(G, '_frame', 'game._frame (all draw)');
+  if (G.scene && G.scene.draw) wrap(G.scene, 'draw', 'scene.draw (queueing)');
+  const st = window.__gtm.stage; if (st) { wrap(st, 'end', 'stage.end (depth views: all of the world)'); for (const v of [st.side7, st.top]) { wrap(v, 'drawFloor', v.id + '.drawFloor'); wrap(v, 'spanItems', v.id + '.spanItems'); if (v._face) wrap(v, '_face', v.id + '._face (side and front faces)'); } } wrap(G.r, '_finish', 'r._finish (sort+flush+present)'); wrap(G, '_frame', 'game._frame (all draw)');
   void proto;
   const t0 = performance.now(); await new Promise(res => { const tick = () => { n.frames++; if (performance.now() - t0 < seconds * 1000) requestAnimationFrame(tick); else res(); }; requestAnimationFrame(tick); });
   const per = {}; for (const [k, v] of Object.entries(acc)) per[k] = +(v / n.frames).toFixed(3); return { frames: n.frames, msPerFrame: per };

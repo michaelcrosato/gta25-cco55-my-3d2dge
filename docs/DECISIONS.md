@@ -58,3 +58,21 @@ and where it landed.
 - **Call:** the 32×32 test block is small enough for the engine's whole-map bake. The chunked floor replaces it for
   Lowtown in M2.
 - **Answered:** no. **Landed in:** M0.
+
+## D8 · 2026-10-17 · SIDE7 uses a level camera with a shifted lens, not a pitched one
+- **Principle:** respect the look (GTA2's upright city, the SNES Mode 7 games the view is named after).
+- **Call:** the stress test's depth view pitches its camera 14° down, so walls converge toward a point below the screen.
+  In a hall that is barely seen; in a city of 8-storey towers beside the camera, the towers lean. MOTOR's SIDE7 keeps
+  the camera level and shifts the lens to put the horizon where the 14° pitch puts it:
+  - the floor recedes exactly as from the pitched camera (the same rows, the same horizon);
+  - walls, lamp posts and figures stay upright, as in Super Mario Kart and F-Zero;
+  - a wall's front face projects to a rectangle and its side faces have vertical edges, so textured faces need about
+    half the quads (609 → 251 in the view lab).
+- **Answered:** no (a reversible call: `Side7View.frame` holds the projection). **Landed in:** M1, spike S1.
+
+## D9 · 2026-10-17 · The M1 hello block moves to the chunked floor (D7 superseded)
+- **Principle:** one floor path for every view.
+- **Call:** every scene now draws through MOTOR's Stage, whose depth views read the floor chunks. The hello block paints
+  its chunks from its own `floorTex` (`paintTileMapFloor`). `?floor=engine` still draws the engine's bake in ISO, for
+  the side-by-side check (`docs/media/m1/s2-floor-engine-vs-chunks.png`: 1.0% of pixels differ).
+- **Answered:** no. **Landed in:** M1.

@@ -5,7 +5,7 @@
 // scale test.
 import { E, def, RNG } from '../../../motor/index.js';
 
-const T = 16, N = 160, P = 22;   // tile size, city size in tiles, street period
+const T = 16, P = 22;   // tile size, street period
 /** a cell's place in the street grid along one axis: 'walk' (sidewalk), 'road', or null (inside a block) */
 const band = c => { const m = c % P; return m < 2 || (m > 6 && m < 9) ? 'walk' : m < 7 ? 'road' : null; };
 const STOREY = 24;
@@ -36,7 +36,7 @@ const asphalt = (x, y) => { const v = 44 + (E.noise2(x * .31, y * .31) + 1) * 4 
 
 /** the floor painter for FloorChunks: surfaces by floor tag, lane paint, crosswalks, curbs and the shade at wall feet */
 function painter(map) {
-  let pats = null;
+  const N = map.w; let pats = null;
   return (g, x0, y0, x1, y1) => {
     pats ||= { road: g.createPattern(tile(64, asphalt), 'repeat'), walk: g.createPattern(tile(64, (x, y) => E.tex.flagstone(x, y, PAVING)), 'repeat'),
       lot: g.createPattern(tile(32, (x, y) => E.tex.dirt(x, y, { base: '#5a5048', dark: '#4a423c', light: '#6a6058' })), 'repeat') };
@@ -85,8 +85,9 @@ function painter(map) {
 }
 
 def('maps', 'scale-city', {
-  /** the yard's TileMap, with map.paintFloor (for FloorChunks), map.lamps ([x, y]) and map.route (a lap, world points) */
-  build(seed = 1) {
+  /** the yard's TileMap, N x N cells (160: the scale yard; 64: the view lab's 4 x 4 chunks), with map.paintFloor (for
+   *  FloorChunks), map.lamps ([x, y]), map.route (a lap, world points) and map.loops (a sidewalk ring round each block) */
+  build(seed = 1, N = 160) {
     const rng = RNG.stream('scale-city').sub(seed), cells = new Array(N * N).fill(0), floor = new Array(N * N).fill(null);
     for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++) {
       const a = band(cx), b = band(cy), i = cy * N + cx;
@@ -115,9 +116,15 @@ def('maps', 'scale-city', {
       map.lamps.push([along, line], [line, along]);
     }
     map.addSolids(map.lamps.map(([x, y]) => ({ x, y, z: 0, top: 44, hx: 1.5, hy: 1.5 })));
-    // the lap: round the grid on the street centre lines, corner to corner
-    const lo = (P + 4.5) * T, hi = ((Math.floor((N - 9) / P) - 1) * P + 4.5) * T;
-    map.route = [[lo, lo], [hi, lo], [hi, hi], [lo + 2 * P * T, hi], [lo + 2 * P * T, lo + P * T], [lo, lo + P * T]];
+    // the lap: round the grid on the street centre lines (the inner streets where there are enough), corner to corner
+    const K = Math.floor((N - 9) / P), a = K >= 3 ? 1 : 0, b = K >= 3 ? K - 1 : K, at = k => (k * P + 4.5) * T, lo = at(a), hi = at(b), mid = at(Math.min(b, a + 2)), mid1 = at(Math.min(b, a + 1));
+    map.route = mid > mid1 && mid < hi ? [[lo, lo], [hi, lo], [hi, hi], [mid, hi], [mid, mid1], [lo, mid1]] : [[lo, lo], [hi, lo], [hi, hi], [lo, hi]];
+    // the sidewalk ring round each block (the outer sidewalk's middle), for walkers
+    map.loops = [];
+    for (let by = 0; by * P + 9 < N; by++) for (let bx = 0; bx * P + 9 < N; bx++) {
+      const x0 = (bx * P + 8) * T, y0 = (by * P + 8) * T, x1 = Math.min(N - 1, (bx + 1) * P + 1) * T, y1 = Math.min(N - 1, (by + 1) * P + 1) * T;
+      if (x1 - x0 > 64 && y1 - y0 > 64) map.loops.push([x0, y0, x1, y1]);
+    }
     return map;
   },
 });
