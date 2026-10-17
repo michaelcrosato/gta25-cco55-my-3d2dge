@@ -44,7 +44,11 @@ kits and the baseline definition. Put each model and its definitions in a file o
   the camera, and before it when not. So:
   - build with boxes that touch rather than cross, where you can;
   - sink a lamp into the face it shows on;
-  - put roof things on top of the roof.
+  - put roof things on top of the roof;
+  - keep an end face's parts inside the body's width, and a side's parts outside it (a stripe or rail wider than
+    the body across an end ties the near side to the far one, and the order can loop);
+  - avoid one part's top sitting exactly at the bottom of a distant other's, which makes a needless tie;
+  - check a model from all four headings in every view: `node tools/model-sheet.mjs --only <id>`.
 
   `rotor` parts go last.
 - The builders make the usual shapes from sizes and return `{ parts, wheels, seats, doors, lights, hook }` to spread

@@ -1,7 +1,7 @@
 // Perf scenarios in headless Chromium (PLAN.md 7.11, 14): open the built page at a deep link with ?perf=1, let it warm
 // up, then read the frames the scene recorded (each frame's game.stats.updateMs and renderMs) and report medians, p90
 // and p99. The gates use medians with a 15% tolerance; p99 is reported, not gated (headless timing is noisy).
-//   node tools/perf.mjs [--scenario scale-lap] [--seconds 12] [--warm 3] [--json out.json]
+//   node tools/perf.mjs [--scenario scale-lap] [--seconds 12] [--warm 3] [--json out.json] [--dist dist/index.html]
 // The viewport is 1920x1080, so the buffer is the game's 480x270 at S = 4 (res 'ps1', expand to 560x320).
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';
@@ -21,7 +21,7 @@ export const SCENARIOS = {
   'lowtown-walk': { hash: '#play/bank-door', query: 'perf=1&time=night&weather=clear', what: 'Lowtown at night in ISO, standing at the First Lowtown Bank (Neon Mile)' },
   'lowtown-tour': { hash: '#play', query: 'perf=1&tour=1&time=night&weather=clear', what: 'Lowtown at night in ISO: the tour through all four neighbourhoods at 300 u/s' },
   'lowtown-tour-rain': { hash: '#play', query: 'perf=1&tour=1&time=night&weather=rain', what: 'the Lowtown tour at night in the rain in ISO (drops, splashes, the wet street, the glints)' },
-  'lowtown-gate': { hash: '#play', query: 'perf=1&tour=1&time=night&weather=rain&crowd=1', what: 'the gate (PLAN.md 8.4): the Lowtown tour at night in the rain in ISO, with 40 walkers and 20 cars in view (stand-ins until M4 and M5)' },
+  'lowtown-gate': { hash: '#play', query: 'perf=1&tour=1&time=night&weather=rain&crowd=1', what: 'the gate (PLAN.md 8.4): the Lowtown tour at night in the rain in ISO, with 40 walkers and 20 cars in view (the real parked cars, stand-ins making up the rest until M5)' },
   'lowtown-gate-top': { hash: '#play', query: 'perf=1&tour=1&time=night&weather=rain&crowd=1&view=top', what: 'the gate in TOP-DOWN' },
   'lowtown-gate-side7': { hash: '#play', query: 'perf=1&tour=1&time=night&weather=rain&crowd=1&view=side7', what: 'the gate in SIDE-SCROLL MODE 7' },
   'lowtown-tour-day': { hash: '#play', query: 'perf=1&tour=1&time=day&weather=clear', what: 'the Lowtown tour by day in ISO (no lighting pass)' },
@@ -38,7 +38,7 @@ export async function measure(name, { seconds = 12, warm = 3 } = {}) {
   try {
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } }), errors = [];
     page.on('pageerror', e => errors.push(String(e)));
-    await page.goto(pathToFileURL(resolve('dist/index.html')).href + '?' + sc.query + sc.hash);
+    await page.goto(pathToFileURL(resolve(arg('dist', 'dist/index.html'))).href + '?' + sc.query + sc.hash);
     await page.waitForFunction(() => window.__gtm && window.__gtm.ready, null, { timeout: 20000 });
     await page.waitForTimeout(warm * 1000);
     const skip = await page.evaluate(() => window.__gtm.perf().frames);

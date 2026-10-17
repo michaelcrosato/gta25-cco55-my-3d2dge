@@ -81,8 +81,9 @@ export function drawBoxModel(g, P, model, x, y, z, heading, o = {}) {
 // Overlapping boxes keep their roles' order (the nested core: wheels, body, glass, the roof), except a part fixed on
 // the outside (a lamp, bumper, trim or the siren bar) poking out of a core box: after the box if the face it pokes out
 // of faces the camera, before it if not. The order depends only on the signs of the way depth grows in the model's
-// frame, so it is kept per model for each of the 8 octants. Rotors go last; open doors (o.extra) are fitted in each
-// frame, as parts on the outside. A wreck on its roof needs nothing more: the camera is then below its floor.
+// frame (each -1, 0 or 1: 0 looking straight along an axis), so it is kept per model for each of the 27. Rotors go
+// last; open doors (o.extra) are fitted in each frame, as parts on the outside. A wreck on its roof needs nothing more:
+// the camera is then below its floor.
 const CORE = { wheel: 1, body: 1, glass: 1, cabin: 1 }, EPS = .01;
 /** model's parts in the order they are drawn through P at (x, y, z) turned to heading (o: roll, pitch, extra) */
 export function partOrder(P, model, x, y, z, heading, o = {}) {
@@ -90,7 +91,7 @@ export function partOrder(P, model, x, y, z, heading, o = {}) {
   const d0 = P.depth3(x, y, z), gx = P.depth3(x + 1, y, z) - d0, gy = P.depth3(x, y + 1, z) - d0, gz = P.depth3(x, y, z + 1) - d0;
   const hx = gx * c + gy * s, hy = -gx * s + gy * c, px = hx * cp - gz * sp, pz = hx * sp + gz * cp;   // undo the heading, the pitch,
   const sg = [Math.sign(px), Math.sign(hy * cr + pz * sr), Math.sign(-hy * sr + pz * cr)];             // the roll: depth's way, model frame
-  const key = (sg[0] > 0 ? 1 : 0) | (sg[1] > 0 ? 2 : 0) | (sg[2] > 0 ? 4 : 0), cache = model._orders || (model._orders = []);
+  const key = sg[0] + 1 + 3 * (sg[1] + 1) + 9 * (sg[2] + 1), cache = model._orders || (model._orders = []);   // (a view along an axis has its own)
   let list = cache[key] || (cache[key] = orderFor(model.parts, sg));
   if (extra) for (const e of extra) list = fitIn(list, e, sg);
   return list;

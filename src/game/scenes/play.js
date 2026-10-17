@@ -6,8 +6,8 @@
 // weapon wheel. Pickups lie where the district puts them; Molotovs, grenades and rockets light the Fire grid. The world
 // clock runs from night (?time=day | dusk | night | dawn | <hour>) and the weather changes with it (?weather=clear |
 // overcast | rain | storm | fog holds one); Dock Road's drawbridge lifts every 3 game hours (?bridge=up starts it up).
-// ?crowd=1 adds stand-ins for M4 and M5's traffic and peds (40 walkers and 20 cars round the focus, presentation only:
-// the perf gate measures their drawing before they exist); ?tour=1 drives the camera round the district's tour at car
+// ?crowd=1 adds stand-ins for M5's traffic and peds (40 walkers round the focus, and cars to make 20 with the real ones
+// near it; presentation only: the perf gate measures their drawing before they exist); ?tour=1 drives the camera round the district's tour at car
 // speed and ?perf=1 records each frame's times (tools/perf.mjs).
 import { E, def, get, all, expose, BUS, TUNE, knob, FloorChunks, buildCity, CityRenderer, WorldClock, Weather, Drawbridge, skyAt, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
@@ -186,7 +186,9 @@ def('scenes', 'play', {
             const x = p.x + c.ox + Math.sin(t * .4 + c.ph) * 40, y = p.y + c.oy, vx = Math.cos(t * .4 + c.ph) * 16;
             stage.actor(x, y, 0, (g, sx, sy, v) => c.rig.draw(g, sx, sy, v), { shadow: 4, crowd: true, key: c.rig, pose: dt => c.rig.update(dt, { x, y, z: 0, vx, vy: 0, vz: 0, facing: vx >= 0 ? 0 : Math.PI, air: false }) });
           }
-          for (const c of crowd.cars) { const x = p.x + c.ox, y = p.y + c.oy; stage.shape(x, y, 0, (g, P) => drawBoxModel(g, P, c.model, x, y, 0, c.h, { lit: true }), { kept: { key: c, r: 34, h: 24 } }); }
+          // the cars only top up the real ones round the focus to the gate's 20 (M4's fleet is real; M5 brings the traffic)
+          const real = fleet.near(p.x, p.y, 240).filter(v => v.cls !== 'heli').length;
+          for (const c of crowd.cars.slice(real)) { const x = p.x + c.ox, y = p.y + c.oy; stage.shape(x, y, 0, (g, P) => drawBoxModel(g, P, c.model, x, y, 0, c.h, { lit: true }), { kept: { key: c, r: 34, h: 24 } }); }
         }
         // the crew where they stand (the possessed one seen through walls), a vignette's prop beside its protagonist
         for (const id of crew.order) {

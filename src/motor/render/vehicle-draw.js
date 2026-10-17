@@ -25,7 +25,7 @@ export function easeLook(v, dt) {
     L.roll = L.lean; L.pitch = -L.wheelie;
   } else if (v.cls === 'heli') { L.roll = b.tiltS || 0; L.pitch = b.tiltF || 0; }
   else if (v.cls === 'boat') {
-    const t = (v._t = (v._t || 0) + dt), ph = (v.id.length * 1.7) % 6.3, sp = Math.min(1, b.speed / 120);
+    const t = (v._t = (v._t || 0) + dt), ph = ((typeof v.id === 'number' ? v.id : String(v.id).length) * 1.7) % 6.3, sp = Math.min(1, b.speed / 120);   // (ids are numbers)
     L.roll = Math.sin(t * 1.9 + ph) * .04 + E.clamp(b.felt.lat * .0008, -.15, .15);
     L.pitch = Math.sin(t * 1.3 + ph) * .03 - sp * .08;   // (the bow rises as it planes)
     L.squash = Math.sin(t * 2.3 + ph) * 1.2;
