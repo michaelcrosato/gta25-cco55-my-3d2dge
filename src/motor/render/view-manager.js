@@ -2,6 +2,7 @@
 // in with addView. It wraps this game instance's setView, so the engine's tools that cycle game.views through setView
 // (vendor/my-3d2dge/tools/check.mjs:77-79) exercise every view, and the simulation never reads any of it.
 import { E } from '../engine.js';
+import { BUS } from '../core/bus.js';
 
 export class ViewManager {
   /** game: the E.Game; base: the engine view MOTOR draws ISO with */
@@ -13,9 +14,9 @@ export class ViewManager {
     // route ids MOTOR owns to their renderer; engine ids go to the engine
     game.setView = id => {
       const key = typeof id === 'string' ? id : id && id.id;
-      const v = this.views.get(key);
-      if (v && !v.engine) { this.active = key; this._notify(); return game; }
-      this.active = key || this.active; engineSetView(id); this._notify(); return game;
+      const v = this.views.get(key), prev = this.active;
+      if (v && !v.engine) { this.active = key; this._notify(prev); return game; }
+      this.active = key || this.active; engineSetView(id); this._notify(prev); return game;
     };
   }
   /** add a MOTOR view: { id, label, enter(), exit(), draw(r) } */
@@ -29,6 +30,6 @@ export class ViewManager {
   /** cycle to the next view in game.views */
   next() { const ids = this.game.views, i = ids.indexOf(this.active); this.game.setView(ids[(i + 1) % ids.length]); return this.active; }
   onChange(fn) { this.listeners.push(fn); }
-  _notify() { for (const fn of this.listeners) fn(this.active); }
+  _notify(prev) { for (const fn of this.listeners) fn(this.active); if (prev !== this.active) BUS.emit('view', { view: this.active, prev }); }
 }
 export { E };

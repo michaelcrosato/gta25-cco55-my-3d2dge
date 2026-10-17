@@ -8841,6 +8841,50 @@ root.My3D2dge = E;
     return check;
   }
 
+  // src/motor/core/bus.js
+  var L = /* @__PURE__ */ new Map();
+  var BUS = {
+    errors: [],
+    /** subscribe; returns a function that unsubscribes */
+    on(ev, fn, scope = "global") {
+      let a = L.get(ev);
+      if (!a) L.set(ev, a = []);
+      const e = { fn, scope };
+      a.push(e);
+      return () => {
+        const i = a.indexOf(e);
+        if (i >= 0) a.splice(i, 1);
+      };
+    },
+    /** call every listener of ev with data; returns data (listeners may fill it in) */
+    emit(ev, data = {}) {
+      const a = L.get(ev);
+      if (!a || !a.length) return data;
+      for (const e of a.slice()) {
+        try {
+          e.fn(data);
+        } catch (err) {
+          BUS.errors.push({ ev, err });
+          console.error(`MOTOR: BUS "${ev}" listener failed:`, err);
+        }
+      }
+      return data;
+    },
+    /** drop every listener of a scope */
+    clear(scope) {
+      for (const a of L.values()) for (let i = a.length - 1; i >= 0; i--) if (a[i].scope === scope) a.splice(i, 1);
+    },
+    /** how many listeners an event has */
+    count(ev) {
+      return (L.get(ev) || []).length;
+    },
+    /** forget everything (tests, a new game) */
+    reset() {
+      L.clear();
+      BUS.errors.length = 0;
+    }
+  };
+
   // src/motor/core/tune.js
   var KNOBS = /* @__PURE__ */ new Map();
   var TUNE = {};
@@ -8945,15 +8989,15 @@ root.My3D2dge = E;
       game2.views = [base];
       game2.setView = (id) => {
         const key = typeof id === "string" ? id : id && id.id;
-        const v = this.views.get(key);
+        const v = this.views.get(key), prev = this.active;
         if (v && !v.engine) {
           this.active = key;
-          this._notify();
+          this._notify(prev);
           return game2;
         }
         this.active = key || this.active;
         engineSetView(id);
-        this._notify();
+        this._notify(prev);
         return game2;
       };
     }
@@ -8986,8 +9030,9 @@ root.My3D2dge = E;
     onChange(fn) {
       this.listeners.push(fn);
     }
-    _notify() {
+    _notify(prev) {
       for (const fn of this.listeners) fn(this.active);
+      if (prev !== this.active) BUS.emit("view", { view: this.active, prev });
     }
   };
 
@@ -9387,10 +9432,10 @@ root.My3D2dge = E;
         this.ready = true;
         return;
       }
-      const rx = fx - this.x, ry = fy - this.y, L = rx * a.r[0] + ry * a.r[1], D = rx * a.f[0] + ry * a.f[1];
+      const rx = fx - this.x, ry = fy - this.y, L2 = rx * a.r[0] + ry * a.r[1], D = rx * a.f[0] + ry * a.f[1];
       const k = 1 - Math.exp(-dt * 5), want = E.clamp(D, this.near, this.far), mv = (D - want) * Math.min(1, k * 2);
-      this.x += a.r[0] * L * k + a.f[0] * mv;
-      this.y += a.r[1] * L * k + a.f[1] * mv;
+      this.x += a.r[0] * L2 * k + a.f[0] * mv;
+      this.y += a.r[1] * L2 * k + a.f[1] * mv;
     }
     /** set up the projection for this frame (r: the engine renderer: its buffer size and sub-pixel offset) */
     frame(r) {
@@ -9407,10 +9452,10 @@ root.My3D2dge = E;
       return [P2.cx + (rx * P2.r[0] + ry * P2.r[1]) * k, P2.hy - (z - this.h) * k, k];
     }
     /** (D, L, z) in rail space -> [buffer x, buffer y] (null behind the camera) */
-    _q(D, L, z) {
+    _q(D, L2, z) {
       if (D < 6) return null;
       const P2 = this.P, k = P2.F / D;
-      return [P2.cx + L * k, P2.hy - (z - this.h) * k, k];
+      return [P2.cx + L2 * k, P2.hy - (z - this.h) * k, k];
     }
     /** a buffer row's floor distance along the rail (the inverse of proj on the floor), or 0 at and above the horizon */
     rowDepth(by) {
@@ -9421,8 +9466,8 @@ root.My3D2dge = E;
     toGround(bx, by) {
       const P2 = this.P, D = this.rowDepth(by);
       if (!D) return null;
-      const L = (bx - P2.cx) * D / P2.F;
-      return [this.x + P2.f[0] * D + P2.r[0] * L, this.y + P2.f[1] * D + P2.r[1] * L];
+      const L2 = (bx - P2.cx) * D / P2.F;
+      return [this.x + P2.f[0] * D + P2.r[0] * L2, this.y + P2.f[1] * D + P2.r[1] * L2];
     }
     /** depth along the rail of a world point: the draw order key (bigger is farther) */
     depth(x, y) {
@@ -9523,11 +9568,11 @@ root.My3D2dge = E;
       for (const s of spans) {
         let Dn = 1e9, Df = -1e9, La = 1e9, Lb = -1e9;
         for (const [x, y] of [[s.x0, s.y0], [s.x1, s.y0], [s.x0, s.y1], [s.x1, s.y1]]) {
-          const rx = x - this.x, ry = y - this.y, D = rx * a.f[0] + ry * a.f[1], L = rx * a.r[0] + ry * a.r[1];
+          const rx = x - this.x, ry = y - this.y, D = rx * a.f[0] + ry * a.f[1], L2 = rx * a.r[0] + ry * a.r[1];
           Dn = Math.min(Dn, D);
           Df = Math.max(Df, D);
-          La = Math.min(La, L);
-          Lb = Math.max(Lb, L);
+          La = Math.min(La, L2);
+          Lb = Math.max(Lb, L2);
         }
         if (Df < NEAR_D || Dn > this.farClip) continue;
         if ((La > 0 ? La : Lb < 0 ? -Lb : 0) * P2.F / Math.max(6, Df) > P2.W / 2 + 8) continue;
@@ -10037,8 +10082,8 @@ root.My3D2dge = E;
       return this.h.width / 2;
     }
     corners() {
-      const c = Math.cos(this.heading), s = Math.sin(this.heading), L = this.hl, W = this.hw;
-      return [[L, -W], [L, W], [-L, W], [-L, -W]].map(([f, r]) => [this.x + f * c - r * s, this.y + f * s + r * c]);
+      const c = Math.cos(this.heading), s = Math.sin(this.heading), L2 = this.hl, W = this.hw;
+      return [[L2, -W], [L2, W], [-L2, W], [-L2, -W]].map(([f, r]) => [this.x + f * c - r * s, this.y + f * s + r * c]);
     }
     /** the world velocity [vx, vy] */
     get vx() {
@@ -10341,17 +10386,17 @@ root.My3D2dge = E;
     g._c = null;
   }
   function carModel({ length = 58, width = 26, height = 22, color = "#c8423a", cabin = 0.45, cabinAt = -0.08, roof = "#2a2a34", bar = false, wheel = 6 } = {}) {
-    const L = length / 2, W = width / 2, body = height * 0.55, cl = length * cabin, cx = length * cabinAt;
+    const L2 = length / 2, W = width / 2, body = height * 0.55, cl = length * cabin, cx = length * cabinAt;
     const parts2 = [
-      { box: [-L, -W, wheel * 0.5, L, W, body], color, role: "body" },
+      { box: [-L2, -W, wheel * 0.5, L2, W, body], color, role: "body" },
       { box: [cx - cl / 2, -W + 2, body, cx + cl / 2, W - 2, height], color: "#3a4a5a", role: "glass" },
       { box: [cx - cl / 2 + 2, -W + 3, height - 1, cx + cl / 2 - 2, W - 3, height + 0.5], color: roof, role: "cabin" },
-      { box: [L - 1, -W + 2, body - 5, L + 0.5, -W + 6, body - 2], color: "#fff4c8", role: "light" },
-      { box: [L - 1, W - 6, body - 5, L + 0.5, W - 2, body - 2], color: "#fff4c8", role: "light" },
-      { box: [-L - 0.5, -W + 2, body - 5, -L + 1, -W + 6, body - 2], color: "#8a1a1a", role: "tail" },
-      { box: [-L - 0.5, W - 6, body - 5, -L + 1, W - 2, body - 2], color: "#8a1a1a", role: "tail" }
+      { box: [L2 - 1, -W + 2, body - 5, L2 + 0.5, -W + 6, body - 2], color: "#fff4c8", role: "light" },
+      { box: [L2 - 1, W - 6, body - 5, L2 + 0.5, W - 2, body - 2], color: "#fff4c8", role: "light" },
+      { box: [-L2 - 0.5, -W + 2, body - 5, -L2 + 1, -W + 6, body - 2], color: "#8a1a1a", role: "tail" },
+      { box: [-L2 - 0.5, W - 6, body - 5, -L2 + 1, W - 2, body - 2], color: "#8a1a1a", role: "tail" }
     ];
-    for (const fx of [L * 0.62, -L * 0.62]) for (const sy of [-1, 1]) parts2.push({ box: [fx - wheel, sy < 0 ? -W - 0.5 : W - 3.5, 0, fx + wheel, sy < 0 ? -W + 3.5 : W + 0.5, wheel * 1.6], color: "#1a1a20", role: "wheel" });
+    for (const fx of [L2 * 0.62, -L2 * 0.62]) for (const sy of [-1, 1]) parts2.push({ box: [fx - wheel, sy < 0 ? -W - 0.5 : W - 3.5, 0, fx + wheel, sy < 0 ? -W + 3.5 : W + 0.5, wheel * 1.6], color: "#1a1a20", role: "wheel" });
     if (bar) for (const sy of [-1, 1]) parts2.push({ box: [cx - 3, sy < 0 ? -W + 4 : 0, height + 0.5, cx + 3, sy < 0 ? 0 : W - 4, height + 3], color: sy < 0 ? "#c82a2a" : "#2a5ac8", role: "siren" });
     return { parts: parts2 };
   }
@@ -10792,6 +10837,69 @@ root.My3D2dge = E;
     }
   };
 
+  // src/motor/mission/dsl.js
+  var HINTS = {
+    goto: ["at"],
+    // at: [x, y] (or route: [[x, y], ...]); radius
+    enterVehicle: ["vehicle"],
+    // vehicle: a tag
+    kill: ["targets"],
+    // targets: a tag
+    deliver: ["what", "to"],
+    // what: a tag; to: [x, y]
+    evade: [],
+    // lose the wanted level
+    follow: ["target"],
+    // target: a tag; dist
+    race: ["line"],
+    // line: [[x, y], ...] checkpoints
+    photo: ["target"],
+    // target: a tag; from: [x, y]
+    stealth: ["path"]
+    // path: [[x, y], ...] waypoints; cover: [[x, y], ...]
+  };
+  function checkHint(h) {
+    if (!h || typeof h !== "object") return ["a hint is { kind, ...data }"];
+    if (!HINTS[h.kind]) return [`unknown hint kind "${h.kind}" (${Object.keys(HINTS).join(", ")})`];
+    return HINTS[h.kind].filter((f) => h[f] === void 0 && !(h.kind === "goto" && h.route)).map((f) => `hint "${h.kind}" needs "${f}"`);
+  }
+  var isGen = (f) => typeof f === "function" && f.constructor && f.constructor.name === "GeneratorFunction";
+  function checkStages(stages) {
+    const out = [], ids = /* @__PURE__ */ new Set();
+    if (!Array.isArray(stages) || !stages.length) return ["needs stages: [{ id, setup(m), *run(m) }, ...]"];
+    stages.forEach((s, i) => {
+      if (!s || typeof s.id !== "string") {
+        out.push(`stage ${i} needs an id`);
+        return;
+      }
+      if (ids.has(s.id)) out.push(`stage "${s.id}" twice`);
+      ids.add(s.id);
+      if (typeof s.setup !== "function") out.push(`stage "${s.id}" needs setup(m)`);
+      if (!isGen(s.run)) out.push(`stage "${s.id}" needs a generator *run(m)`);
+      for (const h of s.hints || []) for (const p of checkHint(h)) out.push(`stage "${s.id}": ${p}`);
+    });
+    return out;
+  }
+  var missionShape = shape({
+    title: { type: "string", req: true },
+    giver: { type: "object", def: {} },
+    // { phone: gang | character } or { at: poi }
+    gang: { type: "string", def: "" },
+    tier: { type: "number", def: 1, min: 1, max: 5 },
+    requires: { type: "array", def: [] },
+    // mission ids passed first
+    brief: { type: "array", def: [] },
+    // lines shown on the job card
+    rewards: { type: "object", def: {} },
+    // { cash, respect: { gang: delta } }
+    bonus: { type: "array", def: [] },
+    // [{ id, text, check(m) }]: the medal's extra objectives
+    stages: { type: "array", req: true }
+  });
+  declare("missions", (spec, id) => [...missionShape(spec, id), ...checkStages(spec.stages)]);
+  var activityShape = shape({ title: { type: "string", req: true }, start: { type: "object", def: {} }, levels: { type: "number", def: 1, min: 1 }, stages: { type: "array", req: true } });
+  declare("activities", (spec, id) => [...activityShape(spec, id), ...checkStages(spec.stages)]);
+
   // src/motor/app.js
   function createApp({ game: game2, links: links2 }) {
     const views = new ViewManager(game2), bindings = Bindings.load(game2.input), activity = new Activity(game2.input);
@@ -10799,6 +10907,8 @@ root.My3D2dge = E;
     RNG.seed(seed);
     const app2 = { game: game2, links: links2, views, bindings, activity, human: new HumanController(bindings, views, game2), footprint: new Footprint(), kiosk: kioskWanted(links2), seed, stage: new Stage(game2, views) };
     for (const [k, v] of Object.entries(app2)) expose(k, v);
+    expose("BUS", BUS);
+    expose("TUNE", TUNE);
     return app2;
   }
   function wrapScenes(app2, specs) {

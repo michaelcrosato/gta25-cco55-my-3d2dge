@@ -34,16 +34,141 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | Piece | Where | Since |
 |---|---|---|
 | Engine handle | `src/motor/engine.js` | M0 |
-| Registries (`def` / `get` / `all` / `declare`) | `src/motor/core/registry.js` | M0 (schemas: M1) |
-| Deep links | `src/motor/debug/deeplinks.js` | M0 |
-| Console handle `__gtm` and `game.debug.snapshot` | `src/motor/debug/handle.js` | M0 |
-| View manager (wraps `setView`; `game.views`) | `src/motor/render/view-manager.js` | M0 |
+| Registries (`def` / `get` / `all` / `declare`) and schemas (`shape`) | `src/motor/core/registry.js`, `schema.js` | M0, M1 |
+| The BUS (scopes, failure isolation) and its catalogue | `src/motor/core/bus.js`, `events.js` | M1 |
+| TUNE knobs, named RNG streams | `src/motor/core/tune.js`, `rng.js` | M1 |
+| Deep links, the console handle `__gtm`, `game.debug.snapshot` | `src/motor/debug/` | M0 |
+| Per-context bindings over raw devices (GTM-PATCH 4), the activity monitor, glyphs, `{action}` prompts | `src/motor/input/` | M1 |
+| The HumanController (bindings → a world-space Intent) | `src/motor/input/human.js` | M1 |
+| Actor, Intent, the footprint rings | `src/motor/sim/actor.js`, `intent.js`, `footprint.js` | M1 |
+| The view manager (`iso`, `top`, `side7`; emits `view`) | `src/motor/render/view-manager.js` | M0, M1 |
+| The floor chunks (world-space bakes, LRU, one affine blit per chunk in ISO) | `src/motor/render/floor-chunks.js` | M1 (S2) |
+| The Stage: how scenes draw the world, the same code in every view | `src/motor/render/stage.js` | M1 (S1) |
+| The depth renderer: spans, wall textures, textured faces, SIDE7, TOP | `src/motor/render/depth/` | M1 (S1) |
+| Box-part models through the projector | `src/motor/render/box-model.js` | M1 (S3) |
+| Vehicle physics (bicycle model, collisions) and the `vehicles` registry | `src/motor/sim/vehicle/` | M1 (S3) |
+| The staged mission DSL's shape (`defMission`, `defActivity`, bot hints) | `src/motor/mission/dsl.js` | M1 (the runtime: M8) |
+| The Proving Ground: zones `scale`, `views`, `pad` | `src/game/proving/`, `src/game/scenes/proving.js` | M1 |
+| Engine patches 1-4 (TileMap scale, wall cache, solids, raw input) | `vendor/my-3d2dge/PATCHES.md` | M1 |
 
 ## Frozen contracts (M1)
 
-To be written in M1:
-- Intent;
-- Projector;
-- the registry schemas;
-- the BUS catalogue;
-- the staged mission API and hint data.
+These shapes are frozen: later milestones add to them, and change them only through a DECISIONS entry.
+
+### The Intent (`src/motor/sim/intent.js`)
+
+What a controller wants one actor to do this step, **in world space**. Every controller writes one: the
+HumanController (the player's bindings, screen-relative sticks turned through the active view), the AutoPlayer, the
+brains. Ped and vehicle code read only an Intent, never `game.input`, so the attract AI drives the same code as a player
+and hash tests drive Intents directly.
+
+```js
+{ move: [x, y],            // on foot: a world direction, length <= 1
+  aim: [x, y] | null, aimTarget: Actor | null,
+  throttle: 0..1, brake: 0..1, steer: -1..1,   // in a vehicle (steer: + right)
+  down: { [button]: bool }, tap: { [button]: bool } }   // held, and pressed this step
+// buttons: sprint jump roll crouch attack aim interact reload ability wheel phone map pause view switch horn fire nitro
+//          handbrake photo weaponPrev weaponNext radioPrev radioNext
+```
+
+A controller clears and refills its Intent every step (`clearIntent`); `tapButton` presses one for a step (AI, tests).
+
+### The projector and the Stage (`src/motor/render/stage.js`, `render/depth/`)
+
+Scenes draw the world through the Stage, never through `r.queue` / `r.actor` / `map.queueWalls` directly (HUD
+overlays go to `r.overlay`):
+
+```js
+stage.setWorld({ map, floor, backdrop, night, engineFloor })   // a TileMap, its FloorChunks, ISO's sky
+stage.begin(r, { focus: [x, y], vel: [vx, vy], speed01 })      // presentation only: the cameras follow the focus
+stage.actor(x, y, z, (g, sx, sy, view, k) => rig.draw(g, sx, sy, view), { shadow, xray, crowd, alpha })
+stage.shape(x, y, z, (g, P) => drawBoxModel(g, P, model, x, y, z, heading))   // vehicles, props, markers
+stage.end()
+```
+
+- **A projector** `P` has `P.proj(x, y, z) -> [sx, sy, k] | null` (buffer pixels; `k` is pixels per world unit
+  there; null behind the camera). Drawing code uses only `proj`, so it draws right in every view.
+- **The depth views** (`Side7View`, `TopView`) are projectors with more:
+  - `depth(x, y)`: the draw-order key, bigger is farther;
+  - `view(k)`: the engine View a rig is drawn with at that scale;
+  - `toGround(bx, by)`;
+  - `screenDirToGround(dx, dy)`.
+- **ISO** is the engine's own view: `stage.actor` becomes `r.actor` (a `crowd` actor takes the fast path, with no
+  outline); `stage.shape` becomes `r.queue` with `P.proj = r.w`.
+- **The view manager** routes `game.setView(id)`: `iso` goes to the engine, `top` and `side7` to MOTOR. It emits
+  `view { view, prev }`. `game.views` is `['iso', 'top', 'side7']`.
+
+### The registry kinds (`declare(kind, shape({...}))`)
+
+A bad spec warns once per problem (`E.warn`), gets its defaults, and still registers.
+
+| Kind | Spec | Where declared |
+|---|---|---|
+| `scenes` | `{ make(app) -> engine scene }` | (the engine's scene shape) |
+| `maps` | `{ build(seed, ...) -> TileMap }` (with `paintFloor` for FloorChunks) | content |
+| `provingZones` | `{ title, make(app) -> { enter(), update(dt), draw(r), hud(), snapshot(), perf(), stateHash(), handle() } }` | content |
+| `glyphSets` | the PlayStation / Xbox / Nintendo / keyboard glyph drawings | `input/glyphs.js` |
+| `vehicles` | `{ name, class (car truck tow bike boat heli rail), role, handling (HANDLING overrides), model, palette, health, seats, radio, spec: { t200, top, brake200 }, tags }` | `sim/vehicle/defs.js` |
+| `missions` | `defMission(id, { title, giver, gang, tier, requires, brief, rewards, bonus, stages })` | `mission/dsl.js` |
+| `activities` | `defActivity(id, { title, start, levels, stages })` | `mission/dsl.js` |
+
+The kinds PLAN.md 7.4 lists for later milestones (`districts`, `interiors`, `weapons`, `peds`, `gangs`, `characters`,
+`stations`, `reels`...) are declared with their milestone, in the same way.
+
+### The BUS catalogue (`src/motor/core/events.js`)
+
+`BUS.on(event, fn, scope)` and `BUS.emit(event, data)`, with scopes `global`, `world`, `mission` and `scene`. The
+events MOTOR's systems speak, with their payloads:
+
+| Group | Events (payload fields) |
+|---|---|
+| Crime and police | `crime` (type, x, y, by, victim, severity) · `witness` (crime, by) · `report` (crime, x, y) · `wanted` (stars, heat, prev) · `search` (x, y, r) · `evaded` (stars) · `busted` (by) · `wrecked` (cause) |
+| Combat | `hit` (target, by, damage, kind, x, y, z) · `kill` (target, by, kind) · `explode` (x, y, z, r, by, power) · `fire` (x, y, r, by) |
+| Vehicles | `vehicleEnter` / `vehicleExit` (vehicle, actor, seat) · `carjack` (vehicle, by, victim) · `vehicleDamage` (vehicle, amount, x, y, by) · `vehicleDestroyed` (vehicle, by) |
+| Rewards | `pickup` (item, by) · `cash` (amount, reason) · `respect` (gang, delta) · `stunt` (id, score) · `collectible` (id) · `stat` (stat, delta) |
+| Missions | `missionStart` (id) · `stageStart` (mission, stage) · `stageFail` (mission, stage, reason) · `missionPass` (id, medal, elapsed) · `missionFail` (id, reason) · `activityStart` (id, level) · `activityEnd` (id, level, result) |
+| The player | `switch` (from, to) · `ability` (who, on) |
+| World | `view` (view, prev) · `radio` (station) · `clock` (hour) · `weather` (state, prev) |
+| Saves, attract, UI | `save` / `load` (slot) · `attractBeat` (reel, beat) · `uiOpen` / `uiClose` (screen) |
+
+### The staged mission API and hint data (`src/motor/mission/dsl.js`)
+
+```js
+defMission('saints_holy_rollers', { title: 'Holy Rollers', giver: { phone: 'saints' }, gang: 'saints', tier: 1,
+  requires: ['prologue'], brief: ['Father Fender needs three cars blessed by midnight.'],
+  rewards: { cash: 2500, respect: { saints: +15, rats: -5 } },
+  bonus: [{ id: 'time', text: 'Under 6:00', check: m => m.elapsed < 360 }],
+  stages: [
+    { id: 'steal', setup(m) { /* spawns, loadout, time and place */ }, *run(m) { /* objectives */ },
+      hints: [{ kind: 'enterVehicle', vehicle: 'target' }] },
+    { id: 'deliver', setup(m) { }, *run(m) { }, hints: [{ kind: 'deliver', what: 'target', to: [x, y] }] } ] });
+```
+
+- **Stages:** each stage is `{ id, setup(m), *run(m), hints }`, with unique ids. Retrying, and `#mission/<id>/<stage>`,
+  restart a stage from its `setup`, so a setup run twice leaves the same state.
+- **The `m` API** (the M8 runtime; each call yields until done):
+  - objectives: `objective(text, { hint })`, `marker`, `route`;
+  - waiting: `waitUntil(pred)`, `wait(s)`;
+  - talking: `say(lines, { name, portrait })`, `cutscene(shots)`;
+  - spawning and placing: `spawn.vehicle / ped / pickup / prop`, `place(actor, at | { in })`, `tagged(tag)`;
+  - verbs: `deliver`, `chase`, `follow`, `protect`, `race`, `timer`;
+  - wanted: `wanted.set / floor / cap / clear`;
+  - flow: `failIf(pred, reason)`, `parallel`, `first`, `choice`;
+  - characters and ending: `switchTo(character)`, `reward()`.
+- **Bot hints** (data the AutoPlayer acts on), with their required fields:
+  - `goto { at | route, radius }`, `enterVehicle { vehicle }`, `kill { targets }`;
+  - `deliver { what, to }`, `evade {}`, `follow { target, dist }`;
+  - `race { line }`, `photo { target, from }`, `stealth { path, cover }`.
+- **Ownership:** everything a mission spawns is `owner: 'mission'` and released when it ends.
+- **Ending:** one main mission at a time, plus activities. A failure shows JOB BLOWN, then *Retry this stage* or *Quit
+  to free roam*. A pass shows JOB DONE!, the rewards, the bonus objectives and a medal.
+
+## The proofs (M1)
+
+- **Headless:** `tests/harness.mjs` runs the engine and the bundle in `node:vm`. Every sim test uses it.
+- **`game.stateHash`:** the same Intents give the same hash in every view
+  (`tests/sim/proving.test.mjs`).
+- **The replay round-trip:** `tests/e2e/replay.mjs` records a session with the engine's recorder (`?record=1`) and
+  replays it with the vendored `tools/replay.mjs`. Every checksum matches, each including `game.stateHash`.
+- **Determinism, in code:** an ESLint rule bans `Math.random`, `Date`, `performance` and timers in MOTOR's simulation
+  folders and in `src/game`.

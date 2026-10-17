@@ -1,14 +1,13 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M1 in progress. Core, input, the attract loop and all three spikes (S2 floor and scale, S1 the depth renderer,
-S3 vehicle physics) are done and kept, and a replay round-trip passes; the frozen contracts in ARCHITECTURE.md and the
-measured budgets in DECISIONS are next. Blockers: none. The run started inside the planning session (DECISIONS D5).
+Now: M1 complete; next M2, the Lowtown world and ISO rendering. Blockers: none. The run started inside the planning
+session (DECISIONS D5).
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
 | M0 Bootstrap | done | see the acceptance log · `npm test` all steps pass (lint, boundary, vendor, goal-sync, dist current, 9 unit + sim, e2e smoke 6/6, engine check) |
-| M1 Core + spikes | in progress | core, input, attract loop (`c76395c`); S2 floor and scale (`064fcae`): GTM-PATCHes 1-3, floor chunks, the scale yard · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65; S1 depth renderer (`dda0356`): SIDE7, TOP, the Stage, the view lab · TOP 6.1-6.2 ms, SIDE7 11.3-11.9 ms with 41 rigs; S3 vehicle physics: the handling suite, the pad, the replay round-trip · 74 unit + sim tests · `docs/media/m1/` |
-| M2 Lowtown + ISO | | |
+| M1 Core + spikes | done | core, input, attract loop (`c76395c`); S2 floor and scale (`064fcae`): GTM-PATCHes 1-3, floor chunks, the scale yard · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65; S1 depth renderer (`dda0356`): SIDE7, TOP, the Stage, the view lab · TOP 6.1-6.2 ms, SIDE7 11.3-11.9 ms with 41 rigs; S3 vehicle physics (`7039af1`): the handling suite, the pad, the replay round-trip; the frozen contracts, D10 budgets · 69 unit + sim tests, 2 e2e · `docs/media/m1/` |
+| M2 Lowtown + ISO | next | |
 | M3 On foot + combat | | |
 | M4 Vehicles | | |
 | M5 Roads, traffic, peds | | |
@@ -110,4 +109,17 @@ measured budgets in DECISIONS are next. Blockers: none. The run started inside t
   - **Screens:** `docs/media/m1/s3-vehicle-pad-three-views.png`. The Cortez is a box model: side-on in MODE 7, from
     above in TOP-DOWN, isometric in ISO. Verdict: it reads as a car in every view; the model gets its detail in M4.
   - **Verdict:** keep.
+- **M1 · the contracts are frozen** in `docs/ARCHITECTURE.md`: the Intent; the projector and the Stage; the registry
+  kinds and their schemas; the BUS catalogue with payloads (`src/motor/core/events.js`); the staged mission API and
+  bot hints (`src/motor/mission/dsl.js`, checked as content registers). Tests: the mission shape and hint checks, the
+  catalogue, the view event. Verdict: frozen.
+- **M1 · the proofs:**
+  - the headless harness runs every sim test;
+  - the same drive gives the same `game.stateHash` in ISO, TOP-DOWN and MODE 7;
+  - a recorded session replays with every checksum matching.
+
+  Verdict: deterministic and view-independent.
+- **M1 · the budgets** are logged as DECISIONS D10, from the spikes' measurements. No fallback was taken.
+- **M1 · the gate:** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 69 unit and sim
+  tests, the e2e smoke, the e2e replay, and the engine checker across all three views).
 

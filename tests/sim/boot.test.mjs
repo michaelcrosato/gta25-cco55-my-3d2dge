@@ -27,9 +27,10 @@ test('the console handle and the view list are in place', async () => {
 test('the view cycles ISO -> TOP-DOWN -> MODE 7 -> ISO on R3 / V, and walking stays screen-relative in each', async () => {
   const { game, snap, gtm } = await loadGame({ hash: 'play' });
   game.advance(.2);
-  const seen = [];
+  const seen = [], heard = []; gtm.BUS.on('view', e => heard.push(e.prev + '>' + e.view));
   for (let i = 0; i < 3; i++) { seen.push(snap().view); holdCode(game, 'KeyV'); }
   assert.deepEqual(seen, ['iso', 'top', 'side7']); assert.equal(snap().view, 'iso');
+  assert.deepEqual(heard, ['iso>top', 'top>side7', 'side7>iso'], 'the BUS hears each change');
   // in MODE 7 (north rail) pushing up walks north, into the screen
   holdCode(game, 'KeyV'); holdCode(game, 'KeyV'); assert.equal(snap().view, 'side7');
   const a = snap().hero; holdCode(game, 'KeyW', .6); const b = snap().hero;

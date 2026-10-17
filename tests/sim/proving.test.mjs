@@ -29,3 +29,13 @@ test('#proving/pad: the Cortez drives on the vehicle bindings (W throttle, D ste
   assert.equal((game.errors || []).length, 0, JSON.stringify(game.errors));
 });
 
+test('the simulation never reads the view: the same drive gives the same state hash in ISO, TOP-DOWN and MODE 7', async () => {
+  const drive = async view => {
+    const { game } = await loadGame({ hash: 'proving/pad', query: { view } });
+    game.advance(.1); game.input.press('KeyW'); game.advance(1); holdCode(game, 'KeyD', .5); holdCode(game, 'Space', .3); game.input.release('KeyW'); game.advance(.5);
+    return [...game.stateHash()];   // (into this realm's arrays: each game runs in its own vm context)
+  };
+  const iso = await drive('iso');
+  assert.deepEqual(await drive('top'), iso);
+  assert.deepEqual(await drive('side7'), iso);
+});

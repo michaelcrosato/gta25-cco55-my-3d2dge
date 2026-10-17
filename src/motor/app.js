@@ -9,6 +9,8 @@ import { HumanController } from './input/human.js';
 import { Footprint } from './sim/footprint.js';
 import { RNG } from './core/rng.js';
 import { expose } from './debug/handle.js';
+import { BUS } from './core/bus.js';
+import { TUNE } from './core/tune.js';
 
 export function createApp({ game, links }) {
   const views = new ViewManager(game), bindings = Bindings.load(game.input), activity = new Activity(game.input);
@@ -16,6 +18,7 @@ export function createApp({ game, links }) {
   RNG.seed(seed);
   const app = { game, links, views, bindings, activity, human: new HumanController(bindings, views, game), footprint: new Footprint(), kiosk: kioskWanted(links), seed, stage: new Stage(game, views) };
   for (const [k, v] of Object.entries(app)) expose(k, v);
+  expose('BUS', BUS); expose('TUNE', TUNE);
   return app;
 }
 /** make each registered scene with the app, reading the bindings before its update */

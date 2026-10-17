@@ -76,3 +76,29 @@ and where it landed.
   its chunks from its own `floorTex` (`paintTileMapFloor`). `?floor=engine` still draws the engine's bake in ISO, for
   the side-by-side check (`docs/media/m1/s2-floor-engine-vs-chunks.png`: 1.0% of pixels differ).
 - **Answered:** no. **Landed in:** M1.
+
+## D10 · 2026-10-17 · The performance budgets, from the M1 spikes' measurements
+- **Principle:** PLAN.md 7.11 ("budgets come from measurement"), measured where the gates run: headless Chromium 141
+  with no GPU, at 1920×1080 (a 480×270 buffer), medians over 8-10 s after a 3 s warm-up (`tools/perf.mjs`).
+- **What was measured** (PROGRESS.md has the tables):
+
+  | Scenario | Draw median |
+  |---|---|
+  | baseline: the title (the upscale to the screen alone is 1.3-1.5 ms) | 2.5 ms |
+  | ISO, 160×160 city, standing / lapping at 300 u/s / lapping at zoom .65 | 5.4-6.1 / 7.6 / 10.0 ms |
+  | ISO, the view lab with 41 rigs (crowd on the fast path) | 7.0-7.5 ms |
+  | TOP-DOWN, the view lab / the 160×160 city | 6.1-6.2 / 5.5-5.7 ms |
+  | MODE 7, the view lab with 41 rigs / the 160×160 city | 11.3-11.9 / 9.0-9.4 ms |
+  | update, per frame (two 1/120 s steps): five cars, or 41 walkers | 0.2-0.4 ms |
+
+- **Call:** the plan's targets stand: draw medians of 9 ms in ISO and 11 ms in TOP and SIDE7, and 1.5 ms of update per
+  step. The gates allow 15% over a target (ISO ≤ 10.4 ms, TOP and SIDE7 ≤ 12.7 ms) and run on the M2+ perf scenarios
+  (Lowtown at night in the rain, 20 cars and 40 peds in view). p99 is reported, not gated.
+- **Where the time goes, and the levers:**
+  - ISO's walls cost about 2.5 µs per wall-block `drawImage` (about 600 at zoom .65), not pixels. The lever: merging a
+    building's roof-only blocks into one image, if Lowtown's gate fails at the driving zoom.
+  - MODE 7's rigs cost about 3.5 ms for 41. The lever: crowd rigs drawn every other frame from a cached image, as the
+    engine's `every` does in ISO. M7 takes it, since the view lab sits over the 11 ms target, though inside the gate.
+  - The present (the upscale to the screen, and the raster of the frame's queued drawing) is 3-7 ms in this GPU-less
+    browser and near zero on a real GPU. The gates keep it in, as the worst case.
+- **Answered:** no. **Landed in:** M1.

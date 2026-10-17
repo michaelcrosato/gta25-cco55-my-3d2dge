@@ -22,8 +22,9 @@ It also includes:
 
 Under it sits **MOTOR**, an open-city engine layer on top of my-3D2dge, built to carry the full game.
 
-> **Status: implementation in progress.** `PROGRESS.md` has the current milestone and its evidence. `PLAN.md` is the full
-> plan and `GOAL.md` is the `/goal` prompt that runs it.
+> **Status: implementation in progress (M1 of M13 done: the core, the input, the three views' renderers, vehicle
+> physics).** `PROGRESS.md` has the current milestone and its evidence. `PLAN.md` is the full plan and `GOAL.md` is the
+> `/goal` prompt that runs it.
 
 ## Source Information
 
@@ -49,7 +50,10 @@ This is kept separate from the Source Information above.
 - **Develop:** `npm run dev` serves it on `localhost:5173` and rebuilds on every change.
 - **Test:** `npm test` (the fast gate) or `npm run test:full`. In a Claude Code cloud session the SessionStart hook
   installs everything; elsewhere, run `npx playwright install chromium` once.
-- **Deep links:** `#title`, `#play`; more arrive with each milestone.
+- **Deep links:** `#title`, `#play`, `#attract`; the Proving Ground's `#proving/scale` (a 160×160 city), `#proving/views`
+  (the three views, 40 walkers) and `#proving/pad` (drive the Cortez). Options: `?view=iso|top|side7`, `?seed=`,
+  `?mode=walk|auto`, `?wet=1`, `?zoom=.65`, `?record=1`. More arrive with each milestone.
+- **Views:** R3 (keyboard `V`) cycles ISO → TOP-DOWN → MODE 7.
 
 The controls are in `PLAN.md` section 11. A PS5 DualSense is the primary controller; keyboard and mouse map onto the
 same model.
