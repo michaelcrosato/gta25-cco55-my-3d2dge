@@ -29,6 +29,17 @@ polished district, **Lowtown**. MOTOR, the layer underneath, is built to carry t
 - **Look at what you build.** Read your screenshots and filmstrips (the vendored `check.mjs` and `filmstrip.mjs`) and
   act on every look note. Humans judge fun from the playable file; you judge correctness from tests, and the look from
   images.
+- **`PROGRESS.md` template:**
+
+  ```md
+  # Progress: GRAND THEFT MOTO
+  Now: M<n>: <what is in flight>. Next: <the next step>. Blockers: <none | what, and who decides>.
+  | Milestone | Status | Evidence (commits · tests · shots · perf) |
+  |---|---|---|
+  | M0 Bootstrap | done | a1b2c3d · npm test 41/41 · docs/media/shots/m0-*.png |
+  ## Acceptance log
+  - M0 · "dist/index.html plays from file://" · check.mjs report: docs/media/m0-check.json
+  ```
 
 ---
 
@@ -178,6 +189,14 @@ All of it fits in one dense, polished district. Leave it at the title screen and
 One simulation, several renderers. **The view is presentation only.** The simulation hash is identical whichever view is
 active (section 14).
 
+**How the brief is read.** The brief's third view is "Side Scroll mode 7", and this plan reads it as two things:
+- **MODE 7:** a street-level, SNES-style pseudo-3D chase camera. It is the third view you can switch to anywhere
+  outdoors (section 5.3).
+- **SIDE:** side-scroll cross-sections for interiors and set pieces (section 5.4).
+
+If the owner meant only one of these, drop the other. Each is self-contained: the SIDE kit is the interiors in M7, and
+MODE 7 is a preset of the perspective renderer.
+
 ### 5.1 ISO, the primary view
 
 - **Base:** the engine's `iso` view (yaw 45°, pitch 30°, `ENG:485-492`), drawn by the engine renderer.
@@ -299,7 +318,7 @@ README.md                    game README: pitch, how to play, controls, Source I
 PLAN.md  GOAL.md  PROGRESS.md
 package.json                 exact pins; "type": "module"
 vendor/my-3d2dge/            the pinned upstream (MIT): engine/my-3d2dge.js, API.md, API-INDEX.md, AI_GUIDE.md,
-  │                          docs/{STANDARD-FEATURES,ASSETS,MOCAP}.md, tools/{check,filmstrip,replay}.mjs (and what they import),
+  │                          docs/{STANDARD-FEATURES,ASSETS,MOCAP}.md, tools/{check,filmstrip,replay}.mjs (they need only playwright),
   │                          mocap/{readable,mocap}.js plus our cut clip set, LICENSE, UPSTREAM-README.md
   ├─ VERSION.json            upstream URL, version 0.46.1, commit cfa866a…, sha256 of every vendored file before and after patches
   └─ PATCHES.md              every GTM-PATCH: what, why, the hunk, its test, and upstream issue text
@@ -1316,8 +1335,10 @@ As section 7.8.
 - **Triggers:** `?kiosk=1`, or a coarse pointer (`matchMedia('(pointer: coarse)')`) with no keyboard or pad detected.
   Either boots straight into the attract mode.
 - **No touch controls:**
-  - `input.touchEnabled = false`;
-  - no scene sets `touch`;
+  - set `input.touchEnabled = false` and `input.touchFilter = () => false`, which stops the floating stick
+    (`ENG:691`);
+  - no scene sets `touch`, and nothing calls `touchButtons`. Otherwise `_touchSync` runs, and it resets
+    `touchEnabled` from the settings (`ENG:820-828`);
   - with the engine corner off, the menu button is our canvas button.
 - **The menu button** (top right) opens a small overlay: sound on/off, volume, view style, About.
 - **Taps elsewhere** show "Best with a controller", at most once per 30 s, and never leave the demo.
