@@ -14,6 +14,7 @@ const STEPS = [
   ['dist current', 'node', ['tools/build.mjs', '--check']],
   ['unit + sim', 'node', ['--test', 'tests/unit/**/*.test.mjs', 'tests/sim/**/*.test.mjs']],
   ['e2e smoke', 'node', ['tests/e2e/smoke.mjs']],
+  ['e2e replay', 'node', ['tests/e2e/replay.mjs']],
   ['engine check', 'node', ['vendor/my-3d2dge/tools/check.mjs', 'dist/index.html', '--seconds', '3', '--out', 'check-output']],
 ];
 const FULL = [];   // heavy suites join here milestone by milestone (PLAN.md 6.3)

@@ -1,13 +1,13 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M1 in progress. Core, input and the attract loop are done; spikes S2 (floor and scale) and S1 (the depth
-renderer) are done and kept; S3 (vehicle physics) is next, then the contracts. Blockers: none. The run started inside
-the planning session (DECISIONS D5).
+Now: M1 in progress. Core, input, the attract loop and all three spikes (S2 floor and scale, S1 the depth renderer,
+S3 vehicle physics) are done and kept, and a replay round-trip passes; the frozen contracts in ARCHITECTURE.md and the
+measured budgets in DECISIONS are next. Blockers: none. The run started inside the planning session (DECISIONS D5).
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
 | M0 Bootstrap | done | see the acceptance log · `npm test` all steps pass (lint, boundary, vendor, goal-sync, dist current, 9 unit + sim, e2e smoke 6/6, engine check) |
-| M1 Core + spikes | in progress | core, input, attract loop (`c76395c`); S2 floor and scale (`064fcae`): GTM-PATCHes 1-3, floor chunks, the scale yard · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65; S1 depth renderer (`dda0356`): SIDE7, TOP, the Stage, the view lab · TOP 6.1-6.2 ms, SIDE7 11.3-11.9 ms with 41 rigs · 59 unit + sim tests · `docs/media/m1/` |
+| M1 Core + spikes | in progress | core, input, attract loop (`c76395c`); S2 floor and scale (`064fcae`): GTM-PATCHes 1-3, floor chunks, the scale yard · ISO 5.4-6.1 ms standing, 7.6 ms lap, 10.0 ms lap at zoom .65; S1 depth renderer (`dda0356`): SIDE7, TOP, the Stage, the view lab · TOP 6.1-6.2 ms, SIDE7 11.3-11.9 ms with 41 rigs; S3 vehicle physics: the handling suite, the pad, the replay round-trip · 74 unit + sim tests · `docs/media/m1/` |
 | M2 Lowtown + ISO | | |
 | M3 On foot + combat | | |
 | M4 Vehicles | | |
@@ -86,4 +86,28 @@ the planning session (DECISIONS D5).
     unit-tested. Walking stays screen-relative in each view (a sim test: up is north on the north rail). The rail
     keeps the focus between `near` and `far`.
   - **Verdict:** keep. No fallback was needed (PLAN.md 8.5's fallback cut SIDE7 to one heading; all four work).
+- **M1 · S3 vehicle physics, on the vehicle pad (`#proving/pad`):** `sim/vehicle/body.js` (a bicycle-model rigid body),
+  `sim/vehicle/defs.js` (the `vehicles` registry), the Cortez (`src/game/vehicles/cortez.js`), `render/box-model.js`
+  (box-part models drawn through the projector, so a car looks right in every view), the Proving Ground's zones
+  (`src/game/proving/`) and GTM-PATCH 3's public `map.solidsNear`.
+  - **The handling suite** (`tests/unit/vehicle.test.mjs`, 11 tests; PLAN.md 8.8's Accept):
+    - 0-200 u/s in 2.42 s (spec 2.4, ±10%), top speed 260 (spec 260, ±5%);
+    - braking from 200 u/s: 41 u dry (spec 41), 51 u wet (+24%; the plan asks at least +20%), never into reverse (a
+      stopped car reverses only after the brake is held 0.2 s);
+    - the skidpad: about 283 u/s² of lateral grip at full lock, less wet and on grass;
+    - a handbrake drift: yaw 3.3 rad/s and 42° of rear slip (2 and 12° are the thresholds), against 1.4 rad/s and 4°
+      without it; a 0.4 s pull turns the car about 50° and it recovers by itself, a 0.6 s pull with throttle spins it
+      round (a J-turn);
+    - no tunnelling at 400 u/s into a wall one cell thick (the front stops at the face);
+    - a glancing hit spins the car and a square one stops it straight; car on car keeps momentum along the hit and ends
+      apart; a lamp post (a map solid) stops it; a 3-unit curb is climbed; reverse to the reverse top speed;
+    - deterministic to the bit.
+  - **Driving through the real bindings** (a sim test): W drives, D steers right, collisions with the parked cars.
+  - **The replay round-trip** (`tests/e2e/replay.mjs`, in the gate): a 321-frame session of the pad, recorded with the
+    engine's own recorder (`?record=1`), replayed frame by frame by its `tools/replay.mjs`. 6 of 6 checksums matched,
+    each including every car's position and heading (`game.stateHash`).
+  - **Perf:** the pad draws in 3.4 ms (p99 6.1) with 0.2 ms of update for five cars at 120 Hz.
+  - **Screens:** `docs/media/m1/s3-vehicle-pad-three-views.png`. The Cortez is a box model: side-on in MODE 7, from
+    above in TOP-DOWN, isometric in ISO. Verdict: it reads as a car in every view; the model gets its detail in M4.
+  - **Verdict:** keep.
 

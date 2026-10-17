@@ -7200,6 +7200,9 @@ TileMap.prototype._solidsNear = function (x, y, r) {
 };
 /** GTM-PATCH(3): rebuild the solids' bucket grid after moving solids in place */
 TileMap.prototype.solidsMoved = function () { this._sg = null; };
+/** GTM-PATCH(3): the solids whose footprints may come within r of (x, y), in map.solids order (a new array): for a
+ *  game's own bodies (vehicles, projectiles) that collide with solids their own way */
+TileMap.prototype.solidsNear = function (x, y, r = 0) { return this._solidsNear(x, y, r).slice(); };
 const _collide = TileMap.prototype.collide, _groundAt = TileMap.prototype.groundAt, _heightAt = TileMap.prototype.heightAt;
 TileMap.prototype.collide = function (b) {
   let hit = _collide.call(this, b);

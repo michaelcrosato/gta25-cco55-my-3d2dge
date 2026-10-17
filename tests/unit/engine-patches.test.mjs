@@ -173,3 +173,13 @@ test('GTM-PATCH(3): bucketed collide, groundAt, heightAt and the render lift mat
   fast.solids[0].x += 500; fast.solidsMoved(); slow.solids[0].x += 500;
   for (let n = 0; n < 300; n++) { const x = rnd() * 1000, y = rnd() * 1000; assert.equal(fast.heightAt(x, y), slow.heightAt(x, y)); }
 });
+test('GTM-PATCH(3): solidsNear is the public query, a fresh array each call', () => {
+  const E = engineWithPads([]), map = new E.TileMap({ w: 64, h: 64 }), list = [];
+  for (let i = 0; i < 100; i++) list.push({ x: (i % 10) * 90 + 20, y: Math.floor(i / 10) * 90 + 20, top: 40, hx: 2, hy: 2 });
+  map.addSolids(list);
+  const a = map.solidsNear(20, 20, 4), b = map.solidsNear(830, 830, 4);
+  assert.equal(a.length >= 1 && a[0].x === 20 && a[0].y === 20, true);
+  assert.notEqual(a, b); assert.ok(b.some(s => s.x === 830 && s.y === 830));
+  assert.ok(!a.some(s => s.x === 830), 'nothing far away');
+});
+

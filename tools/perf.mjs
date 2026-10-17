@@ -17,6 +17,7 @@ export const SCENARIOS = {
   'views-side7': { hash: '#proving/views', query: 'perf=1&view=side7', what: 'the view lab in SIDE-SCROLL MODE 7, a lap at 300 u/s' },
   'scale-side7': { hash: '#proving/scale', query: 'perf=1&view=side7', what: 'the 160x160 scale yard lap in SIDE-SCROLL MODE 7 (no walkers)' },
   'scale-top': { hash: '#proving/scale', query: 'perf=1&view=top', what: 'the 160x160 scale yard lap in TOP-DOWN (no walkers)' },
+  'pad-iso': { hash: '#proving/pad', query: 'perf=1&mode=auto', what: 'the vehicle pad: the Cortez driving itself, 4 parked cars, ISO at zoom .8' },
 };
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const q = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : 0; };
