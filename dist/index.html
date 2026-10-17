@@ -691,6 +691,12 @@ class Input {
     /** names: the actions' names on the Controls screen ({ attack: 'Sword' }; false hides one from rebinding: the
      *  game's menu.controls); onBindings(b): called with the player's new bindings (the game saves and applies them) */
     this.names = null; this._onBindings = null;
+    // GTM-PATCH(4): raw device state, for games that bind their own controls, and an activity clock for idle timers
+    /** raw: { keys: the key codes held now, bound to an action or not; pads: every connected gamepad as { index, id,
+     *  mapping, buttons: [{ pressed, value }] (value 0..1: analog triggers), axes }; active: the index of the pad used
+     *  last (null for none); activity: the input clock (seconds) at the last input of any kind: a key, the mouse moving,
+     *  clicking or wheeling, a touch, a pad button, a stick past the dead zone or a trigger; -1 before any } */
+    this.raw = { keys: new Set(), pads: [], active: null, activity: -1, pressed: new Set(), _fresh: new Set() };   // pressed: the codes pressed since the step before
     const el = screen.canvas;
     if (!el) return;
     // the keyboard's own letters for labels (an AZERTY Z where the code says KeyW), where the browser tells them
@@ -704,22 +710,25 @@ class Input {
     };
     on(window, 'keydown', e => {
       if (typing(e)) return;
+      this.raw.keys.add(e.code); this.raw.activity = this.clock; if (!e.repeat) this.raw._fresh.add(e.code);   // GTM-PATCH(4): every key, bound or not
       if (this._codes[e.code]) { e.preventDefault(); if (!e.repeat) this.press(e.code); }
       else if (this._zoomOn && ZOOM_KEYS[e.code] && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (!e.repeat) this._zoomAcc *= ZOOM_KEYS[e.code]; }   // - and =, where no action uses them
     });
     // the wheel zooms where the game lets it (a mouse's notch 10%; a trackpad's pinch comes as the wheel with ctrlKey);
     // not over a menu, which scrolls
     el.addEventListener('wheel', e => {
+      this.raw.activity = this.clock;   // GTM-PATCH(4)
       if (!this._wheelOn) return; e.preventDefault();
       const d = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 100 : 1);
       this._zoomAcc *= clamp(Math.exp(-d * (e.ctrlKey ? .01 : .001)), .8, 1.25);
     }, { signal, passive: false });
-    on(window, 'keyup', e => this.release(e.code));
+    on(window, 'keyup', e => { this.raw.keys.delete(e.code); this.release(e.code); });   // GTM-PATCH(4): raw.keys
     on(window, 'blur', () => this.clear());
     on(document, 'visibilitychange', () => { if (document.hidden) this.clear(); });
     on(el, 'contextmenu', e => e.preventDefault());
-    on(el, 'pointermove', e => { if (e.pointerType === 'mouse') { this.mouse.cx = e.clientX; this.mouse.cy = e.clientY; this.mouse.active = true; this.mouse.t = this.clock; this.aimSource = 'mouse'; } else { this._pinchMove(e); this._stickMove(e); } });
+    on(el, 'pointermove', e => { this.raw.activity = this.clock; if (e.pointerType === 'mouse') { this.mouse.cx = e.clientX; this.mouse.cy = e.clientY; this.mouse.active = true; this.mouse.t = this.clock; this.aimSource = 'mouse'; } else { this._pinchMove(e); this._stickMove(e); } });
     on(el, 'pointerdown', e => {
+      this.raw.activity = this.clock;   // GTM-PATCH(4) (and pointermove above)
       if (e.pointerType !== 'mouse') this.lastDevice = 'touch';   // any touch, on the stick's half or not: prompts follow it
       if (e.pointerType !== 'mouse' || e.button === 0) this._down = { id: e.pointerId, x: e.clientX, y: e.clientY };   // a click or tap once it lifts near here (pointerup)
       if (e.pointerType === 'mouse') { this.mouse.cx = e.clientX; this.mouse.cy = e.clientY; this.mouse.active = true; this.aimSource = 'mouse'; this.press('Mouse' + e.button); }
@@ -887,7 +896,8 @@ class Input {
   /** press a key or button code ('KeyJ', 'Mouse0', 'Pad0', 'Act:attack') as if the person did: scripted input,
    *  tests, bots */
   press(code) {
-    if (this.held.has(code)) return; this.held.add(code);
+    this.raw.activity = this.clock;   // GTM-PATCH(4): scripted presses count as activity too
+    if (this.held.has(code)) return; this.held.add(code); this.raw._fresh.add(code);
     if (code.startsWith('Pad')) { this.lastDevice = 'gamepad'; this.aimSource = 'pad'; }
     else if (code.startsWith('Act:')) this.lastDevice = 'touch';
     else this.lastDevice = code.startsWith('Mouse') ? 'mouse' : 'keyboard';
@@ -933,7 +943,7 @@ class Input {
   consumeAll() { for (const a in this.map) this._used[a] = true; this._now.clear(); this._fresh.clear(); this._clickAt = this._click = null; }
   /** Release all devices and discard buffered input on focus loss or a modal transition. */
   clear() {
-    this.held.clear(); this.consumeAll(); this._nowUp.clear(); this._freshUp.clear(); this._pt = {}; this._rk = {}; this._down = null;
+    this.held.clear(); this.raw.keys.clear(); this.consumeAll(); this._nowUp.clear(); this._freshUp.clear(); this._pt = {}; this._rk = {}; this._down = null;   // GTM-PATCH(4): raw.keys
     this.padMove = [0, 0]; this.padAim = null; this._fingers.clear(); this._pinching = false; this._zoomAcc = 1;
     this._stickEnd({ pointerId: this.stickId });
     for (const b of this._boundButtons || []) { b.classList.remove('on'); b._inputPointers.clear(); }
@@ -974,8 +984,14 @@ class Input {
     this.clock += dt;
     let pads = [];
     try { pads = navigator.getGamepads ? navigator.getGamepads() : []; } catch (e) { /* gamepads blocked */ }
-    const p = Array.from(pads || []).find(p => p && p.connected !== false && p.index === this.padIndex)
-      || Array.from(pads || []).find(p => p && p.connected !== false);
+    // GTM-PATCH(4): every pad's raw state (analog button values included); the pad in use is the last one used; the
+    // codes pressed since the step before become this step's raw.pressed (a tap shorter than a step still shows once)
+    { const R = this.raw, f = R.pressed; f.clear(); R.pressed = R._fresh; R._fresh = f; }
+    const live = Array.from(pads || []).filter(q => q && q.connected !== false), R = this.raw;
+    R.pads = live.map(q => ({ index: q.index, id: q.id, mapping: q.mapping, buttons: Array.from(q.buttons || [], b => ({ pressed: !!b.pressed, value: +b.value || 0 })), axes: Array.from(q.axes || []) }));
+    for (const q of R.pads) if (q.buttons.some(b => b.pressed || b.value > .1) || q.axes.some(v => Math.abs(v) > this.deadzone)) { R.active = q.index; R.activity = this.clock; }
+    if (R.active !== null && !live.some(q => q.index === R.active)) R.active = null;
+    const p = (R.active !== null && live.find(q => q.index === R.active)) || live.find(q => q.index === this.padIndex) || live[0];
     this.padLost = false;
     if (!p || p.index !== this.padIndex || p.id !== this.padId) {
       if (!p && this.padIndex !== null) { this.padLost = this.lastDevice === 'gamepad'; this.stopRumble(); }   // unplugged while in use
@@ -8680,6 +8696,75 @@ root.My3D2dge = E;
   var get = (kind, id) => REG.get(kind)?.get(id);
   var all = (kind) => [...REG.get(kind)?.values() || []];
 
+  // src/motor/core/tune.js
+  var KNOBS = /* @__PURE__ */ new Map();
+  var TUNE = {};
+  function knob(section, id, label, def2, min, max, step = 0, about = "") {
+    if (KNOBS.has(id)) E.warn("motor:tune:" + id, `MOTOR: knob "${id}" declared twice`);
+    KNOBS.set(id, { section, id, label, def: def2, min, max, step, about });
+    if (!(id in TUNE)) TUNE[id] = def2;
+    return TUNE[id];
+  }
+
+  // src/motor/core/rng.js
+  function hash32(...parts2) {
+    let h = 2166136261;
+    for (const p of parts2) {
+      const s = String(p);
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      h ^= 255;
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function stream(seed) {
+    const next = E.rng(seed);
+    return {
+      seed,
+      next,
+      /** a number in [a, b) */
+      range: (a, b) => a + (b - a) * next(),
+      /** a whole number in [a, b] */
+      int: (a, b) => a + Math.floor((b - a + 1) * next()),
+      /** one item of a list */
+      pick: (list) => list[Math.floor(next() * list.length)],
+      /** true with probability p */
+      chance: (p) => next() < p,
+      /** an item by weight: pickW([[item, weight], ...]) */
+      pickW(pairs) {
+        let t = 0;
+        for (const p of pairs) t += p[1];
+        let r = next() * t;
+        for (const p of pairs) if ((r -= p[1]) < 0) return p[0];
+        return pairs[pairs.length - 1][0];
+      },
+      /** a child stream (a feature's own rolls inside a system) */
+      sub: (name) => stream(hash32(seed, name))
+    };
+  }
+  var world = 1;
+  var streams = /* @__PURE__ */ new Map();
+  var RNG = {
+    /** start a world: every stream restarts from (seed, its name) */
+    seed(s) {
+      world = s >>> 0;
+      streams.clear();
+      return world;
+    },
+    get worldSeed() {
+      return world;
+    },
+    /** the named stream ('traffic', 'peds', 'police', 'gangs', 'loot', 'missions', 'weather', 'spawn', 'attract') */
+    stream(name) {
+      let st = streams.get(name);
+      if (!st) streams.set(name, st = stream(hash32(world, name)));
+      return st;
+    }
+  };
+
   // src/motor/debug/deeplinks.js
   function readLinks() {
     const o = globalThis.__GTM_OPTIONS__;
@@ -8737,6 +8822,16 @@ root.My3D2dge = E;
     get spec() {
       return this.views.get(this.active);
     }
+    /** a direction pushed on screen (x right, y down) -> a world ground direction, through the active view */
+    screenDirToGround(dx, dy) {
+      const v = this.spec;
+      return v && v.screenDirToGround ? v.screenDirToGround(dx, dy) : this.game.view.screenDirToGround(dx, dy);
+    }
+    /** the ground point under the mouse in the active view, or null */
+    mouseGround() {
+      const v = this.spec;
+      return v && v.mouseGround ? v.mouseGround() : this.game.mouseGround();
+    }
     /** cycle to the next view in game.views */
     next() {
       const ids = this.game.views, i = ids.indexOf(this.active);
@@ -8750,6 +8845,587 @@ root.My3D2dge = E;
       for (const fn of this.listeners) fn(this.active);
     }
   };
+
+  // src/motor/sim/actor.js
+  var nextId = 1;
+  var Actor = class {
+    /** kind: 'ped' | 'vehicle' | 'pickup' | 'prop' | 'projectile' | 'fire' ...; o: any field below */
+    constructor(kind, o = {}) {
+      this.id = o.id ?? nextId++;
+      this.kind = kind;
+      this.x = o.x || 0;
+      this.y = o.y || 0;
+      this.z = o.z || 0;
+      this.facing = o.facing || 0;
+      this.health = o.health ?? 100;
+      this.maxHealth = o.maxHealth ?? this.health;
+      this.armor = o.armor || 0;
+      this.faction = o.faction || "civilian";
+      this.tags = new Set(o.tags || []);
+      this.owner = o.owner || "world";
+      this.lod = 0;
+      this.dead = false;
+      this.removed = false;
+    }
+    get alive() {
+      return !this.dead;
+    }
+  };
+
+  // src/motor/sim/intent.js
+  var BUTTONS = [
+    "sprint",
+    "jump",
+    "roll",
+    "crouch",
+    "attack",
+    "aim",
+    "interact",
+    "reload",
+    "ability",
+    "wheel",
+    "phone",
+    "map",
+    "pause",
+    "view",
+    "switch",
+    "horn",
+    "fire",
+    "nitro",
+    "handbrake",
+    "photo",
+    "weaponPrev",
+    "weaponNext",
+    "radioPrev",
+    "radioNext"
+  ];
+  function makeIntent() {
+    const down = {}, tap = {};
+    for (const b of BUTTONS) {
+      down[b] = false;
+      tap[b] = false;
+    }
+    return {
+      /** on foot: world direction, length <= 1 */
+      move: [0, 0],
+      /** aim direction (world, unit) or null; aimTarget: an actor the aim is locked on, or null */
+      aim: null,
+      aimTarget: null,
+      /** in a vehicle: 0..1, 0..1, -1..1 */
+      throttle: 0,
+      brake: 0,
+      steer: 0,
+      down,
+      tap
+    };
+  }
+  function clearIntent(i) {
+    i.move[0] = 0;
+    i.move[1] = 0;
+    i.aim = null;
+    i.aimTarget = null;
+    i.throttle = 0;
+    i.brake = 0;
+    i.steer = 0;
+    for (const b of BUTTONS) {
+      i.down[b] = false;
+      i.tap[b] = false;
+    }
+    return i;
+  }
+
+  // src/motor/sim/footprint.js
+  knob("Footprint", "fpFull", "Full-simulation radius", 400, 150, 900, 10, "Vehicles inside it run full tyre physics; peds full brains (u)");
+  knob("Footprint", "fpActivity", "Activity radius", 700, 300, 1400, 10, "Actors beyond it are coarse or removed (u)");
+  knob("Footprint", "fpSpawnIn", "Spawn annulus inner radius", 620, 300, 1300, 10, "Nothing spawns nearer than this (u)");
+  knob("Footprint", "fpSpawnOut", "Spawn annulus outer radius", 760, 320, 1500, 10, "Spawns happen inside the annulus; despawns beyond it (u)");
+  var Footprint = class {
+    constructor() {
+      this.x = 0;
+      this.y = 0;
+    }
+    /** centre the rings on the focus (call once per step) */
+    update(x, y) {
+      this.x = x;
+      this.y = y;
+      return this;
+    }
+    d(x, y) {
+      return Math.hypot(x - this.x, y - this.y);
+    }
+    /** 0 near, 1 far, 2 outside */
+    lod(x, y) {
+      const d = this.d(x, y);
+      return d <= TUNE.fpFull ? 0 : d <= TUNE.fpActivity ? 1 : 2;
+    }
+    /** true inside the spawn annulus */
+    canSpawn(x, y) {
+      const d = this.d(x, y);
+      return d >= TUNE.fpSpawnIn && d <= TUNE.fpSpawnOut;
+    }
+    /** true beyond the annulus: despawn there */
+    shouldDespawn(x, y) {
+      return this.d(x, y) > TUNE.fpSpawnOut;
+    }
+  };
+
+  // src/motor/input/bindings.js
+  var NAV = { up: ["Pad12", "ArrowUp", "KeyW", "LSUp"], down: ["Pad13", "ArrowDown", "KeyS", "LSDown"], left: ["Pad14", "ArrowLeft", "KeyA", "LSLeft"], right: ["Pad15", "ArrowRight", "KeyD", "LSRight"] };
+  var SHARED = {
+    view: ["Pad11", "KeyV"],
+    ability: ["Pad10+Pad11", "KeyF"],
+    phone: ["Pad12", "KeyT"],
+    switch: ["Pad13", "KeyZ"],
+    map: ["Pad17", "KeyM", "Tab"],
+    pause: ["Pad9", "Escape"],
+    photo: ["Pad8", "KeyB"]
+  };
+  var DEFAULT_BINDINGS = {
+    onFoot: {
+      up: ["KeyW"],
+      down: ["KeyS"],
+      left: ["KeyA"],
+      right: ["KeyD"],
+      sprint: ["Pad0", "ShiftLeft", "ShiftRight"],
+      jump: ["Pad2", "Space"],
+      roll: ["Pad1", "KeyX"],
+      interact: ["Pad3", "KeyE"],
+      reload: ["Pad5", "KeyR"],
+      wheel: ["Pad4", "KeyQ"],
+      aim: ["Pad6", "Mouse2"],
+      attack: ["Pad7", "Mouse0"],
+      crouch: ["Pad10", "KeyC"],
+      weaponPrev: ["Pad14"],
+      weaponNext: ["Pad15"],
+      ...SHARED
+    },
+    vehicle: {
+      left: ["KeyA"],
+      right: ["KeyD"],
+      throttle: ["Pad7", "KeyW"],
+      brake: ["Pad6", "KeyS"],
+      handbrake: ["Pad5", "Space"],
+      nitro: ["Pad4", "ShiftLeft"],
+      fire: ["Pad1", "Mouse0"],
+      horn: ["Pad0", "KeyH"],
+      interact: ["Pad3", "KeyE"],
+      radioPrev: ["Pad14", "Comma"],
+      radioNext: ["Pad15", "Period"],
+      ...SHARED
+    },
+    menu: {
+      ...NAV,
+      confirm: ["Pad0", "Enter", "Space"],
+      back: ["Pad1", "Escape", "Backspace"],
+      tabPrev: ["Pad4", "KeyQ"],
+      tabNext: ["Pad5", "KeyE"],
+      secondary: ["Pad3"],
+      tertiary: ["Pad2"],
+      close: ["Pad9"]
+    },
+    wheel: { ...NAV, wheel: ["Pad4", "KeyQ"], confirm: ["Pad0", "Enter"], back: ["Pad1", "Escape"] },
+    phone: { ...NAV, confirm: ["Pad0", "Enter", "Space"], back: ["Pad1", "Escape", "Backspace", "KeyT"] },
+    photo: {
+      up: ["KeyW"],
+      down: ["KeyS"],
+      left: ["KeyA"],
+      right: ["KeyD"],
+      zoomIn: ["Pad7", "KeyE"],
+      zoomOut: ["Pad6", "KeyQ"],
+      view: ["Pad11", "KeyV"],
+      snap: ["Pad0", "Space", "Enter"],
+      back: ["Pad1", "Escape", "Pad8", "KeyB"]
+    }
+  };
+  var LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt)/;
+  var KEY = "GrandTheftMoto-5S:bindings";
+  var TRIGGER = 0.35;
+  var STICK = 0.5;
+  var Bindings = class _Bindings {
+    /** input: the engine's game.input (GTM-PATCH(4) gives it .raw) */
+    constructor(input, saved = null) {
+      this.input = input;
+      this.context = "onFoot";
+      this.chordWindow = 0.12;
+      this.map = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+      if (saved) this._overlay(saved);
+      this._down = /* @__PURE__ */ new Set();
+      this._prev = /* @__PURE__ */ new Set();
+      this._pressAt = {};
+      this._pending = [];
+      this._taps = /* @__PURE__ */ new Set();
+      this._chorded = /* @__PURE__ */ new Set();
+      this.t = 0;
+    }
+    _overlay(saved) {
+      for (const [c, acts] of Object.entries(saved || {})) if (this.map[c]) {
+        for (const [a, codes] of Object.entries(acts)) if (Array.isArray(codes)) this.map[c][a] = codes.slice();
+      }
+    }
+    /** the pad in use, raw ({ buttons, axes }) or null */
+    pad() {
+      const R = this.input.raw;
+      return R && (R.pads.find((p) => p.index === R.active) || R.pads[0]) || null;
+    }
+    /** a stick [x, y] after the radial dead zone: 'LS' or 'RS' */
+    stick(which) {
+      const p = this.pad();
+      if (!p) return [0, 0];
+      const i = which === "RS" ? 2 : 0, x = p.axes[i] || 0, y = p.axes[i + 1] || 0, l = Math.hypot(x, y), d = E.clamp(this.input.deadzone, 0, 0.8);
+      if (l <= d) return [0, 0];
+      const k = Math.min(1, (l - d) / (1 - d)) / l;
+      return [x * k, y * k];
+    }
+    /** a code's analog value 0..1 (triggers and sticks; keys and buttons are 0 or 1) */
+    codeValue(c) {
+      if (c.includes("+")) return c.split("+").every((p) => this.codeValue(p) > 0) ? 1 : 0;
+      const I = this.input;
+      if (c.startsWith("Pad")) {
+        const n = +c.slice(3), b = this.pad()?.buttons[n];
+        const v = b ? Math.max(b.value, b.pressed ? 1 : 0) : 0;
+        return Math.max(v, I.held.has(c) ? 1 : 0);
+      }
+      const m = /^(LS|RS)(Up|Down|Left|Right)$/.exec(c);
+      if (m) {
+        const [x, y] = this.stick(m[1]), v = { Up: -y, Down: y, Left: -x, Right: x }[m[2]];
+        return Math.max(0, v);
+      }
+      return I.held.has(c) || I.raw && (I.raw.keys.has(c) || I.raw.pressed && I.raw.pressed.has(c)) ? 1 : 0;
+    }
+    /** is a code held (a trigger past a third, a stick past halfway)? */
+    codeDown(c) {
+      const v = this.codeValue(c);
+      return /^(LS|RS)/.test(c) ? v > STICK : c === "Pad6" || c === "Pad7" ? v > TRIGGER : v > 0;
+    }
+    /** which context's actions are live: 'onFoot' | 'vehicle' | 'menu' | 'wheel' | 'phone' | 'photo' (held buttons carry over) */
+    setContext(c) {
+      if (!this.map[c]) throw new Error("MOTOR: unknown input context " + c);
+      this.context = c;
+    }
+    /** read the devices: call once per step, before any controller reads an action */
+    update(dt) {
+      this.t += dt;
+      const prev = this._prev;
+      this._prev = this._down;
+      this._down = prev;
+      this._down.clear();
+      this._taps.clear();
+      const codes = /* @__PURE__ */ new Set();
+      for (const c of Object.values(this.map)) for (const list of Object.values(c)) for (const code of list) for (const p of code.split("+")) codes.add(p);
+      for (const c of codes) if (this.codeDown(c)) this._down.add(c);
+      for (const c of this._down) if (!this._prev.has(c)) this._pressAt[c] = this.t;
+      const fresh = (c) => this._down.has(c) && !this._prev.has(c);
+      for (const ctx of Object.values(this.map)) for (const list of Object.values(ctx)) for (const code of list) if (code.includes("+")) {
+        const [a, b] = code.split("+");
+        if ((fresh(a) || fresh(b)) && this._down.has(a) && this._down.has(b) && Math.abs((this._pressAt[a] ?? -9) - (this._pressAt[b] ?? -9)) <= this.chordWindow) {
+          this._taps.add(code);
+          this._pending = this._pending.filter((p) => p.code !== a && p.code !== b);
+          this._chorded.add(a);
+          this._chorded.add(b);
+        }
+      }
+      for (const c of this._chorded) if (!this._down.has(c)) this._chorded.delete(c);
+      const half = /* @__PURE__ */ new Set();
+      for (const ctx of Object.values(this.map)) for (const list of Object.values(ctx)) for (const code of list) if (code.includes("+")) code.split("+").forEach((h) => half.add(h));
+      for (const c of this._down) if (!this._prev.has(c) && !this._chorded.has(c)) {
+        if (half.has(c)) this._pending.push({ code: c, at: this.t });
+        else this._taps.add(c);
+      }
+      this._pending = this._pending.filter((p) => {
+        if (this.t - p.at >= this.chordWindow) {
+          this._taps.add(p.code);
+          return false;
+        }
+        return true;
+      });
+    }
+    /** the codes bound to an action in the live context (or the one named) */
+    codes(action, ctx = this.context) {
+      return this.map[ctx] && this.map[ctx][action] || [];
+    }
+    /** is the action held? */
+    down(action, ctx) {
+      return this.codes(action, ctx).some((c) => c.includes("+") ? c.split("+").every((p) => this._down.has(p)) : this._down.has(c));
+    }
+    /** was the action pressed this step? (a chord half waits out the chord window first) */
+    tap(action, ctx) {
+      return this.codes(action, ctx).some((c) => this._taps.has(c));
+    }
+    /** the action's analog value 0..1 (the strongest of its codes) */
+    value(action, ctx) {
+      let v = 0;
+      for (const c of this.codes(action, ctx)) v = Math.max(v, this.codeValue(c));
+      return v;
+    }
+    /** a direction from four actions (up/down/left/right) plus a stick: screen x right, y down, length <= 1 */
+    direction(ctx = this.context, stick = "LS") {
+      let [x, y] = this.stick(stick);
+      if (!x && !y) {
+        x = (this.down("right", ctx) ? 1 : 0) - (this.down("left", ctx) ? 1 : 0);
+        y = (this.down("down", ctx) ? 1 : 0) - (this.down("up", ctx) ? 1 : 0);
+      }
+      const l = Math.hypot(x, y);
+      return l > 1 ? [x / l, y / l] : [x, y];
+    }
+    /** bind code to action in a context; refuses locked codes and a code another action of that context uses */
+    rebind(ctx, action, code, slot = null) {
+      if (LOCKED.test(code)) return { ok: false, reason: "locked", code };
+      const c = this.map[ctx];
+      if (!c || !c[action]) return { ok: false, reason: "unknown" };
+      for (const [a, list2] of Object.entries(c)) if (a !== action && list2.includes(code)) return { ok: false, reason: "conflict", with: a };
+      const list = c[action].slice();
+      if (slot === null || slot >= list.length) list.push(code);
+      else list[slot] = code;
+      c[action] = list;
+      return { ok: true };
+    }
+    /** back to the defaults (one context, or all) */
+    reset(ctx = null) {
+      const d = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+      if (ctx) this.map[ctx] = d[ctx];
+      else this.map = d;
+    }
+    /** the player's changes, saved apart from the engine's bindings */
+    save() {
+      E.store.set(KEY, this.map);
+    }
+    static load(input) {
+      return new _Bindings(input, E.store.get(KEY, null));
+    }
+  };
+
+  // src/motor/input/activity.js
+  var Activity = class {
+    constructor(input) {
+      this.input = input;
+      this.mark = 0;
+    }
+    /** restart the idle clock now (a scene's enter) */
+    reset() {
+      this.mark = this.input.clock;
+      return this;
+    }
+    /** the input clock at the last activity, or the mark if that is later */
+    get last() {
+      return Math.max(this.input.raw ? this.input.raw.activity : -1, this.mark);
+    }
+    /** seconds since the last activity */
+    idle() {
+      return this.input.clock - this.last;
+    }
+    /** did anything happen since the input clock read t? */
+    since(t) {
+      return (this.input.raw ? this.input.raw.activity : -1) > t;
+    }
+  };
+  function kioskWanted(links2) {
+    if (links2 && links2.query && links2.query.get("kiosk") === "1") return true;
+    if (typeof matchMedia !== "function") return false;
+    try {
+      return matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches;
+    } catch {
+      return false;
+    }
+  }
+
+  // src/motor/input/glyphs.js
+  var PS_FACE = {
+    cross: ["..bbbbb..", ".bbbbbbb.", "bbXbbbXbb", "bbbXbXbbb", "bbbbXbbbb", "bbbXbXbbb", "bbXbbbXbb", ".bbbbbbb.", "..bbbbb.."],
+    circle: ["..bbbbb..", ".bbbbbbb.", "bbbXXXbbb", "bbXbbbXbb", "bbXbbbXbb", "bbXbbbXbb", "bbbXXXbbb", ".bbbbbbb.", "..bbbbb.."],
+    square: ["..bbbbb..", ".bbbbbbb.", "bbXXXXXbb", "bbXbbbXbb", "bbXbbbXbb", "bbXbbbXbb", "bbXXXXXbb", ".bbbbbbb.", "..bbbbb.."],
+    triangle: ["..bbbbb..", ".bbbbbbb.", "bbbbXbbbb", "bbbXbXbbb", "bbbXbXbbb", "bbXbbbXbb", "bbXXXXXbb", ".bbbbbbb.", "..bbbbb.."]
+  };
+  var sprites = /* @__PURE__ */ new Map();
+  function faceSprite(shape2, color) {
+    const k = shape2 + color;
+    let s = sprites.get(k);
+    if (!s) sprites.set(k, s = E.sprite(PS_FACE[shape2], { b: "#16141f", X: color }));
+    return s;
+  }
+  function letterDisc(g, x, y, letter, color) {
+    E.px.disc(g, x + 4, y + 4, 4, "#16141f");
+    E.font.text(g, letter, x + 5, y + 1, color, { align: "center" });
+    return 10;
+  }
+  function pill(g, x, y, label, fg = "#f4f0ff", bg = "#2c2840", edge = "#6c6490") {
+    const w = Math.max(9, E.font.width(label) + 6);
+    E.px.rect(g, x + 1, y, w - 2, 9, edge);
+    E.px.rect(g, x, y + 1, w, 7, edge);
+    E.px.rect(g, x + 1, y + 1, w - 2, 7, bg);
+    E.font.text(g, label, x + Math.round(w / 2), y + 1, fg, { align: "center" });
+    return w + 1;
+  }
+  function stickIcon(g, x, y, letter, dir) {
+    E.px.disc(g, x + 4, y + 4, 4, "#6c6490");
+    E.px.disc(g, x + 4, y + 4, 3, "#2c2840");
+    E.font.text(g, dir ? { Up: "↑", Down: "↓", Left: "←", Right: "→" }[dir] : letter, x + 5, y + 1, "#f4f0ff", { align: "center" });
+    return 10;
+  }
+  function dpad(g, x, y, arm) {
+    const c = "#6c6490", on = "#ffe066";
+    E.px.rect(g, x + 3, y, 3, 9, c);
+    E.px.rect(g, x, y + 3, 9, 3, c);
+    const r = { Up: [3, 0, 3, 3], Down: [3, 6, 3, 3], Left: [0, 3, 3, 3], Right: [6, 3, 3, 3] }[arm];
+    if (r) E.px.rect(g, x + r[0], y + r[1], r[2], r[3], on);
+    return 10;
+  }
+  def("glyphSets", "playstation", {
+    face: [["cross", "#7aa7ff"], ["circle", "#ff6b6b"], ["square", "#ff86d4"], ["triangle", "#40e0b0"]],
+    names: ["✕", "○", "□", "△", "L1", "R1", "L2", "R2", "CREATE", "OPTIONS", "L3", "R3", "Up", "Down", "Left", "Right", "PS", "PAD"]
+  });
+  def("glyphSets", "xbox", {
+    letters: [["A", "#5ad65a"], ["B", "#ff5a5a"], ["X", "#5aa0ff"], ["Y", "#ffd23a"]],
+    names: ["A", "B", "X", "Y", "LB", "RB", "LT", "RT", "VIEW", "MENU", "LS", "RS", "Up", "Down", "Left", "Right", "XBOX", "PAD"]
+  });
+  def("glyphSets", "nintendo", {
+    letters: [["B", "#e8e8e8"], ["A", "#e8e8e8"], ["Y", "#e8e8e8"], ["X", "#e8e8e8"]],
+    names: ["B", "A", "Y", "X", "L", "R", "ZL", "ZR", "-", "+", "LS", "RS", "Up", "Down", "Left", "Right", "HOME", "PAD"]
+  });
+  var glyphSet = (style) => get("glyphSets", style) || get("glyphSets", "xbox");
+  function drawGlyph(g, code, x, y, style = "playstation", input = null) {
+    const set = glyphSet(style);
+    let m = /^Pad(\d+)$/.exec(code);
+    if (m) {
+      const n = +m[1];
+      if (n <= 3) {
+        if (set.face) {
+          const [shape2, color2] = set.face[n];
+          E.px.sprite(g, faceSprite(shape2, color2), x, y);
+          return 10;
+        }
+        const [letter, color] = set.letters[n];
+        return letterDisc(g, x, y, letter, color);
+      }
+      if (n >= 12 && n <= 15) return dpad(g, x, y, set.names[n]);
+      return pill(g, x, y, set.names[n] || "B" + n);
+    }
+    if (code.includes("+")) {
+      let w = 0;
+      for (const [i, part] of code.split("+").entries()) {
+        if (i) w += pill(g, x + w, y, "+", "#f4f0ff", "rgba(0,0,0,0)", "rgba(0,0,0,0)") - 2;
+        w += drawGlyph(g, part, x + w, y, style, input);
+      }
+      return w;
+    }
+    m = /^(LS|RS)(Up|Down|Left|Right)?$/.exec(code);
+    if (m) return stickIcon(g, x, y, m[1][0], m[2]);
+    if (code === "Mouse0" || code === "Mouse2") return pill(g, x, y, code === "Mouse0" ? "LMB" : "RMB");
+    const label = input && input.codeLabel ? input.codeLabel(code) : code.replace(/^Key|^Digit/, "");
+    return pill(g, x, y, label.toUpperCase());
+  }
+  function glyphWidth(code, style = "playstation", input = null) {
+    const set = glyphSet(style), m = /^Pad(\d+)$/.exec(code);
+    if (m) {
+      const n = +m[1];
+      return n <= 3 || n >= 12 && n <= 15 ? 10 : Math.max(9, E.font.width(set.names[n] || "B" + n) + 6) + 1;
+    }
+    if (code.includes("+")) return code.split("+").reduce((w, p, i) => w + glyphWidth(p, style, input) + (i ? Math.max(9, E.font.width("+") + 6) - 1 : 0), 0);
+    if (/^(LS|RS)/.test(code)) return 10;
+    const label = code === "Mouse0" ? "LMB" : code === "Mouse2" ? "RMB" : input && input.codeLabel ? input.codeLabel(code) : code.replace(/^Key|^Digit/, "");
+    return Math.max(9, E.font.width(label.toUpperCase()) + 6) + 1;
+  }
+
+  // src/motor/input/prompts.js
+  function codeFor(bindings, action, device, ctx) {
+    const codes = bindings.codes(action, ctx), pad = device === "gamepad";
+    return codes.find((c) => pad ? /^(Pad|LS|RS)/.test(c) : !/^(Pad|LS|RS)/.test(c)) || codes[0] || null;
+  }
+  function parsePrompt(text, bindings, device) {
+    const out = [];
+    for (const part of String(text).split(/(\{[^}]+\})/)) {
+      if (!part) continue;
+      const m = /^\{(?:([a-zA-Z]+):)?([a-zA-Z]+)\}$/.exec(part);
+      if (m) {
+        const code = codeFor(bindings, m[2], device, m[1] || void 0);
+        out.push(code ? { code } : { text: "?" });
+      } else out.push({ text: part });
+    }
+    return out;
+  }
+  function deviceOf(input) {
+    return { device: input.lastDevice === "gamepad" ? "gamepad" : "keyboard", style: input.padStyle ? input.padStyle() : "xbox" };
+  }
+  function promptWidth(text, bindings, input) {
+    const { device, style } = deviceOf(input);
+    return parsePrompt(text, bindings, device).reduce((w, p) => w + (p.code ? glyphWidth(p.code, style, input) + 1 : E.font.width(p.text)), 0);
+  }
+  function drawPrompt(g, text, x, y, bindings, input, o = {}) {
+    const { device, style } = deviceOf(input), parts2 = parsePrompt(text, bindings, device);
+    const w = promptWidth(text, bindings, input);
+    let cx = o.align === "center" ? Math.round(x - w / 2) : o.align === "right" ? x - w : x;
+    for (const p of parts2) {
+      if (p.code) cx += drawGlyph(g, p.code, cx, y - 1, style, input) + 1;
+      else {
+        E.font.text(g, p.text, cx, y, o.color || "#ffffff", { shadow: o.shadow === void 0 ? "#000" : o.shadow });
+        cx += E.font.width(p.text);
+      }
+    }
+    return w;
+  }
+
+  // src/motor/input/human.js
+  var HumanController = class {
+    /** bindings: a Bindings; views: the ViewManager (screen -> world directions); game: for the mouse */
+    constructor(bindings, views, game2) {
+      this.bindings = bindings;
+      this.views = views;
+      this.game = game2;
+      this.intent = makeIntent();
+    }
+    /** fill the intent for this step; context 'onFoot' | 'vehicle'; actor: the possessed one (mouse aim is relative to it) */
+    update(context, actor) {
+      const B = this.bindings, I = clearIntent(this.intent);
+      B.setContext(context);
+      for (const b of BUTTONS) if (B.codes(b).length) {
+        I.down[b] = B.down(b);
+        I.tap[b] = B.tap(b);
+      }
+      if (context === "vehicle") {
+        const [sx] = B.stick("LS");
+        I.steer = sx || (B.down("right") ? 1 : 0) - (B.down("left") ? 1 : 0);
+        I.throttle = B.value("throttle");
+        I.brake = B.value("brake");
+      } else {
+        const [mx, my] = B.direction("onFoot"), d = this.views.screenDirToGround(mx, my);
+        I.move[0] = d[0];
+        I.move[1] = d[1];
+      }
+      const rs = B.stick("RS");
+      if (rs[0] || rs[1]) {
+        const a = this.views.screenDirToGround(rs[0], rs[1]), l = Math.hypot(a[0], a[1]) || 1;
+        I.aim = [a[0] / l, a[1] / l];
+      } else if (actor && this.game.input.lastDevice === "mouse" && this.game.input.mouse.active) {
+        const p = this.views.mouseGround();
+        if (p) {
+          const dx = p[0] - actor.x, dy = p[1] - actor.y, l = Math.hypot(dx, dy);
+          if (l > 4) I.aim = [dx / l, dy / l];
+        }
+      }
+      return I;
+    }
+  };
+
+  // src/motor/app.js
+  function createApp({ game: game2, links: links2 }) {
+    const views = new ViewManager(game2), bindings = Bindings.load(game2.input), activity = new Activity(game2.input);
+    const seed = +(links2.query.get("seed") || 1) >>> 0;
+    RNG.seed(seed);
+    const app2 = { game: game2, links: links2, views, bindings, activity, human: new HumanController(bindings, views, game2), footprint: new Footprint(), kiosk: kioskWanted(links2), seed };
+    for (const [k, v] of Object.entries(app2)) expose(k, v);
+    return app2;
+  }
+  function wrapScenes(app2, specs) {
+    const out = {};
+    for (const spec of specs) {
+      const s = spec.make(app2), update = s.update ? s.update.bind(s) : null;
+      s.update = (dt) => {
+        app2.bindings.update(dt);
+        if (update) update(dt);
+      };
+      out[spec.id] = s;
+    }
+    return out;
+  }
 
   // src/about.js
   var GAME = { title: "GRAND THEFT MOTO", id: "GrandTheftMoto-5S", tagline: "If it has a motor, it's yours." };
@@ -8808,9 +9484,67 @@ root.My3D2dge = E;
     }
   });
 
+  // src/game/scenes/attract.js
+  def("scenes", "attract", {
+    make(app2) {
+      const { game: game2, activity } = app2;
+      let map, hero, rig, bg, t = 0, goal = null, rng;
+      return {
+        view: "iso",
+        enter() {
+          t = 0;
+          activity.reset();
+          rng = RNG.stream("attract");
+          map = get("maps", "hello").build();
+          bg = new E.Backdrop("city-night");
+          const s = map.find("hero");
+          hero = new E.Mover({ x: s.x, y: s.y });
+          hero.actor = new Actor("ped", { x: s.x, y: s.y, faction: "crew" });
+          rig = new E.Humanoid({ size: 1, build: "heroic", outfit: "coat", hair: "spiky", weapon: null, colors: { skin: "#c8906a", hair: "#1e1a22", cloth: "#d23a3a", coat: "#2a2630", pants: "#2a3048", boot: "#18161c" } });
+          game2.cam.bounds = (v) => map.bounds(v);
+          expose("snapshot", () => ({ scene: "attract", t: +t.toFixed(2), hero: [hero.x, hero.y].map(Math.round) }));
+        },
+        exit() {
+          game2.timeScale = 1;
+          game2.input.stopRumble && game2.input.stopRumble();
+        },
+        update(dt) {
+          t += dt;
+          if (activity.idle() < t - 1e-9) {
+            game2.input.consumeAll();
+            game2.go("title", null, { fade: 0.15 });
+            return;
+          }
+          if (!goal || Math.hypot(goal[0] - hero.x, goal[1] - hero.y) < 12 || rng.chance(dt * 0.1)) {
+            const b = map.bounds(game2.view);
+            goal = [rng.range(48, 32 * 16 - 48), rng.range(48, 32 * 16 - 48)];
+            void b;
+          }
+          const dx = goal[0] - hero.x, dy = goal[1] - hero.y, l = Math.hypot(dx, dy) || 1;
+          hero.update(dt, map, { move: [dx / l * 0.8, dy / l * 0.8], sprint: false, jumpPressed: false });
+          rig.update(dt, hero.rigState());
+          game2.focus(hero.x, hero.y, 16);
+        },
+        draw(r) {
+          bg.draw(r);
+          map.drawFloor(r);
+          r.shadow(hero.x, hero.y, 5);
+          map.queueWalls(r);
+          r.actor(hero.x, hero.y, hero.z, (g, ox, oy) => rig.draw(g, ox, oy, r.view));
+          r.overlay((g) => {
+            E.ui.box(g, 6, 6, 44, 15, { alpha: 0.7 });
+            E.font.text(g, "DEMO", 28, 10, "#ffe066", { align: "center" });
+            if ((t * 1.4 | 0) % 2 === 0) E.font.text(g, "PRESS ANY BUTTON", r.W / 2, r.H - 22, "#ffffff", { align: "center", shadow: "#000" });
+          });
+        }
+      };
+    }
+  });
+
   // src/game/scenes/play.js
   def("scenes", "play", {
-    make({ game: game2, views: views2 }) {
+    make(app2) {
+      const { game: game2, views, human, footprint } = app2;
       let map, hero, rig, bg;
       return {
         pausable: true,
@@ -8819,6 +9553,7 @@ root.My3D2dge = E;
           map = get("maps", "hello").build();
           const s = map.find("hero");
           hero = new E.Mover({ x: s.x, y: s.y });
+          hero.actor = new Actor("ped", { x: s.x, y: s.y, faction: "crew" });
           rig = new E.Humanoid({
             size: 1,
             build: "heroic",
@@ -8829,16 +9564,22 @@ root.My3D2dge = E;
           });
           game2.cam.bounds = (v) => map.bounds(v);
           bg = new E.Backdrop("city-night");
-          expose("snapshot", () => ({ scene: "play", view: views2.active, hero: [hero.x, hero.y, hero.z].map((v) => Math.round(v)) }));
+          expose("snapshot", () => ({ scene: "play", view: views.active, hero: [hero.x, hero.y, hero.z].map((v) => Math.round(v)) }));
           expose("teleport", (x, y) => {
             hero.x = x;
             hero.y = y;
           });
+          game2.stateHash = () => [Math.round(hero.x * 8), Math.round(hero.y * 8), Math.round(hero.z * 8)];
         },
         update(dt) {
-          const I = game2.input, m = I.move(), d = game2.view.screenDirToGround(m[0], m[1]);
-          hero.update(dt, map, { move: d, sprint: I.down("dash"), jumpPressed: I.pressed("jump") });
+          const I = human.update("onFoot", hero);
+          hero.update(dt, map, { move: I.move, sprint: I.down.sprint, jumpPressed: I.tap.jump });
+          hero.actor.x = hero.x;
+          hero.actor.y = hero.y;
+          hero.actor.z = hero.z;
           rig.update(dt, hero.rigState());
+          if (I.tap.view) views.next();
+          footprint.update(hero.x, hero.y);
           game2.focus(hero.x, hero.y, 16);
         },
         draw(r) {
@@ -8855,18 +9596,26 @@ root.My3D2dge = E;
 
   // src/game/scenes/title.js
   def("scenes", "title", {
-    make({ game: game2 }) {
+    make(app2) {
+      const { game: game2, bindings, activity } = app2;
       let t = 0, bg = null;
       return {
         view: "iso",
         enter() {
           t = 0;
+          activity.reset();
           bg = new E.Backdrop("city-night");
-          expose("snapshot", () => ({ scene: "title", t: +t.toFixed(2) }));
+          expose("snapshot", () => ({ scene: "title", t: +t.toFixed(2), idle: +activity.idle().toFixed(2) }));
         },
         update(dt) {
           t += dt;
-          if (game2.input.pressed("start") || game2.input.pressed("confirm")) game2.go("play");
+          bindings.setContext("menu");
+          if (bindings.tap("confirm") || bindings.tap("close")) {
+            game2.input.consumeAll();
+            game2.go("play");
+            return;
+          }
+          if (activity.idle() >= TUNE.attractIdle) game2.go("attract");
         },
         draw(r) {
           bg.draw(r);
@@ -8875,7 +9624,7 @@ root.My3D2dge = E;
             E.font.title(g, "GRAND THEFT", cx, y, { scale: 2, colors: ["#f4f0ff", "#b8b0d8"], align: "center" });
             E.font.title(g, "MOTO", cx, y + 22, { scale: 5, colors: ["#ffe066", "#ff7a2a", "#d0306a"], align: "center", depth: 3, depthColor: "#2a0a2a" });
             E.font.text(g, "IF IT HAS A MOTOR, IT'S YOURS.", cx, y + 74, "#c8c0e8", { align: "center", shadow: "#000" });
-            if ((t * 1.6 | 0) % 2 === 0) E.font.text(g, "PRESS START", cx, Math.round(r.H * 0.74), "#ffffff", { align: "center", shadow: "#000" });
+            if ((t * 1.6 | 0) % 2 === 0) drawPrompt(g, "PRESS {menu:confirm}", cx, Math.round(r.H * 0.74), bindings, game2.input, { align: "center" });
             E.font.text(g, E.versionLabel().replace(" · ", " • ") + "  •  MOTOR", 6, r.H - 11, "#7a7298", { shadow: "#000" });
           });
         }
@@ -8883,20 +9632,24 @@ root.My3D2dge = E;
     }
   });
 
+  // src/game/tune.js
+  knob("Attract", "attractIdle", "Title idle before the demo", 10, 3, 60, 0.5, "Seconds without input on the title or its menus before the attract mode starts (the brief: 10)");
+  knob("On foot", "walkSpeed", "Walk speed", 50, 20, 120, 1, "Mover walk (u/s)");
+  knob("On foot", "runSpeed", "Run speed", 85, 40, 200, 1, "Mover run (u/s)");
+  knob("On foot", "sprintSpeed", "Sprint speed", 125, 60, 260, 1, "Mover sprint (u/s)");
+
   // content:content
-  var CONTENT_FILES = ["districts/hello/map.js", "scenes/play.js", "scenes/title.js"];
+  var CONTENT_FILES = ["districts/hello/map.js", "scenes/attract.js", "scenes/play.js", "scenes/title.js", "tune.js"];
 
   // src/main.js
   var links = readLinks();
   var parts = route(links.hash);
   var game = new E.Game({ canvas: "screen", res: "ps1", expand: { maxW: 560, maxH: 320 }, view: "iso", menu: false, corner: false, id: GAME.id });
-  var views = new ViewManager(game);
   var H2 = installHandle(game);
-  expose("views", views);
+  var app = createApp({ game, links });
   expose("content", CONTENT_FILES);
-  expose("links", links);
-  var scenes = Object.fromEntries(all("scenes").map((s) => [s.id, s.make({ game, views, links })]));
-  var scene = scenes[parts[0]] ? parts[0] : "title";
+  var scenes = wrapScenes(app, all("scenes"));
+  var scene = scenes[parts[0]] ? parts[0] : app.kiosk ? "attract" : "title";
   game.start({ scenes, scene, data: { route: parts }, boot: { title: GAME.title, messages: ["Paving Lowtown", "Waking the traffic lights"] } });
   H2.ready = true;
 })();

@@ -21,7 +21,7 @@ const page = await open();
 ok('boots to the title', (await snap(page)).scene === 'title', JSON.stringify(await snap(page)));
 await page.keyboard.press('Enter'); await page.waitForTimeout(700);
 ok('Enter starts play', (await snap(page)).scene === 'play', JSON.stringify(await snap(page)));
-const a = (await snap(page)).hero; await page.keyboard.down('ArrowRight'); await page.waitForTimeout(800); await page.keyboard.up('ArrowRight');
+const a = (await snap(page)).hero; await page.keyboard.down('KeyD'); await page.waitForTimeout(800); await page.keyboard.up('KeyD');
 const b = (await snap(page)).hero;
 ok('the protagonist walks', Math.hypot(b[0] - a[0], b[1] - a[1]) > 20, `${a} -> ${b}`);
 const p2 = await open('#play');

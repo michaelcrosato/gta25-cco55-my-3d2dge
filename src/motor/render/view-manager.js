@@ -22,6 +22,10 @@ export class ViewManager {
   addView(spec) { this.views.set(spec.id, spec); if (!this.game.views.includes(spec.id)) this.game.views.push(spec.id); return spec; }
   /** the active view's spec */
   get spec() { return this.views.get(this.active); }
+  /** a direction pushed on screen (x right, y down) -> a world ground direction, through the active view */
+  screenDirToGround(dx, dy) { const v = this.spec; return v && v.screenDirToGround ? v.screenDirToGround(dx, dy) : this.game.view.screenDirToGround(dx, dy); }
+  /** the ground point under the mouse in the active view, or null */
+  mouseGround() { const v = this.spec; return v && v.mouseGround ? v.mouseGround() : this.game.mouseGround(); }
   /** cycle to the next view in game.views */
   next() { const ids = this.game.views, i = ids.indexOf(this.active); this.game.setView(ids[(i + 1) % ids.length]); return this.active; }
   onChange(fn) { this.listeners.push(fn); }

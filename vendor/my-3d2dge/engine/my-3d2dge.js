@@ -653,6 +653,12 @@ class Input {
     /** names: the actions' names on the Controls screen ({ attack: 'Sword' }; false hides one from rebinding: the
      *  game's menu.controls); onBindings(b): called with the player's new bindings (the game saves and applies them) */
     this.names = null; this._onBindings = null;
+    // GTM-PATCH(4): raw device state, for games that bind their own controls, and an activity clock for idle timers
+    /** raw: { keys: the key codes held now, bound to an action or not; pads: every connected gamepad as { index, id,
+     *  mapping, buttons: [{ pressed, value }] (value 0..1: analog triggers), axes }; active: the index of the pad used
+     *  last (null for none); activity: the input clock (seconds) at the last input of any kind: a key, the mouse moving,
+     *  clicking or wheeling, a touch, a pad button, a stick past the dead zone or a trigger; -1 before any } */
+    this.raw = { keys: new Set(), pads: [], active: null, activity: -1, pressed: new Set(), _fresh: new Set() };   // pressed: the codes pressed since the step before
     const el = screen.canvas;
     if (!el) return;
     // the keyboard's own letters for labels (an AZERTY Z where the code says KeyW), where the browser tells them
@@ -666,22 +672,25 @@ class Input {
     };
     on(window, 'keydown', e => {
       if (typing(e)) return;
+      this.raw.keys.add(e.code); this.raw.activity = this.clock; if (!e.repeat) this.raw._fresh.add(e.code);   // GTM-PATCH(4): every key, bound or not
       if (this._codes[e.code]) { e.preventDefault(); if (!e.repeat) this.press(e.code); }
       else if (this._zoomOn && ZOOM_KEYS[e.code] && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (!e.repeat) this._zoomAcc *= ZOOM_KEYS[e.code]; }   // - and =, where no action uses them
     });
     // the wheel zooms where the game lets it (a mouse's notch 10%; a trackpad's pinch comes as the wheel with ctrlKey);
     // not over a menu, which scrolls
     el.addEventListener('wheel', e => {
+      this.raw.activity = this.clock;   // GTM-PATCH(4)
       if (!this._wheelOn) return; e.preventDefault();
       const d = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 100 : 1);
       this._zoomAcc *= clamp(Math.exp(-d * (e.ctrlKey ? .01 : .001)), .8, 1.25);
     }, { signal, passive: false });
-    on(window, 'keyup', e => this.release(e.code));
+    on(window, 'keyup', e => { this.raw.keys.delete(e.code); this.release(e.code); });   // GTM-PATCH(4): raw.keys
     on(window, 'blur', () => this.clear());
     on(document, 'visibilitychange', () => { if (document.hidden) this.clear(); });
     on(el, 'contextmenu', e => e.preventDefault());
-    on(el, 'pointermove', e => { if (e.pointerType === 'mouse') { this.mouse.cx = e.clientX; this.mouse.cy = e.clientY; this.mouse.active = true; this.mouse.t = this.clock; this.aimSource = 'mouse'; } else { this._pinchMove(e); this._stickMove(e); } });
+    on(el, 'pointermove', e => { this.raw.activity = this.clock; if (e.pointerType === 'mouse') { this.mouse.cx = e.clientX; this.mouse.cy = e.clientY; this.mouse.active = true; this.mouse.t = this.clock; this.aimSource = 'mouse'; } else { this._pinchMove(e); this._stickMove(e); } });
     on(el, 'pointerdown', e => {
+      this.raw.activity = this.clock;   // GTM-PATCH(4) (and pointermove above)
       if (e.pointerType !== 'mouse') this.lastDevice = 'touch';   // any touch, on the stick's half or not: prompts follow it
       if (e.pointerType !== 'mouse' || e.button === 0) this._down = { id: e.pointerId, x: e.clientX, y: e.clientY };   // a click or tap once it lifts near here (pointerup)
       if (e.pointerType === 'mouse') { this.mouse.cx = e.clientX; this.mouse.cy = e.clientY; this.mouse.active = true; this.aimSource = 'mouse'; this.press('Mouse' + e.button); }
@@ -849,7 +858,8 @@ class Input {
   /** press a key or button code ('KeyJ', 'Mouse0', 'Pad0', 'Act:attack') as if the person did: scripted input,
    *  tests, bots */
   press(code) {
-    if (this.held.has(code)) return; this.held.add(code);
+    this.raw.activity = this.clock;   // GTM-PATCH(4): scripted presses count as activity too
+    if (this.held.has(code)) return; this.held.add(code); this.raw._fresh.add(code);
     if (code.startsWith('Pad')) { this.lastDevice = 'gamepad'; this.aimSource = 'pad'; }
     else if (code.startsWith('Act:')) this.lastDevice = 'touch';
     else this.lastDevice = code.startsWith('Mouse') ? 'mouse' : 'keyboard';
@@ -895,7 +905,7 @@ class Input {
   consumeAll() { for (const a in this.map) this._used[a] = true; this._now.clear(); this._fresh.clear(); this._clickAt = this._click = null; }
   /** Release all devices and discard buffered input on focus loss or a modal transition. */
   clear() {
-    this.held.clear(); this.consumeAll(); this._nowUp.clear(); this._freshUp.clear(); this._pt = {}; this._rk = {}; this._down = null;
+    this.held.clear(); this.raw.keys.clear(); this.consumeAll(); this._nowUp.clear(); this._freshUp.clear(); this._pt = {}; this._rk = {}; this._down = null;   // GTM-PATCH(4): raw.keys
     this.padMove = [0, 0]; this.padAim = null; this._fingers.clear(); this._pinching = false; this._zoomAcc = 1;
     this._stickEnd({ pointerId: this.stickId });
     for (const b of this._boundButtons || []) { b.classList.remove('on'); b._inputPointers.clear(); }
@@ -936,8 +946,14 @@ class Input {
     this.clock += dt;
     let pads = [];
     try { pads = navigator.getGamepads ? navigator.getGamepads() : []; } catch (e) { /* gamepads blocked */ }
-    const p = Array.from(pads || []).find(p => p && p.connected !== false && p.index === this.padIndex)
-      || Array.from(pads || []).find(p => p && p.connected !== false);
+    // GTM-PATCH(4): every pad's raw state (analog button values included); the pad in use is the last one used; the
+    // codes pressed since the step before become this step's raw.pressed (a tap shorter than a step still shows once)
+    { const R = this.raw, f = R.pressed; f.clear(); R.pressed = R._fresh; R._fresh = f; }
+    const live = Array.from(pads || []).filter(q => q && q.connected !== false), R = this.raw;
+    R.pads = live.map(q => ({ index: q.index, id: q.id, mapping: q.mapping, buttons: Array.from(q.buttons || [], b => ({ pressed: !!b.pressed, value: +b.value || 0 })), axes: Array.from(q.axes || []) }));
+    for (const q of R.pads) if (q.buttons.some(b => b.pressed || b.value > .1) || q.axes.some(v => Math.abs(v) > this.deadzone)) { R.active = q.index; R.activity = this.clock; }
+    if (R.active !== null && !live.some(q => q.index === R.active)) R.active = null;
+    const p = (R.active !== null && live.find(q => q.index === R.active)) || live.find(q => q.index === this.padIndex) || live[0];
     this.padLost = false;
     if (!p || p.index !== this.padIndex || p.id !== this.padId) {
       if (!p && this.padIndex !== null) { this.padLost = this.lastDevice === 'gamepad'; this.stopRumble(); }   // unplugged while in use

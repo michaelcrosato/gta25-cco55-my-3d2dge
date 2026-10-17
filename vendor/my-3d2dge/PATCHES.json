@@ -1,5 +1,15 @@
 {
   "note": "GTM-PATCH(n) entries: n, file, title, and the patched file's sha256 (vendor-check.mjs). Human notes: PATCHES.md.",
-  "patches": [],
-  "files": {}
+  "patches": [
+    {
+      "n": 4,
+      "file": "engine/my-3d2dge.js",
+      "title": "Input raw state: every key, every pad (analog values), the active pad, an activity clock"
+    }
+  ],
+  "files": {
+    "engine/my-3d2dge.js": {
+      "sha256": "961d0ae7dfee91e886fb9a894d88a5d52f6ff337b02449d06e91effcd18329b3"
+    }
+  }
 }
