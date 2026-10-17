@@ -26,11 +26,11 @@ export function drawBoxModel(g, P, model, x, y, z, heading, o = {}) {
   const c = Math.cos(heading), s = Math.sin(heading), roll = o.roll || 0, pitch = o.pitch || 0;
   const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
   const sorted = model._sorted || (model._sorted = model.parts.slice().sort((a, b) => (ORDER[a.role] ?? 1) - (ORDER[b.role] ?? 1)));
-  const upside = cr * cp < 0, list = P.depth3 && !upside ? depthOrder(P, model, sorted, o.extra, x, y, z, c, s, cr, sr, cp, sp) : o.extra ? [...sorted, ...o.extra] : sorted;
+  const upside = !P.depth3 && cr * cp < 0, list = P.depth3 ? partOrder(P, model, x, y, z, heading, o) : o.extra ? [...sorted, ...o.extra] : sorted;
   const L = (model.length || 58) / 2, W = (model.width || 26) / 2, dn = o.dents;
   const dentF = dn ? dn.front : 0, dentR = dn ? dn.rear : 0, dentL = dn ? dn.left : 0, dentRt = dn ? dn.right : 0, dented = dentF + dentR + dentL + dentRt > .01;
   for (let pi = 0; pi < list.length; pi++) {
-    const p = list[upside ? list.length - 1 - pi : pi], role = p.role;
+    const p = list[upside ? list.length - 1 - pi : pi], role = p.role;   // (upside: no depth3, so the roles' order reversed)
     const reps = role === 'rotor' ? 2 : 1;
     for (let rep = 0; rep < reps; rep++) {
       const [x0, y0, z0, x1, y1, z1] = p.box, wcx = (x0 + x1) / 2, wcy = (y0 + y1) / 2;
@@ -75,25 +75,81 @@ export function drawBoxModel(g, P, model, x, y, z, heading, o = {}) {
   g._c = null;
 }
 
-// the parts in drawing order for this view: the nested core (wheels, body, glass, roof) in role order (a near wheel sits
-// mostly inside the body, so the body must come after it), and the things fixed on the outside (lamps, bumpers, trim,
-// the siren bar) by true depth: those beyond the model's middle before the core, so the body hides them, the near ones
-// after it. P.depth3(x, y, z): bigger is farther (each view's projector has one)
-const OUTSIDE = new Set(['light', 'tail', 'bumper', 'trim', 'siren']);
-function depthOrder(P, model, sorted, extra, x, y, z, c, s, cr, sr, cp, sp) {
-  const key = p => {
-    const b = p.box, bx = (b[0] + b[3]) / 2, by = (b[1] + b[4]) / 2, bz = (b[2] + b[5]) / 2;
-    const ry = by * cr - bz * sr, rz = by * sr + bz * cr, px = bx * cp + rz * sp, pz = -bx * sp + rz * cp;
-    return P.depth3(x + px * c - ry * s, y + px * s + ry * c, z + pz);
-  };
-  const k0 = P.depth3(x, y, z + (model.height || 20) / 2), far = [], near = [], core = [], top = [];
-  for (const p of extra ? [...sorted, ...extra] : sorted) {
-    if (p.role === 'rotor') top.push(p);
-    else if (OUTSIDE.has(p.role)) { const k = key(p); (k > k0 ? far : near).push([k, p]); }
-    else core.push(p);
+// The parts in drawing order for this view (P.depth3(x, y, z): bigger is farther). Two boxes that a plane between them
+// separates are ordered by the side of it the camera is on, the far one first: for boxes that don't overlap that is a
+// true painter's order, and it holds on a long body (a locker on the near flank at the far end) as on a short one.
+// Overlapping boxes keep their roles' order (the nested core: wheels, body, glass, the roof), except a part fixed on
+// the outside (a lamp, bumper, trim or the siren bar) poking out of a core box: after the box if the face it pokes out
+// of faces the camera, before it if not. The order depends only on the signs of the way depth grows in the model's
+// frame, so it is kept per model for each of the 8 octants. Rotors go last; open doors (o.extra) are fitted in each
+// frame, as parts on the outside. A wreck on its roof needs nothing more: the camera is then below its floor.
+const CORE = { wheel: 1, body: 1, glass: 1, cabin: 1 }, EPS = .01;
+/** model's parts in the order they are drawn through P at (x, y, z) turned to heading (o: roll, pitch, extra) */
+export function partOrder(P, model, x, y, z, heading, o = {}) {
+  const c = Math.cos(heading), s = Math.sin(heading), cr = Math.cos(o.roll || 0), sr = Math.sin(o.roll || 0), cp = Math.cos(o.pitch || 0), sp = Math.sin(o.pitch || 0), extra = o.extra;
+  const d0 = P.depth3(x, y, z), gx = P.depth3(x + 1, y, z) - d0, gy = P.depth3(x, y + 1, z) - d0, gz = P.depth3(x, y, z + 1) - d0;
+  const hx = gx * c + gy * s, hy = -gx * s + gy * c, px = hx * cp - gz * sp, pz = hx * sp + gz * cp;   // undo the heading, the pitch,
+  const sg = [Math.sign(px), Math.sign(hy * cr + pz * sr), Math.sign(-hy * sr + pz * cr)];             // the roll: depth's way, model frame
+  const key = (sg[0] > 0 ? 1 : 0) | (sg[1] > 0 ? 2 : 0) | (sg[2] > 0 ? 4 : 0), cache = model._orders || (model._orders = []);
+  let list = cache[key] || (cache[key] = orderFor(model.parts, sg));
+  if (extra) for (const e of extra) list = fitIn(list, e, sg);
+  return list;
+}
+// the part's box for ordering: a part turned about its pivot (a door swung open) by the box round its turned corners
+function boxOf(p) {
+  if (!p.turn) return p.box;
+  const [x0, y0, z0, x1, y1, z1] = p.box, tc = Math.cos(p.turn), ts = Math.sin(p.turn), [ox, oy] = p.pivot || [(x0 + x1) / 2, (y0 + y1) / 2];
+  let ax = Infinity, ay = Infinity, bx = -Infinity, by = -Infinity;
+  for (const [u, v] of [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]) { const X = ox + (u - ox) * tc - (v - oy) * ts, Y = oy + (u - ox) * ts + (v - oy) * tc; ax = Math.min(ax, X); ay = Math.min(ay, Y); bx = Math.max(bx, X); by = Math.max(by, Y); }
+  return [ax, ay, z0, bx, by, z1];
+}
+// -1: a is drawn before b; 1: after; 0: either (ia, ib: their places in the list, for the same role)
+function relation(a, b, A, B, sg, outA, outB, ia, ib) {
+  let far = 0, sep = false;
+  for (let k = 0; k < 3; k++) {
+    const side = A[k + 3] <= B[k] + EPS ? -1 : B[k + 3] <= A[k] + EPS ? 1 : 0;   // a lies on b's -k or +k side
+    if (!side) continue; sep = true; if (!sg[k]) continue;
+    const f = side === sg[k] ? 1 : -1;   // a is the far one when it lies the way depth grows
+    far = far === 0 ? f : far === f ? f : 2;
   }
-  far.sort((a, b) => b[0] - a[0]); near.sort((a, b) => b[0] - a[0]);
-  return [...far.map(q => q[1]), ...core, ...near.map(q => q[1]), ...top];
+  if (sep) return far === 1 ? -1 : far === -1 ? 1 : 0;   // (separated two ways that disagree: they can't overlap on screen)
+  if (outA !== outB) return outA ? (pokesToward(A, B, sg) ? 1 : -1) : (pokesToward(B, A, sg) ? -1 : 1);
+  const up = sg[2] > 0, ra = (ORDER[a.role] ?? 1) * (up ? -1 : 1), rb = (ORDER[b.role] ?? 1) * (up ? -1 : 1);
+  return ra !== rb ? (ra < rb ? -1 : 1) : (ia < ib) !== up ? -1 : 1;
+}
+// does box O (a part on the outside) poke out of box C mostly through a face the camera sees?
+function pokesToward(O, C, sg) {
+  let best = EPS, k = -1, plus = false;
+  for (let i = 0; i < 3; i++) {
+    if (O[i + 3] - C[i + 3] > best) { best = O[i + 3] - C[i + 3]; k = i; plus = true; }
+    if (C[i] - O[i] > best) { best = C[i] - O[i]; k = i; plus = false; }
+  }
+  return k >= 0 && (plus ? sg[k] < 0 : sg[k] > 0);   // (inside it: never seen)
+}
+// the order for one octant: the pairs' relations, then a topological sort that takes the roles' order (and the list's)
+// wherever the geometry leaves a choice; a cycle, which boxes can make, is broken there
+function orderFor(parts, sg) {
+  const list = parts.filter(p => p.role !== 'rotor'), n = list.length, boxes = list.map(boxOf), out = list.map(p => !CORE[p.role]);
+  const next = Array.from({ length: n }, () => []), indeg = new Int32Array(n);
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const r = relation(list[i], list[j], boxes[i], boxes[j], sg, out[i], out[j], i, j);
+    if (r < 0) { next[i].push(j); indeg[j]++; } else if (r > 0) { next[j].push(i); indeg[i]++; }
+  }
+  const up = sg[2] > 0, prio = i => (ORDER[list[i].role] ?? 1) * (up ? -1 : 1) * 1e4 + (up ? -i : i);
+  const done = new Uint8Array(n), order = [];
+  for (let m = 0; m < n; m++) {
+    let pick = -1;
+    for (let i = 0; i < n; i++) if (!done[i] && !indeg[i] && (pick < 0 || prio(i) < prio(pick))) pick = i;
+    if (pick < 0) for (let i = 0; i < n; i++) if (!done[i] && (pick < 0 || prio(i) < prio(pick))) pick = i;   // (a cycle)
+    done[pick] = 1; order.push(list[pick]); for (const j of next[pick]) indeg[j]--;
+  }
+  return [...order, ...parts.filter(p => p.role === 'rotor')];
+}
+// a part fitted into an order: after everything it must follow (an open door is a part on the outside)
+function fitIn(list, e, sg) {
+  const E = boxOf(e); let at = 0;
+  for (let i = 0; i < list.length; i++) { const p = list[i]; if (p.role === 'rotor') break; if (relation(p, e, boxOf(p), E, sg, !CORE[p.role], true, 0, 1) < 0) at = i + 1; }
+  return [...list.slice(0, at), e, ...list.slice(at)];
 }
 
 /** a car model from its sizes: a body, a cabin with glass, four wheels, head and tail lights (and a light bar). Kept for

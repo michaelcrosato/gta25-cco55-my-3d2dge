@@ -35,12 +35,18 @@ kits and the baseline definition. Put each model and its definitions in a file o
   ones steer), `light` (head lamps: lit at night), `tail` (brake lights), `siren` (alternates red and blue; the box's
   side decides which), `bumper`, `trim`, `rotor` (a heli's blade: spun, drawn twice crossed). `paint: true` puts a part
   of any role in the paint (a roof).
-- **Draw order** (`render/box-model.js`): the nested core (`wheel`, `body`, `glass`, `cabin`) is drawn in that role
-  order, and in list order within a role; the parts fixed on the outside (`bumper`, `trim`, `light`, `tail`, `siren`)
-  are sorted by depth in every view: those beyond the model's middle go before the core (the body hides them), the
-  near ones after it; `rotor` goes last. So keep core boxes convex and nested (a roof inside its glass, the glass on the
-  body), put details on a face as outside roles, and remember a kit only appends parts: one that adds face details may
-  need to re-add a thin `body` lid over them (the Cortez's kits do). The far end's lamps no longer show through.
+- **Draw order** (`render/box-model.js`, `partOrder`): two parts that a plane between them separates are drawn far
+  one first, in every view. For boxes that don't overlap that is a true painter's order, so a locker on the near flank
+  of a long body, a lamp on the far end and a light bar on a cab roof all come out right. Parts that overlap keep their
+  roles' order: the nested core goes `wheel`, `body`, `glass`, `cabin` (a wheel sunk in the body, the glass on it, the
+  roof over the glass), in list order within a role. The exception is a part on the outside (`bumper`, `trim`,
+  `light`, `tail`, `siren`) sunk into a core box: it is drawn after the box when the face it pokes out of (most) faces
+  the camera, and before it when not. So:
+  - build with boxes that touch rather than cross, where you can;
+  - sink a lamp into the face it shows on;
+  - put roof things on top of the roof.
+
+  `rotor` parts go last.
 - The builders make the usual shapes from sizes and return `{ parts, wheels, seats, doors, lights, hook }` to spread
   into the spec (`src/motor/sim/vehicle/model.js` has their options):
   - `carParts({ length, width, height, cabin (share of the length), cabinAt (its centre, share), wheel (radius), style:
