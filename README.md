@@ -22,8 +22,8 @@ It also includes:
 
 Under it sits **MOTOR**, an open-city engine layer on top of my-3D2dge, built to carry the full game.
 
-> **Status: planning complete. Implementation has not started.** `PLAN.md` is the full plan and `GOAL.md` is the
-> `/goal` prompt that runs it.
+> **Status: implementation in progress.** `PROGRESS.md` has the current milestone and its evidence. `PLAN.md` is the full
+> plan and `GOAL.md` is the `/goal` prompt that runs it.
 
 ## Source Information
 
@@ -31,7 +31,7 @@ Under it sits **MOTOR**, an open-city engine layer on top of my-3D2dge, built to
 |---|---|
 | **Initial Date** | 2026-10-17 (UTC): the first prompt of the planning session. The repository was created on 2026-10-16 at 19:29 UTC-7. |
 | **SOURCE** | *Grand Theft Auto 2* (PC, 1999; DMA Design / Rockstar Games), with depth, features and gameplay drawn from *Grand Theft Auto V* (2013; Rockstar North). In the my-3D2dge 2D pixel style, with the views isometric (primary), top-down (secondary), and the engine's side scrolling with depth (Mode 7). |
-| **GAME ENGINE** | **my-3D2dge v0.46.1**, commit `cfa866a` (`cfa866aa45474868350cad1a7fc015e612f9305f`, 2026-10-15), <https://github.com/michaelcrosato/my-3d2dge> (MIT). It will be vendored at `vendor/my-3d2dge/` and extended by MOTOR (`src/motor/`). |
+| **GAME ENGINE** | **my-3D2dge v0.46.1**, commit `cfa866a` (`cfa866aa45474868350cad1a7fc015e612f9305f`, 2026-10-15), <https://github.com/michaelcrosato/my-3d2dge> (MIT). It is vendored at `vendor/my-3d2dge/` and extended by MOTOR (`src/motor/`). |
 | **Environment** | Claude Code (container build 2.1.302) in Anthropic's managed cloud environment: a claude.ai/code remote session, started from the Claude desktop app. Linux: Ubuntu 24.04.5 LTS, x86_64. Node.js 22.22.0. Headless Chromium 141 (Playwright build 1194) for tests. The game targets desktop browsers and runs from one HTML file. |
 | **Model and Effort Level** | AI lab: **Anthropic**. *Planning* effort: **max**, confirmed from the session's metadata. *Implementation* effort: recommended **xhigh** with `ultracode` (`PLAN.md` section 16). The exact model is given in each session's chat report: this environment keeps model identifiers out of files pushed to the repository. |
 
@@ -44,12 +44,12 @@ This is kept separate from the Source Information above.
 
 ## Playing it
 
-Available once milestone M0 lands.
-
-- **Build:** `npm ci`, then `npm run build`.
-- **Play:** open `dist/index.html` (one self-contained file, no network).
-- **Develop:** `npm run dev`.
-- **Test:** `npm test` (fast) or `npm run test:full`.
+- **Play:** open `dist/index.html` in a browser. It is one self-contained file, with no network and no installs.
+- **Build:** `npm ci` (Node 22 or later), then `npm run build`.
+- **Develop:** `npm run dev` serves it on `localhost:5173` and rebuilds on every change.
+- **Test:** `npm test` (the fast gate) or `npm run test:full`. In a Claude Code cloud session the SessionStart hook
+  installs everything; elsewhere, run `npx playwright install chromium` once.
+- **Deep links:** `#title`, `#play`; more arrive with each milestone.
 
 The controls are in `PLAN.md` section 11. A PS5 DualSense is the primary controller; keyboard and mouse map onto the
 same model.
@@ -60,4 +60,8 @@ same model.
 |---|---|
 | `PLAN.md` | the master plan: vision, perspectives, architecture, systems, content, milestones, verification, the Definition of Done, the execution recommendation, the preliminary engine analysis, and the 50 candidate titles |
 | `GOAL.md` | the `/goal` prompt for the implementation run |
-| `PROGRESS.md`, `src/`, `vendor/`, `tools/`, `tests/`, `docs/` | created from milestone M0 on (see `PLAN.md` section 6.2) |
+| `PROGRESS.md` | milestone status and evidence |
+| `src/motor/`, `src/game/`, `src/main.js` | MOTOR (the engine layer) and the game's content |
+| `vendor/my-3d2dge/` | the pinned engine, its tools and docs (`VERSION.json`, `PATCHES.md`) |
+| `tools/`, `tests/` | build, dev server, the checks, and the test suites |
+| `docs/` | `ARCHITECTURE.md`, `DECISIONS.md`, `CONTENT-GUIDE.md`, and later the engine analysis |

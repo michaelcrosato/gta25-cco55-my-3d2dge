@@ -1,0 +1,35 @@
+<!doctype html>
+<!--
+  GRAND THEFT MOTO (GrandTheftMoto-5S) v{{VERSION}} ({{BUILD}})
+  An original spiritual successor to Grand Theft Auto 2, built on my-3D2dge and MOTOR. One self-contained file:
+  the engine, the game and every asset (all drawn and synthesized by code). Open it in a browser and play.
+
+  SOURCE INFORMATION
+{{SOURCE_INFO}}
+
+  GAME ENGINE ANALYSIS (summary; the full analysis is docs/ENGINE-ANALYSIS.md in the repository)
+{{ENGINE_SUMMARY}}
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="GRAND THEFT MOTO: a GTA2-style crime sandbox in pixel art, for the couch.">
+<title>GRAND THEFT MOTO</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#stage{position:relative;width:100%;height:100%;overflow:hidden;background:#000;touch-action:none}
+#screen{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
+#ui{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;pointer-events:none}
+</style>
+</head>
+<body>
+<!-- @boot -->
+<div id="stage">
+  <canvas id="screen" role="img" aria-label="Grand Theft Moto game screen"></canvas>
+  <canvas id="ui" aria-hidden="true"></canvas>
+</div>
+<!-- @engine -->
+<!-- @bundle -->
+</body>
+</html>

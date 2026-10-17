@@ -1,0 +1,5 @@
+{
+  "note": "GTM-PATCH(n) entries: n, file, title, and the patched file's sha256 (vendor-check.mjs). Human notes: PATCHES.md.",
+  "patches": [],
+  "files": {}
+}
