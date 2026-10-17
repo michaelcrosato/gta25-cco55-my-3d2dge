@@ -271,7 +271,7 @@ function buildDeck(D, C, solids, props) {
     }
     ramps.push({ at: R.at, dir: R.dir, length: L, foot: [rx + dx * (edge + L), ry + dy * (edge + L)] });
   }
-  const deck = new Deck({ id: D.id, kind: D.kind || 'road', width: D.width, z, cells: [...cells.values()], ramps, thickness: thick, stations: D.stations || [], lanes: D.lanes || 2, gaps: D.gaps || [] });
+  const deck = new Deck({ id: D.id, kind: D.kind || 'road', width: D.width, z, cells: [...cells.values()], ramps, thickness: thick, stations: D.stations || [], lanes: D.lanes || 2, gaps: D.gaps || [], path: D.path.slice(), closed: !!D.closed });
   // peds stand on it: the flat parts as one solid per cell row run (merged), ramps in 8-unit treads (the engine's step is 2)
   for (const c of deck.cells) {
     if (c.z0 === c.z1) { solids.push({ x: (c.cx + .5) * T, y: (c.cy + .5) * T, z: c.z0 - thick, top: c.z0, hx: 8, hy: 8, deck: D.id }); continue; }

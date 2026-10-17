@@ -1,0 +1,195 @@
+// M4's accept tests (PLAN.md 8.8): getting in, getting out and carjacking from all four sides; a locked car's break-in;
+// a bike mounted at once; a bail-out at speed; a tow joint stable for 60 s; chained explosions and a burning car's
+// countdown; the L's train killing what stands on its track; knockdowns by closing speed; street furniture knocked
+// over; a car sinking in deep water; the Loop gap's jump. Headless, through MOTOR's own modules and fixed steps.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { engineGlobal } from '../harness.mjs';
+
+const E = engineGlobal();
+const M = await import('../../src/motor/index.js');
+await import('../../src/game/vehicles/cortez.js');
+await import('../../src/game/characters/crew.js');
+const { def, get, Fleet, Ped, Combat, boardingFor, exitFor, standInCity, makeIntent, clearIntent, BUS, TUNE, truckParts, bikeParts } = M;
+const dt = 1 / 120;
+// stand-in content for the classes the fan-out fills (registered once; ids no game file uses)
+if (!get('vehicleModels', 't-tow')) {
+  def('vehicleModels', 't-tow', { name: 'Test Tow', class: 'tow', length: 80, width: 30, height: 32, ...truckParts({ length: 80, width: 30, height: 32, kind: 'tow' }) });
+  def('vehicles', 't-tow', { name: 'Test Tow', model: 't-tow', role: 'service', tool: 'hook', handling: { mass: 2600, top: 200, accel: 90, brake: 420, grip: 380, steer: .45 }, spec: {} });
+  def('vehicleModels', 't-bike', { name: 'Test Bike', class: 'bike', length: 30, width: 8, height: 14, ...bikeParts({ length: 30, height: 14 }) });
+  def('vehicles', 't-bike', { name: 'Test Bike', model: 't-bike', seats: 1, handling: { mass: 200, top: 280, accel: 160, brake: 520, grip: 440, width: 8 }, spec: {} });
+}
+/** a flat yard 80 x 60 cells of road (walls round it), a stand-in city over it, a Combat world and a Fleet */
+function yard(o = {}) {
+  const w = 80, h = 60, map = new E.TileMap({ w, h, types: { 1: { h: 32, top: '#666', side: '#555' } } });
+  map.fill(0, 0, w, 1, 1); map.fill(0, h - 1, w, 1, 1); map.fill(0, 0, 1, h, 1); map.fill(w - 1, 0, 1, h, 1);
+  const city = standInCity(map, o.surface || (() => 'road')); if (o.props) city.props = o.props;
+  const combat = new Combat({ map, city, fire: false }), fleet = new Fleet({ city, map, combat });
+  return { map, city, combat, fleet };
+}
+const ped = (Y, x, y, o = {}) => Y.combat.add(new Ped({ x, y, faction: o.faction || 'crew', look: get('characters', 'dex').outfits[0], ...o }));
+const idle = makeIntent();
+/** step the world: every ped on an idle intent (or its own), the fleet, combat */
+function step(Y, seconds, o = {}) {
+  for (let t = 0; t < seconds; t += dt) {
+    Y.fleet.update(dt, { intent: v => o.intent ? o.intent(v) : clearIntent(idle), peds: Y.combat.bodies, night: false });
+    for (const p of Y.combat.bodies) p.update(dt, o.pedIntent ? o.pedIntent(p) : clearIntent(idle), { map: Y.map, city: Y.city, combat: Y.combat, fleet: Y.fleet });
+    Y.combat.update(dt, {});
+    if (o.until && o.until()) return t;
+  }
+  return seconds;
+}
+const SIDES = { front: [60, 0], rear: [-60, 0], left: [0, -40], right: [0, 40] };
+
+test('getting in from all four sides: the ped walks to the nearest door, opens it, sits at the wheel; and gets out again', () => {
+  for (const [side, [lx, ly]] of Object.entries(SIDES)) {
+    const Y = yard(), v = Y.fleet.spawn('cortez', 600, 480, 0), [x, y] = v.toWorld(lx, ly), p = ped(Y, x, y);
+    const events = []; const off = BUS.on('vehicleEnter', e => events.push(e));
+    const plan = boardingFor(p, v, 0); assert.ok(plan, side + ': a plan'); assert.equal(plan.kind, 'enterCar');
+    p.board(plan); const t = step(Y, 6, { until: () => v.driver === p });
+    off();
+    assert.equal(v.driver, p, `${side}: at the wheel (after ${t.toFixed(2)} s)`); assert.equal(p.seat.index, 0);
+    assert.equal(events.length, 1, side + ': vehicleEnter once');
+    assert.ok(t < 3, `${side}: in within 3 s (${t.toFixed(2)})`);
+    // and out: the door's side, standing beside the car
+    p.leave(exitFor(p, v)); step(Y, 2, { until: () => !p.boarding });
+    assert.equal(v.driver, null, side + ': out of the seat'); assert.equal(p.seat, null);
+    const [ex, ey] = v.toLocal(p.x, p.y); assert.ok(Math.abs(ey) > v.hw, `${side}: standing outside the car's side (${ex.toFixed(1)}, ${ey.toFixed(1)})`);
+  }
+});
+
+test('carjacking from all four sides: the driver is yanked out and thrown down, the jacker takes the wheel; BUS carjack', () => {
+  for (const [side, [lx, ly]] of Object.entries(SIDES)) {
+    const Y = yard(), v = Y.fleet.spawn('cortez', 600, 480, .3), victim = ped(Y, 600, 480, { faction: 'civilian' }); v.sit(victim, 0);
+    const [x, y] = v.toWorld(lx, ly), jacker = ped(Y, x, y), jacks = []; const off = BUS.on('carjack', e => jacks.push(e));
+    const plan = boardingFor(jacker, v, 0); assert.equal(plan.kind, 'carjack', side + ': a jack');
+    jacker.board(plan);
+    let floored = false; const seen = () => { if (victim.floored || victim.vitals.down > 0) floored = true; };
+    step(Y, 6, { until: () => { seen(); return v.driver === jacker; } }); step(Y, .1, { until: () => { seen(); return false; } });
+    off();
+    assert.equal(v.driver, jacker, side + ': the jacker drives'); assert.equal(victim.seat, null, side + ': the victim is out');
+    assert.ok(floored, side + ': the victim went down'); assert.equal(jacks.length, 1);
+    const [, vy] = v.toLocal(victim.x, victim.y); assert.ok(Math.abs(vy) > v.hw, side + ': the victim lies outside the car');
+    step(Y, 3); assert.ok(!victim.floored && victim.vitals.down <= 0, side + ': and gets up');
+  }
+});
+
+test('a locked police car takes a break-in first (TUNE.breakIn seconds, a crime); a bike is mounted at once', () => {
+  const Y = yard(), v = Y.fleet.spawn('cortez', 600, 480, 0, { locked: true }), [x, y] = v.toWorld(0, -v.hw - 8), p = ped(Y, x, y), crimes = [];
+  const off = BUS.on('crime', e => crimes.push(e.type));
+  const plan = boardingFor(p, v, 0); assert.ok(plan.locked);
+  p.board(plan); const t = step(Y, 6, { until: () => v.driver === p }); off();
+  assert.equal(v.driver, p); assert.ok(t >= TUNE.breakIn, `slower than the break-in (${t.toFixed(2)} s)`); assert.ok(crimes.includes('breakIn'));
+  assert.equal(v.locked, false, 'unlocked after');
+  const b = Y.fleet.spawn('t-bike', 300, 300, 0), [bx, by] = b.toWorld(0, -10), r = ped(Y, bx, by), bp = boardingFor(r, b, 0);
+  assert.equal(bp.kind, 'mount'); r.board(bp); const tb = step(Y, 3, { until: () => b.driver === r });
+  assert.equal(b.driver, r); assert.ok(tb < .8, `mounted in ${tb.toFixed(2)} s`);
+});
+
+test('getting out above the bail-out speed is a dive roll: the ped ends clear, the car rolls on and stops by itself', () => {
+  const Y = yard(), v = Y.fleet.spawn('cortez', 300, 480, 0), p = ped(Y, 300, 480); v.sit(p, 0);
+  v.body.u = 160; const plan = exitFor(p, v); assert.equal(plan.kind, 'bailOut');
+  p.leave(plan); step(Y, 1.2, { until: () => !p.boarding });
+  assert.equal(p.seat, null); assert.ok(Math.hypot(p.x - v.x, p.y - v.y) > v.hw + 6, 'clear of the car');
+  step(Y, 6); assert.ok(v.speed < 1, 'the empty car came to a stop: ' + v.speed.toFixed(1));
+});
+
+test('a tow joint stays stable for 60 s of driving round a loop: the link never stretches wild, nothing blows up', () => {
+  const Y = yard(), truck = Y.fleet.spawn('t-tow', 300, 480, 0), car = Y.fleet.spawn('cortez', 300 - 40 - 29 - 8, 480, 0), d = ped(Y, 300, 480); truck.sit(d, 0);
+  const j = Y.fleet.tow(truck, car); assert.ok(j, 'hooked'); assert.equal(car.body.lifted, 'front');
+  const W = [[900, 480], [1000, 300], [700, 160], [300, 200], [200, 600], [600, 820], [1000, 700]]; let wp = 0, maxV = 0, bad = 0;
+  const drive = makeIntent();
+  step(Y, 60, { intent: v => {
+    if (v !== truck) return clearIntent(idle);
+    let [tx, ty] = W[wp % W.length]; if (Math.hypot(tx - truck.x, ty - truck.y) < 80) { wp++; [tx, ty] = W[wp % W.length]; }
+    const err = Math.atan2(Math.sin(Math.atan2(ty - truck.y, tx - truck.x) - truck.heading), Math.cos(Math.atan2(ty - truck.y, tx - truck.x) - truck.heading));
+    const I = clearIntent(drive); I.steer = E.clamp(err * 2, -1, 1); I.throttle = Math.abs(err) > .8 ? .35 : .75; return I;
+  }, until: () => { maxV = Math.max(maxV, car.speed); if (!isFinite(car.x) || !isFinite(j.length) || Math.abs(j.length - j.rest) > j.rest * .8 + 12) bad++; return false; } });
+  assert.equal(bad, 0, 'the link stayed within its stretch');
+  assert.ok(j.on && truck.towing === j, 'still hooked after 60 s');
+  assert.ok(maxV < 260, 'the towed car never ran away: ' + maxV.toFixed(1));
+  assert.ok(wp >= 3, 'it drove the loop: ' + wp + ' waypoints');
+  // the hook lets go on ○
+  const tap = makeIntent(); step(Y, dt / 2, { intent: v => { if (v !== truck) return clearIntent(idle); const I = clearIntent(tap); I.tap.fire = true; return I; } });
+  assert.equal(truck.towing, null); assert.equal(car.body.lifted, null);
+});
+
+test('chained explosions: a car blown up sets off the cars beside it; a burning car goes up TUNE.burnTime later', () => {
+  const Y = yard(), cars = [0, 1, 2].map(i => Y.fleet.spawn('cortez', 300 + i * 66, 480, 0)), far = Y.fleet.spawn('cortez', 300, 800, 0), destroyed = [];
+  const off = BUS.on('vehicleDestroyed', e => destroyed.push(e.vehicle));
+  Y.fleet.explode(cars[0], 'test'); step(Y, 3);
+  assert.ok(cars.every(c => c.wrecked), 'all three in a row went up: ' + cars.map(c => c.damage.state).join(' '));
+  assert.ok(!far.wrecked, 'the far one did not');
+  assert.equal(destroyed.length, 3);
+  const c = Y.fleet.spawn('cortez', 900, 300, 0); c.damage.hit(90); assert.equal(c.damage.state, 'burning');
+  const t = step(Y, 8, { until: () => c.wrecked }); off();
+  assert.ok(c.wrecked && Math.abs(t - TUNE.burnTime) < .1, `it burned ${t.toFixed(2)} s, then went up`);
+});
+
+test('the L: a train runs its loop, stops at its stations, and kills a body standing on its track', () => {
+  const Y = yard(), line = Y.fleet.addLine({ points: [[200, 300], [1100, 300], [1100, 320], [200, 320]], z: 0, radius: 10, stations: [{ name: 'A', at: [700, 300] }] }, [{ s: 100, cars: 2, carLength: 84, id: 'L1' }]);
+  const tr = Y.fleet.trains[0], p = ped(Y, 450, 300, { faction: 'civilian' }); let stopped = false;
+  step(Y, 20, { until: () => { if (tr.state === 'stop') stopped = true; return stopped && p.dead; } });
+  assert.ok(p.dead, 'the body on the track is dead'); assert.ok(stopped, 'it stopped at the station');
+  assert.ok(line.length > 1800);
+});
+
+test('a fast car knocks a ped down and hurts it; a slow one pushes it aside unhurt', () => {
+  const Y = yard(), fast = Y.fleet.spawn('cortez', 300, 480, 0), a = ped(Y, 420, 480, { faction: 'civilian' }); fast.body.u = 170;
+  step(Y, 1.2); assert.ok(a.vitals.health < 100, 'hurt: ' + a.vitals.health.toFixed(0)); assert.ok(a.vitals.down > 0 || a.floored || a.dead, 'knocked down');
+  const Z = yard(), slow = Z.fleet.spawn('cortez', 300, 480, 0), b = ped(Z, 350, 480, { faction: 'civilian' }); slow.body.u = 20;
+  step(Z, 1.5, { intent: v => { const I = clearIntent(makeIntent()); I.throttle = .1; return I; } });
+  assert.equal(b.vitals.health, 100, 'unhurt'); const [, ly] = slow.toLocal(b.x, b.y); assert.ok(b.x > 300 + slow.hl || Math.abs(ly) > slow.hw, 'pushed clear of the car');
+});
+
+test('street furniture: a fast car knocks a lamp down and drives on; a hydrant bursts', () => {
+  const lamp = { kind: 'lamp', x: 520, y: 480, z: 0 }, hyd = { kind: 'hydrant', x: 520, y: 600, z: 0 };
+  const Y = yard({ props: [lamp, hyd] });
+  for (const [p, top] of [[lamp, 44], [hyd, 14]]) { const [s] = Y.map.addSolids([{ x: p.x, y: p.y, z: 0, top, hx: 1.5, hy: 1.5, prop: p, breakable: true }]); p.solidRef = s; }
+  const v = Y.fleet.spawn('cortez', 360, 480, 0); v.body.u = 160;
+  step(Y, 1.6); assert.ok(lamp.broken, 'the lamp is down'); assert.ok(v.x > 530 && v.speed > 50, `the car drove on through it (${v.x.toFixed(0)}, ${v.speed.toFixed(0)} u/s: an empty car coasts on a touch of brake)`);
+  assert.ok(lamp.solidRef.top <= 2, 'and no longer stands in the way');
+  const w = Y.fleet.spawn('cortez', 360, 600, 0); w.body.u = 120; step(Y, 1.6);
+  assert.ok(hyd.broken && hyd.broken.spray > 0, 'the hydrant bursts');
+  const slow = yard({ props: [{ kind: 'lamp', x: 520, y: 480, z: 0 }] }), L2 = slow.city.props[0]; const [s2] = slow.map.addSolids([{ x: 520, y: 480, z: 0, top: 44, hx: 1.5, hy: 1.5, prop: L2, breakable: true }]); L2.solidRef = s2;
+  const c = slow.fleet.spawn('cortez', 440, 480, 0); c.body.u = 25; step(slow, 1.5);
+  assert.ok(!L2.broken, 'a crawling car just stops at the lamp');
+});
+
+test('a land vehicle in deep water sinks; its driver swims to the nearest dry ground, and the car goes', () => {
+  const Y = yard({ surface: (cx) => cx >= 40 ? 'deep' : 'road' }), v = Y.fleet.spawn('cortez', 40 * 16 + 30, 480, 0), d = ped(Y, 0, 0); v.sit(d, 0);
+  step(Y, TUNE.sinkTime + .3); assert.ok(v.sunk, 'sunk'); assert.equal(d.seat, null, 'out'); assert.ok(d.x < 40 * 16, 'on dry ground: ' + d.x.toFixed(0));
+  step(Y, 3); assert.ok(!Y.fleet.vehicles.includes(v), 'and the car is gone');
+});
+
+test('Lowtown: the Loop gap\'s open end: a car driven off it flies, lands below and keeps going', async () => {
+  const { buildCity } = M; await import('../../src/game/districts/lowtown/styles.js'); await import('../../src/game/districts/lowtown/landmarks.js'); await import('../../src/game/districts/lowtown/district.js');
+  const city = buildCity('lowtown'), fleet = new Fleet({ city }), v = fleet.spawn('cortez', 27 * 16, 91.5 * 16, Math.PI);   // (on the stub, heading west for its end)
+  v.body.z = 64; let air = false, landed = false, minZ = 1e9;
+  const drive = makeIntent();
+  for (let t = 0; t < 4; t += dt) {
+    fleet.update(dt, { intent: () => { const I = clearIntent(drive); I.throttle = 1; return I; }, peds: [] });
+    if (v.body.airborne) air = true; if (air && !v.body.airborne) landed = true; minZ = Math.min(minZ, v.body.z);
+    if (!v.driver) { const p = new Ped({ x: v.x, y: v.y }); v.sit(p, 0); }
+  }
+  assert.ok(air, 'it left the deck'); assert.ok(landed, 'and landed'); assert.ok(minZ < 2, 'on the street below: ' + minZ.toFixed(1));
+  assert.ok(v.x < 16 * 16, 'beyond the stub\'s end: ' + (v.x / 16).toFixed(1));
+});
+
+test('in play, through the real bindings: E at a parked car gets in, W drives it, E gets out; the city\'s cars sleep', async () => {
+  const { loadGame, holdCode } = await import('../harness.mjs');
+  const { game, gtm, snap } = await loadGame({ hash: 'play', query: { time: 'day' } });
+  game.advance(.2);
+  const F = gtm.fleet, p = gtm.crew.ped, v = F.near(p.x, p.y, 3000).find(q => q.cls === 'car');
+  assert.ok(F.vehicles.length > 30, 'Lowtown parks its cars: ' + F.vehicles.length);
+  const [x, y] = v.toWorld(0, -v.hw - 14); gtm.teleport(x, y); game.advance(1.5);
+  assert.ok(F.awake <= 2, 'parked cars sleep: ' + F.awake + ' awake');
+  holdCode(game, 'KeyE', 1 / 30); game.advance(1.5);
+  const a = snap(); assert.equal(a.vehicle, v.def.id, 'in the car');
+  const x0 = v.x, y0 = v.y; holdCode(game, 'KeyW', 1.2);
+  assert.ok(Math.hypot(v.x - x0, v.y - y0) > 60, 'it drove: ' + Math.hypot(v.x - x0, v.y - y0).toFixed(0));
+  holdCode(game, 'KeyS', 2); game.advance(.5);
+  holdCode(game, 'KeyE', 1 / 30); game.advance(1.5);
+  assert.equal(snap().vehicle, null, 'out again');
+  assert.equal((game.errors || []).length, 0, JSON.stringify(game.errors));
+});

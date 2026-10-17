@@ -133,6 +133,7 @@ export class VehicleBody {
         const wk = this.lifted === 'front' ? this.w : this.u * Math.tan(d) / this.h.wheelbase;
         this.w += (wk - this.w) * kin; this.v += (wk * this.b - this.v) * kin * .5;
         if (s < .5 && !drive && !(C.throttle > 0)) { this.u = 0; this.v *= .5; this.w *= .5; if (Math.abs(this.v) < .05) this.v = 0; if (Math.abs(this.w) < 1e-3) this.w = 0; }
+        else if (C.handbrake && !drive && s < 3) { const k = Math.max(0, 1 - 12 * dt); this.u *= k; this.v *= k; this.w *= k; }   // (the handbrake holds a car at a crawl)
       }
     }
     this.felt.lat = Fy / m; this.felt.lon = Fx / m; this.felt.slip = contact ? Math.atan2(vr, Math.abs(this.u) + 1) : 0;

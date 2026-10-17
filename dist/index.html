@@ -8926,6 +8926,7 @@ root.My3D2dge = E;
     collideCars: () => collideCars,
     collidePairs: () => collidePairs,
     createApp: () => createApp,
+    curbSpot: () => curbSpot,
     declare: () => declare,
     def: () => def,
     defActivity: () => defActivity,
@@ -8941,6 +8942,7 @@ root.My3D2dge = E;
     drawSign: () => drawSign,
     drawTrain: () => drawTrain,
     drawVehicle: () => drawVehicle,
+    drawVehicleHud: () => drawVehicleHud,
     drawWeaponIcon: () => drawWeaponIcon,
     easeLook: () => easeLook,
     exitFor: () => exitFor,
@@ -8959,6 +8961,7 @@ root.My3D2dge = E;
     kioskWanted: () => kioskWanted,
     knob: () => knob,
     knobs: () => knobs,
+    laneSpot: () => laneSpot,
     losClear: () => losClear,
     makeBody: () => makeBody,
     makeIntent: () => makeIntent,
@@ -8980,6 +8983,7 @@ root.My3D2dge = E;
     shape: () => shape,
     shotFrom: () => shotFrom,
     skyAt: () => skyAt,
+    spawnFleet: () => spawnFleet,
     standInCity: () => standInCity,
     stationLabel: () => stationLabel,
     sustainedDps: () => sustainedDps,
@@ -11411,6 +11415,11 @@ root.My3D2dge = E;
             this.w *= 0.5;
             if (Math.abs(this.v) < 0.05) this.v = 0;
             if (Math.abs(this.w) < 1e-3) this.w = 0;
+          } else if (C.handbrake && !drive && s < 3) {
+            const k = Math.max(0, 1 - 12 * dt);
+            this.u *= k;
+            this.v *= k;
+            this.w *= k;
           }
         }
       }
@@ -12141,6 +12150,7 @@ root.My3D2dge = E;
       this.doors = 0;
       this.top = o.top || 0;
       this.dwell = o.dwell || 0;
+      this.leaving = 0;
       this.cars = Array.from({ length: this.n }, (_, i) => ({ id: this.id + ":" + i, x: 0, y: 0, z: line.z, heading: 0, hl: this.carLength / 2, hw: this.width / 2, height: this.height, train: this, index: i }));
       this._place();
     }
@@ -12156,23 +12166,27 @@ root.My3D2dge = E;
         this.doors = Math.min(1, this.doors + dt * 2);
         if (this.wait <= 0) {
           this.doors = Math.max(0, this.doors - dt * 4);
-          if (this.doors <= 0) this.state = "run";
+          if (this.doors <= 0) {
+            this.state = "run";
+            this.leaving = 8;
+          }
         }
         this.v = 0;
         this._place();
         return;
       }
-      const mid = this.s - this.span / 2, next = this.line.toNextStop(mid), d = next.d, stop = this.v * this.v / (2 * this.brake);
+      const mid = this.s - this.span / 2, next = this.line.toNextStop(mid, this.leaving > 0 ? 8 : 0), d = next.d, stop = this.v * this.v / (2 * this.brake);
       if (d <= stop + 1 && this.v > 0) this.v = Math.max(4, this.v - this.brake * dt);
       else this.v = Math.min(top, this.v + this.accel * dt);
       let step = this.v * dt;
-      if (step >= d - 0.5) {
+      if (next.station && (step >= d - 0.5 || d < 0.6)) {
         step = Math.max(0, d);
         this.state = "stop";
         this.wait = this.dwell || TUNE.trainDwell;
-        this.station = next.station ? next.station.name : null;
+        this.station = next.station.name;
         this.v = 0;
-      }
+        this.leaving = 0;
+      } else if (this.leaving > 0) this.leaving -= step;
       this.s += step;
       this._place();
     }
@@ -13699,7 +13713,7 @@ root.My3D2dge = E;
       }
       ramps.push({ at: R.at, dir: R.dir, length: L4, foot: [rx + dx * (edge + L4), ry + dy * (edge + L4)] });
     }
-    const deck = new Deck({ id: D.id, kind: D.kind || "road", width: D.width, z, cells: [...cells.values()], ramps, thickness: thick, stations: D.stations || [], lanes: D.lanes || 2, gaps: D.gaps || [] });
+    const deck = new Deck({ id: D.id, kind: D.kind || "road", width: D.width, z, cells: [...cells.values()], ramps, thickness: thick, stations: D.stations || [], lanes: D.lanes || 2, gaps: D.gaps || [], path: D.path.slice(), closed: !!D.closed });
     for (const c of deck.cells) {
       if (c.z0 === c.z1) {
         solids.push({ x: (c.cx + 0.5) * T8, y: (c.cy + 0.5) * T8, z: c.z0 - thick, top: c.z0, hx: 8, hy: 8, deck: D.id });
@@ -13948,6 +13962,152 @@ root.My3D2dge = E;
       return { ...p, x: (cx2 + 0.5) * city.T, y: (cy + 0.5) * city.T };
     });
     return city;
+  }
+
+  // src/motor/world/fleet-spawn.js
+  declare("fleets", shape({
+    district: { type: "string", req: true },
+    curb: { type: "object", def: {} },
+    spots: { type: "array", def: [] },
+    water: { type: "array", def: [] },
+    rail: { type: "array", def: [] },
+    air: { type: "array", def: [] }
+  }));
+  var HEADINGS = { E: 0, S: Math.PI / 2, W: Math.PI, N: -Math.PI / 2 };
+  function laneSpot(road, side, cx2, cy, T8 = 16, hw = 13) {
+    if (road.axis === "y") return { x: side > 0 ? (road.band[2] + 1) * T8 - hw - 3 : road.band[0] * T8 + hw + 3, y: (cy + 0.5) * T8, heading: side > 0 ? -Math.PI / 2 : Math.PI / 2, road, side };
+    return { x: (cx2 + 0.5) * T8, y: side > 0 ? (road.band[3] + 1) * T8 - hw - 3 : road.band[1] * T8 + hw + 3, heading: side > 0 ? 0 : Math.PI, road, side };
+  }
+  function curbSpot(city, cx2, cy, hw = 13) {
+    let best = null, bd = Infinity;
+    for (const r of city.roads) {
+      if (r.kind === "alley") continue;
+      const [x0, y0, x1, y1] = r.band;
+      for (const side of [-1, 1]) {
+        const lx = r.axis === "y" ? side < 0 ? x0 : x1 : E.clamp(cx2, x0, x1), ly = r.axis === "y" ? E.clamp(cy, y0, y1) : side < 0 ? y0 : y1, d = Math.hypot(lx - cx2, ly - cy);
+        if (d < bd && !busyNear(city, r, lx, ly)) {
+          bd = d;
+          best = laneSpot(r, side, lx, ly, city.T, hw);
+        }
+      }
+    }
+    return best;
+  }
+  function busyNear(city, r, cx2, cy) {
+    for (let k = -2; k <= 2; k++) {
+      const x = r.axis === "y" ? cx2 : cx2 + k, y = r.axis === "y" ? cy + k : cy;
+      if (city.inside(x, y) && city.busy && city.busy[city.idx(x, y)]) return true;
+    }
+    const s = city.surfaceAt(cx2, cy);
+    return s === "bridge" || s === "water" || s === "deep";
+  }
+  function spawnFleet(fleet, city, spec, seed = 1) {
+    const rng = E.rng(seed * 7919 + 17), out = { parked: 0, spots: 0, boats: 0, trains: 0, helis: 0 }, T8 = city.T;
+    const C = spec.curb || {}, every = C.every || 6, chance = C.chance ?? 0.3, roles = C.roles || ["civilian"], classes = C.classes || ["car", "bike"];
+    const pool = all("vehicles").filter((d) => d.spawn && d.spawn.zones && (d.spawn.weight || 0) > 0 && roles.includes(d.role) && classes.includes(d.class || (get("vehicleModels", d.model) || {}).class));
+    const noSpawn = city.zones.filter((z) => z.kind === "noSpawn");
+    const pick = (hood) => {
+      const c = pool.filter((d) => d.spawn.zones.includes(hood));
+      if (!c.length) return null;
+      let w = c.reduce((a, d) => a + d.spawn.weight, 0) * rng();
+      for (const d of c) {
+        w -= d.spawn.weight;
+        if (w <= 0) return d;
+      }
+      return c[c.length - 1];
+    };
+    const taken = [];
+    const free = (x, y, h, hl, hw) => !taken.some((q) => {
+      const c = Math.cos(q.h), s = Math.sin(q.h), dx = x - q.x, dy = y - q.y, a = Math.abs(dx * c + dy * s), b = Math.abs(-dx * s + dy * c), same = Math.abs(Math.sin(h - q.h)) < 0.5;
+      return same ? a < q.hl + hl + 6 && b < q.hw + hw + 2 : a < q.hl + hw + 6 && b < q.hw + hl + 6;
+    });
+    const size = (d) => {
+      const m = get("vehicleModels", d.model);
+      return m ? [m.length / 2, m.width / 2] : [29, 13];
+    };
+    for (const sp of spec.spots) {
+      const poi = sp.near ? city.poi(sp.near) : null, at = poi ? [Math.floor(poi.x / T8), Math.floor(poi.y / T8)] : sp.at;
+      if (!at) continue;
+      const d = get("vehicles", sp.def);
+      if (!d) continue;
+      const [hl, hw] = size(d), base2 = curbSpot(city, at[0], at[1], hw);
+      if (!base2) continue;
+      for (let i = 0; i < (sp.n || 1); i++) {
+        const L4 = hl * 2 + 10, x = base2.x - Math.cos(base2.heading) * L4 * i, y = base2.y - Math.sin(base2.heading) * L4 * i;
+        if (!free(x, y, base2.heading, hl, hw)) continue;
+        fleet.spawn(sp.def, x, y, base2.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked });
+        taken.push({ x, y, h: base2.heading, hl, hw });
+        out.spots++;
+      }
+    }
+    for (const r of city.roads) {
+      if (r.kind === "alley") continue;
+      const [x0, y0, x1, y1] = r.band, from = r.axis === "y" ? y0 : x0, to = r.axis === "y" ? y1 : x1;
+      for (const side of [-1, 1]) for (let k = from + 3; k <= to - 3; k += every) {
+        const cx2 = r.axis === "y" ? side < 0 ? x0 : x1 : k, cy = r.axis === "y" ? k : side < 0 ? y0 : y1;
+        if (rng() >= chance || busyNear(city, r, cx2, cy)) continue;
+        if (noSpawn.some((z) => cx2 >= z.rect[0] && cx2 <= z.rect[2] && cy >= z.rect[1] && cy <= z.rect[3])) continue;
+        const hood = city.hoodAt(cx2, cy), d = pick(hood ? hood.id : "");
+        if (!d) continue;
+        const [hl, hw] = size(d), s = laneSpot(r, side, cx2, cy, T8, hw);
+        if (!free(s.x, s.y, s.heading, hl, hw)) continue;
+        fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)] });
+        taken.push({ x: s.x, y: s.y, h: s.heading, hl, hw });
+        out.parked++;
+      }
+    }
+    for (const w of spec.water) {
+      if (!get("vehicles", w.def)) continue;
+      fleet.spawn(w.def, (w.at[0] + 0.5) * T8, (w.at[1] + 0.5) * T8, typeof w.heading === "string" ? HEADINGS[w.heading] : w.heading || 0, { color: w.color });
+      out.boats++;
+    }
+    for (const R of spec.rail) {
+      const deck = city.decks.find((d2) => d2.id === R.deck), d = get("vehicles", R.def);
+      if (!deck || !d || !deck.path || deck.path.length < 2) continue;
+      const g = R.gauge || 10, pts2 = deck.path.map(([cx2, cy]) => [(cx2 + 0.5) * T8, (cy + 0.5) * T8]);
+      const side = (k, s) => pts2.map((p, i) => {
+        const a = pts2[Math.max(0, i - 1)], b = pts2[Math.min(pts2.length - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+        return [p[0] - dy / l * s * k, p[1] + dx / l * s * k];
+      });
+      const right = side(1, g), left = side(-1, g).reverse(), loop = [...right, ...left];
+      const stations = [];
+      for (const st of deck.stations || []) {
+        const mx = (st.rect[0] + st.rect[2] + 1) / 2 * T8, my = (st.rect[1] + st.rect[3] + 1) / 2 * T8;
+        stations.push({ name: st.name, at: nearestOn(right, mx, my) }, { name: st.name, at: nearestOn(left, mx, my) });
+      }
+      const line = fleet.addLine({ points: loop, z: deck.z, radius: g, stations }, []);
+      const n = R.trains || 1;
+      for (let i = 0; i < n; i++) fleet.addTrains(line, [{ ...d.handling, top: d.spec.top, dwell: d.spec.dwell, s: line.length * i / n + 200, id: R.def + "-" + i }]);
+      line.def = d;
+      out.trains += n;
+    }
+    for (const A of spec.air) {
+      const d = get("vehicles", A.def);
+      if (!d || !A.patrol || !A.patrol.length) continue;
+      const P3 = A.patrol.map(([cx2, cy]) => [(cx2 + 0.5) * T8, (cy + 0.5) * T8]), v = fleet.spawn(A.def, P3[0][0], P3[0][1], 0);
+      v.body.z = A.alt || v.body.h.hoverZ;
+      let wp = 1, sweep = 0;
+      v.ai = (dt, me) => {
+        const [tx, ty] = P3[wp % P3.length];
+        if (Math.hypot(tx - me.x, ty - me.y) < 60) wp++;
+        sweep += dt;
+        const h = me.heading, ahead = 70, s = Math.sin(sweep * 0.9) * 60;
+        return { to: P3[wp % P3.length], alt: A.alt, spot: [me.x + Math.cos(h) * ahead - Math.sin(h) * s, me.y + Math.sin(h) * ahead + Math.cos(h) * s] };
+      };
+      out.helis++;
+    }
+    return out;
+  }
+  function nearestOn(pts2, x, y) {
+    let best = pts2[0], bd = Infinity;
+    for (let i = 0; i + 1 < pts2.length; i++) {
+      const a = pts2[i], b = pts2[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1, f = E.clamp(((x - a[0]) * dx + (y - a[1]) * dy) / l2, 0, 1), p = [a[0] + dx * f, a[1] + dy * f], d = Math.hypot(p[0] - x, p[1] - y);
+      if (d < bd) {
+        bd = d;
+        best = p;
+      }
+    }
+    return best;
   }
 
   // src/motor/world/validator.js
@@ -16497,7 +16657,7 @@ root.My3D2dge = E;
       m.vx = m.vy = m.vz = 0;
       m.action = null;
       m.facing = b.heading;
-      const spec = this.inv.spec(), ok = !!spec && (spec.slot === "pistol" || spec.slot === "smg"), trigger = !!(I.down.fire || I.down.attack);
+      const spec = this.inv.spec(), ok = !!spec && (spec.slot === "pistol" || spec.slot === "smg") && !(b.armed && this.seat.index === 0), trigger = !!(I.down.fire || I.down.attack);
       this.aiming = ok && (trigger || !!I.aim);
       let dir = I.aim, held = false;
       if (!dir && this.aiming) {
@@ -16550,6 +16710,7 @@ root.My3D2dge = E;
     _boarding(dt, I, w) {
       const B2 = this.boarding, P3 = B2.plan, v = B2.v, m = this.mover;
       B2.t += dt;
+      v.asleep = false;
       const cancel = () => {
         this.boarding = null;
         if (P3.door) v.doorWant[P3.door.id] = 0;
@@ -16949,6 +17110,8 @@ root.My3D2dge = E;
       this.blownAt = null;
       this.chainT = -1;
       this.chainBy = null;
+      this.asleep = false;
+      this._still = 0;
       this.look = { roll: 0, pitch: 0, lean: 0, wheelie: 0, squash: 0, spin: 0 };
     }
     // the box Combat and the Fleet see
@@ -16989,6 +17152,11 @@ root.My3D2dge = E;
     get occupied() {
       return this.seats.some(Boolean);
     }
+    /** does the fire button belong to the vehicle (a tool, a roof MG, oil or mines) rather than a drive-by? */
+    get armed() {
+      const m = this.mods;
+      return !!(this.def.tool || m.roofMG || m.oil > 0 || m.mines > 0);
+    }
     /** the explosive interface (Combat's chains): a wreck is blown */
     get blown() {
       return this.damage.wrecked;
@@ -17015,6 +17183,7 @@ root.My3D2dge = E;
       this.seats[i] = ped;
       ped.seat = { body: this, vehicle: this, index: i };
       if (i === 0) this.ai = null;
+      this.asleep = false;
     }
     /** a ped gets up out of its seat */
     unseat(ped) {
@@ -17026,6 +17195,8 @@ root.My3D2dge = E;
     /** Combat's hurt: bullets, blasts, melee, fire. Returns a report (zeros for a wreck: the bullet stopped) */
     hurt(o) {
       if (this.damage.wrecked) return { health: 0, armor: 0 };
+      this.asleep = false;
+      this._still = 0;
       const at = o.at, [lx, ly] = at ? this.toLocal(at[0], at[1]) : [null, null];
       const k = o.kind === "explosion" ? 1.6 : o.kind === "melee" ? 0.15 : o.kind === "fire" ? 0.6 : 1;
       const took = this.damage.hit(o.amount * k, lx, ly, this.hl, this.hw);
@@ -17055,7 +17226,7 @@ root.My3D2dge = E;
         if (I.tap.radioNext || I.tap.radioPrev) this.radio = nextStation(this.radio, I.tap.radioNext ? 1 : -1);
       } else {
         const slow = b.speed < TUNE.coastBelow;
-        ctl = { throttle: 0, brake: slow ? 0.4 : 0.05, steer: 0, handbrake: slow && !b.lifted };
+        ctl = { throttle: 0, brake: slow ? 0 : 0.05, steer: 0, handbrake: slow && !b.lifted };
         if (b.lifted) ctl.handbrake = false;
         this.horn = false;
       }
@@ -17116,7 +17287,7 @@ root.My3D2dge = E;
   // src/motor/actors/fleet.js
   knob("Vehicles", "carBlastDamage", "Car blast damage", 160, 0, 600, 5, "A vehicle's explosion: damage at its centre");
   knob("Vehicles", "carBlastSplash", "Car blast reach", 96, 20, 300, 2, "A vehicle's explosion: its radius (u)");
-  knob("Vehicles", "carChain", "Chain reach", 34, 0, 120, 1, "A vehicle whose body is this near an explosion goes up with it, a moment later (u)");
+  knob("Vehicles", "carChain", "Chain reach", 48, 0, 120, 1, "A vehicle whose body is this near an explosion's centre goes up with it, a moment later (u): a car's half length and a parking gap");
   knob("Vehicles", "carBlastLift", "Blast lift", 170, 0, 500, 5, "How hard an exploding vehicle jumps (u/s up)");
   knob("Vehicles", "knockSpeed", "Knockdown speed", 50, 10, 200, 5, "A vehicle closing on a ped faster than this knocks it down (u/s)");
   knob("Vehicles", "runOver", "Run-over damage", 0.6, 0, 4, 0.05, "Health a ped loses per u/s of closing speed past the knockdown speed");
@@ -17124,6 +17295,7 @@ root.My3D2dge = E;
   knob("Vehicles", "bikeThrow", "Rider thrown at", 90, 20, 400, 5, "A bike crash with this change of speed throws its rider (u/s)");
   knob("Vehicles", "skidSlip", "Skid marks at", 0.2, 0.05, 1, 0.01, "Rear slip (radians) past which the tyres leave marks");
   var LAND = /* @__PURE__ */ new Set(["car", "truck", "tow", "bike"]);
+  var GRID = 128;
   var SKID_MAX = 900;
   var Fleet = class {
     /** o: { city (a CityMap), map (its TileMap, by default), combat (a Combat world: boxes, blasts, hurt; optional),
@@ -17147,6 +17319,9 @@ root.My3D2dge = E;
       this.t = 0;
       this._n = 0;
       this._seen = /* @__PURE__ */ new Set();
+      this.grid = /* @__PURE__ */ new Map();
+      this.awake = 0;
+      this._stamp = 0;
       if (this.city) {
         for (const p of this.city.props) if (p.broken) {
           const s = p.solidRef;
@@ -17224,6 +17399,40 @@ root.My3D2dge = E;
     byId(id) {
       return this.vehicles.find((v) => v.id === id) || null;
     }
+    /** wake a sleeping vehicle (anything that touches it does) */
+    wake(v) {
+      v.asleep = false;
+      v._still = 0;
+    }
+    // the grid: every vehicle by the 128-unit cells its box reaches (rebuilt each step: a few hundred vehicles at most)
+    _regrid() {
+      const G = this.grid;
+      G.clear();
+      for (const v of this.vehicles) {
+        if (!v.body) continue;
+        const r = v.hl + 4, x0 = Math.floor((v.x - r) / GRID), x1 = Math.floor((v.x + r) / GRID), y0 = Math.floor((v.y - r) / GRID), y1 = Math.floor((v.y + r) / GRID);
+        for (let gy = y0; gy <= y1; gy++) for (let gx = x0; gx <= x1; gx++) {
+          const k = gy * 4096 + gx;
+          let a = G.get(k);
+          if (!a) G.set(k, a = []);
+          a.push(v);
+        }
+      }
+    }
+    /** the vehicles whose cells reach within r of (x, y) (each once, in fleet order) */
+    around(x, y, r) {
+      const out = [], G = this.grid, st = ++this._stamp;
+      for (let gy = Math.floor((y - r) / GRID); gy <= Math.floor((y + r) / GRID); gy++) for (let gx = Math.floor((x - r) / GRID); gx <= Math.floor((x + r) / GRID); gx++) {
+        const a = G.get(gy * 4096 + gx);
+        if (a) {
+          for (const v of a) if (v._st !== st) {
+            v._st = st;
+            out.push(v);
+          }
+        }
+      }
+      return out.length > 1 ? out.sort((p, q) => p._i - q._i) : out;
+    }
     /** the vehicles within r of (x, y), nearest first (pred filters) */
     near(x, y, r, pred = null) {
       const out = [];
@@ -17238,15 +17447,22 @@ root.My3D2dge = E;
     addLine(o, trains = []) {
       const line = new RailLine(o);
       this.lines.push(line);
-      for (const t of trains) {
+      this.addTrains(line, trains);
+      return line;
+    }
+    /** trains on a line (each Train's options: { s, cars, carLength, top, dwell, id }); their cars are boxes to Combat */
+    addTrains(line, list) {
+      const out = [];
+      for (const t of list) {
         const tr = new Train(line, t);
         this.trains.push(tr);
+        out.push(tr);
         for (const c of tr.cars) {
           c.hurt = () => ({ health: 0, armor: 0 });
           if (this.combat) this.combat.boxes.push(c);
         }
       }
-      return line;
+      return out;
     }
     /** hook car behind truck (the Hookline): its nearer end goes on the hook */
     tow(truck, car) {
@@ -17259,6 +17475,8 @@ root.My3D2dge = E;
       this.tows.push(j);
       truck.towing = j;
       car.towedBy = truck;
+      this.wake(truck);
+      this.wake(car);
       return j;
     }
     _untow(j) {
@@ -17274,23 +17492,41 @@ root.My3D2dge = E;
       W6.wet = o.wet || 0;
       W6.night = !!o.night;
       const peds = o.peds || [];
+      let awake = 0;
+      this.vehicles.forEach((v, i) => {
+        v._i = i;
+      });
       for (const v of this.vehicles) {
+        if (v.asleep) continue;
+        awake++;
         const I = v.driver && o.intent ? o.intent(v) : null;
         v.update(dt, I, W6);
         if (I && v.driver && !v.wrecked) this._tools(dt, v, I);
         if (v.cls === "heli" && v.wrecked) v.body.falling = true;
+        const b = v.body;
+        if (b && !v.driver && !v.ai && !v.towing && !v.towedBy && !v.damage.burning && !v.sinking && v.chainT < 0 && b.speed < 0.5 && Math.abs(b.w) < 0.01 && !b.airborne && !b.lifted && Object.values(v.doors).every((d) => d === 0)) {
+          v._still = (v._still || 0) + dt;
+          if (v._still > 1) v.asleep = true;
+        } else v._still = 0;
       }
+      this.awake = awake;
       for (const j of [...this.tows]) {
         if (j.truck.wrecked || j.car.wrecked || j.length > j.rest * 4 + 40) this._untow(j);
-        else j.update(dt);
+        else {
+          this.wake(j.truck);
+          this.wake(j.car);
+          j.update(dt);
+        }
       }
-      const L4 = this.vehicles;
-      for (let i = 0; i < L4.length; i++) for (let k = i + 1; k < L4.length; k++) {
-        const a = L4[i], b = L4[k];
-        if (!a.body || !b.body || a.cls === "heli" || b.cls === "heli") continue;
-        if (a.cls === "boat" !== (b.cls === "boat")) continue;
-        if (a.towing && a.towing.car === b || b.towing && b.towing.car === a) continue;
-        collideCars(a.body, b.body);
+      this._regrid();
+      for (const a of this.vehicles) {
+        if (a.asleep || !a.body || a.cls === "heli") continue;
+        for (const b of this.around(a.x, a.y, a.hl + 8)) {
+          if (b === a || !b.body || b.cls === "heli" || !b.asleep && b._i < a._i) continue;
+          if (a.cls === "boat" !== (b.cls === "boat")) continue;
+          if (a.towing && a.towing.car === b || b.towing && b.towing.car === a) continue;
+          if (collideCars(a.body, b.body) > 0 && b.asleep) this.wake(b);
+        }
       }
       this._riders(dt);
       this._peds(dt, peds);
@@ -17315,6 +17551,7 @@ root.My3D2dge = E;
         for (const v of this.vehicles) {
           if (v.wrecked || v.chainT >= 0 || !v.body) continue;
           const d = boxDistance(v, b.x, b.y);
+          if (d <= b.splash) this.wake(v);
           if (d <= TUNE.carChain || v.damage.burning && d <= b.splash * 0.9) {
             v.chainT = TUNE.chainDelay + 0.1 * (this._n++ % 3);
             v.chainBy = b.by;
@@ -17327,6 +17564,7 @@ root.My3D2dge = E;
     /** blow a vehicle up now: a blast through Combat (it hurts, lights fire, chains), the wreck thrown up, its people killed */
     explode(v, by = null) {
       if (v.blownAt !== null) return;
+      this.wake(v);
       v.damage.explode();
       v.blownAt = this.t;
       v.chainT = -1;
@@ -17374,12 +17612,12 @@ root.My3D2dge = E;
     }
     // peds in the way: pushed out, or knocked down by the closing speed
     _peds(dt, peds) {
-      for (const v of this.vehicles) {
-        if (!v.body || v.cls === "heli" || v.cls === "boat" || v.sunk) continue;
-        const b = v.body, reach = v.hl + 12;
-        for (const p of peds) {
-          if (p.seat || p.held || p.boarding && p.boarding.v === v) continue;
-          const m = p.mover;
+      for (const p of peds) {
+        if (p.seat || p.held) continue;
+        const m = p.mover;
+        for (const v of this.around(m.x, m.y, 12)) {
+          if (!v.body || v.cls === "heli" || v.cls === "boat" || v.sunk || p.boarding && p.boarding.v === v) continue;
+          const b = v.body, reach = v.hl + 12;
           if (Math.abs(m.x - b.x) > reach || Math.abs(m.y - b.y) > reach || m.z > b.z + v.height || m.z + 30 < b.z) continue;
           const hit = circleObb(v, m.x, m.y, p.r || 6);
           if (!hit) continue;
@@ -17414,9 +17652,10 @@ root.My3D2dge = E;
             if (this.combat) this.combat.hurt(p, { amount: 999, kind: "train", by: null, knock: 320, knockdown: true, dir: d });
             else p.hurt({ amount: 999, kind: "train", knock: 320, knockdown: true, dir: d });
           }
-          for (const v of this.vehicles) {
+          for (const v of this.around(c.x, c.y, c.hl + 8)) {
             if (!v.body || v.wrecked || Math.abs(v.z - c.z) > 12 || Math.abs(v.x - c.x) > c.hl + v.hl || Math.abs(v.y - c.y) > c.hl + v.hl) continue;
             if (obbOverlap(c, v)) {
+              this.wake(v);
               v.damage.hit(999);
               this.explode(v, null);
             }
@@ -17429,7 +17668,7 @@ root.My3D2dge = E;
       for (const mn of this.mines) {
         mn.arm -= dt;
         if (mn.arm > 0 || mn.gone) continue;
-        for (const v of this.vehicles) if (v.body && LAND.has(v.cls) && !v.wrecked && boxDistance(v, mn.x, mn.y) < 4 && Math.abs(v.z - mn.z) < 8) {
+        for (const v of this.around(mn.x, mn.y, 8)) if (v.body && LAND.has(v.cls) && !v.wrecked && boxDistance(v, mn.x, mn.y) < 4 && Math.abs(v.z - mn.z) < 8) {
           mn.gone = true;
           if (this.combat) this.combat.explosives.blast({ x: mn.x, y: mn.y, z: mn.z + 2, damage: 120, splash: 56, by: mn.by, source: "mine" });
           break;
@@ -17521,8 +17760,15 @@ root.My3D2dge = E;
       }
       for (const v of this.vehicles) {
         const b = v.body;
+        if (v.asleep) {
+          if (b && v.damage.smoking && this._n++ % 9 === 0) {
+            const [x, y] = v.toWorld(v.hl * 0.6, 0);
+            this.fx.push({ kind: v.damage.burning ? "flame" : "engine", x, y, z: b.z + v.height * 0.6, t: 0 });
+          }
+          continue;
+        }
         if (!b || !LAND.has(v.cls) || b.airborne || v.wrecked) {
-          if (v) v._skid = null;
+          v._skid = null;
           continue;
         }
         const C = v.ctlNow, sp = b.speed, slip = Math.abs(b.felt.slip);
@@ -18387,6 +18633,18 @@ root.My3D2dge = E;
     if (label) E.font.text(g, label, rx - 4, ry + 16, p.inv.reloading > 0 ? "#ffd23a" : rd.total ? "#f0ecff" : "#ff5a5a", { align: "right", font: "tiny", outline: "#05030c" });
     if (spec) E.font.text(g, spec.name.toUpperCase(), rx - 72, ry - 12, "#c8c0e8", { font: "tiny", outline: "#05030c" });
   }
+  function drawVehicleHud(g, W6, H6, v, o = {}) {
+    const share = Math.max(0, v.damage.health / v.damage.max), radio = o.radio || "", sig = [v.def.name, Math.round(share * 46), v.mods.nitro, v.nitroT > 0 ? 1 : 0, v.damage.state, radio].join("|");
+    g.drawImage(corner("vehicle", sig, 200, 30, (cg) => {
+      const x = 10, y = 8, w = 92, P3 = E.px, col = share > 0.4 ? "#ffb43a" : share > 0.15 ? "#ff7a2a" : "#ff3a3a";
+      E.font.text(cg, v.def.name.toUpperCase(), x, y - 6, "#f0ecff", { font: "tiny", outline: "#05030c" });
+      P3.rect(cg, x - 1, y + 3, w + 2, 6, "#05030c");
+      P3.rect(cg, x, y + 4, w, 4, "#3a2a1a");
+      P3.rect(cg, x, y + 4, Math.round(w * share), 4, col);
+      for (let i = 0; i < Math.min(5, v.mods.nitro); i++) P3.rect(cg, x + w + 6 + i * 6, y + 4, 4, 4, v.nitroT > 0 && i === 0 ? "#ffffff" : "#5ac8ff");
+      if (radio) E.font.text(cg, radio, x, y + 12, "#c8c0e8", { font: "tiny", outline: "#05030c" });
+    }), 0, H6 - 76);
+  }
   function drawAimMarks(stage, p, t) {
     if (p.dead) return;
     const A = p.aimer;
@@ -18780,6 +19038,33 @@ root.My3D2dge = E;
       { kind: "noSpawn", rect: [140, 108, 159, 159] },
       { kind: "noSpawn", rect: [0, 124, 139, 131] }
     ]
+  });
+
+  // src/game/districts/lowtown/fleet.js
+  def("fleets", "lowtown", {
+    district: "lowtown",
+    curb: { every: 7, chance: 0.3, roles: ["civilian"], classes: ["car", "bike"] },
+    spots: [
+      { def: "cruiser", near: "precinct", n: 2 },
+      { def: "rhino", near: "precinct" },
+      { def: "medic", near: "hospital" },
+      { def: "strongbox", near: "bank-door" },
+      { def: "fedsedan", near: "plaza" },
+      { def: "pumper", near: "l-depot" },
+      { def: "drillrig", near: "fish-market" },
+      { def: "hookline", near: "crush-hour" },
+      { def: "vandal", near: "greasy-spoke" },
+      { def: "sparrow", near: "gas-n-sip" },
+      { def: "brute", near: "boom-box" },
+      { def: "zephyr", near: "hotel-marquee" },
+      { def: "saint", near: "car-wash" },
+      { def: "retiree", near: "palm-park" },
+      { def: "cortez", near: "safehouse" },
+      { def: "hauler", near: "kwik-lux-harbor" }
+    ],
+    water: [{ def: "bilgerat", at: [142, 116], heading: "S" }],
+    rail: [{ deck: "L", def: "thel", trains: 2, gauge: 10 }],
+    air: [{ def: "eye", alt: 150, patrol: [[93, 70], [128, 30], [32, 30], [32, 118], [128, 118]] }]
   });
 
   // src/game/districts/lowtown/landmarks.js
@@ -19966,6 +20251,7 @@ root.My3D2dge = E;
       const { game: game2, views, human, footprint, links: links2, stage, bindings: B2 } = app2;
       let city, map, cityR, floor, clock, weather, bridges = [], hoodName = "", tour = null, rec = null, crowd = null;
       let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, wasted = 0, prevView = null, mouse0 = null;
+      let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null;
       const idle = makeIntent(), TOUR_SPEED = 300;
       const hero = () => crew.ped, chOf = (id) => get("characters", id);
       function spawnCrew(startPoi) {
@@ -19980,7 +20266,20 @@ root.My3D2dge = E;
           combat.add(p);
         }
         for (const s of city.pickupSpots) combat.pickups.place({ kind: s.kind, item: s.item, amount: s.amount, x: s.x, y: s.y, respawn: s.respawn });
+        fleet = new Fleet({ city, combat, bridges, game: game2 });
+        const fl = get("fleets", "lowtown");
+        fleetCount = fl ? spawnFleet(fleet, city, fl, city.seed) : null;
       }
+      function boardTarget(p) {
+        let best = null;
+        for (const v of fleet.near(p.x, p.y, 70)) {
+          if (!inReach(p, v)) continue;
+          const plan = boardingFor(p, v, 0);
+          if (plan && (!best || plan.dist < best.dist)) best = plan;
+        }
+        return best;
+      }
+      const PROMPT = { enterCar: "GET IN", carjack: "JACK", mount: "RIDE", breakIn: "BREAK IN" };
       function take(p, k) {
         if (k.kind === "health") {
           if (p.vitals.health >= 100) return false;
@@ -20077,14 +20376,18 @@ root.My3D2dge = E;
           wasted = 0;
           prevView = null;
           stage.top.hold = null;
+          zoom = new SpeedZoom();
+          vfx = new VehicleFX(game2);
+          lastRadio = null;
+          board = null;
           game2.cam.bounds = (v) => map.bounds(v);
           if (!game2.headless) floor.warm(hero().x, hero().y, 420);
           expose("snapshot", () => {
-            const p = hero();
+            const p = hero(), v = p.seat && p.seat.vehicle;
             return {
               scene: "play",
               view: views.active,
-              hero: [p.x, p.y, p.z].map((v) => Math.round(v)),
+              hero: [p.x, p.y, p.z].map((v2) => Math.round(v2)),
               hood: hoodName,
               time: clock.label(),
               weather: weather.state,
@@ -20093,7 +20396,12 @@ root.My3D2dge = E;
               armor: Math.round(p.armor),
               weapon: p.inv.current,
               switching: crew.switching,
-              fund: crew.fund
+              fund: crew.fund,
+              vehicle: v ? v.def.id : null,
+              speed: v ? Math.round(v.speed) : 0,
+              boarding: p.boarding ? p.boarding.plan.kind : null,
+              vehicles: fleet.vehicles.length,
+              awake: fleet.awake
             };
           });
           expose("teleport", (x, y) => hero().place(x, y));
@@ -20103,6 +20411,8 @@ root.My3D2dge = E;
           expose("bridges", bridges);
           expose("crew", crew);
           expose("combat", combat);
+          expose("fleet", fleet);
+          expose("fleetCount", fleetCount);
           expose("perf", () => ({ ...rec, floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length, depth: stage.depth ? { ...stage.depth.stats } : null }));
           game2.stateHash = () => [
             ...crew.order.flatMap((id) => {
@@ -20114,13 +20424,15 @@ root.My3D2dge = E;
             weather.index,
             Math.round(weather.wet * 100),
             ...bridges.map((b) => Math.round(b.lift * 100)),
-            combat.hash()
+            combat.hash(),
+            fleet.hash()
           ];
         },
         exit() {
           game2.lights.enabled = false;
           game2.timeScale = 1;
           stage.top.hold = null;
+          game2.setZoom(1);
         },
         update(dt) {
           const real = dt / Math.max(0.05, game2.timeScale);
@@ -20139,7 +20451,7 @@ root.My3D2dge = E;
             prevView = null;
           }
           const p = hero(), busy = crew.switching || weaponWheel.open || switchWheel.open;
-          weaponWheel.update(real, p, { game: game2, blocked: crew.switching || switchWheel.open });
+          weaponWheel.update(real, p, { game: game2, blocked: crew.switching || switchWheel.open || !!p.seat || !!p.boarding });
           if (!crew.switching && !p.dead) {
             if (B2.down("switch", "onFoot") && !weaponWheel.open) {
               holdS += real;
@@ -20162,8 +20474,16 @@ root.My3D2dge = E;
             }
           }
           game2.timeScale = Math.min(weaponWheel.open || switchWheel.open ? TUNE.wheelSlow : 1, p.ability ? p.ability.timeScale : 1);
-          let I = human.update("onFoot", p);
+          const seated = p.seat && p.seat.vehicle;
+          let I = human.update(seated ? "vehicle" : "onFoot", p);
           if (busy) I = clearIntent(I);
+          if (!busy && !p.dead && I.tap.interact && !p.boarding) {
+            if (seated) p.leave(exitFor(p, seated));
+            else {
+              const plan = boardTarget(p);
+              if (plan) p.board(plan);
+            }
+          }
           if (crew.vignette && crew.vignette.who === crew.active) {
             const moved = Math.hypot(I.move[0], I.move[1]) > 0.3 || I.down.aim || Object.values(I.tap).some(Boolean);
             if (moved) {
@@ -20185,16 +20505,31 @@ root.My3D2dge = E;
             p.mover.facing = Math.atan2(dy, dx);
             I = clearIntent(I);
           }
-          const W6 = { map, city, combat, aim: aimCtx() };
+          const night = clock.hour >= 19 || clock.hour < 6.5;
+          fleet.update(dt, { intent: (v2) => v2.driver === p ? I : clearIntent(idle), peds: combat.bodies, night, wet: weather.wet });
+          const W6 = { map, city, combat, fleet, aim: aimCtx() };
           for (const id of crew.order) {
             const q2 = crew.member(id).ped;
             q2.update(dt, q2 === p ? I : clearIntent(idle), W6);
           }
           combat.update(dt, { wet: weather.wet, takers: [p], take });
+          const v = p.seat && p.seat.vehicle;
+          if (v && lastRadio === null) {
+            toast = { text: v.def.name.toUpperCase(), t: 2.2 };
+            lastRadio = v.radio;
+          } else if (v && v.radio !== lastRadio) {
+            lastRadio = v.radio;
+            toast = { text: stationLabel(v.radio), t: 2 };
+          }
+          if (!v) lastRadio = null;
+          if (!tour) stage.zoomTo(zoom.update(dt, !!v, v ? v.speed : 0));
+          board = !v && !p.boarding && !p.dead && !busy ? boardTarget(p) : null;
           if (p.dead) {
             wasted += real;
             if (wasted > 3.2) {
               const h = city.poi("hospital");
+              if (p.seat) p.seat.vehicle.unseat(p);
+              p.boarding = null;
               p.revive(h.x, h.y);
               crew.fund = Math.max(0, crew.fund - 100);
               wasted = 0;
@@ -20207,11 +20542,11 @@ root.My3D2dge = E;
             toast.t -= real;
             if (toast.t <= 0) toast = null;
           }
-          const q = hero();
-          footprint.update(q.x, q.y);
-          const hd = city.hoodAtPoint(q.x, q.y);
+          const q = hero(), qv = q.seat && q.seat.vehicle, fx1 = qv ? qv.x : q.x, fy1 = qv ? qv.y : q.y;
+          footprint.update(fx1, fy1);
+          const hd = city.hoodAtPoint(fx1, fy1);
           hoodName = hd ? hd.name : "";
-          if (!cam) game2.focus(q.x, q.y, 16);
+          if (!cam) game2.focus(fx1, fy1, 16);
         },
         draw(r) {
           if (rec) {
@@ -20220,9 +20555,9 @@ root.My3D2dge = E;
             rec.render.push(+st.renderMs.toFixed(3));
             rec.frames++;
           }
-          const p = hero(), hold = stage.top.hold, fx0 = hold ? hold.x : p.x, fy0 = hold ? hold.y : p.y;
+          const p = hero(), hold = stage.top.hold, pv = p.seat && p.seat.vehicle, fx0 = hold ? hold.x : pv ? pv.x : p.x, fy0 = hold ? hold.y : pv ? pv.y : p.y;
           stage.setSky(skyAt(clock.hour, weather));
-          stage.begin(r, { focus: [fx0, fy0], vel: hold ? [0, 0] : [p.mover.vx, p.mover.vy], player: [p.x, p.y, p.z] });
+          stage.begin(r, { focus: [fx0, fy0], vel: hold ? [0, 0] : pv ? [pv.body.vx, pv.body.vy] : [p.mover.vx, p.mover.vy], speed01: pv ? Math.min(1, pv.speed / 300) : 0, player: [p.x, p.y, p.z] });
           cityR.queue(stage, fx0, fy0, hold ? Math.min(1400, 520 * hold.H / 320) : stage.depth === stage.side7 ? 700 : 520, stage.world.lamps, [p.x, p.y, p.z]);
           if (crowd) {
             const t = game2.real;
@@ -20240,6 +20575,11 @@ root.My3D2dge = E;
             if (Math.abs(q.x - fx0) > 900 || Math.abs(q.y - fy0) > 900) continue;
             q.draw(stage, q === p ? { xray: true } : { crowd: true, key: q.rig });
           }
+          const dtr = Math.min(0.1, game2.real - lastT), reach = hold ? 1400 : stage.depth === stage.side7 ? 760 : 600;
+          lastT = game2.real;
+          for (const v of fleet.vehicles) if (Math.abs(v.x - fx0) < reach && Math.abs(v.y - fy0) < reach && stage.onScreen(v.x, v.y, v.z, v.z + v.height, v.hl + 8)) drawVehicle(stage, v, { dt: dtr, night: stage.world.lamps });
+          for (const tr of fleet.trains) if (Math.abs(tr.cars[0].x - fx0) < reach + 200 && Math.abs(tr.cars[0].y - fy0) < reach + 200) drawTrain(stage, tr, modelOf(tr.line.def), { color: tr.line.def.palette[0], night: stage.world.lamps });
+          vfx.draw(stage, fleet, [fx0, fy0]);
           const vg = crew.vignette;
           if (vg && VIGNETTE_PROPS[vg.prop]) {
             const q = crew.member(vg.who).ped, x = q.x + 14, y = q.y + 4;
@@ -20252,6 +20592,8 @@ root.My3D2dge = E;
             const W6 = r.W, H6 = r.H, ch = chOf(crew.active);
             E.font.text(g, (hoodName || "LOWTOWN").toUpperCase() + "  •  " + clock.label() + "  •  " + (views.spec.label || views.active).toUpperCase(), 6, 6, "#ffe066", { shadow: "#000" });
             if (!crew.switching) drawPedHud(g, W6, H6, p, { color: ch.color, name: ch.short + "   $" + crew.fund });
+            if (!crew.switching && pv) drawVehicleHud(g, W6, H6, pv, { radio: stationLabel(pv.radio) });
+            if (board && !crew.switching) drawPrompt(g, `{interact} ${board.locked ? PROMPT.breakIn : PROMPT[board.kind]}  ${board.vehicle.def.name.toUpperCase()}`, W6 / 2, H6 - 64, B2, game2.input, { align: "center", color: "#ffe066" });
             weaponWheel.draw(g, W6, H6);
             switchWheel.draw(g, W6, H6);
             if (vg && vg.line && vg.who === crew.active) {
@@ -20441,7 +20783,7 @@ root.My3D2dge = E;
   W5("snap", { name: "Snap", slot: "special", projectile: "photo", damage: 0, rate: 1.5, range: 600, model: "phone", sound: "shutter" });
 
   // content:content
-  var CONTENT_FILES = ["characters/crew.js", "characters/vignette-props.js", "districts/hello/map.js", "districts/lowtown/district.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/garage.js", "districts/proving/pad.js", "districts/proving/range.js", "districts/proving/scale-city.js", "proving/city-zones.js", "proving/garage-zone.js", "proving/pad-zone.js", "proving/range-zone.js", "radio/stations.js", "save.js", "scenes/attract.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "tune.js", "vehicles/cortez.js", "weapons/arsenal.js"];
+  var CONTENT_FILES = ["characters/crew.js", "characters/vignette-props.js", "districts/hello/map.js", "districts/lowtown/district.js", "districts/lowtown/fleet.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/garage.js", "districts/proving/pad.js", "districts/proving/range.js", "districts/proving/scale-city.js", "proving/city-zones.js", "proving/garage-zone.js", "proving/pad-zone.js", "proving/range-zone.js", "radio/stations.js", "save.js", "scenes/attract.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "tune.js", "vehicles/cortez.js", "weapons/arsenal.js"];
 
   // src/main.js
   var links = readLinks();

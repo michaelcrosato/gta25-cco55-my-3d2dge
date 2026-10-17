@@ -61,7 +61,7 @@ export class Train {
   constructor(line, o = {}) {
     this.line = line; this.id = o.id || 'train'; this.s = o.s || 0; this.v = 0; this.state = 'run'; this.wait = 0; this.station = null;
     this.carLength = o.carLength || 84; this.gap = o.gap || 6; this.n = o.cars || 2; this.width = o.width || 20; this.height = o.height || 30;
-    this.accel = o.accel || 70; this.brake = o.brake || 90; this.doors = 0; this.top = o.top || 0; this.dwell = o.dwell || 0;   // (0: the TUNE knobs')
+    this.accel = o.accel || 70; this.brake = o.brake || 90; this.doors = 0; this.top = o.top || 0; this.dwell = o.dwell || 0; this.leaving = 0;   // (0: the TUNE knobs')
     this.cars = Array.from({ length: this.n }, (_, i) => ({ id: this.id + ':' + i, x: 0, y: 0, z: line.z, heading: 0, hl: this.carLength / 2, hw: this.width / 2, height: this.height, train: this, index: i }));
     this._place();
   }
@@ -72,15 +72,16 @@ export class Train {
     const top = this.top || TUNE.trainTop;
     if (this.state === 'stop') {
       this.wait -= dt; this.doors = Math.min(1, this.doors + dt * 2);
-      if (this.wait <= 0) { this.doors = Math.max(0, this.doors - dt * 4); if (this.doors <= 0) this.state = 'run'; }
+      if (this.wait <= 0) { this.doors = Math.max(0, this.doors - dt * 4); if (this.doors <= 0) { this.state = 'run'; this.leaving = 8; } }
       this.v = 0; this._place(); return;
     }
-    // the stop: where the train's middle meets the station's point
-    const mid = this.s - this.span / 2, next = this.line.toNextStop(mid), d = next.d, stop = this.v * this.v / (2 * this.brake);
+    // the stop: where the train's middle meets the station's point (the one it just left is passed over for a few units)
+    const mid = this.s - this.span / 2, next = this.line.toNextStop(mid, this.leaving > 0 ? 8 : 0), d = next.d, stop = this.v * this.v / (2 * this.brake);
     if (d <= stop + 1 && this.v > 0) this.v = Math.max(4, this.v - this.brake * dt);
     else this.v = Math.min(top, this.v + this.accel * dt);
     let step = this.v * dt;
-    if (step >= d - .5) { step = Math.max(0, d); this.state = 'stop'; this.wait = this.dwell || TUNE.trainDwell; this.station = next.station ? next.station.name : null; this.v = 0; }
+    if (next.station && (step >= d - .5 || d < .6)) { step = Math.max(0, d); this.state = 'stop'; this.wait = this.dwell || TUNE.trainDwell; this.station = next.station.name; this.v = 0; this.leaving = 0; }
+    else if (this.leaving > 0) this.leaving -= step;
     this.s += step; this._place();
   }
   _place() {

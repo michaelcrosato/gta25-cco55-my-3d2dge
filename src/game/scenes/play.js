@@ -1,4 +1,5 @@
-// Free roam in Lowtown (PLAN.md 9.1; M2: the city in all three views; M3: the crew on foot and the fights). The three
+// Free roam in Lowtown (PLAN.md 9.1; M2: the city in all three views; M3: the crew on foot and the fights; M4: the
+// vehicles: get in with △ / E by any door, jack the driver, drive, bail out; the L's trains and the MPD Eye). The three
 // protagonists live in the city as Peds: Dex starts at the safehouse (#play/<poi> starts him at any point of interest:
 // #play/bank-door, #play/marina), Viv at the Greasy Spoke, Gus at the car wash. The player possesses one through the
 // HumanController's Intent; hold d-pad down (Z) for the character wheel and the switch camera, hold L1 (Q) for the
@@ -9,7 +10,8 @@
 // the perf gate measures their drawing before they exist); ?tour=1 drives the camera round the district's tour at car
 // speed and ?perf=1 records each frame's times (tools/perf.mjs).
 import { E, def, get, all, expose, BUS, TUNE, FloorChunks, buildCity, CityRenderer, WorldClock, Weather, Drawbridge, skyAt, drawBoxModel, carModel,
-  Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent } from '../../motor/index.js';
+  Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
+  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, stationLabel, modelOf, SpeedZoom, drawPrompt } from '../../motor/index.js';
 import { VIGNETTE_PROPS } from '../characters/vignette-props.js';
 
 let cached = null;   // one Lowtown per seed: built once (about 80 ms), kept across scene changes
@@ -33,6 +35,7 @@ def('scenes', 'play', {
     const { game, views, human, footprint, links, stage, bindings: B } = app;
     let city, map, cityR, floor, clock, weather, bridges = [], hoodName = '', tour = null, rec = null, crowd = null;
     let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, wasted = 0, prevView = null, mouse0 = null;
+    let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null;
     const idle = makeIntent(), TOUR_SPEED = 300;   // (the tour: a sports car's top speed, PLAN.md 7.6)
     const hero = () => crew.ped, chOf = id => get('characters', id);
     function spawnCrew(startPoi) {
@@ -44,7 +47,16 @@ def('scenes', 'play', {
         crew.add(ch.id, p); combat.add(p);
       }
       for (const s of city.pickupSpots) combat.pickups.place({ kind: s.kind, item: s.item, amount: s.amount, x: s.x, y: s.y, respawn: s.respawn });
+      fleet = new Fleet({ city, combat, bridges, game });
+      const fl = get('fleets', 'lowtown'); fleetCount = fl ? spawnFleet(fleet, city, fl, city.seed) : null;
     }
+    // the vehicle the possessed one could get into now: the nearest in reach, by its nearest door (the driver's seat)
+    function boardTarget(p) {
+      let best = null;
+      for (const v of fleet.near(p.x, p.y, 70)) { if (!inReach(p, v)) continue; const plan = boardingFor(p, v, 0); if (plan && (!best || plan.dist < best.dist)) best = plan; }
+      return best;
+    }
+    const PROMPT = { enterCar: 'GET IN', carjack: 'JACK', mount: 'RIDE', breakIn: 'BREAK IN' };
     // what a pickup does for the one who walks over it (true: it was used)
     function take(p, k) {
       if (k.kind === 'health') { if (p.vitals.health >= 100) return false; p.vitals.heal(k.amount); return true; }
@@ -87,18 +99,19 @@ def('scenes', 'play', {
         spawnCrew(data && data.route && data.route[1]);
         if (tour) hero().place(city.tour[0][0], city.tour[0][1]);
         fx = new CombatFX(game); weaponWheel = new WeaponWheel(B); switchWheel = new Wheel({ title: 'CREW' });
-        holdS = 0; toast = null; wasted = 0; prevView = null; stage.top.hold = null;
+        holdS = 0; toast = null; wasted = 0; prevView = null; stage.top.hold = null; zoom = new SpeedZoom(); vfx = new VehicleFX(game); lastRadio = null; board = null;
         game.cam.bounds = v => map.bounds(v);
         if (!game.headless) floor.warm(hero().x, hero().y, 420);
-        expose('snapshot', () => { const p = hero(); return { scene: 'play', view: views.active, hero: [p.x, p.y, p.z].map(v => Math.round(v)), hood: hoodName, time: clock.label(), weather: weather.state,
-          crew: crew.active, health: Math.round(p.health), armor: Math.round(p.armor), weapon: p.inv.current, switching: crew.switching, fund: crew.fund }; });
+        expose('snapshot', () => { const p = hero(), v = p.seat && p.seat.vehicle; return { scene: 'play', view: views.active, hero: [p.x, p.y, p.z].map(v => Math.round(v)), hood: hoodName, time: clock.label(), weather: weather.state,
+          crew: crew.active, health: Math.round(p.health), armor: Math.round(p.armor), weapon: p.inv.current, switching: crew.switching, fund: crew.fund,
+          vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake }; });
         expose('teleport', (x, y) => hero().place(x, y));
-        expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat);
+        expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat); expose('fleet', fleet); expose('fleetCount', fleetCount);
         expose('perf', () => ({ ...rec, floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length, depth: stage.depth ? { ...stage.depth.stats } : null }));
         game.stateHash = () => [...crew.order.flatMap(id => { const p = crew.member(id).ped; return [Math.round(p.x * 8), Math.round(p.y * 8), Math.round(p.z * 8), Math.round(p.health * 10)]; }),
-          crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash()];
+          crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash(), fleet.hash()];
       },
-      exit() { game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; },
+      exit() { game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); },
       update(dt) {
         const real = dt / Math.max(.05, game.timeScale);
         const h0 = clock.hour; clock.update(dt); const hours = ((clock.hour - h0) + 24) % 24;
@@ -110,16 +123,22 @@ def('scenes', 'play', {
         else if (wasSwitching) { stage.top.hold = null; if (prevView && prevView !== 'top') game.setView(prevView); prevView = null; }
         const p = hero(), busy = crew.switching || weaponWheel.open || switchWheel.open;
         // the wheels: held open, picked on release
-        weaponWheel.update(real, p, { game, blocked: crew.switching || switchWheel.open });
+        weaponWheel.update(real, p, { game, blocked: crew.switching || switchWheel.open || !!p.seat || !!p.boarding });   // (in a vehicle L1 is the nitro)
         if (!crew.switching && !p.dead) {   // the character wheel: hold d-pad down (Z), point, let go on another
           if (B.down('switch', 'onFoot') && !weaponWheel.open) { holdS += real; if (!switchWheel.open && holdS >= TUNE.wheelHold) { const w = switchItems(); switchWheel.show(w.items, w.sel); mouse0 = null; } }
           else { if (switchWheel.open) { const it = switchWheel.hide(); if (it && it.id !== crew.active) trySwitch(it.id); } holdS = 0; }
           if (switchWheel.open) { const ptr = wheelPointer(game, B, mouse0); if (ptr.mouse && !mouse0) mouse0 = ptr.mouse; switchWheel.update(real, { dir: ptr.dir }); }
         }
         game.timeScale = Math.min(weaponWheel.open || switchWheel.open ? TUNE.wheelSlow : 1, p.ability ? p.ability.timeScale : 1);
-        // the player's intent (nothing while a wheel is open, the switch camera flies or the vignette plays)
-        let I = human.update('onFoot', p);
+        // the player's intent (nothing while a wheel is open, the switch camera flies or the vignette plays): the vehicle
+        // controls while seated, on foot otherwise
+        const seated = p.seat && p.seat.vehicle;
+        let I = human.update(seated ? 'vehicle' : 'onFoot', p);
         if (busy) I = clearIntent(I);
+        if (!busy && !p.dead && I.tap.interact && !p.boarding) {   // △ / E: get in (the nearest door), or get out
+          if (seated) p.leave(exitFor(p, seated));
+          else { const plan = boardTarget(p); if (plan) p.board(plan); }
+        }
         if (crew.vignette && crew.vignette.who === crew.active) {
           const moved = Math.hypot(I.move[0], I.move[1]) > .3 || I.down.aim || Object.values(I.tap).some(Boolean);   // (any press ends it)
           if (moved) { crew.endVignette(); p.posing = null; } else { p.posing = crew.vignette.pose; I = clearIntent(I); }
@@ -129,23 +148,32 @@ def('scenes', 'play', {
           if (d <= step) { p.place(to[0], to[1]); tour.leg = (tour.leg + 1) % city.tour.length; } else p.place(p.x + dx / d * step, p.y + dy / d * step);
           p.mover.vx = dx / (d || 1) * TOUR_SPEED; p.mover.vy = dy / (d || 1) * TOUR_SPEED; p.mover.facing = Math.atan2(dy, dx); I = clearIntent(I);
         }
-        const W = { map, city, combat, aim: aimCtx() };
+        const night = clock.hour >= 19 || clock.hour < 6.5;
+        fleet.update(dt, { intent: v => (v.driver === p ? I : clearIntent(idle)), peds: combat.bodies, night, wet: weather.wet });
+        const W = { map, city, combat, fleet, aim: aimCtx() };
         for (const id of crew.order) { const q = crew.member(id).ped; q.update(dt, q === p ? I : clearIntent(idle), W); }
         combat.update(dt, { wet: weather.wet, takers: [p], take });
+        // what the possessed one drives: its name on getting in, the station when it changes; the driving zoom
+        const v = p.seat && p.seat.vehicle;
+        if (v && lastRadio === null) { toast = { text: v.def.name.toUpperCase(), t: 2.2 }; lastRadio = v.radio; }
+        else if (v && v.radio !== lastRadio) { lastRadio = v.radio; toast = { text: stationLabel(v.radio), t: 2 }; }
+        if (!v) lastRadio = null;
+        if (!tour) stage.zoomTo(zoom.update(dt, !!v, v ? v.speed : 0));
+        board = !v && !p.boarding && !p.dead && !busy ? boardTarget(p) : null;
         // WASTED: three seconds, then the hospital (and its bill)
-        if (p.dead) { wasted += real; if (wasted > 3.2) { const h = city.poi('hospital'); p.revive(h.x, h.y); crew.fund = Math.max(0, crew.fund - 100); wasted = 0; toast = { text: 'HOSPITAL BILL  -$100', t: 2.5 }; } } else wasted = 0;
+        if (p.dead) { wasted += real; if (wasted > 3.2) { const h = city.poi('hospital'); if (p.seat) p.seat.vehicle.unseat(p); p.boarding = null; p.revive(h.x, h.y); crew.fund = Math.max(0, crew.fund - 100); wasted = 0; toast = { text: 'HOSPITAL BILL  -$100', t: 2.5 }; } } else wasted = 0;
         if (I.tap.view && !busy) views.next();
         if ((I.tap.turnLeft || I.tap.turnRight) && !busy) stage.turn(I.tap.turnRight ? 1 : -1);
         if (toast) { toast.t -= real; if (toast.t <= 0) toast = null; }
-        const q = hero(); footprint.update(q.x, q.y);
-        const hd = city.hoodAtPoint(q.x, q.y); hoodName = hd ? hd.name : '';
-        if (!cam) game.focus(q.x, q.y, 16);
+        const q = hero(), qv = q.seat && q.seat.vehicle, fx1 = qv ? qv.x : q.x, fy1 = qv ? qv.y : q.y; footprint.update(fx1, fy1);
+        const hd = city.hoodAtPoint(fx1, fy1); hoodName = hd ? hd.name : '';
+        if (!cam) game.focus(fx1, fy1, 16);
       },
       draw(r) {
         if (rec) { const st = game.stats; rec.update.push(+st.updateMs.toFixed(3)); rec.render.push(+st.renderMs.toFixed(3)); rec.frames++; }
-        const p = hero(), hold = stage.top.hold, fx0 = hold ? hold.x : p.x, fy0 = hold ? hold.y : p.y;
+        const p = hero(), hold = stage.top.hold, pv = p.seat && p.seat.vehicle, fx0 = hold ? hold.x : pv ? pv.x : p.x, fy0 = hold ? hold.y : pv ? pv.y : p.y;
         stage.setSky(skyAt(clock.hour, weather));
-        stage.begin(r, { focus: [fx0, fy0], vel: hold ? [0, 0] : [p.mover.vx, p.mover.vy], player: [p.x, p.y, p.z] });
+        stage.begin(r, { focus: [fx0, fy0], vel: hold ? [0, 0] : pv ? [pv.body.vx, pv.body.vy] : [p.mover.vx, p.mover.vy], speed01: pv ? Math.min(1, pv.speed / 300) : 0, player: [p.x, p.y, p.z] });
         cityR.queue(stage, fx0, fy0, hold ? Math.min(1400, 520 * hold.H / 320) : stage.depth === stage.side7 ? 700 : 520, stage.world.lamps, [p.x, p.y, p.z]);
         if (crowd) {   // (presentation only: offsets round the focus, walking in place along their own line)
           const t = game.real;
@@ -160,6 +188,11 @@ def('scenes', 'play', {
           const q = crew.member(id).ped; if (Math.abs(q.x - fx0) > 900 || Math.abs(q.y - fy0) > 900) continue;
           q.draw(stage, q === p ? { xray: true } : { crowd: true, key: q.rig });   // (the others stand about: kept images, D13)
         }
+        // the fleet round the focus (parked ones are kept images), the L's trains, their effects
+        const dtr = Math.min(.1, game.real - lastT), reach = hold ? 1400 : stage.depth === stage.side7 ? 760 : 600; lastT = game.real;
+        for (const v of fleet.vehicles) if (Math.abs(v.x - fx0) < reach && Math.abs(v.y - fy0) < reach && stage.onScreen(v.x, v.y, v.z, v.z + v.height, v.hl + 8)) drawVehicle(stage, v, { dt: dtr, night: stage.world.lamps });
+        for (const tr of fleet.trains) if (Math.abs(tr.cars[0].x - fx0) < reach + 200 && Math.abs(tr.cars[0].y - fy0) < reach + 200) drawTrain(stage, tr, modelOf(tr.line.def), { color: tr.line.def.palette[0], night: stage.world.lamps });
+        vfx.draw(stage, fleet, [fx0, fy0]);
         const vg = crew.vignette; if (vg && VIGNETTE_PROPS[vg.prop]) { const q = crew.member(vg.who).ped, x = q.x + 14, y = q.y + 4; stage.shape(x, y, 0, (g, P) => drawBoxModel(g, P, VIGNETTE_PROPS[vg.prop], x, y, 0, vg.prop === 'moto' ? Math.PI / 2 : 0, { lit: true })); }
         fx.draw(stage, combat, [fx0, fy0]);
         if (!crew.switching) drawAimMarks(stage, p, game.real);
@@ -168,6 +201,8 @@ def('scenes', 'play', {
           const W = r.W, H = r.H, ch = chOf(crew.active);
           E.font.text(g, (hoodName || 'LOWTOWN').toUpperCase() + '  •  ' + clock.label() + '  •  ' + (views.spec.label || views.active).toUpperCase(), 6, 6, '#ffe066', { shadow: '#000' });
           if (!crew.switching) drawPedHud(g, W, H, p, { color: ch.color, name: ch.short + '   $' + crew.fund });
+          if (!crew.switching && pv) drawVehicleHud(g, W, H, pv, { radio: stationLabel(pv.radio) });
+          if (board && !crew.switching) drawPrompt(g, `{interact} ${board.locked ? PROMPT.breakIn : PROMPT[board.kind]}  ${board.vehicle.def.name.toUpperCase()}`, W / 2, H - 64, B, game.input, { align: 'center', color: '#ffe066' });
           weaponWheel.draw(g, W, H); switchWheel.draw(g, W, H);
           if (vg && vg.line && vg.who === crew.active) { E.ui.box(g, W / 2 - 150, H - 46, 300, 22, { alpha: .7 }); E.font.text(g, `${chOf(vg.who).short}: ${vg.line}`, W / 2, H - 40, '#f0ecff', { align: 'center', wrap: 290 }); }
           if (crew.switching) E.font.text(g, chOf(crew.seq.to).name.toUpperCase(), W / 2, H - 30, chOf(crew.seq.to).color, { align: 'center', scale: 2, outline: '#05030c' });

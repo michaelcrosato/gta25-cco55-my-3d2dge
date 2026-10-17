@@ -69,6 +69,14 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | UI first pass: the radial wheel, the weapon wheel, the on-foot HUD (cached corners), lock-on marks | `src/motor/ui/wheel.js`, `weapon-wheel.js`, `hud.js` | M3 |
 | Chorded mouse buttons (right to aim, left to fire) | `src/motor/input/mouse-chords.js` | M3 |
 | The Proving Ground: the combat `range`, the view lab's scale yard, `?selftest=1` self-tests (e2e) | `src/game/proving/range-zone.js`, `city-zones.js`, `tests/e2e/selftest.mjs` | M3 |
+| Vehicle models (box parts with kits) and their builders; definitions by model id (D15) | `src/motor/sim/vehicle/model.js`, `defs.js` | M4 |
+| The class bodies: the tyre model over the ground (decks, ramps, jumps, flips, towing), boats, the heli, the L's lines and trains, the tow joint | `src/motor/sim/vehicle/body.js`, `boat.js`, `heli.js`, `rail.js`, `tow.js` | M4 |
+| Vehicle damage (zone dents, smoke, fire, the explosion) and the handling bench per definition | `src/motor/sim/vehicle/damage.js`, `handling.js` | M4 |
+| The Vehicle actor (seats, doors, lights, siren, horn, radio, nitro, mods, sinking) and the Fleet (sleeping, a neighbour grid, cars on cars, knockdowns, street furniture, chains, trains, tools) | `src/motor/actors/vehicle.js`, `fleet.js` | M4 |
+| Boarding: enter, carjack, break-in, mount, exit and bail-out as `E.ACTIONS` beats | `src/motor/actors/boarding.js` | M4 |
+| A district's fleet: curb parking by neighbourhood, landmark spots, moorings, the L, the heli's patrol | `src/motor/world/fleet-spawn.js`, `src/game/districts/lowtown/fleet.js` | M4 |
+| The vehicle renderer (paint, dents, steering, doors, lights, beams, sirens, rotors, wakes) and VehicleFX (skids, smoke, sparks, slicks, mines, jets) | `src/motor/render/vehicle-draw.js`, `box-model.js` | M4 |
+| The radio stub (`stations`), the vehicle HUD panel, the Proving Ground's `garage` and the model sheet | `src/motor/audio/stations.js`, `src/motor/ui/hud.js`, `src/game/proving/garage-zone.js`, `tools/model-sheet.mjs` | M4 |
 
 ## Frozen contracts (M1)
 
@@ -139,7 +147,10 @@ A bad spec warns once per problem (`E.warn`), gets its defaults, and still regis
 | `maps` | `{ build(seed, ...) -> TileMap }` (with `paintFloor` for FloorChunks) | content |
 | `provingZones` | `{ title, make(app) -> { enter(), update(dt), draw(r), hud(), snapshot(), perf(), stateHash(), handle() } }` | content |
 | `glyphSets` | the PlayStation / Xbox / Nintendo / keyboard glyph drawings | `input/glyphs.js` |
-| `vehicles` | `{ name, class (car truck tow bike boat heli rail), role, handling (HANDLING overrides), model, palette, health, seats, radio, spec: { t200, top, brake200 }, tags }` | `sim/vehicle/defs.js` |
+| `vehicles` | `{ name, model (a vehicleModels id; M4, D15), kit, class (car truck tow bike boat heli rail), role, handling (the class body's overrides), palette, health, toughness, seats, radio, locked, siren, horn, tool, spec: { t200 or t100, top, brake200 or brake100; boats t100, top; heli top, climb; rail top, dwell }, spawn: { zones, weight, timeOfDay }, price, tags }` | `sim/vehicle/defs.js` |
+| `vehicleModels` | `{ name, class, length, width, height, parts: [{ box, color, role, paint }], wheels, seats, doors, lights: { head, tail, siren }, hook, hitch, kits: { name: { parts, lights } } }` | `sim/vehicle/model.js` (M4) |
+| `fleets` | `{ district, curb: { every, chance, roles, classes }, spots: [{ def, near, n }], water, rail: [{ deck, def, trains }], air: [{ def, patrol, alt }] }` | `world/fleet-spawn.js` (M4) |
+| `stations` | `{ name, freq, dj, genre, color }` | `audio/stations.js` (M4's stub; M10) |
 | `missions` | `defMission(id, { title, giver, gang, tier, requires, brief, rewards, bonus, stages })` | `mission/dsl.js` |
 | `activities` | `defActivity(id, { title, start, levels, stages })` | `mission/dsl.js` |
 

@@ -138,7 +138,7 @@ export class Ped {
     const m = this.mover, b = this.seat.body, C = w.combat, A = w.aim || {};
     const at = b.seatAt ? b.seatAt(this.seat.index || 0) : [b.x, b.y];
     m.x = at[0]; m.y = at[1]; m.z = (b.z || 0) + (b.cls === 'bike' ? 7 : 6); m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
-    const spec = this.inv.spec(), ok = !!spec && (spec.slot === 'pistol' || spec.slot === 'smg'), trigger = !!(I.down.fire || I.down.attack);
+    const spec = this.inv.spec(), ok = !!spec && (spec.slot === 'pistol' || spec.slot === 'smg') && !(b.armed && this.seat.index === 0), trigger = !!(I.down.fire || I.down.attack);   // (the driver's ○ is the vehicle's own weapon when it has one)
     this.aiming = ok && (trigger || !!I.aim);
     let dir = I.aim, held = false;
     if (!dir && this.aiming) {   // no stick: the auto-target off either side
@@ -169,7 +169,7 @@ export class Ped {
   }
   // getting in or out: the walk to the door (the stick away from it cancels), then the beats; the seat at the end
   _boarding(dt, I, w) {
-    const B = this.boarding, P = B.plan, v = B.v, m = this.mover; B.t += dt;
+    const B = this.boarding, P = B.plan, v = B.v, m = this.mover; B.t += dt; v.asleep = false;
     const cancel = () => { this.boarding = null; if (P.door) v.doorWant[P.door.id] = 0; return this._sync(); };
     if (B.phase === 'walk') {
       if (v.wrecked || v.sunk || v.speed > 60 || B.t > 4) return cancel();

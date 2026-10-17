@@ -178,3 +178,39 @@ and where it landed.
     A dry magazine reloads once its last shot has cycled, so a magazine takes mag / rate + reload. The bench measures
     every gun at its spec's DPS exactly, and fists and the bat within 6%.
 - **Answered:** no. **Landed in:** M3.
+
+## D15 · 2026-10-17 · M4's calls: models by id with kits, one tyre model for land vehicles, sleeping fleets, boarding as engine actions
+- **Principle:** grow by content, not architecture (PLAN.md 7.4); the simulation is plain arithmetic at the fixed step
+  (7.3); reuse the engine's actions (8.8).
+- **Calls:**
+  - **The `vehicles` contract changed.** `model` was a size object; it is now a `vehicleModels` id, and `kit` names
+    a set of extra parts on that model. Variants are definitions over one model and a kit: the Retiree is the Cortez
+    with the wagon kit; the Medic, the MPD Rhino and the Strongbox are kits on the Hauler; the Drill Rig is the
+    Hookline's flatbed. That keeps the slice's 13 models and 19 definitions.
+  - **One tyre model.** Cars, trucks, tow trucks and bikes share the bicycle-model body; classes differ by handling
+    numbers. The body follows the ground: deck tops and ramps, drawbridge leaves. Where the ground falls away it flies,
+    and it lands with a squash. Boats (`BoatBody`) and the heli (`HeliBody`) have bodies of their own. The L's cars run
+    on a `RailLine` with no body. A bike's lean and wheelie are drawn, not simulated.
+  - **The towed car rides on one axle.** The end on the hook has no grip and doesn't steer. The joint is a
+    spring-damper whose stiffness is set from the pair's effective mass, a frequency (`TUNE.towHz`) and a damping
+    ratio, so it stays stiff and stable at the fixed step.
+  - **Fleets sleep.** A vehicle nobody drives that has come to rest is skipped until something touches it: a car, a
+    shot, a blast, a ped getting in, a tow. A 128-unit grid finds neighbours, so Lowtown's 60-odd parked cars cost
+    nothing until hit. Parked cars draw as kept images, redrawn when their dents, lights or doors change.
+  - **Boarding is the engine's actions.** Entering, a carjack, a break-in, mounting, exiting and a bail-out are
+    `E.ACTIONS` entries played against the vehicle's live pose. The carjack is a paired action that moves the victim,
+    the takedown's pattern. The walk to the door is the ped's own and is cancelled by pushing away. The driver's seat
+    can be reached by any door: from the passenger side the ped slides across.
+  - **Chains.** A vehicle's explosion is a Combat blast, so it hurts, lights fires and sets off barrels. Any vehicle
+    whose box is within `TUNE.carChain` (48 u) of the blast's centre goes up after `TUNE.chainDelay`: a car's half
+    length plus a parking gap, so cars parked nose to tail chain. A blast also sets off any burning vehicle it reaches.
+  - **Street furniture gives way.** Lamps, hydrants, bins, benches, newsstands and payphones are breakable solids. A
+    vehicle above `TUNE.propBreak` knocks them over: their solid drops flat (`map.solids` is never rebuilt) and the city
+    renderer draws them down. A city outlives scenes, so a new Fleet stands them up again.
+  - **The radio is a stub.** A `stations` registry with Lowtown's four names; d-pad left and right step through
+    them and 'off', and the HUD names the one tuned in. M10 brings the music.
+  - **The handling suite runs per definition.** `sim/vehicle/handling.js` measures every definition by its class
+    against its spec: 0-200 (or 0-100) within 10%, the top speed within 5%, dry braking within 10%, wet braking at
+    least 15% longer, skidpad grip, a handbrake drift, no tunnelling at 400 u/s. Boats, the heli and the L have their
+    own checks. FAN-OUT A1's workers tuned against it.
+- **Answered:** no. **Landed in:** M4.

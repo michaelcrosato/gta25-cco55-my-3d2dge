@@ -42,6 +42,18 @@ function drawWeaponCorner(g, W, p, spec, rd, label) {
   if (label) E.font.text(g, label, rx - 4, ry + 16, p.inv.reloading > 0 ? '#ffd23a' : rd.total ? '#f0ecff' : '#ff5a5a', { align: 'right', font: 'tiny', outline: '#05030c' });
   if (spec) E.font.text(g, spec.name.toUpperCase(), rx - 72, ry - 12, '#c8c0e8', { font: 'tiny', outline: '#05030c' });
 }
+/** the vehicle panel (bottom left, over the on-foot bars): its name, its health, the nitro charges, the station tuned
+ *  in. A cached corner like the others: redrawn only when something on it changes */
+export function drawVehicleHud(g, W, H, v, o = {}) {
+  const share = Math.max(0, v.damage.health / v.damage.max), radio = o.radio || '', sig = [v.def.name, Math.round(share * 46), v.mods.nitro, v.nitroT > 0 ? 1 : 0, v.damage.state, radio].join('|');
+  g.drawImage(corner('vehicle', sig, 200, 30, cg => {
+    const x = 10, y = 8, w = 92, P = E.px, col = share > .4 ? '#ffb43a' : share > .15 ? '#ff7a2a' : '#ff3a3a';
+    E.font.text(cg, v.def.name.toUpperCase(), x, y - 6, '#f0ecff', { font: 'tiny', outline: '#05030c' });
+    P.rect(cg, x - 1, y + 3, w + 2, 6, '#05030c'); P.rect(cg, x, y + 4, w, 4, '#3a2a1a'); P.rect(cg, x, y + 4, Math.round(w * share), 4, col);
+    for (let i = 0; i < Math.min(5, v.mods.nitro); i++) P.rect(cg, x + w + 6 + i * 6, y + 4, 4, 4, v.nitroT > 0 && i === 0 ? '#ffffff' : '#5ac8ff');
+    if (radio) E.font.text(cg, radio, x, y + 12, '#c8c0e8', { font: 'tiny', outline: '#05030c' });
+  }), 0, H - 76);
+}
 /** the aim in the world: a mark over a locked target, a sight along a free aim. Call between stage.begin and end */
 export function drawAimMarks(stage, p, t) {
   if (p.dead) return;

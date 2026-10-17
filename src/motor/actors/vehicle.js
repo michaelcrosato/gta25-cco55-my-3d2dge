@@ -41,6 +41,7 @@ export class Vehicle {
     this.nitroT = 0; this.sinking = 0; this.sunk = false; this.ai = null; this.ctlNow = { throttle: 0, brake: 0, steer: 0, handbrake: true };
     /** lights this step: head (on at night or when told), brake, reverse */ this.lights = { head: false, brake: false, reverse: false };
     this.towing = null; this.towedBy = null; this.burnFx = 0; this.blownAt = null; this.chainT = -1; this.chainBy = null;
+    /** asleep: at rest and untouched, so the Fleet skips its step (actors/fleet.js) */ this.asleep = false; this._still = 0;
     /** presentation: eased roll, pitch, bike lean, wheelie, suspension squash (the renderer reads; never simulated) */
     this.look = { roll: 0, pitch: 0, lean: 0, wheelie: 0, squash: 0, spin: 0 };
   }
@@ -55,6 +56,8 @@ export class Vehicle {
   get wrecked() { return this.damage.wrecked; }
   get driver() { return this.seats[0]; }
   get occupied() { return this.seats.some(Boolean); }
+  /** does the fire button belong to the vehicle (a tool, a roof MG, oil or mines) rather than a drive-by? */
+  get armed() { const m = this.mods; return !!(this.def.tool || m.roofMG || m.oil > 0 || m.mines > 0); }
   /** the explosive interface (Combat's chains): a wreck is blown */
   get blown() { return this.damage.wrecked; } set blown(v) { /* (the Fleet decides when it goes up) */ }
   /** world point of a point in the vehicle's frame */
@@ -64,12 +67,13 @@ export class Vehicle {
   /** the seat's world spot and the door's for seat i (the nearest door to a point when several serve it) */
   seatAt(i) { const s = this.model.seats[Math.min(i, this.model.seats.length - 1)] || { x: 0, y: 0 }; return this.toWorld(s.x, s.y); }
   /** a ped sits down (boarding.js calls it once the beats have played) */
-  sit(ped, i) { this.seats[i] = ped; ped.seat = { body: this, vehicle: this, index: i }; if (i === 0) this.ai = null; }
+  sit(ped, i) { this.seats[i] = ped; ped.seat = { body: this, vehicle: this, index: i }; if (i === 0) this.ai = null; this.asleep = false; }
   /** a ped gets up out of its seat */
   unseat(ped) { const i = this.seats.indexOf(ped); if (i >= 0) this.seats[i] = null; if (ped.seat && ped.seat.vehicle === this) ped.seat = null; return i; }
   /** Combat's hurt: bullets, blasts, melee, fire. Returns a report (zeros for a wreck: the bullet stopped) */
   hurt(o) {
     if (this.damage.wrecked) return { health: 0, armor: 0 };
+    this.asleep = false; this._still = 0;
     const at = o.at, [lx, ly] = at ? this.toLocal(at[0], at[1]) : [null, null];
     const k = o.kind === 'explosion' ? 1.6 : o.kind === 'melee' ? .15 : o.kind === 'fire' ? .6 : 1;   // (a bat dents, a blast wrecks)
     const took = this.damage.hit(o.amount * k, lx, ly, this.hl, this.hw);
@@ -93,8 +97,8 @@ export class Vehicle {
       if (I.tap.nitro && this.mods.nitro > 0 && this.nitroT <= 0) { this.mods.nitro--; this.nitroT = TUNE.nitroTime; }
       if (this.hasSiren && I.tap.horn) this.siren = !this.siren; else this.horn = !!I.down.horn && !this.hasSiren;
       if (I.tap.radioNext || I.tap.radioPrev) this.radio = nextStation(this.radio, I.tap.radioNext ? 1 : -1);
-    } else {   // nobody at the wheel: roll on, then the handbrake
-      const slow = b.speed < TUNE.coastBelow; ctl = { throttle: 0, brake: slow ? .4 : .05, steer: 0, handbrake: slow && !b.lifted };
+    } else {   // nobody at the wheel: roll on, then the handbrake (never the brake pedal at rest: held at a stop, it reverses)
+      const slow = b.speed < TUNE.coastBelow; ctl = { throttle: 0, brake: slow ? 0 : .05, steer: 0, handbrake: slow && !b.lifted };
       if (b.lifted) ctl.handbrake = false; this.horn = false;
     }
     if (this.nitroT > 0) { this.nitroT -= dt; ctl.boost = TUNE.nitroBoost; }

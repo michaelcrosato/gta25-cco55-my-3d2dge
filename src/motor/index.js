@@ -35,6 +35,7 @@ export { defMission, defActivity, missionStage, HINTS, checkHint } from './missi
 export { CityMap, Deck, SURFACES, standInCity } from './world/citymap.js';
 export { buildDistrict, ROAD_KINDS, BREAKABLE } from './world/builder.js';
 export { buildCity } from './world/district.js';
+export { spawnFleet, curbSpot, laneSpot } from './world/fleet-spawn.js';
 export { validateCity } from './world/validator.js';
 export { WorldClock, TIMES } from './world/clock.js';
 export { Weather, WEATHERS } from './world/weather.js';
@@ -66,7 +67,7 @@ export { drawVehicle, drawTrain, VehicleFX, easeLook } from './render/vehicle-dr
 export { CombatFX } from './render/combat-fx.js';
 export { Wheel } from './ui/wheel.js';
 export { WeaponWheel, WHEEL_SLOTS, wheelPointer } from './ui/weapon-wheel.js';
-export { drawPedHud, drawAimMarks } from './ui/hud.js';
+export { drawPedHud, drawAimMarks, drawVehicleHud } from './ui/hud.js';
 import './actors/characters.js';
 export { WEAPON_MODELS, weaponModel, drawWeaponIcon, drawFistIcon } from './render/weapon-models.js';
 export { skyAt, BACKDROPS } from './render/sky.js';
