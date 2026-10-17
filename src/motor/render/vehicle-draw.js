@@ -44,11 +44,12 @@ export function easeLook(v, dt) {
 export function drawVehicle(stage, v, o = {}) {
   const b = v.body; if (!b) return;
   const look = easeLook(v, o.dt ?? 1 / 60), wreck = v.wrecked;
-  const z = b.z - (v.sinking ? Math.min(1, v.sinking / TUNE.sinkTime) * v.height * .85 : 0) + (v.cls === 'boat' ? look.squash : -look.squash * .4);
+  const rearX = v.cls === 'bike' && look.wheelie > .001 ? v.model.wheels.reduce((m, w) => Math.min(m, w.x), 0) : 0;   // (a wheelie turns about the rear tyre)
+  const z = b.z - (v.sinking ? Math.min(1, v.sinking / TUNE.sinkTime) * v.height * .85 : 0) + (v.cls === 'boat' ? look.squash : -look.squash * .4) - rearX * Math.sin(look.wheelie || 0);
   const lit = !wreck && v.lights.head, siren = v.siren ? (v.sirenT * 2.4) % 1 : undefined;
-  // open doors: a slab hinged at each one's front edge, swung out
+  // open doors: a slab hinged at each one's front edge, swung out (a bike or a boat has none to swing)
   let extra = null, doorSig = '';
-  for (const d of v.model.doors) {
+  if (v.cls !== 'bike' && v.cls !== 'boat') for (const d of v.model.doors) {
     const open = v.doors[d.id] || 0; if (open < .02 || !d.side) continue;
     const hx = d.x + 7, hy = d.side * v.model.width / 2, H = v.model.height, ang = -d.side * open * 1.15;
     (extra ||= []).push({ box: [hx - 12, hy - .8, H * .18, hx, hy + .8, H * .6], color: v.color, role: 'body', turn: ang, pivot: [hx, hy] });
