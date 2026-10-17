@@ -313,7 +313,11 @@ export class Stage {
     const k = q[2], key = kp.key; let K = this._kept.get(key);
     const tag = view.id + ':' + (view.yawDeg | 0) + ':' + (this.depth ? this.depth.heading : 0) + ':' + (this.depth ? 0 : view.scale) + ':' + (kp.sig || '');   // (sig: the shape's own state: a parked car's dents, lights, doors)
     if (!K || K.tag !== tag || Math.abs(K.k - k) > K.k * .06 || (this.depth && this.frameNo - K.n >= 8)) {
-      const w = Math.ceil((kp.r * 2 * k * 1.15 + 8) / 16) * 16, h = Math.ceil(((kp.r + kp.h * 1.4) * k + 8) / 16) * 16, ax = w / 2, ay = Math.ceil(kp.r * .8 * k) + 4 + Math.ceil(kp.h * 1.2 * k);   // (sizes in steps of 16: a canvas is never resized for a pixel)
+      // the image covers what the shape can reach on screen in this view: the corners of its box round (x, y) up to its
+      // height, projected (TOP-DOWN shows the whole footprint below the anchor; ISO only part of it)
+      let bx0 = q[0], by0 = q[1], bx1 = q[0], by1 = q[1];
+      for (let i = 0; i < 8; i++) { const p = P.proj(x + (i & 1 ? kp.r : -kp.r), y + (i & 2 ? kp.r : -kp.r), z + (i & 4 ? kp.h : 0)); if (p) { bx0 = Math.min(bx0, p[0]); by0 = Math.min(by0, p[1]); bx1 = Math.max(bx1, p[0]); by1 = Math.max(by1, p[1]); } }
+      const ax = Math.ceil(q[0] - bx0) + 6, ay = Math.ceil(q[1] - by0) + 6, w = Math.ceil((ax + bx1 - q[0] + 6) / 16) * 16, h = Math.ceil((ay + by1 - q[1] + 6) / 16) * 16;   // (sizes in steps of 16: a canvas is never resized for a pixel)
       if (!K) { K = { cv: E.mkCanvas(w, h) }; this._kept.set(key, K); }
       if (K.cv.width < w || K.cv.height < h || K.cv.width > w * 2 || K.cv.height > h * 2) { K.cv.width = w; K.cv.height = h; }
       const kg = K.cv.getContext('2d'); kg.setTransform(1, 0, 0, 1, 0, 0); kg.clearRect(0, 0, K.cv.width, K.cv.height); kg.imageSmoothingEnabled = false;
