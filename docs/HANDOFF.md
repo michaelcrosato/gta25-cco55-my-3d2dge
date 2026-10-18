@@ -14,10 +14,11 @@ started the run; this page says where the run stands, how the repository is work
   - the vehicles: 7 classes, 13 models, 19 definitions; boarding, carjacking, towing, damage, chained explosions,
     lights and sirens, the radio stub and the mods.
 - **The pull request:** michaelcrosato/gta25-cco55-my-3d2dge#1 carried M0-M4 and was merged into `main` when M4 closed.
-  Later work goes on the new session's own branch, started from `main`, in a new draft pull request.
+  Later work goes on `claude/compassionate-shannon-h7k7zk`, restarted from `main`, in a new draft pull request.
 - **Next: M5** (roads, traffic, pedestrians, emergency services; it is accepted by PLAN.md 8.7, 8.9 and 8.10). A
-  parked start on it is in `docs/handoff/m5-draft/`: the lane graph, the GPS and the signals work and are tested; the
-  DriverBrain is a draft that still stalls. Its README says how to restore it and lists the known stalls.
+  parked start on it is in `docs/handoff/m5-draft/`. The lane graph, the GPS and the signals work, but two of their
+  four tests have stale expectations to retune. The DriverBrain is a draft that still stalls. Its README says how to
+  restore the draft, and lists the failing tests and the known stalls.
 - **Remaining fan-out points** (PLAN.md 16): **A2** at M8 (missions and activities), **C** at M9 (the UI screens,
   optional) and **B** at M13 (the adversarial verification).
 - **Carried to later milestones**, also logged in `docs/DECISIONS.md` D16:
