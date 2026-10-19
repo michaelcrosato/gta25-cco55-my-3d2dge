@@ -1,9 +1,8 @@
 # Progress: GRAND THEFT MOTO
 
 Now: M7 is done: the view manager, MODE 7's lenses, Auto-rail and sky, the camera rig, the First Lowtown Bank to sneak
-into, and the draw levers; ISO's and MODE 7's remaining draw budgets are carried to M13 (D20). One fault is open: the
-10-minute day soak's new route met a crossing wait of 38.5 s (being fixed). Next is M8: the missions, the activities and
-the economy (FAN-OUT A2). Blockers: none. The run started inside the
+into, and the draw levers; ISO's and MODE 7's remaining draw budgets are carried to M13 (D20). Next is M8: the
+missions, the activities and the economy (FAN-OUT A2). Blockers: none. The run started inside the
 planning session (DECISIONS D5); at M4's close it was handed off (D16), and this session carries it on from M5 on the
 branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md`'s `/goal`.
 
@@ -689,9 +688,13 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
     a chunk), here; drawImage is 37% of all the time in a CPU profile.
 - **M7 · the gate:** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 220 unit and sim
   tests, the e2e smoke, replay and self-tests with the occluder's, the engine checker on the city and on
-  `#interior/bank`). `test:full`: the 5-minute gang sim passes (5 turf wars, all ended) and the night soak passes; the
-  10-minute day soak fails on one crossing wait of 38.5 s (its limit 30). The soak hops the player between the city's
-  points of interest, and the bank's sewer grate is a new one, so its route changed and met a crossing M6's never
-  did; the simulation itself is the same (the bank's city hash test, and M7 steps nothing new in the city). Being fixed
-  next, before M8.
+  `#interior/bank`). `test:full` passes (part 3): the 10-minute day soak (1,096 cars and 3,648 peds seen, no overlaps,
+  no red runs, the longest stall with no cause 11.9 s, the worst crossing wait 21 s), the night soak, and the 5-minute
+  gang sim (5 turf wars, all ended).
+- **M7 · what the day soak found (part 3):** at first it failed on one crossing wait of 38.5 s (its limit 30). The soak
+  hops the player between the city's points of interest, and the bank's sewer grate was a new one, so the route
+  changed and met a crossing M6's never did (the simulation itself was the same). There a lorry stopped on the zebra
+  held two peds at the curb: one had fled there, calmed down there and started its 20 s wait (D19's give-up) again
+  from nothing, being put back on its line facing the way it was going. The wait now counts at the spot where a ped
+  stands at the curb, whatever it is doing, until it has moved away; the worst wait in the same run fell to 21 s.
 

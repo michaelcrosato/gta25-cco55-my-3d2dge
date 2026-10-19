@@ -178,13 +178,18 @@ export class PedBrain {
   // the wait at a crossing's curb (go: may it step off): held there GIVE_UP s, it turns and takes another way from the
   // corner it stands at (one heading for a spot gives that up). Returns go
   _curb(dt, go) {
-    const e = this.edge; if (go || !e || e.kind !== 'cross' || this.a > 4) { this.curbT = 0; return go; }
-    if ((this.curbT = (this.curbT || 0) + dt) < GIVE_UP) return false;
-    const S = this.S, here = this.node, N = S.nodes[here]; this.curbT = 0; if (!N) return false;
+    // (the time counts at the spot where it stands at the curb, whatever its state: a ped that fled to a curb, then calmed
+    // down there, had started its wait again, and waited 38 s behind a lorry stopped on the zebra)
+    const e = this.edge, p = this.ped, at = this.curbAt, away = !at || Math.hypot(p.x - at[0], p.y - at[1]) > 4;
+    if (!e || e.kind !== 'cross' || this.a > 4) { if (away) { this.curbAt = null; this.curbT = 0; } return go; }
+    if (go) return true;
+    if (away) { this.curbAt = [p.x, p.y]; this.curbT = 0; }
+    if ((this.curbT += dt) < GIVE_UP) return false;
+    const S = this.S, here = this.node, N = S.nodes[here]; this.curbT = 0; this.curbAt = null; if (!N) return false;
     let opts = N.edges.map(id => S.edges[id]).filter(q => q !== e); if (opts.some(q => q.kind !== 'cross')) opts = opts.filter(q => q.kind !== 'cross');
     if (!opts.length) return false;
     if (this.state === 'goto') { this._stopIdle(); this.goal = null; this.state = 'walk'; }
-    const next = opts[Math.min(opts.length - 1, Math.floor(this._r() * opts.length))], B = S.nodes[S.other(next, here)], l = next.len || 1, dx = (B.x - N.x) / l, dy = (B.y - N.y) / l, p = this.ped;
+    const next = opts[Math.min(opts.length - 1, Math.floor(this._r() * opts.length))], B = S.nodes[S.other(next, here)], l = next.len || 1, dx = (B.x - N.x) / l, dy = (B.y - N.y) / l;
     this.from = this.to; this.edge = next; this.to = S.other(next, here); this.a = (p.x - N.x) * dx + (p.y - N.y) * dy; this.o = (p.x - N.x) * -dy + (p.y - N.y) * dx; this._piece = undefined;
     return false;
   }

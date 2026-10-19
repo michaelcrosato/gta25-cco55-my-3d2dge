@@ -20401,14 +20401,23 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     // the wait at a crossing's curb (go: may it step off): held there GIVE_UP s, it turns and takes another way from the
     // corner it stands at (one heading for a spot gives that up). Returns go
     _curb(dt, go) {
-      const e = this.edge;
-      if (go || !e || e.kind !== "cross" || this.a > 4) {
-        this.curbT = 0;
+      const e = this.edge, p = this.ped, at = this.curbAt, away = !at || Math.hypot(p.x - at[0], p.y - at[1]) > 4;
+      if (!e || e.kind !== "cross" || this.a > 4) {
+        if (away) {
+          this.curbAt = null;
+          this.curbT = 0;
+        }
         return go;
       }
-      if ((this.curbT = (this.curbT || 0) + dt) < GIVE_UP) return false;
+      if (go) return true;
+      if (away) {
+        this.curbAt = [p.x, p.y];
+        this.curbT = 0;
+      }
+      if ((this.curbT += dt) < GIVE_UP) return false;
       const S = this.S, here = this.node, N3 = S.nodes[here];
       this.curbT = 0;
+      this.curbAt = null;
       if (!N3) return false;
       let opts = N3.edges.map((id) => S.edges[id]).filter((q) => q !== e);
       if (opts.some((q) => q.kind !== "cross")) opts = opts.filter((q) => q.kind !== "cross");
@@ -20418,7 +20427,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.goal = null;
         this.state = "walk";
       }
-      const next = opts[Math.min(opts.length - 1, Math.floor(this._r() * opts.length))], B2 = S.nodes[S.other(next, here)], l7 = next.len || 1, dx = (B2.x - N3.x) / l7, dy = (B2.y - N3.y) / l7, p = this.ped;
+      const next = opts[Math.min(opts.length - 1, Math.floor(this._r() * opts.length))], B2 = S.nodes[S.other(next, here)], l7 = next.len || 1, dx = (B2.x - N3.x) / l7, dy = (B2.y - N3.y) / l7;
       this.from = this.to;
       this.edge = next;
       this.to = S.other(next, here);

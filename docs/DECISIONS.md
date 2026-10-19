@@ -530,6 +530,9 @@ and where it landed.
     to its stub: an interior's wall cells are each their own lot, and the city's rule had dropped single cells round the
     player's box); MODE 7 drops every wall nearer than the focus; TOP-DOWN needs none. Furniture lower than a body
     (`cut: false`) stays.
+  - **A ped's wait at a crossing's curb counts at the spot where it stands** (D19's 20 s give-up, amended), whatever
+    its state, until it has moved 4 u away: a ped that fled to a curb and calmed down there had started its wait again
+    from nothing (the day soak's new route: 38.5 s behind a lorry stopped on the zebra).
   - **8.5's see-through verdict has a fixture:** `#proving/occluder`, a tall block between MODE 7's camera and a
     magenta marker; its self-test (in the e2e suite) counts the marker's pixels: none behind the block, all of it
     stepped out.
