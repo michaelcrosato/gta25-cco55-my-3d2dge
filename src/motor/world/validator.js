@@ -5,6 +5,9 @@
 //   - walkable ground the safehouse can't reach on foot (a courtyard walled in) is listed;
 //   - every road deck has a way up (a ramp), unless it is a stub (an open end) or a railway;
 //   - every door names an interior.
+// The interior validator (PLAN.md 8.21): every door's cell inside is walkable and carries its mark, each guard's round
+// is walkable and joined up, each camera hangs on a wall, each room and light is inside the map; it reports which
+// rooms each door reaches on foot (the bank: the front door reaches the lobby and the offices, never the vault).
 import { get } from '../core/registry.js';
 
 export function validateCity(C, o = {}) {
@@ -39,4 +42,31 @@ function flood(C, [x0, y0], ok) {
 function nearest(C, [x0, y0], ok, R) {
   for (let r = 0; r <= R; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; if (C.inside(x0 + dx, y0 + dy) && ok(x0 + dx, y0 + dy)) return [x0 + dx, y0 + dy]; }
   return null;
+}
+
+/** an interior's CityMap (world/builder.js buildInterior): { errors, warnings, reach: { door id: [room names] } } */
+export function validateInterior(C) {
+  const errors = [], warnings = [], S = C.spec, reach = {}, walk = (x, y) => C.inside(x, y) && C.walkable(x, y);
+  const wallNear = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (C.inside(x + dx, y + dy) && C.map.cell(x + dx, y + dy) > 0) return true; return false; };
+  const inMap = r => r[0] >= 0 && r[1] >= 0 && r[2] < C.w && r[3] < C.h && r[0] <= r[2] && r[1] <= r[3];
+  for (const r of S.rooms || []) if (!inMap(r.rect)) errors.push(`room ${r.name} is outside the map`);
+  for (const d of S.doors || []) {
+    const [x, y] = d.at;
+    if (!walk(x, y)) { errors.push(`door ${d.id} at ${x},${y} is not walkable`); continue; }
+    if (!(C.marks[d.mark] || []).length) errors.push(`door ${d.id} has no cells marked "${d.mark}"`);
+    if (!d.from) errors.push(`door ${d.id} names no city door (from)`);
+    const seen = flood(C, [x, y], walk);
+    reach[d.id] = (S.rooms || []).filter(r => { for (let ry = r.rect[1]; ry <= r.rect[3]; ry++) for (let rx = r.rect[0]; rx <= r.rect[2]; rx++) if (seen[ry * C.w + rx]) return true; return false; }).map(r => r.name);
+  }
+  (S.guards || []).forEach((g, i) => {
+    if (!get('peds', g.arch)) errors.push(`guard ${i} is a "${g.arch}", not a ped archetype`);
+    const bad = g.route.filter(([x, y]) => !walk(x, y)); if (bad.length) { errors.push(`guard ${i}'s round stands on walls at ${bad.join(' ')}`); return; }
+    const seen = flood(C, g.route[0], walk), cut = g.route.filter(([x, y]) => !seen[y * C.w + x]);
+    if (cut.length) errors.push(`guard ${i}'s round can't walk to ${cut.join(' ')}`);
+  });
+  (S.cameras || []).forEach((c, i) => { if (!C.inside(c.at[0], c.at[1]) || !wallNear(c.at[0], c.at[1])) errors.push(`camera ${i} at ${c.at} hangs on no wall`); });
+  (S.lights || []).forEach((l, i) => { if (!C.inside(l.at[0], l.at[1])) errors.push(`light ${i} at ${l.at} is outside the map`); });
+  if (!(S.doors || []).length) errors.push('no doors: no way in');
+  if (!(S.rooms || []).some(r => r.public)) warnings.push('no public room: a guard minds the player anywhere');
+  return { errors, warnings, reach };
 }

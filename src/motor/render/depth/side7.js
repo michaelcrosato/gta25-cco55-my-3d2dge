@@ -23,7 +23,7 @@ export const RAIL = { 0: { f: [0, -1], r: [1, 0] }, 90: { f: [1, 0], r: [0, 1] }
 const NEAR_D = 10;   // nothing nearer than this along the rail is drawn
 /** the rail's lens on foot and in a vehicle (PLAN.md 5.3): height, the focus kept near..far ahead, the field of view
  *  (widen: degrees more at top speed) */
-export const RIGS = { foot: { h: 70, near: 110, far: 260, fov: 50, widen: 0 }, vehicle: { h: 90, near: 160, far: 380, fov: 50, widen: 12 } };
+export const RIGS = { foot: { h: 70, near: 110, far: 260, fov: 50, widen: 0 }, vehicle: { h: 90, near: 160, far: 380, fov: 50, widen: 12 }, indoor: { h: 50, near: 64, far: 190, fov: 58, widen: 0 } };   // (indoor: a room's own, nearer and lower)
 const AUTO_RAIL = 1.5, AUTO_SPEED = 40, AUTO_SHARE = .9;   // (s of steady travel along an axis; the least speed; its share along the axis)
 
 export class Side7View {
@@ -43,7 +43,7 @@ export class Side7View {
   /** the lens for where the focus is (in a vehicle or not) and how fast (speed01, 0..1 of top speed): eased, so getting
    *  in or out moves the camera rather than cutting it */
   rig(dt, vehicle, speed01 = 0) {
-    const R = vehicle ? RIGS.vehicle : RIGS.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R.fov + R.widen * E.clamp(speed01, 0, 1);
+    const R = this.indoor ? RIGS.indoor : vehicle ? RIGS.vehicle : RIGS.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R.fov + R.widen * E.clamp(speed01, 0, 1);
     this.h += (R.h - this.h) * k; this.near += (R.near - this.near) * k; this.far += (R.far - this.far) * k; this.fov += (fov - this.fov) * k;
   }
   /** Auto-rail: given a vehicle's velocity each step, the heading of the axis it has held steady for 1.5 s (going
@@ -195,7 +195,7 @@ export class Side7View {
       }
       if (Df < NEAR_D || Dn > this.farClip) continue;
       if ((La > 0 ? La : Lb < 0 ? -Lb : 0) * P.F / Math.max(6, Df) > P.W / 2 + 8) continue;   // wholly off to a side, even at its far end
-      const cut = focus && Df < fD - 4 && La < fL + 40 && Lb > fL - 40, h = cut ? Math.min(s.h, s.t.cutH || 8) : s.h;
+      const cut = focus && Df < fD - 4 && (this.cutAll || (La < fL + 40 && Lb > fL - 40)), h = cut ? Math.min(s.h, s.t.cutH || 8) : s.h;   // (indoors, cutAll: every wall nearer than the focus)
       const v = (Math.floor(s.x0 / 64) * 7 + Math.floor(s.y0 / 64) * 13) & 3;
       // the side face the camera sees: the near-side one of a span off to one side (none while the camera is level with it)
       const side = La > 0 ? La : Lb < 0 ? Lb : null;

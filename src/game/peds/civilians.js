@@ -33,6 +33,9 @@ def('peds', 'firefighter', { name: 'Firefighter', kind: 'service', faction: 'fir
   palettes: { cloth: ['#c8423a'], coat: ['#3a3a30'], pants: ['#3a3a30'], boot: ['#18161c'] }, traits: { brave: .8, phone: 0 } });
 def('peds', 'mpd', { name: 'MPD officer', kind: 'service', faction: 'police', weight: 0, builds: ['heroic'], outfits: ['shirt'], hats: [{ style: 'cap', color: '#1e2a4a' }], uniform: true,
   palettes: { cloth: ['#3a5a9a'], pants: ['#1e2a4a'], boot: ['#101014'], belt: ['#101014'] }, traits: { tough: 1, brave: 1, phone: 0 }, weapons: ['fists', 'snub38'] });
+// the bank's guards (PLAN.md 8.21): grey shirts and caps, a revolver; their eyes, mind and rounds are the interior's
+def('peds', 'guard', { name: 'Bank guard', kind: 'service', faction: 'security', weight: 0, builds: ['heroic', 'bulky'], outfits: ['shirt'], hats: [{ style: 'cap', color: '#3a3a44' }], uniform: true,
+  palettes: { cloth: ['#7a7e88'], pants: ['#2a2a32'], boot: ['#101014'], belt: ['#101014'] }, traits: { tough: 1, brave: 1, phone: 0 }, weapons: ['fists', 'snub38'], health: 100 });
 // SWAT (4 stars: in the Rhino, three to a van) and the Feds (5 stars: two to a black sedan); D19: the Feds' long gun is
 // the Buzzsaw (the slice's arsenal has no rifle)
 def('peds', 'swat', { name: 'SWAT trooper', kind: 'service', faction: 'police', weight: 0, builds: ['bulky'], outfits: ['coat'], sleeves: ['long'], hats: [{ style: 'helmet', color: '#1e1e24' }], uniform: true,

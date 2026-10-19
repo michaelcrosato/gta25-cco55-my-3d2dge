@@ -247,6 +247,35 @@ export function buildDistrict(spec, o = {}) {
   return C;
 }
 
+/** an interior (PLAN.md 5.4, 8.21; def('interiors', id, spec)) into a CityMap, by a district's conventions:
+ *  spec.blocks: rows of characters, a cell each; spec.legend: char -> { wall: a type's name } or { floor: a surface }
+ *  (mark: a name, to find those cells again: doors, spawns); spec.types: name -> wall-type options (an engine TileMap
+ *  type, as a landmark's look: h, side, top, face, roof, windows, cutH); spec.rooms: [{ name, rect }] (zones);
+ *  spec.pois. Each wall cell is a lot of its own, so the interior cut-away drops the walls between the camera and the
+ *  player a cell at a time (a room keeps its walls everywhere else) */
+export function buildInterior(spec, o = {}) {
+  const rows = spec.blocks, H = rows.length, W = Math.max(...rows.map(r => r.length)), T = 16, C = new CityMap(W, H, T);
+  C.id = spec.id; C.seed = o.seed ?? spec.seed ?? 1; C.spec = spec; C.interior = true;
+  C.hoods = [{ id: spec.id, index: 0, name: spec.name }]; C.crosswalks = []; C.intersections = []; C.busy = new Uint8Array(W * H);
+  const cells = new Int32Array(W * H), types = {}, ids = {}, marks = {}, legend = spec.legend || {};
+  let next = 1;
+  const typeOf = name => { if (ids[name] === undefined) { if (!spec.types[name]) throw new Error('MOTOR: interior ' + spec.id + ' has no wall type "' + name + '"'); types[next] = { cut: true, cutH: 6, ...spec.types[name] }; ids[name] = next++; } return ids[name]; };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const ch = rows[y][x] || ' ', L = legend[ch], i = y * W + x;
+    if (!L) throw new Error('MOTOR: interior ' + spec.id + ' has no legend for "' + ch + '" (' + x + ', ' + y + ')');
+    if (L.wall) { cells[i] = typeOf(L.wall); C.lot[i] = i; }
+    C.surface[i] = SURF[L.floor || spec.floor || 'concrete'];
+    if (L.mark) (marks[L.mark] ||= []).push([x, y]);
+  }
+  C.types = types; C.marks = marks;
+  C.pois = (spec.pois || []).map(p => ({ ...p, x: (p.at[0] + .5) * T, y: (p.at[1] + .5) * T }));
+  C.zones = (spec.rooms || []).map(r => ({ kind: 'room', ...r }));
+  C.lots = []; C.signs = []; C.tour = [];
+  const map = new E.TileMap({ w: W, h: H, cells: Array.from(cells), floor: Array.from(C.surface, q => SURFACES[q]), types, block: ['water', 'deep', 'sewer'] });
+  C.map = map; map.city = C;
+  return C;
+}
+
 /** shop signs and billboards for lots with no landmark of their own (a district's shopNames / billboards replace them) */
 const SHOP_NAMES = ['PIZZAZZ PIZZA', 'NOODLE NOOK', 'VIDEO VAULT', 'DONUT DEPOT', 'WASH & WOE', 'LUCKY LIQUOR', 'NEON NAILS', 'CASH-O-MATIC',
   'BURGER BARON', 'TACO TORNADO', 'HOT DOG HUT', 'DISCO INFERNO', 'CHEAP SUITS', 'MOTEL 2', 'PAWN PALACE', 'KARAOKE KING', 'BAIT & TACKLE', 'SPARE PARTS'];

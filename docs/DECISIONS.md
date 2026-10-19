@@ -472,3 +472,92 @@ and where it landed.
   - **The AutoPlayer core's long drive** (`city-life.test.mjs`) gets 180 s instead of 120: the gangs' fights in the
     street and the police's calls slow the city (it arrives in about 150 s).
 - **Answered:** no. **Landed in:** M6.
+
+## D20 · 2026-10-19 · M7's views and the bank: memory and a dissolve, MODE 7's lenses, a city that stands still, guards that come to look
+- **Principle:** PLAN.md 5.2-5.5, 8.2, 8.5 and 8.21 and M7's Accept; the engine's perception and paired actions where
+  they serve (`E.sees`, `E.hears`, `E.Suspicion`, `E.FlowField`, `E.ACTIONS.takedown`); presentation never read back.
+- **Calls:**
+  - **The view manager remembers a view per context** (on foot, in a vehicle), each back on getting out or in; a deep
+    link's view stays until the player picks another. **Auto** (off by default, a TUNE knob) picks ISO on foot and
+    TOP-DOWN at speed; the player's own switch holds until they get out.
+  - **A switch, and a turn of MODE 7's rail, dissolve** the last frame into the live view over 0.35 s in a 4x4 Bayer
+    order (`render/crossfade.js`), over the world and under the HUD; into ISO the buildings stand as flat blocks under
+    it while the walls bake a few milliseconds a frame (the quarter turn's way).
+  - **MODE 7's lenses** (`RIGS`): on foot h 70 with the focus 110-260 ahead; in a vehicle h 90, 160-380 ahead, the
+    field widening by up to 12 degrees with speed; **indoors h 50, 64-190 ahead, 58 degrees** (the room's own: the
+    city's put the camera outside the bank's walls with a quarter of the screen black). Eased, never cut. **Auto-rail**
+    (a knob, on) turns the rail, through the dissolve, to the axis a vehicle has held for 1.5 s at over 40 u/s with nine
+    tenths of its speed along it. A body right in front of MODE 7's lens (nearer than .7 of the near distance), the
+    player's aside, is drawn see-through: two guards between the camera and the player had filled the screen.
+  - **MODE 7's sky** is the hour's backdrop above the horizon, its skyline turning with the rail, its foot fading into
+    the haze; indoors a dark ceiling, no backdrop past the walls in ISO (`indoorSky`).
+  - **The camera rig** (`stage.setRig`) holds every view on a point, a zoom and a heading, for photo mode and
+    cut-scenes; the scene's focus follows it.
+  - **The depth views' light pass works at a quarter of the buffer's size** (`TUNE.depthLightRes` 4: the dark and the
+    lamps' pools, scaled up smoothly). Measured with every other part kept, side by side with a fresh baseline: the
+    whole pass cost 4.4 ms a frame here, the quarter-size one 0.8; the pools are soft gradients, and the coarser field
+    doesn't show.
+  - **The interior's data** (`def('interiors')`) is PLAN.md 8.21's list as the builder needs it: its size is its
+    ASCII `blocks`' own; `legend` and `types` say what each character is; the `doors` carry the spawns (`at`) and the
+    exits (`from`, the city's door point of interest); `rooms` name the parts, one `public` (the lobby); `guards`,
+    `cameras`, `lights` and `music` as listed. `validateInterior` checks it and reports which rooms each door reaches.
+  - **The BUS gains a scope and a mute** (`interior`; `BUS.mute(scope)` / `unmute`: a muted scope's listeners hear
+    nothing) and three events (`interior` in and out, `alarm`, `takedown`), catalogued in `core/events.js`.
+  - **Inside, the city stands still**: its clock, weather, bridges, traffic, crowd, police, gangs and the crew's other
+    two are not stepped, its BUS scope ('world') is muted, and its share of the hash counts the player where they went
+    in. Out by the door you came in, you are back on that spot (the city's hash the same as going in, and the same as a
+    twin's that never went in, after as long in the city); out by another door, at its own point of interest. A fresh
+    `InteriorRun` each visit (its own RNG streams and combat): the bank is as it was each time; missions H2 and H4 will
+    hold their own runs (M8).
+  - **Through a door the gun is put away** (fists) and given back outside: a gun drawn inside is the player's own act,
+    and the guards' cue. The protagonists carry one in hand in the city, and every visit had begun with the guards on
+    the alarm.
+  - **What the guards and cameras mind:** the player outside a public room (past the counter), a gun out, aiming,
+    wanted, or the alarm up. A guard's mind is an `E.Suspicion` (rise 1.8, decay .25): it notices (turns to look),
+    searches (goes where it last saw them), then fights with the police's and the gangs' fighter brain, round the
+    counter and through the doorways by a flow field. Seeing the player while alert, a guard raises **the alarm**: every
+    guard alerted where the player is, and the crime `bankAlarm` (60 heat: 2 stars) filed at the city's door: the
+    police are waiting outside. A camera that sees what a guard would mind fills its own mind (rise 2.4) and raises
+    the alarm by itself; a guard killed raises it too.
+  - **Noise:** a sprint close by (60 u) turns a guard to look; **a shot** (heard to 280 u, half as far through a wall)
+    **sends every guard who hears it to where it came from**, to look round there for 2.5 s (where it can't walk, a look
+    that way). `Suspicion.hear` alone caps at searching and decays below it within a fraction of a second: the guards
+    had turned and gone back to their rounds.
+  - **A takedown** is offered from behind (within 1.1 rad of the guard's back) and close (20 u) on a guard that isn't
+    hunting the player; the attack button does it instead of a swing (the prompt says so). The engine's paired action
+    holds the guard (`Ped.held`), then it is down for good. Quiet: no alarm, unless another guard or a camera sees it.
+  - **Cut-aways indoors:** ISO's is a dollhouse's (every wall on the camera's side within 16 cells of the player drops
+    to its stub: an interior's wall cells are each their own lot, and the city's rule had dropped single cells round the
+    player's box); MODE 7 drops every wall nearer than the focus; TOP-DOWN needs none. Furniture lower than a body
+    (`cut: false`) stays.
+  - **8.5's see-through verdict has a fixture:** `#proving/occluder`, a tall block between MODE 7's camera and a
+    magenta marker; its self-test (in the e2e suite) counts the marker's pixels: none behind the block, all of it
+    stepped out.
+  - **The gate's figures are read against M2's own build**, measured in the same rounds as the build being judged (this
+    machine is slower than the gate's, by a different factor in each view, and its own speed drifts by up to 8% from one
+    run to the next): a build's median over M2's in that round, times M2's median on the gate's machine (ISO 9.65 ms,
+    TOP-DOWN 8.4, MODE 7 15.2). M5's and M6's "scaled to the gate's machine" figures had used M4's ratio for every view
+    and read low; PROGRESS.md corrects them.
+  - **The draw levers M7 landed** (each measured against a fresh baseline beside it, then interleaved with the build
+    before): the depth views' light pass at a quarter size; a kept image only for a shape small on screen (parked cars
+    near MODE 7's lens had kept images hundreds of pixels a side, redrawn every few frames: 3.9 million pixels a frame);
+    ISO's sky backdrop drawn only where the map's edge is in sight; a moving car's image kept in ISO (its look the same
+    wherever it is) while its heading (2 degree steps), lean, steering and lights hold; **ISO's floor chunks projected
+    once per view and copied** (the turned blit was the floor's whole cost, about 5 ms a frame here; the copies match
+    the blits pixel for pixel, but for a 2% alpha fringe at the map's edge and a few texel-edge samples at zoom .65); a
+    crowd body more than 160 u (|dx| + |dy|) from the player redrawn every 6 frames instead of 4; a deck cell a few pixels
+    across drawn plainly.
+  - **What they reach, and what M13 carries** (PLAN.md 16's polish pass; the gate stands): TOP-DOWN 9.9 ms against its
+    12.7, inside. ISO about 11.4 against 10.4 (over by about a tenth: 10.9 and 11.8 in two rounds). MODE 7 about 18
+    against 12.7: M2's own MODE 7 was already over its gate (14.4-16.0, the crowd lever then to come), and since then the
+    city has filled with real traffic, crowds, police, gangs and the elevated decks; against M2's own build it has grown
+    as much as ISO has (1.18 times each). A view switch's dissolve is 0.35 s and
+    never moves the simulation, but at the gate (the tour at 300 u/s in the rain) the first frame into a view, and in ISO
+    the frame the walls' bake-in times out, run past 33 ms on the gate's machine (the caches filling: TOP-DOWN's face
+    textures, ISO's walls). M13's levers: MODE 7's floor as one raster (a row of pixels per screen row, read from the
+    chunks' pixels, not 420 drawImage calls), deck cells merged into runs, far bodies and cars as simple shapes, the
+    spans' textures to a nearer distance, the sky band kept between frames; ISO's roofs merged into one image a building
+    (D10's lever); each view's caches warmed before a switch needs them, and the walls' bake-in finished under its
+    budget rather than all at once. M7's own Accept ("medians within budget in all views") passes for TOP-DOWN and moves
+    to M13 for ISO and MODE 7.
+- **Answered:** no. **Landed in:** M7.

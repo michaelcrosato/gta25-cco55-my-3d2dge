@@ -112,3 +112,18 @@ test('the camera rig holds the depth views on its point and zoom, MODE 7 at its 
   S.setRig(null); frames({ focus: [100, 100] });
   assert.ok(near(S.side7.lateral(100, 100), 0, 1), 'let go: following the focus again');
 });
+
+test('MODE 7: the player shrinks walking north up the rail and grows coming back (the stress test\'s own check), on foot and indoors', () => {
+  for (const indoor of [false, true]) {
+    const v = new Side7View({}); v.indoor = indoor; v.setHeading(0, 500, 900); v.rig(1 / 60, false); v.follow(1 / 60, 500, 900);
+    const scale = (x, y) => { v.frame(fakeR); return v.proj(x, y, 0)[2]; };
+    let y = 900, k = scale(500, y);
+    const out = [k];
+    for (let t = 0; t < 2; t += 1 / 60) { y -= 60 / 60; v.follow(1 / 60, 500, y); out.push(scale(500, y)); }   // (two seconds north at a walk)
+    const far = out[out.length - 1];
+    assert.ok(far < k * .8, `${indoor ? 'indoors' : 'outdoors'}: smaller walking north: ${k.toFixed(2)} -> ${far.toFixed(2)}`);
+    for (let t = 0; t < 2; t += 1 / 60) { y += 60 / 60; v.follow(1 / 60, 500, y); out.push(scale(500, y)); }   // (and back)
+    assert.ok(out[out.length - 1] > far * 1.2, `bigger coming back: ${far.toFixed(2)} -> ${out[out.length - 1].toFixed(2)}`);
+    for (let i = 1; i < out.length; i++) assert.ok(Math.abs(out[i] - out[i - 1]) < out[i - 1] * .05, 'no jump in size between frames');
+  }
+});

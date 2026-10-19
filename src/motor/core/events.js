@@ -1,7 +1,8 @@
 // The BUS catalogue (PLAN.md 7.4), frozen in M1: every event a system may emit, with its payload's fields. BUS.emit
 // takes any name (a game adds its own), but these are the ones MOTOR's systems speak, and tests check emitters
 // against this list. Ids are Actor ids; points are world units. Added since, each by a decision (docs/DECISIONS.md):
-// the services' and the troupes' (D18, M5), the police's, the respawns' and the gangs' (D19, M6).
+// the services' and the troupes' (D18, M5), the police's, the respawns' and the gangs' (D19, M6), the interiors' (D20,
+// M7).
 export const EVENTS = {
   // crime and police
   crime: 'type, x, y, by, victim, severity, vehicle, lawful',   // type: def('crimes') ids; vehicle: a car theft's; lawful: the police's own doing
@@ -25,6 +26,10 @@ export const EVENTS = {
   encore: 'troupe, by',
   turfWar: 'gangs, x, y',
   turfWarEnd: 'gangs, x, y, dead',
+  // interiors (M7)
+  interior: 'id, door, enter',                  // in (enter: true) or out by a door (door: null: carried out, WRECKED)
+  alarm: 'interior, by, x, y',                  // by: 'guard' | 'camera' | 'body'
+  takedown: 'interior, guard, by',
   // combat
   hit: 'target, by, damage, kind, x, y, z',     // kind: 'bullet' | 'melee' | 'vehicle' | 'explosion' | 'fire' | 'fall'
   kill: 'target, by, kind',

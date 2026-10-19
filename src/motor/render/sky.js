@@ -48,3 +48,11 @@ function clearSky(hour) {
     phase: t < .5 ? a.phase : b.phase, lamps: ambient < .8, night: ambient < .66, haze: 0, rain: 0, wet: 0, flash: 0,
   };
 }
+
+/** indoors (an interior, PLAN.md 5.4): the room's own light, the same at every hour but dimmer after closing (o.dim
+ *  0..1), no weather; a dark ceiling for MODE 7's sky and no ISO backdrop past the walls (indoor: true) */
+export function indoorSky(hour, o = {}) {
+  const h = ((hour % 24) + 24) % 24, open = h >= 8 && h < 18, dim = o.dim ?? (open ? 0 : 1), ambient = .78 - .3 * dim;
+  return { hour: h, ambient, tint: .2 + .1 * dim, dark: [18, 14, 30], sky: ['#0c0a12', '#16131e', '#221d2c'], fog: '#1a1622', top: '#0a0812',
+    phase: 'night', lamps: true, night: true, haze: 0, rain: 0, wet: 0, flash: 0, indoor: true };
+}

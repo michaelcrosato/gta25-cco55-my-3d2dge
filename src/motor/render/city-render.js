@@ -98,7 +98,8 @@ export class CityRenderer {
       // (the board in slices along its wall, each ordered at its own spot on the wall's foot: whoever stands in front of
       // the door is drawn over the board wherever along it they stand, the wall behind never covers it, and a lamp
       // beside it no longer lifts it over everything)
-      for (const [ax, ay, i, n] of signSlices(stage.projector(), s, night)) stage.shape(ax, ay, 0, (g, P) => drawSign(g, P, s, night, i, n), { bias: .01 });
+      const [wx, wy] = WALL_IN[s.side] || [0, 0];   // (the wall behind the board: TOP-DOWN draws the board after its building)
+      for (const [ax, ay, i, n] of signSlices(stage.projector(), s, night)) stage.shape(ax, ay, 0, (g, P) => drawSign(g, P, s, night, i, n), { bias: .01, wall: [ax + wx, ay + wy] });
       if (night) stage.glow(s.x, s.y, s.z, (g, sx, sy, k) => { const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * .75)), true); g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2)); }, { iso: true });   // (neon: lit after the dark)
     }
   }
@@ -130,11 +131,15 @@ export class CityRenderer {
   _deck(stage, { d, c, map }, fade) {
     const x = (c.cx + .5) * T, y = (c.cy + .5) * T, z = Math.max(c.z0, c.z1);
     const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72, a = near ? .3 : 1;
-    stage.shape(x, y, z, (g, P) => drawDeckCell(g, P, d, c, map, a), { hides: true });   // (the player shows through it, x-rayed)
+    // (far down a depth view a cell is a few pixels across: its top flat, no railings; ISO's are all near)
+    const D = stage.depth, q = D && D.proj(x, y, z), small = !!(q && q[2] * T < DECK_SMALL);
+    stage.shape(x, y, z, (g, P) => drawDeckCell(g, P, d, c, map, a, small), { hides: true });   // (the player shows through it, x-rayed)
     // its railings sort on their own, just outside their edge: drawn with the cell, the next cell's top cut them to teeth
-    if (d.railing !== false) for (const e of EDGES) if (!map.has((c.cx + e[0]) + ',' + (c.cy + e[1]))) stage.shape(x + e[0] * T * 1.1, y + e[1] * T * 1.1, z, (g, P) => drawDeckRail(g, P, d, c, e, a), { hides: true });
+    if (d.railing !== false && !small) for (const e of EDGES) if (!map.has((c.cx + e[0]) + ',' + (c.cy + e[1]))) stage.shape(x + e[0] * T * 1.1, y + e[1] * T * 1.1, z, (g, P) => drawDeckRail(g, P, d, c, e, a), { hides: true });
   }
 }
+const WALL_IN = { s: [0, -10], n: [0, 10], e: [-10, 0], w: [10, 0] };   // (from a sign on a building's side to inside its wall)
+const DECK_SMALL = 12;   // (pixels across: a deck cell smaller on screen is drawn plainly)
 const LAMP_HEAD = 32;   // the streetlamp sprite's lamp, in world units over its foot (its glowAt: .13 of 52 pixels down, at sqrt 2 a unit)
 const GLOWS = new Map();
 /** a lamp's halo: two soft warm discs, added (one image per size) */
@@ -219,13 +224,15 @@ function deckTexture(kind) {
 
 /** one deck slab: its top (textured), the faces along its open edges, a railing, and its underside where the camera is
  *  below it; alpha fades it (the player under it) */
-export function drawDeckCell(g, P, d, c, map, alpha = 1) {
+/** a deck cell through a projector; small: a few pixels across on screen (far down a depth view): its top flat, its
+ *  faces without the underside */
+export function drawDeckCell(g, P, d, c, map, alpha = 1, small = false) {
   const x0 = c.cx * T, y0 = c.cy * T, x1 = x0 + T, y1 = y0 + T, th = d.thickness;
   const zAt = (x, y) => c.z0 + (c.z1 - c.z0) * (c.axis === 'x' ? (x - x0) / T : (y - y0) / T);
   if (alpha < 1) g.globalAlpha = alpha;
   // the underside, when it faces the camera (the L seen from the street in MODE 7)
-  const u = [P.proj(x0, y0, zAt(x0, y0) - th), P.proj(x1, y0, zAt(x1, y0) - th), P.proj(x1, y1, zAt(x1, y1) - th), P.proj(x0, y1, zAt(x0, y1) - th)];   // (wound to face down)
-  if (u.every(Boolean) && cross(u) < 0) quad(g, u, '#2a2a32');
+  const u = small ? null : [P.proj(x0, y0, zAt(x0, y0) - th), P.proj(x1, y0, zAt(x1, y0) - th), P.proj(x1, y1, zAt(x1, y1) - th), P.proj(x0, y1, zAt(x0, y1) - th)];   // (wound to face down)
+  if (u && u.every(Boolean) && cross(u) < 0) quad(g, u, '#2a2a32');
   // the edge faces: where no deck cell continues (a ramp's open foot has none)
   for (const e of EDGES) {
     const [dx, dy, ea, eb] = e; if (map.has((c.cx + dx) + ',' + (c.cy + dy))) continue;
@@ -237,7 +244,7 @@ export function drawDeckCell(g, P, d, c, map, alpha = 1) {
   // the top
   const top = (s, t) => { const x = x0 + s * T, y = y0 + t * T; return P.proj(x, y, zAt(x, y)); };
   const corners = [top(0, 0), top(0, 1), top(1, 1), top(1, 0)];   // (wound to face up)
-  if (corners.every(Boolean) && cross(corners) < 0) texturedFace(g, top, deckTexture(d.kind), (c.cx * T) % 64, (c.cy * T) % 64, T, T, '#3a3a42');
+  if (corners.every(Boolean) && cross(corners) < 0) { if (small) quad(g, corners, '#3a3a42'); else texturedFace(g, top, deckTexture(d.kind), (c.cx * T) % 64, (c.cy * T) % 64, T, T, '#3a3a42'); }
   g.globalAlpha = 1; g._c = null;
 }
 const cross = q => (q[1][0] - q[0][0]) * (q[3][1] - q[0][1]) - (q[1][1] - q[0][1]) * (q[3][0] - q[0][0]);

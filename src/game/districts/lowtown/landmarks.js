@@ -36,7 +36,7 @@ L('lead-farm', 'Lead Farm', [{ rect: [133, 19, 140, 25], kind: 'building', store
 L('pixel-palace', 'Pixel Palace', [{ rect: [87, 41, 95, 49], kind: 'building', storeys: 2, look: neon('#2a2a4a', '#1e1e30', { windows: { lit: .8, w: 6, h: 6 } }), sign: { text: 'PIXEL PALACE', color: '#5af0ff' } }],
   [{ id: 'pixel-palace', kind: 'property', property: 'arcade', at: [91, 50], label: 'Pixel Palace' }]);
 L('bank', 'First Lowtown Bank', [{ rect: [109, 35, 123, 49], kind: 'plaza', surface: 'plaza' }, { rect: [111, 37, 121, 47], kind: 'building', storeys: 8, look: neon('#8a8070', '#4a4440', { face: 'stone', windows: { w: 4, h: 14, step: 12, lit: .5 }, floor: '#c8bca8' }), sign: { text: 'FIRST LOWTOWN BANK', color: '#ffe066' } }],
-  [{ id: 'bank-door', kind: 'door', interior: 'bank', at: [116, 49], label: 'First Lowtown Bank' }]);
+  [{ id: 'bank-door', kind: 'door', interior: 'bank', at: [116, 49], label: 'First Lowtown Bank' }, { id: 'bank-sewer', kind: 'door', interior: 'bank', door: 'sewer', at: [108, 44], label: 'Sewer grate' }]);
 L('club-chrome', 'Club Chrome', [{ rect: [133, 45, 144, 49], kind: 'plaza', surface: 'plaza' }, { rect: [134, 36, 143, 44], kind: 'building', storeys: 2, look: neon('#a8b0c0', '#5a6070', { face: '#a8b0c0 metal', windows: { lit: .7 } }), sign: { text: 'CLUB CHROME', color: '#7ae0ff' } }],
   [{ id: 'saints-hq', kind: 'gang', gang: 'saints', at: [138, 46], label: 'Club Chrome' }, { id: 'phone-saints', kind: 'payphone', gang: 'saints', at: [133, 50] }]);
 L('precinct', 'MPD 5th Precinct', [{ rect: [87, 59, 99, 67], kind: 'building', storeys: 4, look: neon('#5a6a8a', '#3a4458', { windows: { lit: .6, w: 5 } }), sign: { text: 'MPD', color: '#5a8aff' } }, { rect: [87, 68, 99, 71], kind: 'yard', surface: 'yard' }],

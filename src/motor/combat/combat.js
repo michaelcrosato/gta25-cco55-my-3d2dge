@@ -30,12 +30,12 @@ const MOVE_POWER = { jab: .7, cross: .9, hook: 1.1, uppercut: 1.3, overhead: 1.1
 
 export class Combat {
   /** o: { game (for the engine's effects and sounds; null headless), city (the CityMap: fire's surfaces, decks), map
-   *  (the TileMap), fire (false: none) } */
+   *  (the TileMap), fire (false: none), rng (its RNG stream: the city's "combat" by default) } */
   constructor(o = {}) {
     this.game = o.game || null; this.city = o.city || null; this.map = o.map || (o.city && o.city.map) || null;
     this.shots = new Shots(this.game); this.fire = o.fire === false || !this.city ? null : new Fire(this.city);
     this.explosives = new Explosives(this.fire); this.pickups = new Pickups();
-    this.bodies = []; this.boxes = []; this.explosive = []; this.fx = []; this.zaps = []; this.rs = RNG.stream('combat');
+    this.bodies = []; this.boxes = []; this.explosive = []; this.fx = []; this.zaps = []; this.rs = o.rng || RNG.stream('combat');   // (o.rng: an interior's own, the city's left as it was)
     this.kills = 0; this.t = 0;
   }
   add(ped) { if (!this.bodies.includes(ped)) this.bodies.push(ped); return ped; }

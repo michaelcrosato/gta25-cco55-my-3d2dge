@@ -88,6 +88,10 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | Gangs (respect, stances, hangouts and beats, gang cars in their turf, turf wars) | `src/motor/gangs/gangs.js`, `src/game/gangs.js`, `src/game/peds/gangs.js` | M6 |
 | The radar (the city baked, turf hatched, blips, the search circle and the cops' cones) and the wanted stars | `src/motor/ui/radar.js` | M6 |
 | Lowtown's crimes and police tiers; WRECKED, NABBED, the respray, bribes in play | `src/game/crimes.js`, `police.js`, `scenes/play.js` | M6 |
+| The view manager's memory per context and Auto; the dissolve between views and rail turns; the camera rig | `src/motor/render/view-manager.js`, `crossfade.js`, `stage.js` | M7 |
+| MODE 7's lenses (on foot, in a vehicle, indoors), Auto-rail and sky; the depth views' quarter-size light pass | `src/motor/render/depth/side7.js`, `sky.js`, `stage.js` | M7 |
+| Interiors: the `interiors` registry, `buildInterior` (ASCII rooms), `validateInterior`, and the run while the player is inside (guards, CCTV, noise, takedowns, doors) | `src/motor/world/builder.js`, `district.js`, `validator.js`, `interior.js` | M7 |
+| The First Lowtown Bank; the occluder fixture | `src/game/interiors/bank.js`, `src/game/proving/occluder-zone.js` | M7 |
 
 ## Frozen contracts (M1)
 
@@ -141,8 +145,10 @@ stage.end()
 - **ISO** is the engine's own view: `stage.actor` becomes `r.actor` (a `crowd` actor takes the fast path, with no
   outline); `stage.shape` becomes `r.queue` with `P.proj = r.w`.
 - **Crowds and kept shapes** (D13): a `crowd` actor with a `key` is drawn into an image of its own every
-  `TUNE.crowdEvery` frames, posed by `pose(seconds)` just before, and the image is reused in between; a shape with
-  `kept: { key, r, h }` is kept the same way until the view or its size changes. Both work in every view.
+  `TUNE.crowdEvery` frames (one and a half times that away from the player, D20), posed by `pose(seconds)` just before,
+  and the image is reused in between; a shape with `kept: { key, r, h }` is kept the same way until the view or its
+  size changes (in a depth view only while it is small on screen). Both work in every view. A shape's `wall: [x, y]`
+  (a sign's) draws it after that building in TOP-DOWN.
 - **Night** (D11): the engine's canvas lighting draws ISO's dark and pools (GTM-PATCH 7: `lights.res`), the depth
   views take MOTOR's light pass with the same numbers, and anything that shines is a `glow`, never an engine emissive
   item (the glow mask is never built).
@@ -162,6 +168,7 @@ A bad spec warns once per problem (`E.warn`), gets its defaults, and still regis
 | `vehicles` | `{ name, model (a vehicleModels id; M4, D15), kit, class (car truck tow bike boat heli rail), role, handling (the class body's overrides), palette, health, toughness, seats, radio, locked, siren, horn, tool, spec: { t200 or t100, top, brake200 or brake100; boats t100, top; heli top, climb; rail top, dwell }, spawn: { zones, weight, timeOfDay }, price, tags }` | `sim/vehicle/defs.js` |
 | `vehicleModels` | `{ name, class, length, width, height, parts: [{ box, color, role, paint }], wheels, seats, doors, lights: { head, tail, siren }, hook, hitch, nozzle, kits: { name: { parts, lights } } }` | `sim/vehicle/model.js` (M4) |
 | `fleets` | `{ district, curb: { every, chance, roles, classes }, spots: [{ def, near, n }], water, rail: [{ deck, def, trains }], air: [{ def, patrol, alt }] }` | `world/fleet-spawn.js` (M4) |
+| `interiors` | `{ name, blocks (ASCII rows), legend: { char: { wall, floor, mark } }, types, floor, rooms: [{ name, rect, public }], pois, doors: [{ id, from, at, mark }], guards: [{ arch, route }], cameras: [{ at, z, facing, sweep, period, range, fov }], lights: [{ at, radius, color }], music, seed }` (D20) | `world/district.js` (M7) |
 | `stations` | `{ name, freq, dj, genre, color }` | `audio/stations.js` (M4's stub; M10) |
 | `missions` | `defMission(id, { title, giver, gang, tier, requires, brief, rewards, bonus, stages })` | `mission/dsl.js` |
 | `activities` | `defActivity(id, { title, start, levels, stages })` | `mission/dsl.js` |
@@ -171,13 +178,16 @@ The kinds PLAN.md 7.4 lists for later milestones (`districts`, `interiors`, `wea
 
 ### The BUS catalogue (`src/motor/core/events.js`)
 
-`BUS.on(event, fn, scope)` and `BUS.emit(event, data)`, with scopes `global`, `world`, `mission` and `scene`. The
+`BUS.on(event, fn, scope)` and `BUS.emit(event, data)`, with scopes `global`, `world`, `mission`, `scene` and (M7)
+`interior`; `BUS.mute(scope)` and `BUS.unmute(scope)` hold a scope's listeners deaf (the city's, `world`, while the
+player is inside). The
 events MOTOR's systems speak, with their payloads:
 
 | Group | Events (payload fields) |
 |---|---|
 | Crime and police | `crime` (type, x, y, by, victim, severity, vehicle, lawful) · `witness` (crime, by) · `report` (crime, x, y, by, victim, witness, severity) · `wanted` (stars, heat, prev, why) · `search` (x, y, r) · `evaded` (stars) · `busted` (by, how) · `wrecked` (cause) · `dispatch` (kind, x, y, unit, call, tier) · `onScene` (kind, call, unit, x, y) · `roadblock` / `spikes` (x, y) · `spiked` (vehicle) · `respray` (vehicle, color) · `respawn` (kind, x, y) · `confiscated` (weapons) (M5, M6: D18, D19) |
 | The city | `revived` (target, by) · `encore` (troupe, by) · `turfWar` (gangs, x, y) · `turfWarEnd` (gangs, x, y, dead) (M5, M6) |
+| Interiors | `interior` (id, door, enter) · `alarm` (interior, by, x, y) · `takedown` (interior, guard, by) (M7) |
 | Combat | `hit` (target, by, damage, kind, x, y, z) · `kill` (target, by, kind) · `explode` (x, y, z, r, by, power) · `fire` (x, y, r, by) |
 | Vehicles | `vehicleEnter` / `vehicleExit` (vehicle, actor, seat) · `carjack` (vehicle, by, victim) · `vehicleDamage` (vehicle, amount, x, y, by) · `vehicleDestroyed` (vehicle, by) |
 | Rewards | `pickup` (item, by) · `cash` (amount, reason) · `respect` (gang, delta, value, why) · `stunt` (id, score) · `collectible` (id) · `stat` (stat, delta) |

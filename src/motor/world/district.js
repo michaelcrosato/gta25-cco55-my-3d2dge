@@ -3,7 +3,7 @@
 // gathers them and runs the builder: a CityMap with its street painter.
 import { declare, get, all } from '../core/registry.js';
 import { shape } from '../core/schema.js';
-import { buildDistrict } from './builder.js';
+import { buildDistrict, buildInterior as buildRooms } from './builder.js';
 import { SurfacePainter } from '../render/surface-paint.js';
 
 declare('districts', shape({
@@ -14,6 +14,15 @@ declare('districts', shape({
   tour: { type: 'array', def: [] }, drawbridges: { type: 'array', def: [] },
   /** pickups placed in the district: [{ kind, item, amount, at: [cx, cy], respawn }] (each lands on the nearest open cell) */
   pickups: { type: 'array', def: [] },
+}));
+/** an interior (PLAN.md 5.4, 8.21): its rooms as block ASCII (builder.js buildInterior), the doors it is entered by
+ *  (doors: [{ id, from (the city's door poi), at: [cx, cy] (the cell inside it, where one comes in) }]), its guards
+ *  ([{ arch, at, route: [[cx, cy]...], facing }]), its CCTV ([{ at, z, facing, sweep, period, range, fov }]), its lights
+ *  ([{ at, radius, color }]), its music */
+declare('interiors', shape({
+  name: { type: 'string', req: true }, blocks: { type: 'array', req: true }, legend: { type: 'object', req: true }, types: { type: 'object', req: true },
+  floor: { type: 'string', def: 'concrete' }, rooms: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, doors: { type: 'array', def: [] },
+  guards: { type: 'array', def: [] }, cameras: { type: 'array', def: [] }, lights: { type: 'array', def: [] }, music: { type: 'string', def: '' }, seed: { type: 'number', def: 1 },
 }));
 declare('landmarks', shape({ district: { type: 'string', req: true }, name: { type: 'string', req: true }, lots: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, props: { type: 'array', def: [] } }));
 
@@ -26,4 +35,12 @@ export function buildCity(id, seed) {
   city.painter = new SurfacePainter(city);
   city.pickupSpots = spec.pickups.map(p => { const [cx, cy] = city.nearestWalkable(p.at[0], p.at[1]); return { ...p, x: (cx + .5) * city.T, y: (cy + .5) * city.T }; });
   return city;
+}
+
+/** build interior id: a CityMap, with city.painter (a SurfacePainter), its doors and marks */
+export function buildInterior(id, seed) {
+  const spec = get('interiors', id); if (!spec) throw new Error('MOTOR: unknown interior "' + id + '"');
+  const C = buildRooms(spec, { seed: seed ?? spec.seed });
+  C.painter = new SurfacePainter(C);
+  return C;
 }

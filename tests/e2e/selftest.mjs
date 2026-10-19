@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const ZONES = ['range', 'views', 'garage'];
+const ZONES = ['range', 'views', 'garage', 'occluder'];
 const url = pathToFileURL(resolve('dist/index.html')).href, fails = [];
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 try {

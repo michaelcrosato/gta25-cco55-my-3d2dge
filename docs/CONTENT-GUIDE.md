@@ -15,9 +15,10 @@ Every recipe below names the test to run. From M12 on, `tests/recipes/*.test.js`
 | A vehicle model | `def('vehicleModels', id, { name, class, length, width, height, ...carParts({...}), kits })` in `src/game/vehicles/` | `node --test tests/unit/handling.test.mjs` (the model's data) |
 | A vehicle (or a variant of a model) | `def('vehicles', id, { name, model, kit, role, handling, spec, palette, ... })` in `src/game/vehicles/` | `GTM_VEHICLES=<id> node --test tests/unit/handling.test.mjs`; the look: `tools/model-sheet.mjs --only <id>` |
 | A radio station (M4's stub) | `def('stations', id, { name, freq, dj, genre, color })` in `src/game/radio/` | `npm test` |
+| An interior | `def('interiors', id, { name, blocks, legend, types, floor, rooms, doors, guards, cameras, lights, music })` in `src/game/interiors/`, and a city door: a `{ kind: 'door', interior: id }` point of interest beside the building | `validateInterior(buildInterior(id))` has no errors (`tests/sim/interior.test.mjs` for the bank); `node vendor/my-3d2dge/tools/check.mjs 'dist/index.html#interior/<id>'` |
 
 More recipes are added as each system lands: vehicle, variant, weapon, ped, outfit, gang, mission, activity, station,
-song, shop, property, interior, reel, district.
+song, shop, property, reel, district.
 
 ## Vehicles
 
@@ -91,3 +92,26 @@ kits and the baseline definition. Put each model and its definitions in a file o
 - The look: build to a scratch path (`node tools/build.mjs --out <dir>/index.html`), then
   `node tools/model-sheet.mjs --dist <dir>/index.html --only <id> --out <dir>/sheet.png` shoots it in ISO (day and
   night), TOP-DOWN and MODE 7. Read the sheet: it should read as what it is in every view, its silhouette its own.
+
+## Interiors
+
+An interior is a small TileMap drawn as ASCII (`src/game/interiors/bank.js` is the template), built by the district
+builder (`buildInterior`) and run by MOTOR's `InteriorRun` while the player is inside; the city stands still meanwhile.
+
+- **`blocks`**: rows of characters, one a 16-unit cell; **`legend`** names each character: `{ wall: type }` (a wall
+  cell), `{ floor: surface }` (marble, carpet, steel, concrete, sewer: water no one walks), and `mark` (cells a door or
+  a mission finds by name).
+- **`types`**: the wall types the legend names (`h`, `side`, `top`, `face`; `cut: false` for furniture lower than a
+  body, which no cut-away drops; `cutH` the stub a dropped wall leaves).
+- **`rooms`**: `{ name, rect: [x0, y0, x1, y1] }`; a `public: true` room is where anyone may stand (the bank's
+  lobby). Outside it, or with a gun out, aiming or wanted, the guards and cameras mind the player.
+- **`doors`**: `{ id, from, at, mark }`: `from` the city's door point of interest it joins, `at` the cell inside where
+  the player comes in, `mark` the cells where △ leaves by it. Out by the door you came in, you are back where you
+  stood; out by another, at its own point of interest.
+- **`guards`**: `{ arch, route: [[x, y], ...] }` (a ped archetype; the cells of its round, walked by a flow field).
+- **`cameras`**: `{ at, z, facing, sweep, period, range, fov }` (on a wall cell's side: radians, east 0, south pi/2).
+- **`lights`**: `{ at, radius, color }`; **`music`**: a station or cue id (M10).
+
+The validator checks every door, round, camera, room and light, and reports which rooms each door reaches on foot:
+the bank's front door reaches the lobby and the offices but never the vault, which only the sewer reaches.
+

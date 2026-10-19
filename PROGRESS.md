@@ -1,7 +1,9 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M7 is under way: the view manager (memory, Auto, the crossfade), MODE 7's lens, Auto-rail and sky, and the camera
-rig are in (part 1); next are MODE 7's draw budget, the bank interior and M7's acceptance. M6 is done. Blockers: none. The run started inside the
+Now: M7 is done: the view manager, MODE 7's lenses, Auto-rail and sky, the camera rig, the First Lowtown Bank to sneak
+into, and the draw levers; ISO's and MODE 7's remaining draw budgets are carried to M13 (D20). One fault is open: the
+10-minute day soak's new route met a crossing wait of 38.5 s (being fixed). Next is M8: the missions, the activities and
+the economy (FAN-OUT A2). Blockers: none. The run started inside the
 planning session (DECISIONS D5); at M4's close it was handed off (D16), and this session carries it on from M5 on the
 branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md`'s `/goal`.
 
@@ -14,7 +16,7 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
 | M4 Vehicles | done | the models registry, the class bodies, the Fleet, boarding, damage, the renderer, the handling bench (`b442d89`); Lowtown's fleet, driving in play, the accept tests (`f198207`, `a7eb6ae`, `87c52c9`); FAN-OUT A1's 19 definitions, the painter's order, the fixes its reviews found (`f61bf2e` to `c9e3ef6`); the acceptance and the handoff (this commit) · 172 unit + sim tests, 3 e2e suites · ISO at the gate the same as M3's build, interleaved; TOP 9.1 ms · `docs/media/m4/` (the model sheet, 15 shots) |
 | M5 Roads, traffic, peds | done | the roads and the traffic (`6e94f04`); the sidewalks, the crowd, its reactions and witnesses, the emergency services, the Marching Mimes, the AutoPlayer core, the soaks and the evidence (this commit) · 184 unit + sim tests, 3 e2e suites, the 10-minute city soak in test:full · ISO at the gate 12-23% faster than M4's build, TOP-DOWN and MODE 7 the same, interleaved (measured with M5's tour stuck at its start: corrected at M6) · `docs/media/m5/` (13 filmstrips, 5 shots) |
 | M6 Wanted, police, gangs | done | the crimes and the wanted level, the police by tier with the Eye, roadblocks and spikes, NABBED and WRECKED, the respray and the bribes, the gangs with respect, turf, cars and turf wars, the radar (`a1a65cb`); what the 10-minute city soak found with gangs and police about, and the gate (this commit) · 201 unit + sim tests (wanted 11, gangs 5), 3 e2e suites, the 5-minute gang sim and both city soaks pass in test:full · ISO and TOP-DOWN the same as M5's build, MODE 7 within the tolerance, interleaved (the tour fixed in both) · `docs/media/m6/` (10 filmstrips) |
-| M7 TOP + SIDE7 + bank | under way | the view manager, MODE 7's lens, Auto-rail and sky, the camera rig (part 1, this commit) · 210 unit + sim tests · `docs/media/m7/` (4 shots) |
+| M7 TOP + SIDE7 + bank | done | the view manager, MODE 7's lens, Auto-rail and sky, the camera rig (`a856add`); the bank with its guards, CCTV, doors and takedowns, the indoor cut-aways, the occluder fixture, the draw levers and the acceptance (this commit) · 220 unit + sim tests (the bank 9), 3 e2e suites (the occluder's self-test), `check.mjs` on `#interior/bank` · TOP-DOWN inside its gate; ISO (about 11.4 against 10.4) and MODE 7 (about 18 against 12.7) carried to M13 (D20) · `docs/media/m7/` (16 shots, the chase strip) |
 | M8 Missions + economy | | |
 | M9 10-foot UI | | |
 | M10 Audio + radio | | |
@@ -443,7 +445,9 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
     MODE 7 the same within noise. The crowd's own ring puts real peds where the gate's stand-ins stood, and a body
     off the screen no longer queues a shadow. Standing at the bank, with no stand-ins, the real crowd and traffic cost
     about 2 ms. Scaled to the gate's machine: ISO about 9 ms (gate 10.4) and TOP-DOWN about 9 ms (gate 12.7), inside;
-    MODE 7 about M4's 14 ms, over its 12.7 as at M3 and M4: M7's lever (D10).
+    MODE 7 about M4's 14 ms, over its 12.7 as at M3 and M4: M7's lever (D10). (Corrected at M7: that scaling used M4's
+    ratio for every view and read low. Read against M2's own build, view by view in the same rounds (D20), M5's ISO
+    was about 11-12 ms on the gate's machine, over its 10.4; see M7's performance.)
   - **The update** is per frame: at the 22-28 fps this machine reaches, a frame takes 4-5 steps of 1/120 s, so the
     city costs about 1 ms a step here (budget 1.5 ms, D10), less than half that on the gate's machine.
   - **Found on the way** (D18): every body within 600 u queued its contact shadow before the on-screen test, and the
@@ -605,3 +609,89 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
     - `side7-sky-night-rain`: the moon, lit windows in the skyline, rain. Pass;
     - `side7-vehicle-rail`: the AutoPlayer in a Medic; Auto-rail has turned the rail east along its drive, the camera
       higher and farther back. Pass.
+  - (part 2) MODE 7 indoors has a room's own lens (h 50, the focus 64-190 ahead, 58 degrees): the city's had put the
+    camera outside the bank's walls with a quarter of the screen black. A body between the lens and the player, over
+    them on screen, is drawn see-through (the first rule, every body nearer than the focus ever comes, ghosted the
+    whole near sidewalk in a car: found in the chase strip below).
+  - (part 2) TOP-DOWN: a body up on a roof is drawn after the roof it stands on (M3's known gap), and a shop sign's
+    slices after the building they hang on (the bank's read "T LOWTOWN": a building sorts by its footprint's nearest
+    point to the centre, so most of the board's slices sorted before it).
+  - (part 2) `tests/unit/depth.test.mjs`: the player shrinks walking north up the rail and grows coming back, on foot
+    and indoors, no jump in size between frames (the stress test's own check).
+  - (part 2) **The occluder fixture** (`#proving/occluder`): a tall block between MODE 7's camera and a magenta marker
+    a body high. Its self-test, in the e2e suite, counts the marker's pixels in the drawn frame: 0 behind the block, 240
+    stepped out past its end. Shots: `occluder-behind`, `occluder-aside`. Pass.
+  - (part 2) **The chase filmstrip** (`docs/media/m7/side7-chase-strip.png`; the engine's filmstrip tool, seed 1: the
+    AutoPlayer in a Medic from the safehouse with 2 stars, 200 frames a twentieth of a second apart, every other one in
+    the sheet at half size): the Medic drives east, Auto-rail turns the rail north through the dissolve (frames 44-48),
+    the police come up the avenue, the stars go out. Nothing behind a building shows through it in any frame: the
+    buildings hide the street behind them, the Greasy Spoke's board is cut by the corner in front of it, a passer-by
+    crosses in front of the board. Pass (the first take had the near sidewalk's passers-by ghosted: fixed above).
+  - (part 2) `top-lean-bank`: TOP-DOWN at the bank, the tallest building, by day: its front leans toward the centre
+    over its door, the roof grown with its height, its board whole. Pass. `top-body-on-roof`: Dex on a 72-unit roof,
+    drawn on it. Pass.
+- **M7 · section 8.21, the bank** (`tests/sim/interior.test.mjs`, 9 tests; `check.mjs` on `#interior/bank` joins
+  `npm test`):
+  - the First Lowtown Bank (`src/game/interiors/bank.js`): a 40×30 TileMap in ASCII: the lobby (marble, pillars,
+    benches), the counter and the tellers, the staff corridor, the records office (carpet, desks, cabinets), the vault
+    (steel, deposit boxes, its door shut), and the sewer wing under it all, its hatch into the vault. Three guards on
+    rounds, four cameras, eight lights. The validator: no errors; the front door reaches the lobby, the tellers, the
+    corridor and the records office, never the vault; only the sewer does (QUIET's way, H4);
+  - in and out: △ at the bank's door on Neon Mile (or the grate round its west side) fades through black into it; △
+    at a door inside goes back out. The city stands still meanwhile, its BUS scope muted: its hash going in and coming
+    out is the same, and 5 s later the same as a twin's that never went in after as long in the city (test). Out by
+    the sewer you come up at the grate (test);
+  - stealth (tests): seen past the counter, a guard notices, searches, then raises the alarm, and the police are told
+    (2 stars); a shot in the records office, out of every guard's sight, is heard through the walls and the guards come
+    to look; a camera that sees you in the vault, with no guard there, raises the alarm by itself; a takedown from
+    behind drops a guard quietly (no alarm, no stars) and it stays down; a scripted walk past the counter into the
+    corridor, switching views and turning the camera all the way, hashes the same as without (every view visited, the
+    alarm up, the guards' fire);
+  - shots in `docs/media/m7/`, at night (the bank after closing), with verdicts:
+    - `bank-door-city`: Dex at the bank's door, its yellow ring, "ENTER  FIRST LOWTOWN BANK". Pass;
+    - `bank-lobby-iso`, `bank-lobby-top`, `bank-lobby-side7`: the lobby in the three views, the guards on their
+      rounds with their pale cones, the front door's green ring. Pass (the first ISO take kept the lobby's east wall
+      standing between the camera and Dex: the dollhouse cut reached 9 cells, now 16; the guards' cones were too
+      faint on the marble: now an edge and a stronger wash);
+    - `bank-alarm-iso`, `bank-alarm-top`, `bank-alarm-side7`: Dex behind the counter and in the corridor: a camera's
+      red cone on him, the guards' red marks, ALARM, 2 stars, the guards drawing on him in MODE 7. Pass;
+    - `bank-vault-side7`: in the vault from the sewer, its camera's alarm, the guards come; the two between the lens
+      and Dex see-through. Pass (the first take had them a wall of body: the lens fade, above).
+- **M7 · section 8.2, transitions:** every switch dissolves over 0.35 s and none moves the simulation (the tests
+  above, outdoors and in the bank). Frame times while switching every 1.5 s on the gate's tour at 300 u/s in the rain
+  (`tools/_switchperf.mjs`, a local probe), on the gate's machine's scale: the dissolving frames' medians about 28 ms
+  into ISO, 19 into TOP-DOWN, 24 into MODE 7; but the first frame into a view (its caches filling: TOP-DOWN's face
+  textures the first time, ISO's walls each time on the tour) and, in ISO, the frame the walls' bake-in times out run
+  to 40-80 ms. Over 33 ms: carried to M13 with the view budgets (D20).
+- **M7 · performance** (`tools/perf.mjs`'s gate scenarios, 30 s medians, M2's build (`0c3d575`), M6's (`15078bc`) and
+  M7's interleaved in two rounds on this machine; a build on the gate's machine's scale is its median over M2's in the
+  same round, times M2's gate figure, D20):
+
+  | The gate (night, rain, 40 walkers and 20 cars in view) | M2 draw | M6 draw | M7 draw | M7 on the gate's machine | Gate |
+  |---|---|---|---|---|---|
+  | ISO, the tour at 300 u/s | 21.0, 20.2 ms | 25.4, 25.9 ms | 23.7, 24.8 ms | 10.9, 11.8 ms | 10.4 |
+  | TOP-DOWN, the tour | 13.8, 15.3 ms | 18.5, 19.0 ms | 16.2, 18.0 ms | 9.9, 9.9 ms | 12.7 |
+  | MODE 7, the tour | 24.8, 25.9 ms | 29.5, 35.4 ms | 29.1, 30.7 ms | 17.8, 18.0 ms | 12.7 |
+
+  - **TOP-DOWN is inside its gate; ISO is over by about a tenth, MODE 7 by about two fifths** (M2's own MODE 7 was
+    over already, 14.4-16.0; the city has since filled with traffic, crowds, police, gangs and the decks, and against
+    M2's build MODE 7 has grown as much as ISO, 1.18 times). The rest of both is M13's (D20 names the levers).
+  - **What M7 took off** (each measured with that part switched off or changed, against a fresh baseline beside it,
+    20-30 s windows; ms on this machine): the depth views' light pass at a quarter size (the pass had cost 4.4 ms in
+    MODE 7, now 0.8); near MODE 7's lens, parked cars drawn rather than kept as images hundreds of pixels a side (3.9
+    million pixels a frame of drawImage gone); ISO's sky backdrop only where the map's edge shows (the gate's tour never
+    sees it); moving cars kept as images in ISO; ISO's floor chunks projected once per view and copied (the turned
+    blits had been the floor's whole cost: 4.9 ms against 4.3 for no floor at all); far crowd bodies redrawn every 6
+    frames (2.5 ms for all bodies at 6); far deck cells drawn plainly. Against M6's build in the same rounds: ISO 4-7%
+    faster, TOP-DOWN 5-12%, MODE 7 1-13% (its p90 from 47-52 ms to 41-47).
+  - **Where MODE 7's frame goes now** (the same way): the bodies about 7 ms, the shapes about 5 (decks about 3 of
+    them), the spans about 7, the sky about 3, the floor about 3 (about 420 drawImage calls a frame, one per screen row
+    a chunk), here; drawImage is 37% of all the time in a CPU profile.
+- **M7 · the gate:** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 220 unit and sim
+  tests, the e2e smoke, replay and self-tests with the occluder's, the engine checker on the city and on
+  `#interior/bank`). `test:full`: the 5-minute gang sim passes (5 turf wars, all ended) and the night soak passes; the
+  10-minute day soak fails on one crossing wait of 38.5 s (its limit 30). The soak hops the player between the city's
+  points of interest, and the bank's sewer grate is a new one, so its route changed and met a crossing M6's never
+  did; the simulation itself is the same (the bank's city hash test, and M7 steps nothing new in the city). Being fixed
+  next, before M8.
+

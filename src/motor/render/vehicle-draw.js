@@ -3,7 +3,8 @@
 //   - the model with its paint, dents, steering front wheels, open doors, lights (head, brake, reverse), the siren's
 //     alternating lamps; a wreck charred, on its roof if it landed so; a bike leaning into turns and wheelieing off the
 //     line; a boat bobbing; a heli tilted into its push with its rotor turning and its spotlight on the ground; the L;
-//   - parked vehicles are kept images (D13), redrawn only when their look changes;
+//   - parked vehicles are kept images (D13), redrawn only when their look changes; in ISO a moving car's image is kept
+//     too, while its heading and look hold;
 //   - at night: headlight pools and beams, tail lights, the siren's lights;
 //   - VehicleFX: skid marks on the floor, tyre smoke, sparks off scrapes, engine smoke and fire, debris, the wake, the
 //     water cannon's jet, oil slicks and mines, the hydrant's spray.
@@ -12,6 +13,7 @@ import { TUNE } from '../core/tune.js';
 import { drawBoxModel } from './box-model.js';
 
 const SKID_LIFE = 40;   // seconds a skid mark lasts (it fades over its life)
+const HEADING_STEP = Math.PI / 90;   // (a moving car's kept image in ISO: redrawn when its heading moves 2 degrees)
 
 /** ease a vehicle's cosmetic look toward what its body feels (dt: real seconds since its last frame) */
 export function easeLook(v, dt) {
@@ -57,10 +59,14 @@ export function drawVehicle(stage, v, o = {}) {
   }
   const opts = { roll: look.roll, pitch: look.pitch, steer: v.cls === 'bike' || v.cls === 'boat' ? 0 : b.steerAngle, rotor: b.rotor || 0, lit, braking: v.lights.brake, reversing: v.lights.reverse,
     siren, paint: v.color, burnt: wreck, cracked: v.damage.share < .5, dents: v.damage.dents, extra };
-  const still = b.speed < .5 && !v.damage.smoking && siren === undefined && !b.airborne && v.cls !== 'heli' && v.cls !== 'boat' && !v.sinking;
-  const sig = still ? `${b.heading.toFixed(3)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}|${doorSig}|${v.color}|${b.steerAngle.toFixed(2)}` : '';
+  const plain = !v.damage.smoking && siren === undefined && !b.airborne && v.cls !== 'heli' && v.cls !== 'boat' && !v.sinking, still = plain && b.speed < .5;
+  // ISO's projection is the same everywhere, so a car on the move looks the same wherever it is: its image is kept too,
+  // redrawn when its heading (2 degree steps), lean, steering, lights or paint change (a car driving straight: once)
+  const moving = plain && !still && !stage.depth && v.cls !== 'bike';
+  const sig = still ? `${b.heading.toFixed(3)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}|${doorSig}|${v.color}|${b.steerAngle.toFixed(2)}`
+    : moving ? `m${Math.round(b.heading / HEADING_STEP)}|${Math.round(look.roll / .03)}|${Math.round(look.pitch / .02)}|${Math.round(b.steerAngle / .1)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}${v.lights.reverse ? 1 : 0}|${doorSig}|${v.color}|${wreck ? 1 : 0}` : '';
   const draw = (g, P) => drawBoxModel(g, P, v.model, b.x, b.y, z, b.heading, opts);
-  stage.shape(b.x, b.y, z, draw, still ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig } } : undefined);
+  stage.shape(b.x, b.y, z, draw, still || moving ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig } } : undefined);
   if (v.cls === 'heli') drawHeliExtras(stage, v, o);
   if (o.night && !wreck) drawNightLights(stage, v, z);
   if (siren !== undefined) {   // the bar's lamps: alternating red and blue glows, and a light either side

@@ -22,9 +22,9 @@ It also includes:
 
 Under it sits **MOTOR**, an open-city engine layer on top of my-3D2dge, built to carry the full game.
 
-> **Status: implementation in progress (M6 of M13 done: the core and input, the three views' renderers, Lowtown,
-> on foot and combat, the vehicles, the roads with their traffic and crowds, and the wanted level, the police and the
-> gangs).** `PROGRESS.md` has each milestone's evidence. `PLAN.md` is the full plan, `GOAL.md` is the `/goal` prompt
+> **Status: implementation in progress (M7 of M13 done: the core and input, the three views' renderers, Lowtown,
+> on foot and combat, the vehicles, the roads with their traffic and crowds, the wanted level, the police and the
+> gangs, and the three views finished with the First Lowtown Bank to sneak into).** `PROGRESS.md` has each milestone's evidence. `PLAN.md` is the full plan, `GOAL.md` is the `/goal` prompt
 > that started the run, and `docs/HANDOFF.md` is where the current session picked it up (M5).
 
 ## Source Information
@@ -52,13 +52,18 @@ This is kept separate from the Source Information above.
 - **Develop:** `npm run dev` serves it on `localhost:5173` and rebuilds on every change.
 - **Test:** `npm test` (the fast gate) or `npm run test:full`. In a Claude Code cloud session the SessionStart hook
   installs everything; elsewhere, run `npx playwright install chromium` once.
-- **Deep links:** `#title`, `#play` (or `#play/<spawn>`, such as `#play/precinct`), `#attract`; the Proving Ground's
-  `#proving/scale` (a 160×160 city), `#proving/views` (the view lab), `#proving/pad` (the handling track),
-  `#proving/range` (the combat range) and `#proving/garage` (every vehicle, with its handling bench). Options:
+- **Deep links:** `#title`, `#play` (or `#play/<spawn>`, such as `#play/precinct`), `#interior/bank` (inside the
+  First Lowtown Bank), `#attract`; the Proving Ground's `#proving/scale` (a 160×160 city), `#proving/views` (the view
+  lab), `#proving/pad` (the handling track), `#proving/range` (the combat range), `#proving/garage` (every vehicle,
+  with its handling bench) and `#proving/occluder` (MODE 7's occlusion fixture). Options:
   `?view=iso|top|side7`, `?time=day|dusk|night`, `?weather=`, `?seed=`, `?mode=walk|auto`, `?wet=1`, `?zoom=.65`,
   `?record=1`, `?perf=1`, `?selftest=1`; in the garage `?only=<ids>`, `?night=1`, `?siren=1`, `?bench=1`. More arrive
   with each milestone.
-- **Views:** R3 (keyboard `V`) cycles ISO → TOP-DOWN → MODE 7.
+- **Views:** R3 (keyboard `V`) cycles ISO → TOP-DOWN → MODE 7; each view is remembered on foot and in a vehicle.
+  R3 held with a flick of the right stick (keyboard `[` `]`) turns ISO's camera and MODE 7's rail.
+- **The bank:** △ (keyboard `E`) at the First Lowtown Bank's door on Neon Mile, or at the sewer grate round its west
+  side, goes in. Past the counter, with a gun out or wanted, the guards and the cameras mind you; from behind, the
+  attack button (R2, the left mouse button) takes a guard down quietly. △ at a door goes back out.
 
 The controls are in `PLAN.md` section 11. A PS5 DualSense is the primary controller; keyboard and mouse map onto the
 same model.

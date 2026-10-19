@@ -2,12 +2,14 @@
 // them, drops to low stubs (its type's cutH) through the patched TileMap's cutAt hook (GTM-PATCH 1). A building drops
 // whole (its lot), never a hole in it, and only while it hides the player; MODE 7 cuts its own spans and TOP needs none.
 // The engine's own cut rule (the camera-facing row of every 'cut' type) is turned off: the hook answers for every cell.
+// Indoors (o.room: an interior's map, PLAN.md 5.4) the cut is a dollhouse's: every wall on the camera's side of the
+// player within the radius drops, so the room round them reads whole (an interior's wall cells are each their own lot).
 //   Cut and whole blocks are cached side by side (GTM-PATCH 2), so a building that drops and comes back bakes once. The
 //   cut is worked out per view: a view about to be used (a quarter turn, a zoom step) prebakes with its own cut.
 export class CutAway {
   /** city: a CityMap (its lot grid names each wall cell's building) */
-  constructor(city) {
-    this.city = city; this.cut = new Set(); this.sets = new Map(); this.radius = 13;
+  constructor(city, o = {}) {
+    this.city = city; this.cut = new Set(); this.sets = new Map(); this.room = !!o.room; this.radius = o.radius || (this.room ? 16 : 13);
     city.map.cutAt = (cx, cy, view) => {
       const set = view.inv && !view.isTop ? this.sets.get(view) : null; if (!set) return false;
       const lot = city.lot[cy * city.w + cx]; return lot >= 0 && set.has(lot);
@@ -27,6 +29,7 @@ export class CutAway {
       const id = map.cell(cx, cy); if (id <= 0) continue;
       const lot = C.lot[cy * C.w + cx]; if (lot < 0 || set.has(lot)) continue;
       const mx = (cx + .5) * T, my = (cy + .5) * T; if (view.fx * mx + view.fy * my <= own + 6) continue;   // behind or level: never in the way
+      if (this.room) { if (Math.hypot(cx - cx0, cy - cy0) <= R) set.add(lot); continue; }
       const h = C.types[id].h, a = view.p(cx * T, cy * T, 0), b = view.p(cx * T + T, cy * T + T, 0), c = view.p(cx * T + T, cy * T, 0), d = view.p(cx * T, cy * T + T, 0);
       const sx0 = Math.min(a[0], b[0], c[0], d[0]), sx1 = Math.max(a[0], b[0], c[0], d[0]), sy1 = Math.max(a[1], b[1], c[1], d[1]), sy0 = Math.min(a[1], b[1], c[1], d[1]) + view.bz * h;
       if (sx1 > bx0 && sx0 < bx1 && sy1 > by0 && sy0 < by1) set.add(lot);
