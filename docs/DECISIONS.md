@@ -680,3 +680,13 @@ and where it landed.
   - **Hold-ups:** a Kwik-Lux's clerk stands at the counter (its door); a gun held on them for TUNE.holdupTime empties
     the till at the counter and files a `holdup` (60 heat: two stars, the store's silent alarm); that store is shut to
     hold-ups for a game day.
+  - **FAN-OUT A2 paused at the weekly usage limit** (part 2b). Three of the eight workers' results are merged: `rats`
+    (part 2a), then `heist-finale` and `gnomes` as written (each of their four missions passes through the bot on
+    seeds 1-3 and through the pad on part 2a's MOTOR). The workflow was stopped with `heist-setups` and `jobs` mid-way:
+    their files are kept as work in progress in `docs/handoff/m8-a2/wip/`, outside the build, with their last runs in
+    that folder's README. `saints`, `prologue` and `extras` never started. The H4 and Gnomes workers' MOTOR requests
+    were each checked against the code. The 18 real gaps are prepared as one patch (`docs/handoff/m8-a2/motor-patch.py`)
+    but not applied, because a MOTOR change moves every bot run, and validating it (all merged content again, both
+    ways) would not fit before the limit. Four are left for a call: H13 (MODE 7's heading), G5 (fighting back a
+    passer-by), G7 (three stars) and G9 (a pier's walls, which changes the harbour's map). Nothing is cut: the next
+    session finishes M8 from `docs/HANDOFF.md`.

@@ -1,12 +1,21 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M8 is under way. Part 1 (this commit) is the staged runtime and its ops, the mission bot and the pad pass, the
-economy with its shops, properties and completion, the tokens, stunt jumps, hold-ups and random events, the career's
-interim cards, saves and the title's continue, and the reference mission S1 (Holy Rollers), which the bot passes on
-seeds 1-3 and through a pad. Next is FAN-OUT A2: the other 13 missions and the side content, eight workers in their own
-worktrees (D21). Blockers: none. The run started inside the planning session (DECISIONS D5); at M4's close it was
-handed off (D16), and this session carries it on from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft
-PR 2), from `docs/HANDOFF.md`'s `/goal`.
+Now: M8 is under way, **paused at the weekly usage limit** (DECISIONS D21's last bullet). These parts are in:
+- the staged runtime and its ops, the mission bot and the pad pass, the economy, the activity frameworks, and the
+  career's cards and saves (part 1);
+- the career's screens (1b) and the bot campaign (1c);
+- 8 of the 14 missions: S1, the Harbor Rats' R1-R3 (2a), the heist's finale H4 and the Lawn Gnomes' G1-G3 (2b).
+  Each passes through the bot on seeds 1-3 and through a pad.
+
+Next:
+- the H4 and Gnomes workers' MOTOR requests (prepared as a patch, not yet validated);
+- the rest of FAN-OUT A2: H1-H3 and the jobs from their saved work in progress; S2-S3, P0 and the side content,
+  which are not started;
+- the bot campaign to 100%, then M8's acceptance.
+
+`docs/handoff/m8-a2/README.md` says how. Blockers: none. The run started inside the planning session (DECISIONS D5).
+At M4's close it was handed off (D16), and the next session carried it from M5 on the branch
+`claude/compassionate-shannon-h7k7zk` (draft PR 2). A new session picks it up from `docs/HANDOFF.md`'s `/goal`.
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
@@ -18,7 +27,7 @@ PR 2), from `docs/HANDOFF.md`'s `/goal`.
 | M5 Roads, traffic, peds | done | the roads and the traffic (`6e94f04`); the sidewalks, the crowd, its reactions and witnesses, the emergency services, the Marching Mimes, the AutoPlayer core, the soaks and the evidence (this commit) · 184 unit + sim tests, 3 e2e suites, the 10-minute city soak in test:full · ISO at the gate 12-23% faster than M4's build, TOP-DOWN and MODE 7 the same, interleaved (measured with M5's tour stuck at its start: corrected at M6) · `docs/media/m5/` (13 filmstrips, 5 shots) |
 | M6 Wanted, police, gangs | done | the crimes and the wanted level, the police by tier with the Eye, roadblocks and spikes, NABBED and WRECKED, the respray and the bribes, the gangs with respect, turf, cars and turf wars, the radar (`a1a65cb`); what the 10-minute city soak found with gangs and police about, and the gate (this commit) · 201 unit + sim tests (wanted 11, gangs 5), 3 e2e suites, the 5-minute gang sim and both city soaks pass in test:full · ISO and TOP-DOWN the same as M5's build, MODE 7 within the tolerance, interleaved (the tour fixed in both) · `docs/media/m6/` (10 filmstrips) |
 | M7 TOP + SIDE7 + bank | done | the view manager, MODE 7's lens, Auto-rail and sky, the camera rig (`a856add`); the bank with its guards, CCTV, doors and takedowns, the indoor cut-aways, the occluder fixture, the draw levers and the acceptance (this commit) · 220 unit + sim tests (the bank 9), 3 e2e suites (the occluder's self-test), `check.mjs` on `#interior/bank` · TOP-DOWN inside its gate; ISO (about 11.4 against 10.4) and MODE 7 (about 18 against 12.7) carried to M13 (D20) · `docs/media/m7/` (16 shots, the chase strip) |
-| M8 Missions + economy | in progress | the runtime and its ops, the mission bot and the pad pilot, the economy, the activity frameworks, the career's cards and saves, S1 (part 1, this commit) · 237 unit + sim tests (the runtime 6, the deep links and the lint 2, the economy 8 with 1 waiting for the content) · S1 through the bot on seeds 1-3 (gold, gold, silver) and through the pad (silver); the bot gym's 13 hint kinds pass with the bot and through the pad |
+| M8 Missions + economy | in progress (paused) | the runtime and its ops, the mission bot and the pad pilot, the economy, the activity frameworks, the career's cards and saves, S1 (`e88f1e2`); the screens at 10 feet (`ddab2bf`); the bot campaign and `--par` (`571b184`); FAN-OUT A2's R1-R3 and the 14 MOTOR fixes they found (`eaf255b`); H4 and G1-G3, the handoff (this commit) · 243 unit + sim tests (1 waiting for the content) · 8 of the 14 missions through the bot on seeds 1-3 and through the pad; the bot gym's 13 hint kinds pass both ways · `docs/media/m8/` (8 shots) |
 | M9 10-foot UI | | |
 | M10 Audio + radio | | |
 | M11 Attract + kiosk | | |
@@ -763,3 +772,52 @@ PR 2), from `docs/HANDOFF.md`'s `/goal`.
   objective line was lost on a busy street (it now sits on a dark band); a target off the radar's edge was not shown
   (mission blips now pin to the rim); a refused shop row showed no reason (it now says NO GUN, NOT ENOUGH CASH, FULL,
   beside the price). Verdict: every screen reads at 10 feet; M9 rebuilds them with the UI kit.
+- **M8 · the bot campaign (part 1c)** (`tools/bot-campaign.mjs`, in test:full; PLAN.md 15.4): a new game from the
+  title's NEW GAME, played by the mission bot through the scene's own seams (D21). On the content there is, the bot
+  walked to S1's giver from a new game (the prologue marked done, since P0 isn't in yet), accepted its JOB card,
+  passed it (silver), and bought both properties at their doors through the BUY prompt and the confirm card. Jobs
+  from the phone, races, MAYHEM, tokens and stunts are written but wait for their content. `tools/bot.mjs --par 3`
+  runs test:full's sweeps three at a time, each in its own process. Verdict: the campaign's seams work; 100% waits for
+  the content.
+- **M8 · FAN-OUT A2, the heist's finale and the Lawn Gnomes (part 2b)** (`src/game/missions/h4-big-withdrawal.js`,
+  `g1-lawn-order.js`, `g2-bingo-night.js` and `g3-gutter-ball.js`, by the `heist-finale` and `gnomes` workers, merged
+  as written).
+  - **The missions:**
+    - **H4 The Big Withdrawal** opens with the planning board's choice. LOUD rams the Strongbox in the Hookline and
+      holds the lobby with the Buzzsaw. QUIET drills at the sewer and walks into the vault while the helper gang
+      loops the cameras. Both end with the getaway, MODE 7's window, the tow, home, the split and the credits.
+    - **G1 Lawn Order:** eight Saints cars smashed with a bat in two minutes, then a star lost or hidden at the lanes.
+    - **G2 Bingo Night:** Nana out of the raid in her wagon, then the heat lost.
+    - **G3 Gutter Ball:** the Rats' boathouse pier burned, the Rats held off, then out.
+  - **The runs** (`node tools/bot.mjs`, on part 2a's MOTOR):
+
+    | Mission | Seeds 1-3 | Through the pad (seed 1) |
+    |---|---|---|
+    | H4 | gold, silver, gold (228, 256, 185 s; seed 2 retried once: Dex left the getaway car) | gold (249 s) |
+    | G1 | gold, silver, gold (117, 119, 113 s) | silver (127 s; one retry after a bust) |
+    | G2 | gold on all three (65, 74, 55 s) | gold (79 s) |
+    | G3 | silver on all three (159, 84, 86 s) | silver (123 s) |
+
+    Every stage of the four deep-links (`tests/sim/mission-links.test.mjs`).
+  - **The MOTOR requests:** the two workers filed 24, for 23 gaps (H4 and G1 are the same one). Each was checked
+    against the code (`docs/handoff/m8-a2/motor-requests.md`):
+    - 1 was done in part 2a;
+    - 18 are real gaps the content works round. They are prepared as one patch (`motor-patch.py`), which applies
+      cleanly, and the lint, the boundary check and three sim suites pass with it, but it hasn't been through the
+      bot;
+    - 4 are left for a call (D21).
+  - Verdict: the four play both ways as written. The patch is the next step.
+- **M8 · paused at the weekly usage limit (part 2b):** the workflow was stopped with `heist-setups` and `jobs`
+  mid-way. Their files are kept in `docs/handoff/m8-a2/wip/`, outside the build, with their last runs:
+  - H1 passed seed 1;
+  - H2 failed at its alarm;
+  - H3 passed seed 1, and failed seeds 2-3 at the tow;
+  - the Firefighter and the Moto Courier passed seeds 1-3;
+  - MAYHEM `mayhem_zap_rats` passed seeds 1-2;
+  - the races were still being tuned.
+
+  `saints`, `prologue` and `extras` never started. `docs/handoff/m8-a2/` holds everything the next session needs:
+  the briefs, the workflow, each worker's notes and result, the MOTOR backlog with its patch, and the merges' probes.
+- **M8 · the gate (part 2b):** `npm test` passes every step: lint, boundary, vendor, goal-sync, dist current,
+  243 unit and sim tests with 1 skipped until the content, the e2e smoke, replay and self-tests, and the engine
+  checker on the city and on `#interior/bank`.
