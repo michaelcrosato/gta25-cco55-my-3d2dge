@@ -464,7 +464,11 @@ and where it landed.
     car the traffic left with nobody alive at the wheel (its driver killed in a fight, or out to fight) is taken away
     once it has stood 10 s beyond the spawn ring's inner edge, out of every view's sight: one had blocked its lane, and
     a crossing beside it, for good. A gang car is sent home only from a lane with room to stop (a new way taken just
-    short of a light had run its red), and a way with no goal (the GPS's road home) ends in ordinary driving.
+    short of a light had run its red), and a way with no goal (the GPS's road home) ends in ordinary driving. A ped
+    held at a crossing's curb for 20 s, longer than any light keeps it (a parked car shoved onto the zebra by the
+    traffic had held one there 37 s), turns and takes another way from its corner. A far car going round something is
+    put beside its path by the pass's offset, as a near car steers it: on its line it had driven through the car it was
+    going round.
   - **The AutoPlayer core's long drive** (`city-life.test.mjs`) gets 180 s instead of 120: the gangs' fights in the
     street and the police's calls slow the city (it arrives in about 150 s).
 - **Answered:** no. **Landed in:** M6.

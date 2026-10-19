@@ -17869,8 +17869,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this._grow();
       const a = this.ahead(0);
       if (!a) return;
-      b.x = a.p[0];
-      b.y = a.p[1];
+      const side = this.pass ? this.pass.off * E.clamp(this.pass.d / 24, 0, 1) * E.clamp((this.pass.end - this.pass.d) / 24, 0, 1) : 0;
+      b.x = a.p[0] - a.t[1] * side;
+      b.y = a.p[1] + a.t[0] * side;
       b.z = a.p[2];
       b.heading = Math.atan2(a.t[1], a.t[0]);
       b.u = this.speed;
@@ -19684,6 +19685,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var NEAR_LINE = 2.5;
   var JOIN = 16;
   var W2 = 14;
+  var GIVE_UP = 20;
   var PedBrain = class {
     /** ped: the Ped; walks: the Sidewalks; o: { rng, traits, id } */
     constructor(ped, walks, o = {}) {
@@ -19919,9 +19921,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _plan(dt, w8) {
       switch (this.state) {
         case "walk":
-          return this._canGo(w8) ? WALK * (this.traits.pace || 1) * (w8.wet > 0.5 ? 1.3 : 1) : 0;
+          return this._curb(dt, this._canGo(w8)) ? WALK * (this.traits.pace || 1) * (w8.wet > 0.5 ? 1.3 : 1) : 0;
         case "goto":
-          return this._canGo(w8) ? WALK * (this.traits.pace || 1) : 0;
+          return this._curb(dt, this._canGo(w8)) ? WALK * (this.traits.pace || 1) : 0;
         case "flee":
           if (this.t > this.until) {
             this.react("calm");
@@ -19931,7 +19933,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             this.feet = true;
             return 0;
           }
-          return this._canGo(w8, true) ? RUN : 0;
+          return this._curb(dt, this._canGo(w8, true)) ? RUN : 0;
         case "idle":
           if (this.t > this.until) {
             this._stopIdle();
@@ -19959,6 +19961,35 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         default:
           return 0;
       }
+    }
+    // the wait at a crossing's curb (go: may it step off): held there GIVE_UP s, it turns and takes another way from the
+    // corner it stands at (one heading for a spot gives that up). Returns go
+    _curb(dt, go) {
+      const e = this.edge;
+      if (go || !e || e.kind !== "cross" || this.a > 4) {
+        this.curbT = 0;
+        return go;
+      }
+      if ((this.curbT = (this.curbT || 0) + dt) < GIVE_UP) return false;
+      const S = this.S, here = this.node, N2 = S.nodes[here];
+      this.curbT = 0;
+      if (!N2) return false;
+      let opts = N2.edges.map((id) => S.edges[id]).filter((q) => q !== e);
+      if (opts.some((q) => q.kind !== "cross")) opts = opts.filter((q) => q.kind !== "cross");
+      if (!opts.length) return false;
+      if (this.state === "goto") {
+        this._stopIdle();
+        this.goal = null;
+        this.state = "walk";
+      }
+      const next = opts[Math.min(opts.length - 1, Math.floor(this._r() * opts.length))], B2 = S.nodes[S.other(next, here)], l7 = next.len || 1, dx = (B2.x - N2.x) / l7, dy = (B2.y - N2.y) / l7, p = this.ped;
+      this.from = this.to;
+      this.edge = next;
+      this.to = S.other(next, here);
+      this.a = (p.x - N2.x) * dx + (p.y - N2.y) * dy;
+      this.o = (p.x - N2.x) * -dy + (p.y - N2.y) * dx;
+      this._piece = void 0;
+      return false;
     }
     // at the curb of a crossing: may it step off? (its signal, and no car coming; fleeing, only the cars count)
     _canGo(w8, fleeing = false) {
@@ -23092,7 +23123,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var KEEP_EVERY = 2;
   var MATES = 150;
   var WAR_R = 240;
-  var GIVE_UP = 6;
+  var GIVE_UP2 = 6;
   var LOSE_R = 320;
   var CAR_AGAIN = 10;
   var WAR_AGAIN = 45;
@@ -23404,7 +23435,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         else {
           const far = Math.hypot(tg.x - p.x, tg.y - p.y) > LOSE_R || !sameLevel(p, tg);
           f.lostT = far ? f.lostT + dt : 0;
-          if (f.lostT > GIVE_UP) f.done = true;
+          if (f.lostT > GIVE_UP2) f.done = true;
         }
         if (f.done) {
           if (C2) C2.adopt(p, "calm", { arch: f.arch ? get("peds", f.arch) : null });

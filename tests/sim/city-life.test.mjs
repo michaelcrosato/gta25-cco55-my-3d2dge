@@ -85,6 +85,39 @@ test('the services: a body brings the Medic (its paramedics kneel at it); a fire
     assert.ok(doused > 0, 'its cannon puts fire out'); }
 });
 
+test('a unit at its call stands with a car\'s room behind it, clear of the junction and the zebra; a driver enters a junction only with room past the zebra beyond it; a ped held at a curb goes another way', async () => {
+  const { game, gtm } = await play('greasy-spoke'), T = gtm.life.traffic, G = gtm.life.graph, F = gtm.fleet, P = gtm.crew.ped, C = gtm.life.crowd;
+  const far = (x, y) => Math.hypot(x - P.x, y - P.y), byNear = (a, b) => far(...a.a) - far(...b.a);
+  // a call at a junction's mouth: the unit stops on a lane, its tail a car's length and more past where the lane is clear
+  const L = G.lanes.filter(l => l.ground && l.clearS >= 30 && l.len > 250).sort(byNear)[0];
+  const c = T.dispatch('cruiser', L.a[0], L.a[1], { kind: 'police', crew: ['mpd', 'mpd'], stop: 0 }); assert.ok(c, 'a unit sent');
+  for (let t = 0; t < 60 && !c.duty.arrived; t += .25) game.advance(.25);
+  assert.ok(c.duty.arrived, 'it gets there');
+  const h = c.brain.here, lane = G.lanes[h.id], s = (h.s0 || 0) + c.brain.s;
+  assert.equal(h.k, 'lane', 'it stands on a lane, not on a connector');
+  assert.ok(s - c.v.hl >= lane.clearS + 60, `a car's room behind it: its tail ${(s - c.v.hl).toFixed(0)} u along, the lane clear of the junction from ${lane.clearS.toFixed(0)}`);
+  assert.ok(lane.len - s > c.v.hl + 79, 'room ahead of it to go round it');
+  // a car standing just past a lane's zebra, too near it for one more behind it: a driver at the line waits for room
+  const cn = G.conns.filter(k => k.kind !== 'change' && k.region !== null && G.lanes[k.to].ground && G.lanes[k.to].clearS >= 30 && Math.hypot(G.lanes[k.to].a[0] - c.v.x, G.lanes[k.to].a[1] - c.v.y) > 400).sort((a, b) => byNear(G.lanes[a.to], G.lanes[b.to]))[0], X = G.lanes[cn.to];
+  for (const o of [...F.vehicles]) if (o !== c.v && Math.hypot(o.x - X.a[0], o.y - X.a[1]) < 260) F.remove(o);
+  const put = s => { const q = G.pointOn(X, s), v = F.spawn('cortez', q[0], q[1], Math.atan2(X.dir[1], X.dir[0])); v.body.z = q[2]; game.advance(1 / 120); return v; };
+  const room = X.clearS + 2 * c.v.hl + 16, w = { fleet: F };   // (from the lane's start: where the tail of the car ahead must be)
+  let v = put(room + 29 - 10); assert.ok(c.brain._exitFull(w, cn), `its tail ${(room - 10).toFixed(0)} u along: no room for a car clear of the zebra (${X.clearS.toFixed(0)}) behind it`);
+  F.remove(v); v = put(room + 29 + 10); assert.ok(!c.brain._exitFull(w, cn), `its tail ${(room + 10).toFixed(0)} u along: room`);
+  F.remove(v);
+  // a car left standing on a crossing: a ped at its curb waits, then goes another way (no light is red 20 s)
+  const e = gtm.life.walks.edges.filter(q => q.kind === 'cross' && !(q.region && q.region.signals === 'signal')).sort((a, b) => far(...[gtm.life.walks.nodes[a.a].x, gtm.life.walks.nodes[a.a].y]) - far(...[gtm.life.walks.nodes[b.a].x, gtm.life.walks.nodes[b.a].y]))[0];
+  const A = gtm.life.walks.nodes[e.a], B = gtm.life.walks.nodes[e.b];
+  for (const o of [...F.vehicles]) if (Math.hypot(o.x - (A.x + B.x) / 2, o.y - (A.y + B.y) / 2) < 120) F.remove(o);
+  const car = F.spawn('cortez', (A.x + B.x) / 2, (A.y + B.y) / 2, Math.atan2(B.x - A.x, -(B.y - A.y)));   // (across the zebra's middle, along the road)
+  const m = nearest(C, P, 1, q => !q.brain.follow && !q.ped.gang && q.ped.faction !== 'police')[0], b = m.brain;
+  m.ped.place(A.x, A.y, 0); b.state = 'walk'; b.place(e, 0, 0, 1);
+  let waited = 0; for (; waited < 30 && b.edge === e && b.a <= 4; waited += .25) game.advance(.25);
+  assert.ok(b.edge !== e, `it goes another way (still at the curb after ${waited} s)`);
+  assert.ok(waited >= 19, `after waiting for the car to move (${waited} s)`);
+  assert.ok(Math.hypot(car.x - (A.x + B.x) / 2, car.y - (A.y + B.y) / 2) < 4, 'the car still on the crossing');
+});
+
 test('the Marching Mimes: six in single file; hurt one and they all go for you; flatten all six with a vehicle: ENCORE!', async () => {
   const { game, gtm } = await play('palm-park'), C = gtm.life.crowd, t = C.troupes[0], P = gtm.crew.ped, log = listen(gtm.BUS, ['encore']);
   assert.equal(t.members.length, 6, 'six of them');

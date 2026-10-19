@@ -6,8 +6,9 @@
 //     is off its line writes its Intent and its own physics moves it, until it is back on a line (feet: true).
 // The Crowd chooses how often each runs (near the focus or far) and keeps a hurt, floored or burning ped on its feet.
 // What it does:
-//   - walks edge to edge; waits at a crosswalk for its signal (the crossed road's red) and for a gap in the cars; now
-//     and then heads for a spot (a bench, a shop window, the curb to hail a cab);
+//   - walks edge to edge; waits at a crosswalk for its signal (the crossed road's red) and for a gap in the cars (held
+//     there longer than any light, by a car left standing on the zebra or a jam over it, it turns and goes another way);
+//     now and then heads for a spot (a bench, a shop window, the curb to hail a cab);
 //   - idles: a phone call, a chat with a passer-by, sitting on a bench, window-shopping, hailing a cab, a smoke, a dance
 //     (the archetype's traits.idles); the rig plays each as a clip where the mocap set has one, else as a held pose;
 //   - in rain some shelter against the buildings until it stops (the rest walk faster);
@@ -43,7 +44,7 @@ export const IDLES = {
 };
 const SPOT_IDLES = new Set(['bench', 'shop', 'cab']);
 const CROSS_K = [.1, .3, .5, .7, .9];   // where along a crossing a car's box is tested
-const WALK = 50, RUN = 85, LOOK = 10, NEAR_LINE = 2.5, JOIN = 16, W = 14;
+const WALK = 50, RUN = 85, LOOK = 10, NEAR_LINE = 2.5, JOIN = 16, W = 14, GIVE_UP = 20;   // (GIVE_UP: s at a crossing's curb before it goes another way: a light keeps it under 13)
 
 export class PedBrain {
   /** ped: the Ped; walks: the Sidewalks; o: { rng, traits, id } */
@@ -160,12 +161,12 @@ export class PedBrain {
   // the state machine's calm part: how fast to walk now (0: stand), with its stops and its waits
   _plan(dt, w) {
     switch (this.state) {
-      case 'walk': return this._canGo(w) ? WALK * (this.traits.pace || 1) * (w.wet > .5 ? 1.3 : 1) : 0;
-      case 'goto': return this._canGo(w) ? WALK * (this.traits.pace || 1) : 0;
+      case 'walk': return this._curb(dt, this._canGo(w)) ? WALK * (this.traits.pace || 1) * (w.wet > .5 ? 1.3 : 1) : 0;
+      case 'goto': return this._curb(dt, this._canGo(w)) ? WALK * (this.traits.pace || 1) : 0;
       case 'flee':
         if (this.t > this.until) { this.react('calm'); return 0; }
         if (w.near) { this.feet = true; return 0; }   // (near the focus: on its feet, straight away from the threat)
-        return this._canGo(w, true) ? RUN : 0;
+        return this._curb(dt, this._canGo(w, true)) ? RUN : 0;
       case 'idle': if (this.t > this.until) { this._stopIdle(); this.state = 'walk'; this.feet = !this.rejoin(); } return 0;
       case 'witness': if (this.t > this.until) this._startCall(); return 0;
       case 'phone': if (this.t > this.until) this._report(); return 0;
@@ -173,6 +174,19 @@ export class PedBrain {
       case 'fight': this.feet = true; return 0;
       default: return 0;
     }
+  }
+  // the wait at a crossing's curb (go: may it step off): held there GIVE_UP s, it turns and takes another way from the
+  // corner it stands at (one heading for a spot gives that up). Returns go
+  _curb(dt, go) {
+    const e = this.edge; if (go || !e || e.kind !== 'cross' || this.a > 4) { this.curbT = 0; return go; }
+    if ((this.curbT = (this.curbT || 0) + dt) < GIVE_UP) return false;
+    const S = this.S, here = this.node, N = S.nodes[here]; this.curbT = 0; if (!N) return false;
+    let opts = N.edges.map(id => S.edges[id]).filter(q => q !== e); if (opts.some(q => q.kind !== 'cross')) opts = opts.filter(q => q.kind !== 'cross');
+    if (!opts.length) return false;
+    if (this.state === 'goto') { this._stopIdle(); this.goal = null; this.state = 'walk'; }
+    const next = opts[Math.min(opts.length - 1, Math.floor(this._r() * opts.length))], B = S.nodes[S.other(next, here)], l = next.len || 1, dx = (B.x - N.x) / l, dy = (B.y - N.y) / l, p = this.ped;
+    this.from = this.to; this.edge = next; this.to = S.other(next, here); this.a = (p.x - N.x) * dx + (p.y - N.y) * dy; this.o = (p.x - N.x) * -dy + (p.y - N.y) * dx; this._piece = undefined;
+    return false;
   }
   // at the curb of a crossing: may it step off? (its signal, and no car coming; fleeing, only the cars count)
   _canGo(w, fleeing = false) {

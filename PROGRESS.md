@@ -1,9 +1,8 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M6 is built and `npm test` passes (the crimes and the wanted level, the police by tier with the Eye, roadblocks
-and spike strips, NABBED and WRECKED, the respray and the bribes, the gangs with their respect, turf, cars and turf
-wars, the radar); its gate is open on test:full's 10-minute city soak, whose day run still has a crossing wait over
-30 s (M6 · the gate). Next is M7 (TOP-DOWN and MODE 7 finished, the view manager, the bank). Blockers: none. The run started inside the
+Now: M6 is done (the crimes and the wanted level, the police by tier with the Eye, roadblocks and spike strips, NABBED
+and WRECKED, the respray and the bribes, the gangs with their respect, turf, cars and turf wars, the radar; `npm test`
+and test:full pass); next is M7 (TOP-DOWN and MODE 7 finished, the view manager, the bank). Blockers: none. The run started inside the
 planning session (DECISIONS D5); at M4's close it was handed off (D16), and this session carries it on from M5 on the
 branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md`'s `/goal`.
 
@@ -15,7 +14,7 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
 | M3 On foot + combat | done | saves, weapons, vitals, fire (`edec102`); the crew on foot, combat, the wheels, the switch, the range (`42c3054`); the accept tests, the view lab, the self-tests, perf (this commit) · ISO at the gate the same as M2's build, interleaved · 114 unit + sim tests, 3 e2e suites · `docs/media/m3/` |
 | M4 Vehicles | done | the models registry, the class bodies, the Fleet, boarding, damage, the renderer, the handling bench (`b442d89`); Lowtown's fleet, driving in play, the accept tests (`f198207`, `a7eb6ae`, `87c52c9`); FAN-OUT A1's 19 definitions, the painter's order, the fixes its reviews found (`f61bf2e` to `c9e3ef6`); the acceptance and the handoff (this commit) · 172 unit + sim tests, 3 e2e suites · ISO at the gate the same as M3's build, interleaved; TOP 9.1 ms · `docs/media/m4/` (the model sheet, 15 shots) |
 | M5 Roads, traffic, peds | done | the roads and the traffic (`6e94f04`); the sidewalks, the crowd, its reactions and witnesses, the emergency services, the Marching Mimes, the AutoPlayer core, the soaks and the evidence (this commit) · 184 unit + sim tests, 3 e2e suites, the 10-minute city soak in test:full · ISO at the gate 12-23% faster than M4's build, TOP-DOWN and MODE 7 the same, interleaved (measured with M5's tour stuck at its start: corrected at M6) · `docs/media/m5/` (13 filmstrips, 5 shots) |
-| M6 Wanted, police, gangs | the soak | the crimes and the wanted level, the police by tier with the Eye, roadblocks and spikes, NABBED and WRECKED, the respray and the bribes, the gangs with respect, turf, cars and turf wars, the radar (part 1, this commit) · 200 unit + sim tests (wanted 11, gangs 5), 3 e2e suites, the 5-minute gang sim in test:full · ISO and TOP-DOWN the same as M5's build, MODE 7 within the tolerance, interleaved (the tour fixed in both) · `docs/media/m6/` (10 filmstrips) |
+| M6 Wanted, police, gangs | done | the crimes and the wanted level, the police by tier with the Eye, roadblocks and spikes, NABBED and WRECKED, the respray and the bribes, the gangs with respect, turf, cars and turf wars, the radar (`a1a65cb`); what the 10-minute city soak found with gangs and police about, and the gate (this commit) · 201 unit + sim tests (wanted 11, gangs 5), 3 e2e suites, the 5-minute gang sim and both city soaks pass in test:full · ISO and TOP-DOWN the same as M5's build, MODE 7 within the tolerance, interleaved (the tour fixed in both) · `docs/media/m6/` (10 filmstrips) |
 | M7 TOP + SIDE7 + bank | | |
 | M8 Missions + economy | | |
 | M9 10-foot UI | | |
@@ -554,11 +553,14 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
     M5's build stood at the tour's start in every M5 perf run and in this milestone's first runs too, where its ISO
     "tour" drew 19.5-22.5 ms against M6's 28.4-30.5: a 40% gap that was only M6's tour moving. The tour now keeps its own
     point, rides at 300 u/s and can't be held up. M5's record is corrected above.
-- **M6 · the gate (open):** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 200 unit and
-  sim tests, the e2e smoke, replay and self-tests, the engine checker). In test:full the 5-minute gang sim passes (5 turf
-  wars, all ended; at most 23 members and 17 fighters; the longest fight 15 s) and so does the city soak's night run;
-  its day run does not yet (a crossing wait over 30 s). What the day soak found, the first with gangs and the police
-  about, and what was fixed (D19):
+- **M6 · the gate:** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 201 unit and sim
+  tests, the e2e smoke, replay and self-tests, the engine checker), and test:full passes: the 5-minute gang sim (5 turf
+  wars, all ended; at most 24 members and 25 fighters; the longest fight 22 s), and the city soak, by day for 10
+  minutes (1121 cars and 3744 peds seen, at most 40 and 188 at once; mean speed 42.5; no overlaps, no red runs; the
+  longest stall with no cause 11.9 s, the longest wait behind a unit at its scene 21.7 s; the worst stuck ped 9.75 s,
+  the worst crossing wait 26 s) and at night in the rain for 5 (361 cars, 650 peds; mean speed 44.5; the longest stall 0.4 s, the worst crossing
+  wait 13.5 s). Part 1 (`a1a65cb`) went up with the day soak
+  still failing; what it found, the first with gangs and the police about, and what was fixed (D19):
   - units parked inside junctions, and kept for crews that were dead: they stop only on a lane, and a dead crew's car is
     left as any abandoned car, which the tow takes once it is out of sight;
   - a unit stopped just out of a junction (its call by the corner) left the car behind it on the connector, over the
@@ -570,5 +572,12 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
   - a car behind a unit at its scene with no way round (no room before the junction, the far lane busy, the crew in the
     street) stood with no cause: 23.5 s. It still tries to go round, and its cause is the scene; the soak reports that
     wait apart (10.4 s at most). The longest stall with no cause is now 1.8 s;
-  - still open: a crossing held 31 s by a car with nobody in it standing on the zebra, and a ped held 37 s at a lit
-    crossing with no car on it.
+  - (part 2) a parked car shoved off its curb onto a zebra by the traffic held a ped (fleeing, then walking) 37.5 s at
+    the curb: a ped held at a crossing's curb 20 s, longer than any light keeps it, now turns and takes another way;
+  - (part 2) a far car going round something drove through it on its line (5 overlaps, a Medic in a Sparrow): it is
+    now put beside its line by the pass's offset, as a near car steers;
+  - (part 2) the probe's other "37 s at a lit crossing with no car on it" was a body lying at the curb, which the soak
+    already leaves out.
+  `tests/sim/city-life.test.mjs` holds the three rules: a unit at its call stands with a car's room behind it past its
+  lane's `clearS` and room ahead; a driver at the line waits while the car past the zebra leaves no room behind it, and
+  goes when it does; a ped at the curb of a crossing a car stands on goes another way after 20 s (201 tests).

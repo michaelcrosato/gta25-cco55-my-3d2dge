@@ -493,7 +493,9 @@ export class DriverBrain {
     this.speed = E.clamp(this.speed + acc * dt, 0, 400);
     this._advance(this.speed * dt, 0, 0); this._grow();
     const a = this.ahead(0); if (!a) return;
-    b.x = a.p[0]; b.y = a.p[1]; b.z = a.p[2]; b.heading = Math.atan2(a.t[1], a.t[0]);
+    // (going round something: beside its path by the pass's offset, as a near car steers it, never through it)
+    const side = this.pass ? this.pass.off * E.clamp(this.pass.d / 24, 0, 1) * E.clamp((this.pass.end - this.pass.d) / 24, 0, 1) : 0;
+    b.x = a.p[0] - a.t[1] * side; b.y = a.p[1] + a.t[0] * side; b.z = a.p[2]; b.heading = Math.atan2(a.t[1], a.t[0]);
     b.u = this.speed; b.v = 0; b.w = 0; b.vz = 0; b.airborne = false; b.steerAngle = 0;
     v.ctlNow = { throttle: acc > 0 ? .5 : 0, brake: acc < -20 ? .6 : 0, steer: 0, handbrake: false };
   }
