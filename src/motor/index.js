@@ -53,7 +53,7 @@ export { Traffic } from './ai/traffic.js';
 export { PedBrain, IDLES } from './ai/pedbrain.js';
 export { Crowd } from './ai/crowd.js';
 export { Emergency } from './ai/emergency.js';
-export { AutoPlayer } from './ai/autoplayer.js';
+export { AutoPlayer, pickable } from './ai/autoplayer.js';
 export { MissionBot } from './ai/missionbot.js';
 export { PadPilot } from './ai/padpilot.js';
 export { CityLife, roadsOf } from './ai/city-life.js';

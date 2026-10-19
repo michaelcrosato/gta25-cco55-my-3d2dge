@@ -75,6 +75,8 @@ export class Career {
     const S = this.save, done = S.missions.done;
     return all('missions').filter(m => !done.includes(m.id) && (m.requires || []).every(r => done.includes(r)) && (!m.unlock || m.unlock(S, this.W)) && giverAt(this.W.city, m));
   }
+  /** where a mission's giver stands: [x, y] (its marker), or null */
+  giverOf(m) { return giverAt(this.W.city, m); }
   /** the activities with a place to start: [{ spec, at }] (jobs start from the phone) */
   startable() { return all('activities').filter(a => a.start && a.start.at && a.kind !== 'event').map(a => ({ spec: a, at: this.W.city.poi(a.start.at) ? [this.W.city.poi(a.start.at).x, this.W.city.poi(a.start.at).y] : a.start.at })); }
   // ---- each step

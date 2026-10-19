@@ -625,6 +625,17 @@ and where it landed.
     pilot (`ai/padpilot.js`) each step, and the game reads the pad through the bindings and the HumanController (the
     camera-relative sticks, the dead zone, presses and releases; weapons stepped with the d-pad, never picked from the
     inventory). Whatever passes that way a player with a DualSense could do. `node tools/bot.mjs --pad`.
+  - **The bot campaign** (`tools/bot-campaign.mjs`, in test:full; PLAN.md 15.4): a new game from the title's NEW GAME,
+    played to 100% by the mission bot. Between one thing and the next it travels by the dev teleport, on foot to the
+    sidewalk nearest where it is going (PLAN.md 8.20 allows the campaign that, never the attract mode); the rest it
+    does as a player would, through the scene's own seams: a giver's marker walked into (the bot accepts the JOB
+    card), a job from the phone in its vehicle (taken where the fleet parks it: the precinct's cruisers, the depot's
+    Pumper, a moped at the Gas'n'Sip), a race's start driven into in the fastest car near it, a MAYHEM's start walked
+    into, a token walked and climbed onto (a jump up each ledge of its way), a stunt driven at flat out from its
+    approach, a property's BUY prompt pressed and its confirm card accepted. Stars left over from a job are lost first
+    (the bot's own evade, now public for free roam). A property short of cash waits for the pay of what comes after
+    it, or of a job played again at its top level; anything that fails is tried again after the rest, three times in
+    all. The career's `giverOf(m)` says where a mission's giver stands.
   - **The cards are M8's interim 10-foot screens** (≤ 6 items a page with a page count, ✕ confirms, ○ backs out, a
     focus frame that pulses, a legend in the player's glyphs): the JOB card at a giver, JOB BLOWN, JOB DONE, a choice,
     the shops, a confirm above $5,000, the phone (jobs in a job's vehicle, Lowtown Cabs, contacts, completion). M9

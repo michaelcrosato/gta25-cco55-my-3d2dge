@@ -39,6 +39,14 @@ export class MissionBot {
     this.auto = new AutoPlayer({ city: o.city, roads: o.roads, fleet: o.fleet, junctions: this.J });
     this.I = makeIntent(); this.ped = null; this.fighter = null; this.key = null; this.t = 0; this.re = 0; this.si = 0; this.aimT = 0; this.dest = null; this.crouchT = 0;
   }
+  /** the stars lost in free roam, as a player loses them (the bot campaign's, between jobs): in a car, away from the
+   *  police. w: as update's */
+  evade(dt, p, w = {}) {
+    if (p !== this.ped) { this.ped = p; this.auto.goal = null; this.car = null; this.dest = null; }
+    if (p.dead || p.held || p.floored) return clearIntent(this.I);
+    if (p.boarding) { this.auto.update(dt, p, w); return clearIntent(this.I); }
+    return this._evade(dt, p, null, w);
+  }
   /** the possessed ped's Intent this step, playing runtime R's objective. w: { t (the signals' clock), pedsNear, wet,
    *  wanted (the Wanted), police (the Police: its units), inside ({ id, run }: the interior it is in) } */
   update(dt, p, R, w = {}) {

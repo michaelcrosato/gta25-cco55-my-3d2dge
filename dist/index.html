@@ -10138,6 +10138,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     pedLook: () => pedLook,
     pickLock: () => pickLock,
     pickPed: () => pickPed,
+    pickable: () => pickable,
     pointOf: () => pointOf,
     promptWidth: () => promptWidth,
     readLinks: () => readLinks,
@@ -25312,6 +25313,22 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.dest = null;
       this.crouchT = 0;
     }
+    /** the stars lost in free roam, as a player loses them (the bot campaign's, between jobs): in a car, away from the
+     *  police. w: as update's */
+    evade(dt, p, w8 = {}) {
+      if (p !== this.ped) {
+        this.ped = p;
+        this.auto.goal = null;
+        this.car = null;
+        this.dest = null;
+      }
+      if (p.dead || p.held || p.floored) return clearIntent(this.I);
+      if (p.boarding) {
+        this.auto.update(dt, p, w8);
+        return clearIntent(this.I);
+      }
+      return this._evade(dt, p, null, w8);
+    }
     /** the possessed ped's Intent this step, playing runtime R's objective. w: { t (the signals' clock), pedsNear, wet,
      *  wanted (the Wanted), police (the Police: its units), inside ({ id, run }: the interior it is in) } */
     update(dt, p, R2, w8 = {}) {
@@ -32976,6 +32993,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     available() {
       const S = this.save, done2 = S.missions.done;
       return all("missions").filter((m) => !done2.includes(m.id) && (m.requires || []).every((r7) => done2.includes(r7)) && (!m.unlock || m.unlock(S, this.W)) && giverAt(this.W.city, m));
+    }
+    /** where a mission's giver stands: [x, y] (its marker), or null */
+    giverOf(m) {
+      return giverAt(this.W.city, m);
     }
     /** the activities with a place to start: [{ spec, at }] (jobs start from the phone) */
     startable() {

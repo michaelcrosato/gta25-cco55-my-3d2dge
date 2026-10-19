@@ -2,7 +2,9 @@
 // its deep link by the MissionBot, on seeds 1-3, passed or not. --pad plays the same through a gamepad (the scripted
 // human-style pass): the bot's wishes pressed on a pad by the PadPilot each step, the game reading the pad.
 //   node tools/bot.mjs --mission saints_holy_rollers [--seeds 1,2,3] [--pad] [--stage deliver] [--level 2] [--secs 900] [--verbose | --trace]
-//   node tools/bot.mjs --all [--pad] [--seeds 1]  ·  exit 0 when every run passed
+//   node tools/bot.mjs --all [--pad] [--seeds 1] [--par 3]  ·  exit 0 when every run passed (--par: that many runs at
+//   once, each in a process of its own)
+import { spawn } from 'node:child_process';
 import { loadGame } from '../tests/harness.mjs';
 import { pad as fakePad } from '../tests/fixtures/pads.mjs';
 
@@ -41,6 +43,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     for (const a of gtm.motor.all('activities')) if (a.kind !== 'event') for (let l = 1; l <= (a.levels || 1); l++) jobs.push({ id: a.id, level: l });
   } else jobs.push({ id: arg('mission'), stage: arg('stage', null), level: arg('level', null) ? +arg('level') : null });
   let bad = 0;
+  const par = +arg('par', 1);
+  if (par > 1) {   // (each run a child process: the same command for one run, its line passed on as it ends)
+    const runs = jobs.flatMap(j => seeds.map(seed => ({ ...j, seed }))), queue = runs.slice();
+    const one = r => new Promise(done => {
+      const a = ['tools/bot.mjs', '--mission', r.id, '--seeds', String(r.seed), '--secs', String(secs)];
+      if (r.level) a.push('--level', String(r.level)); if (r.stage) a.push('--stage', r.stage); if (pad) a.push('--pad');
+      const c = spawn(process.execPath, a, { stdio: ['ignore', 'pipe', 'inherit'] }); let o = '';
+      c.stdout.on('data', d => { o += d; }); c.on('close', code => { const line = o.split('\n').find(l => /^(ok|FAIL)/.test(l)); console.log(line || `FAIL ${r.id} seed ${r.seed}: no result (exit ${code})`); if (code !== 0) bad++; done(); });
+    });
+    await Promise.all(Array.from({ length: Math.min(par, queue.length) }, async () => { while (queue.length) await one(queue.shift()); }));
+    console.log(bad ? `\n${bad} run(s) failed` : `\nall ${runs.length} run(s) passed`);
+    process.exit(bad ? 1 : 0);
+  }
   for (const j of jobs) for (const seed of seeds) {
     const t0 = Date.now(), r = await botRun({ ...j, seed, pad, secs, verbose });
     const ok = r.passed && !r.errors.length; if (!ok) bad++;
