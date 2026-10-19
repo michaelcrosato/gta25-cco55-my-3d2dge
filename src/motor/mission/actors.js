@@ -104,9 +104,11 @@ export class MissionActors {
     const k = C.pickups.place({ kind, item: o.item, amount: o.amount ?? 1, x, y, z: o.z || 0, respawn: 0 }); k.mission = true; this._add(k, 'pickup', o); return k;
   }
   /** a prop: one of the city's prop models (a crate, a barrel...) or a model of its own (o.model), drawn while the
-   *  mission lasts; { x, y, z, heading, kind } */
+   *  mission lasts; { x, y, z, heading, kind }. o.explosive (true, or { hp, damage, splash, fire }: Combat's
+   *  makeExplosive): it blows when shot, blasted or stood in fire, and sets the next off */
   prop(kind, at, o = {}) {
     const [x, y] = this._at(at), q = { kind, x, y, z: o.z || 0, heading: o.heading || 0, model: o.model || PROP_MODELS[kind] || PROP_MODELS.crate, dead: false };
+    if (o.explosive && this.W.combat) this.W.combat.makeExplosive(q, o.explosive === true ? {} : o.explosive);   // (a red barrel: Combat's while it stands)
     this._add(q, 'prop', o); return q;
   }
   /** move an actor (a Ped or a Vehicle) to a point, or a ped into a vehicle ({ in: vehicle, seat }); one already in
@@ -127,7 +129,7 @@ export class MissionActors {
     }
     const [x, y] = this._at(to);
     if (o.within && Math.hypot(a.x - x, a.y - y) < o.within) return;
-    if (a.body) { const b = a.body; b.x = x; b.y = y; b.z = o.z || 0; if (o.heading !== undefined) b.heading = o.heading; b.vx = b.vy = b.vz = 0; b.speed = 0; b.airborne = false; a.asleep = false; return; }
+    if (a.body) { const b = a.body; b.x = x; b.y = y; b.z = o.z || 0; if (o.heading !== undefined) b.heading = o.heading; b.u = b.v = b.w = 0; b.vz = 0; b.airborne = false; a.asleep = false; return; }   // (the body's vx, vy and speed are read from u and v)
     if (a.seat) a.seat.vehicle.unseat(a); a.boarding = null; a.held = null;
     if (a.dead && a.revive) a.revive(x, y, o.z || 0); else a.place(x, y, o.z || 0);
     if (a.mover) { a.mover.vx = a.mover.vy = 0; if (o.facing !== undefined) a.mover.facing = o.facing; }
@@ -223,17 +225,17 @@ export class MissionActors {
     const key = Math.round(goal[0]) + ',' + Math.round(goal[1]);
     if (!e.brain || D.replan <= 0 || (!D.chase && e.brainGoal !== key)) {
       if (!e.brain) e.brain = new DriverBrain(v, roads.graph, { junctions: W.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? 'race' : 'fast')] || STYLES.fast });
-      const r = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z }); if (r) e.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s });
+      const r = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z }); if (r) e.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); else if (D.flee) D.dest = null;   // (no way there: somewhere else to run to)
       e.brainGoal = key; D.replan = D.chase || D.flee ? REPLAN : 1e9;
     }
     const L = W.life;
     e.I = e.brain.update(dt, { fleet: W.fleet, t: L ? L.t : this.t, pedsNear: L ? (x, y, r) => L.pedsNear(x, y, r) : null, wet: 0, sirens: null });
     if (D.chase && P && Math.hypot(goal[0] - v.x, goal[1] - v.y) < 70) { const a = Math.atan2(goal[1] - v.y, goal[0] - v.x); e.I.steer = E.clamp(E.angDiff(v.heading, a) * 2, -1, 1); e.I.throttle = 1; e.I.brake = 0; }   // (close: straight at it)
   }
-  // a point to flee to: of a few lane points, the one farthest from the player
+  // a point to flee to: of a few ground lanes' starts, the one farthest from the player
   _away(v, P) {
     const G = this.W.roads.graph; let best = null, bd = -1;
-    for (let k = 0; k < 6; k++) { const L = G.lanes[Math.floor(this.rng.next() * G.lanes.length)]; if (!L) continue; const d = Math.hypot(L.ax - P.x, L.ay - P.y); if (d > bd) { bd = d; best = [L.ax, L.ay]; } }
+    for (let k = 0; k < 6; k++) { const L = G.lanes[Math.floor(this.rng.next() * G.lanes.length)]; if (!L || !L.ground) continue; const [ax, ay] = L.a, d = Math.hypot(ax - P.x, ay - P.y); if (d > bd) { bd = d; best = [ax, ay]; } }
     return best || [v.x + 600, v.y];
   }
   /** draw the mission's peds standing about (seated ones ride with their vehicle) and its props */
@@ -260,6 +262,7 @@ export class MissionActors {
         W.fleet.remove(v);
       } else if (e.kind === 'ped') { const p = e.a; if (p === P) continue; if (p.seat) p.seat.vehicle.unseat(p); if (W.combat) W.combat.remove(p); }
       else if (e.kind === 'pickup' && W.combat) { const L = W.combat.pickups.list, i = L.indexOf(e.a); if (i >= 0) L.splice(i, 1); }
+      else if (e.kind === 'prop' && e.a.fuse && W.combat) W.combat.dropBox(e.a);
     }
     this.list = this.list.filter(e => !e.gone);
   }

@@ -75,7 +75,7 @@ export class Explosives {
     this.list = this.list.filter(p => !p.dead);
     // the chain: explosive things in reach of a blast go off a moment later
     for (const q of this.pending) q.t -= dt;
-    for (const q of this.pending.filter(q => q.t <= 0)) if (!q.thing.blown) { q.thing.blown = true; if (q.thing.blow) q.thing.blow(); this.blast({ x: q.thing.x, y: q.thing.y, z: q.thing.z || 0, damage: q.thing.damage ?? 90, splash: q.thing.splash ?? 70, by: q.by, source: q.thing.source || 'chain' }); }
+    for (const q of this.pending.filter(q => q.t <= 0)) if (!q.thing.blown) { q.thing.blown = true; if (q.thing.blow) q.thing.blow(); const b = this.blast({ x: q.thing.x, y: q.thing.y, z: q.thing.z || 0, damage: q.thing.damage ?? 90, splash: q.thing.splash ?? 70, by: q.by, source: q.thing.source || 'chain' }); if (q.thing.blaze === false) b.fire = false; }
     this.pending = this.pending.filter(q => q.t > 0);
     // blasts: damage, knockback, fire and the chain, once each
     for (const b of this.blasts) {

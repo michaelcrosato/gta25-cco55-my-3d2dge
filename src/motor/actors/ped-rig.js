@@ -9,7 +9,10 @@
 //     shouldered pose: DECISIONS D14).
 //   - A clip: the state's clip (a mocap clip's name: a phone call, sitting on a bench) plays over the rig's own pose,
 //     faded in and out, where GTM's cut set has it (engine.js mocap()); without it the held pose stands in.
-//   const pr = new PedRig({ build: 'heroic', outfit: 'coat', hair: 'spiky', colors });  pr.hold('smg')
+//   - The clock: the engine's Humanoid starts its own at a random time (its idle sway); a PedRig starts it at its
+//     phase instead (the Ped's: from its id), since the possessed one's shots leave from its posed hand and the game
+//     must play the same twice.
+//   const pr = new PedRig({ build: 'heroic', outfit: 'coat', hair: 'spiky', colors }, { phase });  pr.hold('smg')
 //   pr.update(dt, mover.rigState({ point: true, aim: 0 }))  ·  pr.draw(g, x, y, view)  ·  pr.muzzle() -> [x, y, z]
 import { E, mocap } from '../engine.js';
 import { drawWeaponInRig, weaponModel, muzzleLocal, gripLocal } from '../render/weapon-models.js';
@@ -19,13 +22,14 @@ const HOLD = { pistol: 'gun', smg: 'gun', shotgun: 'gun', launcher: 'gun', flame
 export const RIG_BUILDS = ['chibi', 'heroic', 'bulky'];
 
 export class PedRig {
-  /** look: { build, size, outfit, sleeves, hair, hat, colors, style } */
-  constructor(look = {}) { this.model = null; this.flash = 0; this.lit = false; this.setLook(look); }
+  /** look: { build, size, outfit, sleeves, hair, hat, colors, style }; o.phase: where its clock starts (s) */
+  constructor(look = {}, o = {}) { this.model = null; this.flash = 0; this.lit = false; this.phase = o.phase || 0; this.setLook(look); }
   /** put on a look (an outfit): the rig is made again where it stands */
   setLook(look) {
     const old = this.rig; this.look = look; this._driven = false;
     this.rig = new E.Humanoid({ size: look.size || 1, build: RIG_BUILDS.includes(look.build) ? look.build : 'heroic', outfit: look.outfit || 'shirt', sleeves: look.sleeves || 'short',
       hair: look.hair || 'short', hat: look.hat || null, style: look.style || 'hd', weapon: null, colors: { ...(look.colors || {}) }, weaponDraw: api => this._drawWeapon(api) });
+    this.rig.t = old ? old.t : this.phase;   // (never the engine's Math.random start: the posed hand is the muzzle)
     if (old) { this.rig.x = old.x; this.rig.y = old.y; this.rig.z = old.z; this.rig.facing = old.facing; }
     if (this.model) this.hold(this.model, true);
   }

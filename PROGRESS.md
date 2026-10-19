@@ -733,6 +733,26 @@ PR 2), from `docs/HANDOFF.md`'s `/goal`.
 - **M8 · the gate (part 1):** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 237 unit
   and sim tests with 1 skipped until the content, the e2e smoke, replay and self-tests, the engine checker on the city
   and on `#interior/bank`).
+- **M8 · FAN-OUT A2, the Harbor Rats (part 2a)** (`src/game/missions/r1-rat-run.js`, `r2-below-deck.js`,
+  `r3-crane-game.js`, by the `rats` worker in its own worktree, merged as written but for the ports below): R1 Rat Run
+  (a Hauler taken at the Rats' payphone brings two stars; arrive at the Brickyard drop with none: lose them, or the
+  Spray & Pray), R2 Below Deck (as Viv with the Snap only: a stealth path behind four guards' backs at Club Chrome's
+  lot, a takedown, the ledger photographed), R3 Crane Game (the container yard held with three Rats against three
+  waves, red barrels, Molotovs, then the Saints' captain rammed in the Rats' Brute). The worker's ten MOTOR findings
+  were each checked and fixed with a test (D21: among them a determinism leak, the player's shots leaving from a rig
+  whose clock the engine starts at random; the fighters' line of fire blind to solids; `m.place` throwing on a
+  vehicle; a fleeing car's stop read as NaN), and R2 and R3 now use the new public pieces (`m.alerted`, explosive
+  props, `m.ally`) instead of reaching into Combat and the gangs. Running the chains again on the fixed MOTOR and
+  tracing each death turned up four more combat bugs (point blank, a reload held off by a beating, a stunlock, a burn
+  that never went out) and what the bot lacked (D21); R3's bat-carrying Saints now have 55 health (75). Runs
+  (`node tools/bot.mjs`, the final ones): R1 silver on seeds 1-3 (106, 60, 75 s: it now resprays) and through the pad
+  (104 s); R2 gold on seeds 1-3 (95, 108, 120 s) and the pad (90 s); R3 silver, silver, gold on seeds 1-3 (106, 166,
+  145 s; one retry on seed 2) and silver through the pad (89 s); S1 again: silver, gold, gold (728, 426, 408 s; two
+  busts on seed 1's long Brute) and silver through the pad (297 s, one retry). The bot gym's 13 kinds pass with the
+  bot and through the pad (evade 26 s, it was 127; ram 38 s, it was 152). New tests: the same shots twice (the rig's
+  clock), the chains' MOTOR needs (place, flee, barrels, ally, alerted, the cap lifted), the Snap and crouched sight,
+  the line of fire through solids, point blank, a reload while stunned, a burn that goes out. Verdict: the Rats'
+  chain plays both ways.
 - **M8 · the career's screens (part 1b)** (`docs/media/m8/`, from `dist/index.html` at 1920x1080): `job-card.png` (S1's
   JOB card at the Saints' payphone: the brief wrapped, the pay and the respect, ✕ START THE JOB), `stage-marker.png` (a
   running stage: the objective on its band, the floor ring, the GPS line), `deliver.png` (the bot driving the Zephyr to

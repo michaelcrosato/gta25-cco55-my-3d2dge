@@ -48,18 +48,19 @@ export class AutoPlayer {
   }
   /** go to (x, y): o.foot keeps it on foot (out of a vehicle first); o.car: drive there in this vehicle; o.stay: stop
    *  there seated; o.style: 'calm' | 'careful' | 'player' | 'race'; o.radius: near enough; o.z: the goal's height (a
-   *  deck: driven to the lane up there); o.keep: the same trip to a
+   *  deck: driven to the lane up there); o.hold: never give up the vehicle it drives (a job's own: a jam it can't drive
+   *  out of is backed and driven round, again and again, never left); o.keep: the same trip to a
    *  goal that moved (what it learned on the way kept: the car it is taking, the cars it gave up on, the lanes it keeps
    *  off, how long it has been stuck) */
   goto(x, y, o = {}) {
-    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0 }; this.state = 'idle'; this.path = null; this._dropBrain();
+    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold }; this.state = 'idle'; this.path = null; this._dropBrain();
     if (!o.keep) { this.car = o.car || null; this.tried.clear(); this.prog = null; this.avoid = null; this.esc = null; }
     return this;
   }
   /** get into this vehicle (out of another first) */
   board(v) { this.goal = { x: v.x, y: v.y, board: v }; this.state = 'board'; this.path = null; this.car = v; this.tried.clear(); this.esc = null; this._dropBrain(); return this; }
   /** a new goal point for the trip under way (a moving target): re-routed only when it moved more than o.slack (24) */
-  retarget(x, y, o = {}) { const g = this.goal; if (!g || g.board || Math.hypot(g.x - x, g.y - y) > (o.slack ?? 24)) return this.goto(x, y, { foot: g ? g.foot : false, stay: g ? g.stay : false, style: g ? g.style : 'player', radius: g ? g.radius : 0, keep: !!g && !g.board, ...o }); return this; }
+  retarget(x, y, o = {}) { const g = this.goal; if (!g || g.board || Math.hypot(g.x - x, g.y - y) > (o.slack ?? 24)) return this.goto(x, y, { foot: g ? g.foot : false, stay: g ? g.stay : false, style: g ? g.style : 'player', radius: g ? g.radius : 0, hold: g ? g.hold : false, keep: !!g && !g.board, ...o }); return this; }
   get arrived() { return this.state === 'arrived'; }
   /** one step for the possessed ped: its Intent (on foot or at the wheel). w: { t (the signals' clock), pedsNear } */
   update(dt, p, w = {}) {
@@ -192,7 +193,8 @@ export class AutoPlayer {
     if (this.exitHeld > 8 && this._jam) { this.exitHeld = 0; this._keepOff(this._jam); this._dropBrain(); return clearIntent(this.I); }
     if (d < P.best - 30 || Math.hypot(v.x - P.at[0], v.y - P.at[1]) > 80) { P.best = Math.min(P.best, d); P.at = [v.x, v.y]; P.t = 0; } else if ((P.t += dt) > 15) {
       P.t = 0; P.best = d; P.n++; if (this._jam) this._keepOff(this._jam);
-      if (P.n >= 3 && v.z < 10) { P.n = 0; return this._bail(v); }
+      { const cur = b.path[b.i], nx = b.path[b.i + 1], c = cur && cur.k === 'conn' ? this.G.conns[cur.id] : nx && nx.k === 'conn' ? this.G.conns[nx.id] : null; if (c) this._keepOff(c); }   // (the turn it can't make, a long truck at a corner's post: the next route another way)
+      if (P.n >= 3 && v.z < 10) { P.n = 0; if (!g.hold) return this._bail(v); this.esc = { to: this._ahead(b, 180) || [g.x, g.y], t: 0, slow: 0, back: 0, side: -1 }; this._dropBrain(); return this._escape(dt, v); }   // (a job's own car: off the road round it again, the other way)
       if (P.n === 2 && v.z < 10) { this.esc = { to: this._ahead(b, 180) || [g.x, g.y], t: 0, slow: 0, back: 0, side: 1 }; this._dropBrain(); return this._escape(dt, v); }   // (the second time: off the road round it)
       this._dropBrain(); return clearIntent(this.I);
     }
@@ -210,7 +212,7 @@ export class AutoPlayer {
     if (this.round) return this._round(dt, v);
     const L = b.leader, held = (L && L.gap < 14 && L.speed < 2) || b.cause === 'ped';
     this.boxT = held && v.speed < 3 && !b.pass && b.cause !== 'signal' && b.cause !== 'arrived' ? (this.boxT || 0) + dt : 0;
-    if (this.boxT > (b.cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
+    if (this.boxT > (b.cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
     const I = b.update(dt, { fleet: this.fleet, t: w.t || this.t, pedsNear: w.pedsNear || null, wet: w.wet || 0, sirens: null });
     return I;
   }

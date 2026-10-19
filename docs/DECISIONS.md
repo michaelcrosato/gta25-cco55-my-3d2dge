@@ -615,6 +615,31 @@ and where it landed.
     took for arrived (the GPS now routes round the block back onto it, and the brain skips a goal behind it: a tow
     hooked facing away from its drop-off had driven off-road at it); and a roadblock with no room ahead (traffic where
     its two cars go) waited the whole 18 s before the next try (now 3 s; a spike strip the same).
+  - **What the workers found in MOTOR** (each verified, fixed, and covered by a test; the workers worked round them in
+    content meanwhile): the player's shots left from the posed hand, and the engine starts a Humanoid's clock at a
+    random time (its idle sway), so the same game did not play the same twice: a PedRig now starts it at a phase from
+    its ped's id; `m.place` threw on a vehicle (a body's speed is read from its axes); a fleeing car's next stop read
+    lane fields that do not exist (NaN), and it drove off the roads and stopped for good; a fighter's line of fire saw
+    the map's cells only, not the solids the shots stop at (pillars, containers, crates: it emptied its gun into
+    one), and now samples the line as a bullet does; the engine's sight reads a target's `crouch`, which a Ped never
+    had (crouching now shows a body lower and less, outdoors and in the bank); one press of the Snap filed a
+    `shooting` crime (the street panicked, the police came); a stage's wanted cap or floor outlived its job. And what
+    the Rats' chain needed: an explosive prop (`explosive` on `m.spawn.prop`: Combat's `makeExplosive`, its fuse in
+    fire, gone with the job), a gang on the player's side for a job (`m.ally`: strays on its members rally no one and
+    cost no respect, and none go for the player on sight), and `m.alerted(tag)` for a stealth stage's fail.
+  - **What the merge found after them** (the same chains run again on the fixed MOTOR, each death traced): a body
+    nearer than the posed gun's muzzle (18 u out) took no shot at all, the bullet starting past it (now a point-blank
+    hit); a reload only ran in a step the trigger was stepped, so a beating every second held it off for good (its
+    clock now runs every step); a bat's floor-swing every second kept a player down for good (TUNE.upGrace: just up,
+    a swing hurts but doesn't floor again); and a burning body lit the cell under it, which lit it again, so it burned
+    till it died, running or seated (a body already alight, just out, or in a car isn't lit by the fire under it).
+    The bot learned what those deaths asked of a player: it shoots the nearest target in the open first (a fighter
+    in cover can wait); it runs from any car on fire, the one it just left too; on foot it never steps into fire
+    (round it, else it waits for it to burn down; standing in it, out by a way it can walk); a ram that only shoves
+    its target along is backed off for a harder run, and rams that do no harm for 20 s it finishes on foot (with
+    fewer than two stars); a job's own car (a delivery's) is never given up in a jam, and its stars are lost in that
+    car, not another; losing the stars it drives into Spray & Pray once out of sight (the career tells it where, and
+    that the fee is in hand); and a turn it keeps failing (a long truck at a corner's post) is kept off its next route.
   - **FAN-OUT A2 runs eight workers, not six.** PLAN.md M8 names one per gang chain, one for P0, one for the heist and
     one for the jobs and activities. The heist's finale (LOUD and QUIET, the switching, the MODE 7 getaway, the
     credits) weighs as much as its three setups together, and the side content splits cleanly into the activities

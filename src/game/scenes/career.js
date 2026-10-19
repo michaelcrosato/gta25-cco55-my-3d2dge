@@ -75,6 +75,8 @@ export class Career {
     const S = this.save, done = S.missions.done;
     return all('missions').filter(m => !done.includes(m.id) && (m.requires || []).every(r => done.includes(r)) && (!m.unlock || m.unlock(S, this.W)) && giverAt(this.W.city, m));
   }
+  // Spray & Pray's yard while the player can pay for a respray (the bot's way to lose the stars), else null
+  _respray() { const q = this.W.city.poi('spray-pray'); return q && this.W.crew.fund >= (TUNE.resprayFee ?? 100) ? [q.x, q.y] : null; }
   /** where a mission's giver stands: [x, y] (its marker), or null */
   giverOf(m) { return giverAt(this.W.city, m); }
   /** the activities with a place to start: [{ spec, at }] (jobs start from the phone) */
@@ -91,7 +93,7 @@ export class Career {
     for (const q of this.pops) q.t -= dt; this.pops = this.pops.filter(q => q.t > 0);
     let I = ctx.I;
     this.botI = null;
-    if (this.bot && this.R.state === 'running' && !ctx.busy && !ctx.down) { const B = this.bot.update(dt, p, this.R, { t: W.life ? W.life.t : 0, pedsNear: W.life ? (x, y, r) => W.life.pedsNear(x, y, r) : null, wet: W.weather.wet, wanted: W.wanted(), police: W.life && W.life.police, inside: ctx.inside }); if (this.padMode) this.botI = B; else I = B; }
+    if (this.bot && this.R.state === 'running' && !ctx.busy && !ctx.down) { const B = this.bot.update(dt, p, this.R, { t: W.life ? W.life.t : 0, pedsNear: W.life ? (x, y, r) => W.life.pedsNear(x, y, r) : null, wet: W.weather.wet, wanted: W.wanted(), police: W.life && W.life.police, inside: ctx.inside, heat: W.combat && W.combat.fire ? (x, y) => W.combat.fire.heatAt(x, y) : null, respray: this._respray() }); if (this.padMode) this.botI = B; else I = B; }
     if (this.card) { this._cardInput(dt); I = clearIntent(I); }
     this.R.update(dt);   // (WRECKED or NABBED fails the job at once; JOB BLOWN waits for the card)
     if (this.R.state === 'failed' && !ctx.down && !this.card) this._blown();

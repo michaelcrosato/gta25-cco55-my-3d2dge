@@ -47,7 +47,10 @@ passengers, weapons, drive })` (a `drive` of `{ to } | { route, loop } | { race,
 { flee: 'player' }` and a `style` of `calm | fast | race` puts a driver on the GPS), `m.spawn.ped(arch, at, { tag,
 role, facing, weapons, health, armor, attack, alert, route, follow })` (roles: `enemy` fights once alerted, `guard`
 watches a post or walks a round, `ally` follows and fights the alerted, `flee`, `idle`), `m.spawn.pickup(kind, at, {
-item, tag })` (kind `item`: a mission's package), `m.spawn.prop(kind, at)` (one of the city's prop models).
+item, tag })` (kind `item`: a mission's package), `m.spawn.prop(kind, at, { tag, model, explosive })` (one of the city's
+prop models, or a model of its own; `explosive: { hp, damage, splash, fire }` makes it a red barrel: shot, blasted or
+stood in fire a moment it blows, and sets the next one off). A mission ped or car given a `gang` is that gang's to the
+city: a stray hit on one rallies its members and a kill costs respect, so leave `gang` off a mission's own fighters.
 `m.remove(actor)` takes one out now (the garage takes the car). The cast (`src/game/peds/cast.js`): `fender`,
 `bilge`, `nana`, `kettle`, `pennywhistle`, `lefty`; the gangs' `saint-grunt`, `saint-enforcer`, `rat-grunt`...
 
@@ -60,7 +63,9 @@ stopped, health })`, `m.follow(tag, { dist, lose, near, to, until })`, `m.chase(
 `m.parallel([...])`, `m.first([...])`, `m.sequence([...])`, `m.switchTo(id)`, `m.reward()`. Immediate:
 `m.objective(text, { hint })` (a hint of `HINTS`' kinds, with its data: `stealth` needs a `path` of waypoints),
 `m.marker(at | actor)`, `m.route(to)`, `m.timer(secs, { reason })`, `m.failIf(pred, reason)`, `m.wanted.set / floor /
-cap / clear`, `m.time(h)`, `m.weather(state)`, `m.as(id)` (play as a protagonist from now), `m.interior(id, door)`,
+cap / clear` (a floor or a cap is lifted when the job ends, however it ends), `m.alerted(tag)` (a guard or enemy of the
+tag has seen the player, been hurt or been called, and is still in it: a stealth stage's fail), `m.ally(gang)` (that
+gang's members on the player's side till the job ends: strays on them rally no one and cost no respect), `m.time(h)`, `m.weather(state)`, `m.as(id)` (play as a protagonist from now), `m.interior(id, door)`,
 `m.outside()`, `m.loadout({ weapons, ammo, select, health, armor })`, `m.data` (kept across the stages and retries),
 `m.save` (the save, to read: respect, missions done), `m.allowWanted()` (the stage goes on with stars: on the way
 somewhere the bot loses any stars first otherwise, unless a timer runs),

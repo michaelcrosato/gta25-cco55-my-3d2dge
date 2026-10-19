@@ -173,6 +173,8 @@ export class MissionRuntime {
     this.gen = null; this.objective = null; this.timer = null; this.lines = null; this.fails = []; this.choosing = null;
     BUS.clear(this.scope);
     const W = this.world(); if (W.endMission) W.endMission(this);
+    if (this.wantedHeld) { const w = W.wanted ? W.wanted() : null; if (w) { w.floor(0); w.cap(5); } this.wantedHeld = false; }   // (a stage's cap or floor never outlives its job)
+    if (this.allyHeld) { const G = W.life && W.life.gangs; if (G) G.ally = null; this.allyHeld = false; }   // (nor its ally)
   }
   /** after a pass, back to idle (the card read) */
   done() { if (this.state === 'passed') this.state = 'idle'; }
@@ -212,8 +214,8 @@ export class MissionContext {
     const wanted = () => (W.wanted ? W.wanted() : null);
     this.wanted = {
       set: n => { const w = wanted(); if (w) w.set(n); },
-      floor: n => { const w = wanted(); if (w) w.floor(n); },
-      cap: n => { const w = wanted(); if (w) w.cap(n); },
+      floor: n => { const w = wanted(); if (w) { w.floor(n); R.wantedHeld = true; } },   // (held: lifted when the run ends, however it ends)
+      cap: n => { const w = wanted(); if (w) { w.cap(n); R.wantedHeld = true; } },
       clear: () => { const w = wanted(); if (w) { w.floor(0); w.cap(5); w.clear('mission'); } },
       get stars() { const w = wanted(); return w ? w.stars : 0; },
     };
@@ -256,6 +258,12 @@ export class MissionContext {
   tagged(tag) { return this.R.actors.tagged(tag); }
   /** the first living actor with a tag, or null */
   one(tag) { return this.tagged(tag).find(alive) || null; }
+  /** a gang on the player's side while the job runs (null: none): the player's strays on its members and cars rally
+   *  no one and cost no respect, and its members never go for the player on sight (lifted when the run ends) */
+  ally(gang) { const G = this.W.life && this.W.life.gangs; if (!G) return; G.ally = gang || null; this.R.allyHeld = true; }
+  /** is any guard or enemy with a tag alerted (it saw the player, was hurt, or a mate called it) and still in it (not
+   *  taken down, not dead)? A stealth stage's fail */
+  alerted(tag) { return this.tagged(tag).some(a => { const e = this.R.actors.entry(a); return !!e && e.alerted && !e.down && !a.dead; }); }
   /** put the player or an actor somewhere: at [x, y] (or a poi), or { in: vehicle, seat } */
   place(actor, to, o = {}) {
     const a = actor === 'player' ? this.player : actor;

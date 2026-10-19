@@ -75,17 +75,11 @@ export class Fighter {
     I.aim = [Math.cos(a), Math.sin(a)]; I.aimPoint = [p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, tgt.z || 0]; I.down.aim = true;
     if (fire && p.inv.loaded()) I.down.attack = true; else if (fire) I.tap.reload = true;
   }
-  /** the line of fire to the target (chest to chest), looked at a few times a second: true (clear), 'wall' or 'car' (a
-   *  vehicle in the way, not the target's own) */
+  /** the line of fire to the target (chest to chest), looked at a few times a second: lineOfFire's */
   _lineTo(tgt) {
     if (this._lineT > this.t && this._lineFor === tgt) return this._line;
-    this._lineT = this.t + .25; this._lineFor = tgt; const p = this.ped;
-    if (this.map && !this.map.ray(p, tgt, { eye: 18, target: 16 }).clear) return (this._line = 'wall');
-    if (this.fleet) {
-      const mx = (p.x + tgt.x) / 2, my = (p.y + tgt.y) / 2, r = Math.hypot(tgt.x - p.x, tgt.y - p.y) / 2 + 30, own = tgt.seat ? tgt.seat.vehicle : tgt.body ? tgt : null;
-      for (const v of this.fleet.near(mx, my, r)) if (v !== own && v.body && v.cls !== 'heli' && v.z < (p.z || 0) + 18 && crosses(v, p, tgt)) return (this._line = 'car');
-    }
-    return (this._line = true);
+    this._lineT = this.t + .25; this._lineFor = tgt;
+    return (this._line = lineOfFire(this.ped, tgt, this.map, this.fleet));
   }
   // a car in the line of fire: a few steps to one side (the other, if that goes nowhere)
   _aside(dt, I, tgt) {
@@ -116,6 +110,21 @@ export class Fighter {
   _r() { return this.rng ? this.rng.next() : .5; }
 }
 
+/** the line of fire from a body to a target (chest to chest): true (clear), 'wall' (the map's cells, or a solid on the
+ *  way as the shots meet it: a pillar, a container, a crate; map.ray sees the cells only) or 'car' (a vehicle in the
+ *  way, not the target's own) */
+export function lineOfFire(p, tgt, map = null, fleet = null) {
+  if (map && !map.ray(p, tgt, { eye: 18, target: 16 }).clear) return 'wall';
+  if (map && map.solids && map.solids.length) {
+    const z0 = (p.z || 0) + 18, z1 = (tgt.z || 0) + 16, dx = tgt.x - p.x, dy = tgt.y - p.y, L = Math.hypot(dx, dy);
+    for (let s = 14; s < L - 14; s += 8) { const k = s / L; if (map.heightAt(p.x + dx * k, p.y + dy * k) > z0 + (z1 - z0) * k) return 'wall'; }
+  }
+  if (fleet) {
+    const mx = (p.x + tgt.x) / 2, my = (p.y + tgt.y) / 2, r = Math.hypot(tgt.x - p.x, tgt.y - p.y) / 2 + 30, own = tgt.seat ? tgt.seat.vehicle : tgt.body ? tgt : null;
+    for (const v of fleet.near(mx, my, r)) if (v !== own && v.body && v.cls !== 'heli' && v.z < (p.z || 0) + 18 && crosses(v, p, tgt)) return 'car';
+  }
+  return true;
+}
 /** a body's world reach: is it within TUNE.climbMax of standing level with another (a fight across a rooftop's edge is
  *  no fight) */
 export const sameLevel = (a, b) => Math.abs((a.z || 0) - (b.z || 0)) < Math.max(20, TUNE.climbMax);

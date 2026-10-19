@@ -53,6 +53,9 @@ export class Gangs {
     this.rng = o.rng || RNG.stream('gangs'); this.isPlayer = o.isPlayer || (() => false);
     this.respect = o.respect || {}; for (const g of all('gangs')) if (typeof this.respect[g.id] !== 'number') this.respect[g.id] = 0;
     this.groups = []; this.fighters = []; this.wars = []; this.lastWar = new Map(); this.carHits = new Map(); this.small = new Map();
+    /** a mission's ally (a gang id, or null: m.ally): while it is set, the player's strays on its members and cars rally
+     *  no one and cost no respect, and its members never go for the player on sight */
+    this.ally = null;
     this.t = 0; this._senseT = 0; this._keepT = 0; this.warCount = 0; this.player = null; this.idle = makeIntent();
     for (const g of all('gangs')) {   // (its hangout by the HQ, a patrol a beat)
       const hq = this.city.poi(g.hq), T = this.city.T;
@@ -83,7 +86,7 @@ export class Gangs {
   // a killing: the player's of a gang's member costs that gang's respect and earns its rivals'
   _kill(e) {
     if (!this.isPlayer(e.by) || !this.combat) return;
-    const t = this.combat.bodies.find(b => b.id === e.target); if (!t || !t.gang) return;
+    const t = this.combat.bodies.find(b => b.id === e.target); if (!t || !t.gang || t.gang === this.ally) return;
     this.add(t.gang, TUNE.respectKill, 'kill');
     for (const g of all('gangs')) if (g.rival === t.gang) this.add(g.id, TUNE.respectRival, 'rival');
   }
@@ -92,10 +95,10 @@ export class Gangs {
   _hit(e) {
     const by = this.combat && this.combat.bodies.find(b => b.id === e.by), player = this.isPlayer(e.by);
     const v = this.fleet.byId(e.target);
-    if (v) { if (player && v.gang) this._carHit(v); return; }
+    if (v) { if (player && v.gang && v.gang !== this.ally) this._carHit(v); return; }
     const t = this.combat && this.combat.bodies.find(b => b.id === e.target); if (!t || !by || by === t) return;
     if (t.gang && !t.dead) {
-      if (by.gang === t.gang) return;   // (a mate's stray shot: never one another)
+      if (by.gang === t.gang || (player && t.gang === this.ally)) return;   // (a mate's stray shot: never one another; the job's ally's the same)
       if (player && this.stance(t.gang) === 'friendly' && e.kind === 'melee' && !(this.small.get(t.id) > this.t)) { this.small.set(t.id, this.t + SMALL); return; }   // (a friend's small thing, once)
       this._rally(t, by);
     }
@@ -164,7 +167,7 @@ export class Gangs {
     const map = this.city.map, members = this._members();
     for (const m of members) {
       const p = m.ped, g = p.gang; if (p.seat) continue;
-      if (P && !P.dead && this.stance(g) === 'hostile' && this.turfAt(p.x, p.y) === g && sameLevel(p, P) && E.sees(p, P, { map, range: TUNE.gangSight, fov: 3.2, facing: p.mover.facing }).seen) { this._rally({ gang: g, x: p.x, y: p.y }, P); continue; }
+      if (P && !P.dead && g !== this.ally && this.stance(g) === 'hostile' && this.turfAt(p.x, p.y) === g && sameLevel(p, P) && E.sees(p, P, { map, range: TUNE.gangSight, fov: 3.2, facing: p.mover.facing }).seen) { this._rally({ gang: g, x: p.x, y: p.y }, P); continue; }
       const rival = get('gangs', g).rival; if (!rival) continue;
       for (const o of members) {
         if (o.ped.gang !== rival || o.ped.seat || Math.abs(o.ped.x - p.x) > TUNE.gangSight || Math.abs(o.ped.y - p.y) > TUNE.gangSight) continue;

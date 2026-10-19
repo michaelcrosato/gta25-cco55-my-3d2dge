@@ -8,7 +8,8 @@
 //     the aim (a strafe); the rig points the weapon and pitches it at what it aims at;
 //   - fighting: the trigger fires the weapon (the Combat world makes the shots), punches combos, swings the bat,
 //     throws; reload, and the weapon in hand steps with the d-pad;
-//   - being hurt: armour first, a flinch, a knockdown slide and the get-up, a stun, death.
+//   - being hurt: armour first, a flinch, a knockdown slide and the get-up (a moment after it a swing hurts but doesn't
+//     floor again: TUNE.upGrace), a stun, death.
 // Everything here is simulation: fixed steps, no drawing state read (D3: the same intents give the same game).
 //   const p = new Ped({ x, y, look, weapons, faction: 'crew' });  p.update(dt, intent, world);  p.draw(stage)
 import { E } from '../engine.js';
@@ -25,6 +26,7 @@ import { BUS } from '../core/bus.js';
 knob('On foot', 'climbMax', 'Climb height', 34, 0, 82, 1, 'The highest ledge a jump climbs: a one-storey roof (24), a garage (32), a container');
 knob('On foot', 'jumpSpeed', 'Jump speed', 140, 60, 300, 5, 'A jump\'s upward speed: 140 peaks about 14 units up, knee to hip (the engine\'s 220 clears a ped\'s head)');
 knob('On foot', 'aimWalk', 'Aiming walk', .5, .2, 1, .05, 'The stick push while aiming (half: a walk)');
+knob('On foot', 'upGrace', 'Back-up grace', 1.4, 0, 5, .1, 'After getting up, how long a swing hurts but cannot floor again (no beating someone down for good) (s)');
 knob('On foot', 'rollDist', 'Roll distance', 34, 10, 60, 1, 'How far a dodge roll goes (it stops short of a wall)');
 knob('On foot', 'staminaBack', 'Stamina recovery', .5, 0, 3, .05, 'Seconds of sprint won back a second at rest');
 
@@ -44,6 +46,8 @@ const boxInArc = (a, facing, b, range, half) => {
 };
 const OPEN = new Set(['bike', 'boat']);   // vehicles whose riders are seen
 const SEATED = { crouch: true };   // (a rider's pose)
+/** where a ped's rig clock starts (s): from its id, so each sways in its own time and the same ped the same way twice */
+const phaseOf = id => { let h = 7; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return (h % 1000) / 100; };
 
 export class Ped {
   /** o: { x, y, z, faction, look (PedRig), weapons, ammo, current, health, armor, stats, ability, abilityMeter, id,
@@ -52,7 +56,7 @@ export class Ped {
     this.mover = new E.Mover({ x: o.x || 0, y: o.y || 0, z: o.z || 0, r: 5, climbMax: TUNE.climbMax, facing: o.facing || 0 });
     this.actor = new Actor('ped', { id: o.id, x: o.x, y: o.y, z: o.z, faction: o.faction || 'civilian' });
     this.id = this.actor.id; this.character = o.character || null; this.faction = this.actor.faction;
-    this.rig = new PedRig(o.look || {});
+    this.rig = new PedRig(o.look || {}, { phase: phaseOf(this.id) });
     this.vitals = new Vitals({ health: o.health ?? o.maxHealth ?? 100, maxHealth: o.maxHealth ?? 100, armor: o.armor ?? 0 });
     /** anchored: never knocked about (a range dummy) */ this.anchored = !!o.anchored;
     this.inv = new Inventory(o.weapons || ['fists'], o.ammo || {}); if (o.current) this.inv.select(o.current);
@@ -78,6 +82,8 @@ export class Ped {
   get x() { return this.mover.x; } get y() { return this.mover.y; } get z() { return this.mover.z; }
   get dead() { return this.vitals.dead; } get alive() { return !this.vitals.dead; }
   get facing() { return this.mover.facing; }
+  /** crouched (the engine's sight reads it: a crouched body shows lower and less) */
+  get crouch() { return this.crouching; }
   get health() { return this.vitals.health; } get armor() { return this.vitals.armor; }
   /** on the ground (knocked down or getting up) */
   get floored() { return this.vitals.down > 0 || (this.mover.action && this.mover.action.name === 'getUp'); }
@@ -87,12 +93,18 @@ export class Ped {
   /** one step. I: the Intent; w: { map, city, combat (fires, throws, melee), aim: { candidates, toScreen, los, level,
    *  threat } } */
   update(dt, I, w = {}) {
+    this.inv.stepped = false; const r = this._update(dt, I, w);
+    if (!this.inv.stepped) this.inv.idle(dt);   // (no trigger this step: the reload's clock goes on all the same)
+    return r;
+  }
+  _update(dt, I, w) {
     const m = this.mover, v = this.vitals, map = w.map;
     m.climbMax = TUNE.climbMax; m.jumpSpeed = TUNE.jumpSpeed;
     v.damageTaken = this.ability ? this.ability.damageTaken : 1;
-    v.update(dt); this.flinch = Math.max(0, this.flinch - dt); this.inCombat = Math.max(0, this.inCombat - dt);
+    v.update(dt); this.flinch = Math.max(0, this.flinch - dt); this.inCombat = Math.max(0, this.inCombat - dt); this.upGrace = Math.max(0, (this.upGrace || 0) - dt);
     if (this.ability) this.ability.update(dt, { aiming: this.aiming });
-    if (this.burning > 0) { this.burning -= dt; if (w.combat) w.combat.burnBody(this, dt); }
+    if (this.burning > 0) { this.burning -= dt; if (w.combat) w.combat.burnBody(this, dt); if (this.burning <= 0) this.burnGrace = 1; }   // (out: a moment before the fire it stands in lights it again)
+    else this.burnGrace = Math.max(0, (this.burnGrace || 0) - dt);
     this.gliding = false;
     if (v.dead) { this._dieT += dt; this.aiming = false; this._pose(dt, { pose: 'die' }); return this; }
     // knocked down: slide out the knockback with friction, then get up
@@ -101,7 +113,7 @@ export class Ped {
       const f = m.friction; m.friction = 7; E.Body.prototype.update.call(m, dt, map); m.friction = f;
       this._pose(dt, { down: 1 }); return this._sync();
     }
-    if (this._down) { this._down = false; m.vx = m.vy = 0; m.play('getUp'); }
+    if (this._down) { this._down = false; m.vx = m.vy = 0; m.play('getUp'); this.upGrace = TUNE.upGrace; }
     if (this.held) {   // moved by another's action (yanked out of a car): then down, and up again
       if (this.held.done) { this.held = null; v.down = Math.max(v.down, .9); m.vx = m.vy = 0; }
       else { this._pose(dt, this.held.otherState()); return this._sync(); }
@@ -298,7 +310,7 @@ export class Ped {
     if (this.vitals.dead) return null;
     const rolling = this.mover.action && this.mover.action.name === 'roll' && this.mover.action.invulnerable;
     if (rolling && o.kind === 'melee') return null;   // (a roll is a dodge: the swing misses)
-    const r = this.vitals.hit({ amount: o.amount, kind: o.kind, by: o.by, knock: o.knockdown });
+    const r = this.vitals.hit({ amount: o.amount, kind: o.kind, by: o.by, knock: o.knockdown && !(o.kind === 'melee' && this.upGrace > 0) });   // (just up: a swing hurts, but doesn't floor again)
     this.flinch = .25; this.inCombat = 6;
     if (this.ability) this.ability.feed('hurt', r.health + r.armor);
     if (this.anchored) { this.vitals.down = 0; return r; }
@@ -308,7 +320,7 @@ export class Ped {
   /** back on its feet at (x, y, z) with full health (after WASTED: the hospital) */
   revive(x, y, z = 0) {
     const v = this.vitals; v.dead = false; v.health = v.maxHealth; v.armor = 0; v.down = 0; v.stun = 0; v.sinceHit = 1e9; v.zaps = 0;
-    this.burning = 0; this.flinch = 0; this._dieT = 0; this._down = false; this.throwing = null; this.combo = null; this._comboFor = '';
+    this.burning = 0; this.burnGrace = 0; this.flinch = 0; this.upGrace = 0; this._dieT = 0; this._down = false; this.throwing = null; this.combo = null; this._comboFor = '';
     this.place(x, y, z); this.stamina = this.stats.sprintTime();
     for (let i = 0; i < 24; i++) this._pose(1 / 60, {});   // (up on its feet at once: the rig's get-up, a third of a second, played out here, never a frame of the fall where it wakes)
     return this._sync();

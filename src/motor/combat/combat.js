@@ -12,7 +12,7 @@
 import { RNG } from '../core/rng.js';
 import { BUS } from '../core/bus.js';
 import { TUNE, knob } from '../core/tune.js';
-import { Shots } from './shots.js';
+import { Shots, hitCylinder } from './shots.js';
 import { Explosives } from './explosives.js';
 import { Pickups } from './pickups.js';
 import { Fire } from '../sim/fire.js';
@@ -42,6 +42,20 @@ export class Combat {
   }
   add(ped) { if (!this.bodies.includes(ped)) this.bodies.push(ped); return ped; }
   remove(ped) { const i = this.bodies.indexOf(ped); if (i >= 0) this.bodies.splice(i, 1); }
+  /** make a thing (a prop: { x, y, z, heading }) an explosive box, a red barrel: o { hp (20), damage (70), splash (48),
+   *  fire (false: a bang, no blaze), hl, hw, height, source ('barrel') }. Shot or blasted to its hp, or stood in fire a
+   *  moment (1.2 s), it blows, and sets off the next one in reach; dead once blown. dropBox(t) takes it out of the fight */
+  makeExplosive(t, o = {}) {
+    let hp = o.hp ?? 20;
+    Object.assign(t, { hl: o.hl ?? 3.4, hw: o.hw ?? 3.4, height: o.height ?? 10, damage: o.damage ?? 70, splash: o.splash ?? 48, source: o.source || 'barrel', blaze: o.fire !== false, heat: 0, blown: false, dead: false, fuse: true });
+    if (!t.id) t.id = 'boom' + (this.booms = (this.booms || 0) + 1);
+    const boom = by => { if (t.blown) return; t.blown = true; t.dead = true; const b = this.explosives.blast({ x: t.x, y: t.y, z: (t.z || 0) + 6, damage: t.damage, splash: t.splash, by, source: t.source }); if (!t.blaze) b.fire = false; };
+    t.hurt = h => { if (t.blown) return null; hp -= h.amount; if (hp <= 0) boom(h.by); return { health: h.amount, armor: 0, down: false, killed: false }; };
+    t.blow = () => { t.blown = true; t.dead = true; };   // (set off by another's blast: the chain makes its blast)
+    t.burn = () => boom(null);
+    this.boxes.push(t); this.explosive.push(t); return t;
+  }
+  dropBox(t) { this.boxes = this.boxes.filter(b => b !== t); this.explosive = this.explosive.filter(b => b !== t); }
   /** the bodies within r of a ped (alive or not: a swing can't hurt the dead anyway) */
   bodiesNear(p, r) { return this.bodies.filter(b => b !== p && Math.abs(b.x - p.x) <= r && Math.abs(b.y - p.y) <= r); }
   /** the boxes (vehicles, props) whose centres lie within r of ped p, the one it rides in left out */
@@ -64,6 +78,7 @@ export class Combat {
     const damage = spec.damage * (ab ? ab.damage : 1), at = A.pitchTo;
     let base = at ? [at[0] - muzzle[0], at[1] - muzzle[1], at[2] - muzzle[2]] : [A.dir[0], A.dir[1], 0];
     if (at) { const l = Math.hypot(...base); if (l > 12) base = base.map(v => v / l); else base = shotFrom(p, A.dir, at); }
+    if (spec.projectile === 'photo') { this._photo(p, spec); return; }   // (the Snap: a picture, no muzzle and no crime)
     this._fx('muzzle', muzzle[0], muzzle[1], muzzle[2], { dir: base });
     BUS.emit('crime', { type: 'shooting', x: p.x, y: p.y, by: p.id, victim: null, severity: 1, lawful: p.faction === 'police' });   // (lawful: the police's own: nobody phones it in)
     if (spec.projectile === 'rocket') {
@@ -71,16 +86,28 @@ export class Combat {
       this._sfx('boom', { vol: .5 }); return;
     }
     if (spec.projectile === 'zap') { this._zap(p, spec, muzzle, A.dir, damage); this._sfx('laser'); return; }
-    if (spec.projectile === 'photo') { this._photo(p, spec); return; }
     const pellets = spec.projectile === 'pellets' ? spec.pellets : 1, flame = spec.projectile === 'stream';
     for (let i = 0; i < pellets; i++) {
       const a = (this.rs.next() * 2 - 1) * spread * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
       const dir = [base[0] * c - base[1] * s, base[0] * s + base[1] * c, base[2] + (flame ? (this.rs.next() - .5) * .08 : 0)];
+      const pb = !flame && !seat ? this._pointBlank(p, muzzle) : null;   // (one nearer than the muzzle: the shot can't start past it)
+      if (pb) { this.hurt(pb.t, { amount: damage, kind: pellets > 1 ? 'pellet' : 'bullet', by: p.id, at: pb.at, dir: [dir[0], dir[1]] }); continue; }
       this.shots.fire({ x: muzzle[0], y: muzzle[1], z: muzzle[2], dir, speed: spec.speed, range: spec.range * (flame ? .7 + this.rs.next() * .3 : 1), damage, by: p.id, team: p.faction, weapon: spec.id, vehicle: seat ? seat.body.id : null,
         kind: flame ? 'flame' : pellets > 1 ? 'pellet' : 'bullet', tracer: !flame && (pellets > 1 ? i % 3 === 0 : spec.rate < 6 || p.inv.fired % 2 === 0),
         casing: !flame && i === 0 && spec.projectile === 'bullet' ? [muzzle[0], muzzle[1], muzzle[2], 1] : null });
     }
     if (!flame) this._sfx(spec.sound === 'shotgun' ? 'explode' : 'shoot', { vol: spec.sound === 'smg' ? .45 : .6, pitch: spec.sound === 'smg' ? 1.25 : spec.sound === 'shotgun' ? .7 : 1 });
+  }
+  // point blank: the muzzle is a gun's length out (a posed hand's, 18 u), so a body between the shooter's chest and it (a
+  // bat swung in the face) takes the shot where the line meets it: { t, at } or null
+  _pointBlank(p, muzzle) {
+    const x0 = p.x, y0 = p.y, z0 = (p.z || 0) + CHEST - 6, dx = muzzle[0] - x0, dy = muzzle[1] - y0, dz = muzzle[2] - z0; let best = null, bs = 1;
+    for (const t of this.bodies) {
+      if (t === p || t.dead || Math.abs(t.x - x0) > 40 || Math.abs(t.y - y0) > 40) continue;
+      const k = hitCylinder(x0, y0, z0, dx, dy, dz, t.x, t.y, (t.r || 6) + 1, (t.z || 0) - 4, (t.z || 0) + (t.h || 34));
+      if (k > 0 && k < bs) { bs = k; best = t; }
+    }
+    return best ? { t: best, at: [x0 + dx * bs, y0 + dy * bs, z0 + dz * bs] } : null;
   }
   // the Zap-O-Matic: an arc to the nearest body in front, chaining on to the next ones near it
   _zap(p, spec, muzzle, dir, damage) {
@@ -176,7 +203,10 @@ export class Combat {
       this.fire.update(dt, w.wet || 0);
       if (this.fire.count && this.fire.count !== before && !this._told) { BUS.emit('fire', { x: 0, y: 0, r: 0, by: null }); this._told = true; }
       if (!this.fire.count) this._told = false;
-      if (this.fire.count) for (const b of bodies) { const h = this.fire.heatAt(b.x, b.y); if (h > .5 && b.z < 8 && b.ignite) b.ignite(2.5); }
+      // (who stands in fire catches: not one already alight, whose own trail would keep it burning for good; not one just
+      // put out, a moment; not one inside a car)
+      if (this.fire.count) for (const b of bodies) { if (b.burning > 0 || b.burnGrace > 0 || b.seat) continue; const h = this.fire.heatAt(b.x, b.y); if (h > .5 && b.z < 8 && b.ignite) b.ignite(2.5); }
+      for (const t of this.explosive) if (t.fuse && !t.blown) { t.heat = this.fire.count && this.fire.heatAt(t.x, t.y) > .5 ? t.heat + dt : 0; if (t.heat > 1.2) t.burn(); }   // (a barrel stood in fire a moment)
     }
     if (w.takers) this.pickups.update(dt, w.takers, w.take || null); else this.pickups.update(dt);
     for (const f of this.fx) f.t += dt; this.fx = this.fx.filter(f => f.t < .5);

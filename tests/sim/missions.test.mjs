@@ -114,3 +114,38 @@ test('a stage\'s kit of only a bat, the player\'s own weapons back when the miss
   assert.equal(R.state, 'passed', 'passed (' + R.failure + ')');
   assert.equal(P().inv.list().join(), own, 'the player\'s own weapons back');
 });
+
+test('what the gang chains needed: a vehicle put back; a fleeing car\'s run on the roads; red barrels that blow, chain and go with the job; an ally gang; m.alerted; a cap lifted when the job ends', async () => {
+  const g = await world(), { M, C, R, P } = g, life = g.gtm.life, combat = g.gtm.combat;
+  let ctx = null;
+  M.defMission('fx_chain', { title: 'Fixture: the chains\' needs', stages: [{ id: 'one', setup(m) {
+    ctx = m; const [x, y] = m.at('safehouse');
+    m.ensure.vehicle('van', 'hauler', m.curb('safehouse'));
+    m.spawn.prop('barrel', [x + 60, y + 40], { tag: 'b', explosive: { hp: 20, fire: false } });
+    m.spawn.prop('barrel', [x + 80, y + 40], { tag: 'b', explosive: { hp: 20, fire: false } });
+    m.spawn.ped('saint-grunt', [x + 70, y - 60], { tag: 'g', role: 'guard', facing: Math.PI / 2 });
+  }, *run(m) { m.wanted.cap(0); m.ally('rats'); yield m.wait(600); } }] });
+  C.startMission('fx_chain'); g.run(.5, () => false);
+  // m.place a vehicle: put back and stopped (it threw: a body's vx, vy and speed are read from u and v)
+  const van = R.actors.tagged('van')[0]; van.body.u = 120;
+  assert.doesNotThrow(() => ctx.place(van, ctx.curb('safehouse'))); assert.equal(Math.round(van.speed), 0);
+  // a fleeing car's next stop: a ground lane's point (a lane's a/b: the old ax, ay read NaN and sent it off the roads)
+  const dest = R.actors._away(van, P());
+  assert.ok(Number.isFinite(dest[0]) && g.gtm.city.walkable(Math.floor(dest[0] / 16), Math.floor(dest[1] / 16)) !== undefined && !(dest[0] === van.x + 600 && dest[1] === van.y), 'a lane point: ' + dest);
+  // the barrels: one shot to its hp blows; the next goes up a moment later; neither left lit (a bang, no blaze)
+  const [b1, b2] = R.actors.tagged('b');
+  assert.ok(combat.boxes.includes(b1) && combat.explosive.includes(b2), 'Combat\'s while they stand');
+  combat.hurt(b1, { amount: 25, kind: 'bullet', by: P().id }); g.run(1, () => false);
+  assert.ok(b1.dead && b2.dead, 'blown, and the chain');
+  // the ally: a Rat killed in the crossfire costs no respect while the job runs
+  const G = life.gangs, rat = combat.add(new M.Ped({ x: P().x + 400, y: P().y, look: {} })); rat.gang = 'rats';
+  const r0 = G.get('rats'); G._kill({ target: rat.id, by: P().id }); assert.equal(G.get('rats'), r0, 'no respect lost'); assert.equal(G.ally, 'rats');
+  combat.remove(rat);
+  // m.alerted: the guard sees the player in front of it; taken down, no longer
+  P().place(R.actors.tagged('g')[0].x, R.actors.tagged('g')[0].y + 90); g.run(2, () => ctx.alerted('g'));
+  assert.ok(ctx.alerted('g'), 'seen'); R.actors.entry(R.actors.tagged('g')[0]).down = true; assert.ok(!ctx.alerted('g'), 'taken down');
+  assert.equal(life.wanted.capStars, 0);
+  R.quit();
+  assert.ok(!combat.boxes.includes(b1) && !combat.explosive.includes(b2), 'the barrels gone with the job');
+  assert.equal(life.wanted.capStars, 5, 'the cap lifted when the job ended'); assert.equal(G.ally, null, 'the ally too');
+});
