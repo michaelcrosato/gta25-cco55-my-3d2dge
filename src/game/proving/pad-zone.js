@@ -45,7 +45,7 @@ def('provingZones', 'pad', {
       },
       draw(r) {
         const b = car.body;
-        stage.begin(r, { focus: [car.x, car.y], vel: [b.vx, b.vy], speed01: car.speed / b.h.top });
+        stage.begin(r, { focus: [car.x, car.y], vel: [b.vx, b.vy], speed01: car.speed / b.h.top, vehicle: true });
         for (const [lx, ly] of map.lamps) stage.shape(lx, ly, 0, (g, P) => drawLamp(g, P, lx, ly));
         const dt = Math.min(.1, game.real - (this._t ?? game.real)); this._t = game.real;
         for (const v of fleet.vehicles) drawVehicle(stage, v, { dt, night: false });

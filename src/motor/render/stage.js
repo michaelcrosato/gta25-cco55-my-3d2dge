@@ -4,8 +4,13 @@
 // with outlines and x-ray). In TOP and SIDE7 the stage collects everything with a depth key and draws it back to front
 // through that view's projection, over its own sky and floor; the engine's lighting and particles stay out of those
 // views, and MOTOR's light pass darkens them by the same numbers (the hour's sky: setSky) with the lamps' pools cut out.
-//   stage.begin(r, { focus, vel, speed01 }) · stage.actor(x, y, z, draw, o) · stage.shape(x, y, z, draw) · stage.end()
+//   stage.begin(r, { focus, vel, speed01, vehicle }) · stage.actor(x, y, z, draw, o) · stage.shape(x, y, z, draw) · stage.end()
+//   stage.update(dt, { vehicle, vel }) each simulation step (MODE 7's Auto-rail) · stage.setRig({ x, y, zoom, heading })
+//   holds every view's camera on a point (photo mode, cut-scenes; null lets go)
 //   draw(g, sx, sy, view, k): a rig or anything drawn by code with an engine View at (sx, sy), k pixels per unit
+// A switch of view (or of MODE 7's rail) dissolves the last frame into the new view over a third of a second
+// (render/crossfade.js), drawn over the world and under the HUD; switching into ISO, the buildings are flat blocks under
+// it while the walls bake a few milliseconds a frame, as in a quarter turn.
 // An ISO quarter turn (stage.turn) would bake a screenful of walls at the new yaw in one frame. Instead the camera
 // orbits for a third of a second with the buildings drawn as flat-shaded blocks (one box a lot, nothing to bake) while
 // the new yaw's walls bake a few milliseconds a frame; then the textured walls come back.
@@ -16,9 +21,11 @@ import { TopView } from './depth/top.js';
 import { CutAway } from './cutaway.js';
 import { BACKDROPS } from './sky.js';
 import { WeatherFX } from './weather-fx.js';
+import { CrossFade } from './crossfade.js';
 import { TUNE, knob } from '../core/tune.js';
 
 knob('Graphics', 'crowdEvery', 'Crowd animation rate', 4, 1, 8, 1, 'A crowd body (o.key) is drawn every n frames (4: 15 a second, like classic townsfolk) and its image reused in between, at the place it is now (the player never)');
+knob('Camera', 'autoRail', 'Auto-rail', 1, 0, 1, 1, 'MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0)');
 knob('Graphics', 'lightRes', 'Light field coarseness', 2, 1, 4, 1, 'ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work');
 
 const CROWD = { outline: false, rim: false }, XRAY = { xray: true };
@@ -36,6 +43,8 @@ export class Stage {
     this.game = game; this.views = views; this.items = []; this.world = null; this.last = 0; this.fx = null; this.zx = null;
     this.lamps = []; this.glows = []; this.floorFx = []; this.marks = []; this.backdrops = new Map(); this.skyNow = null; this._maxH = null; this.wfx = new WeatherFX();
     this.frameNo = 0; this._kept = new WeakMap();   // (crowd bodies' kept images in the depth views, by their key)
+    this.fade = new CrossFade(); this.bx = null; this._dt = 0;
+    views.onChange((now, prev) => { if (now === prev) return; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); this.bx = !views.spec || !views.spec.depth ? { t: 0 } : null; });
     this.side7 = new Side7View({}); this.top = new TopView({});
     for (const v of [this.top, this.side7]) views.addView({ id: v.id, label: v.label, depth: v,
       screenDirToGround: (dx, dy) => v.screenDirToGround(dx, dy), screenVec: (x, y, z) => v.screenVec(x, y, z),
@@ -73,27 +82,52 @@ export class Stage {
    *  the simulation never reads it */
   begin(r, o = {}) {
     this.r = r; this.items.length = 0; this.lamps.length = 0; this.glows.length = 0; this.floorFx.length = 0; this.marks.length = 0; this.focus = o.focus || null; this.isoP = null; this.frameNo++;
-    const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, .1); this.last = now;
+    const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, .1); this.last = now; this._dt = dt;
     const d = this.depth, W = this.world, sky = this.skyNow;
     if (sky) this.wfx.update(dt, sky, this.focus);
     if (!d) {   // ISO: the engine draws; the floor and walls go first
       if (this.cutaway) { const p = o.player || this.focus; if (p) this.cutaway.update(r.view, p[0], p[1], p[2] || 0); }
-      r.overlay(g => { this._isoGlows(g, r); if (sky) this.wfx.draw(g, this._isoProj(r), r.bw, r.bh, sky); });   // (after the lights, before a turn or zoom transforms the frame, and before the HUD)
+      r.overlay(g => { this._isoGlows(g, r); if (sky) this.wfx.draw(g, this._isoProj(r), r.bw, r.bh, sky); this.fade.draw(g, dt); });   // (after the lights, before a turn or zoom transforms the frame, and before the HUD)
       if (sky && sky.wet > .02) r.decal(g => this.wfx.floor(g, r.bw, r.bh, sky));   // (over the floor, under what stands on it)
       if (W.backdrop) W.backdrop.draw(r);
       if (W.engineFloor && W.map) W.map.drawFloor(r); else if (W.floor) W.floor.drawIso(r);
       if (this.fx) this._turnFrame(r, dt, o.player || this.focus);
+      else if (W.map && this.bx) this._bakeIn(r, dt);
       else if (W.map) { W.map.queueWalls(r); if (this.zx) this._zoomFrame(r, dt, o.player || this.focus); else W.map.prebakeWalls(r); }
       return;
     }
-    if (this.focus) d === this.top ? d.follow(dt, this.focus[0], this.focus[1], (o.vel || [0, 0])[0], (o.vel || [0, 0])[1], o.speed01 || 0) : d.follow(dt, this.focus[0], this.focus[1]);
+    const rig = this.rig; if (rig) { this.focus = [rig.x, rig.y]; o = { ...o, vel: [0, 0] }; }   // (the camera rig holds it: photo mode, a cut-scene)
+    if (d === this.side7) { d.rig(dt, !!o.vehicle, o.speed01 || 0); if (rig && rig.heading !== undefined) d.setHeading(rig.heading, rig.x, rig.y); }
+    d.zoom = rig && rig.zoom ? rig.zoom : 1;
+    if (this.focus) d === this.top ? d.follow(dt, this.focus[0], this.focus[1], (o.vel || [0, 0])[0], (o.vel || [0, 0])[1], rig ? 0 : o.speed01 || 0) : d.follow(dt, this.focus[0], this.focus[1]);
     d.frame(r);
   }
-  /** turn the camera a quarter, dir -1 (turnLeft) or 1 (turnRight): ISO's yaw, MODE 7's rail; TOP-DOWN stays north-up.
-   *  Returns true if it turns */
+  // into ISO from a depth view: flat blocks while the walls bake (under the crossfade), then the walls
+  _bakeIn(r, dt) {
+    const bx = this.bx, map = this.world.map; bx.t += dt;
+    if (this.game.headless) { this.bx = null; return; }
+    const left = map.prebakeWalls(r, { ms: TURN.bakeMs });
+    if (left > 0 && bx.t < TURN.most) { this._flatWalls(r); return; }
+    this.bx = null; map.queueWalls(r);
+  }
+  /** each simulation step from the scene (o.vehicle: the focus is in one; o.vel: its velocity): MODE 7's Auto-rail
+   *  turns the rail to the axis a vehicle has held 1.5 s, through the crossfade (TUNE.autoRail; here, between frames, so
+   *  the fade starts from the last one drawn). Presentation only: the simulation never reads it */
+  update(dt, o = {}) {
+    const d = this.depth; if (d !== this.side7 || this.rig) return;
+    const want = TUNE.autoRail && o.vehicle && o.vel ? d.autoRail(dt, o.vel[0], o.vel[1]) : (d.steadyT = 0, null);
+    if (want === null) return;
+    const f = this.focus; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); d.setHeading(want, f ? f[0] : d.x, f ? f[1] : d.y);
+  }
+  /** the camera rig (photo mode, cut-scenes; PLAN.md 8.2, 8.22): { x, y, zoom, heading } holds every view's camera on
+   *  that point (ISO's through the scene's focus: stage.rig), at that zoom, MODE 7's rail at that heading; null lets the
+   *  views follow the focus again. Presentation only */
+  setRig(rig) { this.rig = rig ? { ...rig } : null; }
+  /** turn the camera a quarter, dir -1 (turnLeft) or 1 (turnRight): ISO's yaw, MODE 7's rail (through the crossfade);
+   *  TOP-DOWN stays north-up. Returns true if it turns */
   turn(dir) {
     const d = this.depth, f = this.focus;
-    if (d === this.side7) { d.setHeading(d.heading + 90 * dir, f ? f[0] : d.x, f ? f[1] : d.y); return true; }
+    if (d === this.side7) { this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); d.setHeading(d.heading + 90 * dir, f ? f[0] : d.x, f ? f[1] : d.y); return true; }
     if (d || !dir) return false;
     if (this.fx || this.zx) { (this.fx || this.zx).queued = dir; return true; }   // (one more turn waits for this one, or for a zoom step)
     const g = this.game, b = g.baseView || g.view, from = g.yaw || 0, to = ((from + 90 * dir) % 360 + 360) % 360;
@@ -384,7 +418,7 @@ export class Stage {
     g.save(); g.imageSmoothingEnabled = false; d.stats.quads = 0;
     let spans = [];
     if (d === this.side7) {
-      d.drawSky(g, Math.max(0, d.P.hy));
+      d.drawSky(g, Math.max(0, d.P.hy), W.backdrop, r);
       if (W.floor) { const [i0, j0, i1, j1] = d.wedge(S); for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W.floor.canvas(i, j); W.floor.pump(d.x, d.y); d.drawFloor(g, W.floor); }
       this._floorFx(g, d, Math.max(0, Math.floor(d.P.hy)));
       if (this.spans) { const [i0, j0, i1, j1] = d.wedge(S); spans = this.spans.range(i0, j0, i1, j1); d.spanItems(spans, this.items, this.focus, W.night); }
@@ -400,6 +434,7 @@ export class Stage {
     let actors = 0; for (const it of this.items) { it.fn(g); if (it.actor) actors++; }
     if (this.game.lights && this.game.lights.enabled) this._depthLight(g, d);
     if (this.skyNow) this.wfx.draw(g, d, r.bw, r.bh, this.skyNow);
+    this.fade.draw(g, this._dt);   // (the last view dissolving: over the world, under the marks and the HUD)
     for (const f of this.marks) f();   // (glows that always show: a lock-on's mark, over the dark and the weather)
     g.restore(); g._c = null;
     d.stats.actors = actors; d.stats.spans = spans.length; d.stats.items = this.items.length;

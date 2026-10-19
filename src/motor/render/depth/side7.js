@@ -2,7 +2,9 @@
 // vendor/my-3d2dge/reference/stress.game.js 615-844) generalized from one hall to a chunked city. A camera on a rail
 // (level, its lens shifted to put the horizon where the stress test's 14° pitch puts it, so walls and figures stay
 // upright: DECISIONS D8): heading locked to an axis (north by default; 90° steps), it follows the focus sideways and keeps it near..far
-// ahead, moving in depth only past those. The floor is drawn a screen row at a time from the floor chunks' canvases
+// ahead, moving in depth only past those. On foot it stands 70 up and keeps the focus 110-260 ahead; in a vehicle 90 up,
+// 160-380 ahead, its field widening with speed (rig); Auto-rail turns it to the axis a vehicle has held 1.5 s. The sky
+// above the horizon is the hour's backdrop, its skyline turning with the rail. The floor is drawn a screen row at a time from the floor chunks' canvases
 // (Mode 7); the TileMap's walls come as box spans, sliced a tile deep along the rail and drawn back to front with the
 // scene's actors, each face an exact quad filled with its wall texture under an affine map; rigs are the engine's own,
 // drawn through a View at the scale their distance gives (view7). The engine's own lighting and particles stay off in
@@ -19,6 +21,10 @@ const DEG = Math.PI / 180;
  *  focus, looking north), 90 east, 180 south, 270 west */
 export const RAIL = { 0: { f: [0, -1], r: [1, 0] }, 90: { f: [1, 0], r: [0, 1] }, 180: { f: [0, 1], r: [-1, 0] }, 270: { f: [-1, 0], r: [0, -1] } };
 const NEAR_D = 10;   // nothing nearer than this along the rail is drawn
+/** the rail's lens on foot and in a vehicle (PLAN.md 5.3): height, the focus kept near..far ahead, the field of view
+ *  (widen: degrees more at top speed) */
+export const RIGS = { foot: { h: 70, near: 110, far: 260, fov: 50, widen: 0 }, vehicle: { h: 90, near: 160, far: 380, fov: 50, widen: 12 } };
+const AUTO_RAIL = 1.5, AUTO_SPEED = 40, AUTO_SHARE = .9;   // (s of steady travel along an axis; the least speed; its share along the axis)
 
 export class Side7View {
   /** o: { map (TileMap), floor (FloorChunks), spans (Spans), sky: [colors top to bottom], fog: colour, farClip: 600,
@@ -33,6 +39,21 @@ export class Side7View {
     deg = ((Math.round(deg / 90) * 90) % 360 + 360) % 360; if (deg === this.heading && this.ready) return;
     const d = (this.near + this.far) / 2, a = RAIL[deg]; this.heading = deg;
     if (fx !== undefined) { this.x = fx - a.f[0] * d; this.y = fy - a.f[1] * d; this.ready = true; }
+  }
+  /** the lens for where the focus is (in a vehicle or not) and how fast (speed01, 0..1 of top speed): eased, so getting
+   *  in or out moves the camera rather than cutting it */
+  rig(dt, vehicle, speed01 = 0) {
+    const R = vehicle ? RIGS.vehicle : RIGS.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R.fov + R.widen * E.clamp(speed01, 0, 1);
+    this.h += (R.h - this.h) * k; this.near += (R.near - this.near) * k; this.far += (R.far - this.far) * k; this.fov += (fov - this.fov) * k;
+  }
+  /** Auto-rail: given a vehicle's velocity each step, the heading of the axis it has held steady for 1.5 s (going
+   *  faster than 40, nine tenths of it along that axis) once it differs from the rail's own, else null */
+  autoRail(dt, vx, vy) {
+    const sp = Math.hypot(vx, vy), ax = Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? 90 : 270) : (vy > 0 ? 180 : 0);
+    if (sp < AUTO_SPEED || Math.max(Math.abs(vx), Math.abs(vy)) < sp * AUTO_SHARE || ax === this.heading) { this.steadyT = 0; this.steadyAx = null; return null; }
+    if (ax !== this.steadyAx) { this.steadyAx = ax; this.steadyT = 0; }
+    if ((this.steadyT += dt) < AUTO_RAIL) return null;
+    this.steadyT = 0; this.steadyAx = null; return ax;
   }
   /** the camera follows the focus: sideways always (smoothed), in depth only when it comes nearer than near or goes past
    *  far. Presentation only: the simulation never reads it */
@@ -99,9 +120,24 @@ export class Side7View {
   fogAt(D) { return E.clamp((D - this.fogStart) / (this.farClip - this.fogStart), 0, 1); }
 
   /* ---- drawing ---- */
-  /** the sky above the horizon: a gradient (the backdrop with yaw parallax comes with M7's sky) */
-  drawSky(g, top) {
-    const P = this.P, gr = g.createLinearGradient(0, 0, 0, Math.max(1, top));
+  /** the sky above the horizon (top: its buffer row): the hour's backdrop bd (render/sky.js: its stars, moon and
+   *  skyline) drawn through the engine renderer r into the band above it, the skyline turning with the rail (a quarter
+   *  turn moves it on a long way, the rail's sideways run a little: the yaw parallax); with none, a gradient */
+  drawSky(g, top, bd = null, r = null) {
+    const P = this.P;
+    if (bd && r) {
+      const a = RAIL[this.heading], R = this._R && this._Rof === r ? this._R : (this._Rof = r, this._R = Object.create(r));   // (kept: its own caches, the sky's baked strips, last)
+      g.fillStyle = this.fog; g.fillRect(0, 0, P.W, P.H);   // (below the band, where no floor row is drawn: the fog's colour)
+      const own = { ctx: g, bh: Math.max(4, Math.ceil((top + 2) / 4) * 4), ix: this.heading * 4 + (this.x * a.r[0] + this.y * a.r[1]) * .25, iy: 0 };
+      for (const k in own) Object.defineProperty(R, k, { value: own[k], writable: true, configurable: true });   // (own values over the renderer's getters)
+      bd.draw(R);
+      // (the skyline's foot fades into the haze, as the far streets do: farther is paler, never darker)
+      const [fr, fgr, fb] = this.fogRGB, b = own.bh, hz = g.createLinearGradient(0, b * .45, 0, b);
+      hz.addColorStop(0, `rgba(${fr},${fgr},${fb},0)`); hz.addColorStop(1, `rgba(${fr},${fgr},${fb},.92)`);
+      g.fillStyle = hz; g.fillRect(0, Math.floor(b * .45), P.W, Math.ceil(b * .55) + 1);
+      return;
+    }
+    const gr = g.createLinearGradient(0, 0, 0, Math.max(1, top));
     this.sky.forEach((c, i) => gr.addColorStop(i / Math.max(1, this.sky.length - 1), c));
     g.fillStyle = gr; g.fillRect(0, 0, P.W, P.H);
   }

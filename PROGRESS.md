@@ -1,8 +1,7 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M6 is done (the crimes and the wanted level, the police by tier with the Eye, roadblocks and spike strips, NABBED
-and WRECKED, the respray and the bribes, the gangs with their respect, turf, cars and turf wars, the radar; `npm test`
-and test:full pass); next is M7 (TOP-DOWN and MODE 7 finished, the view manager, the bank). Blockers: none. The run started inside the
+Now: M7 is under way: the view manager (memory, Auto, the crossfade), MODE 7's lens, Auto-rail and sky, and the camera
+rig are in (part 1); next are MODE 7's draw budget, the bank interior and M7's acceptance. M6 is done. Blockers: none. The run started inside the
 planning session (DECISIONS D5); at M4's close it was handed off (D16), and this session carries it on from M5 on the
 branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md`'s `/goal`.
 
@@ -15,7 +14,7 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
 | M4 Vehicles | done | the models registry, the class bodies, the Fleet, boarding, damage, the renderer, the handling bench (`b442d89`); Lowtown's fleet, driving in play, the accept tests (`f198207`, `a7eb6ae`, `87c52c9`); FAN-OUT A1's 19 definitions, the painter's order, the fixes its reviews found (`f61bf2e` to `c9e3ef6`); the acceptance and the handoff (this commit) · 172 unit + sim tests, 3 e2e suites · ISO at the gate the same as M3's build, interleaved; TOP 9.1 ms · `docs/media/m4/` (the model sheet, 15 shots) |
 | M5 Roads, traffic, peds | done | the roads and the traffic (`6e94f04`); the sidewalks, the crowd, its reactions and witnesses, the emergency services, the Marching Mimes, the AutoPlayer core, the soaks and the evidence (this commit) · 184 unit + sim tests, 3 e2e suites, the 10-minute city soak in test:full · ISO at the gate 12-23% faster than M4's build, TOP-DOWN and MODE 7 the same, interleaved (measured with M5's tour stuck at its start: corrected at M6) · `docs/media/m5/` (13 filmstrips, 5 shots) |
 | M6 Wanted, police, gangs | done | the crimes and the wanted level, the police by tier with the Eye, roadblocks and spikes, NABBED and WRECKED, the respray and the bribes, the gangs with respect, turf, cars and turf wars, the radar (`a1a65cb`); what the 10-minute city soak found with gangs and police about, and the gate (this commit) · 201 unit + sim tests (wanted 11, gangs 5), 3 e2e suites, the 5-minute gang sim and both city soaks pass in test:full · ISO and TOP-DOWN the same as M5's build, MODE 7 within the tolerance, interleaved (the tour fixed in both) · `docs/media/m6/` (10 filmstrips) |
-| M7 TOP + SIDE7 + bank | | |
+| M7 TOP + SIDE7 + bank | under way | the view manager, MODE 7's lens, Auto-rail and sky, the camera rig (part 1, this commit) · 210 unit + sim tests · `docs/media/m7/` (4 shots) |
 | M8 Missions + economy | | |
 | M9 10-foot UI | | |
 | M10 Audio + radio | | |
@@ -581,3 +580,28 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
   `tests/sim/city-life.test.mjs` holds the three rules: a unit at its call stands with a car's room behind it past its
   lane's `clearS` and room ahead; a driver at the line waits while the car past the zebra leaves no room behind it, and
   goes when it does; a ped at the curb of a crossing a car stands on goes another way after 20 s (201 tests).
+- **M7 · section 8.2, the view manager** (`tests/unit/views.test.mjs`, 4 tests; one in `tests/sim/city-life.test.mjs`):
+  - memory (TUNE `camMemory`): the view chosen on foot and the one in a vehicle each come back on getting out and in;
+    the view the scene opens in (a deep link's) stays until the player picks another;
+  - Auto (TUNE `camAuto`, off by default): ISO on foot, TOP-DOWN past 55% of top speed in a vehicle, ISO again below
+    30%; the player's own R3 holds until they get in or out;
+  - every switch, and every turn of MODE 7's rail, dissolves the last frame into the live view through a 4x4 Bayer
+    order over 0.35 s (TUNE `viewFade`), over the world and under the HUD; into ISO, the buildings stand as flat
+    blocks under it while the walls bake;
+  - switching views (R3's cycle) and turning the camera mid-run, the AutoPlayer driving across Lowtown, leaves the sim
+    hash unchanged (every view visited, the car driven over 300 u).
+- **M7 · section 8.5, the depth renderer** (`tests/unit/depth.test.mjs`, 4 new tests):
+  - MODE 7's lens on foot (h 70, the focus 110-260 ahead, fov 50) and in a vehicle (h 90, 160-380 ahead, the fov
+    widening to 62 at top speed), eased between them;
+  - Auto-rail (TUNE `autoRail`): the rail turns to the axis a vehicle has held for 1.5 s, through the crossfade; not to
+    a wobble, a crawl or the way it already faces;
+  - the TOP climb is continuous: H rises with speed with no step over 10 u a frame, and comes back down;
+  - the camera rig (`stage.setRig`): every view held on a point, a zoom and a heading (photo mode, cut-scenes);
+  - MODE 7's sky: the hour's backdrop above the horizon, its skyline turning with the rail (the yaw parallax), its
+    foot fading into the haze. Shots in `docs/media/m7/`, with verdicts:
+    - `side7-sky-day`: sky, clouds and sun, the skyline hazed at its foot. Pass (the first take had a dark band under
+      the skyline, hard against the pale fog below it: farther must be paler, so the band's foot now fades to the haze);
+    - `side7-sky-dusk`: the purple skyline, the sun going down behind it, the street lamps lit. Pass;
+    - `side7-sky-night-rain`: the moon, lit windows in the skyline, rain. Pass;
+    - `side7-vehicle-rail`: the AutoPlayer in a Medic; Auto-rail has turned the rail east along its drive, the camera
+      higher and farther back. Pass.

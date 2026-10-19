@@ -166,7 +166,7 @@ def('scenes', 'play', {
           vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake, traffic: life && life.traffic ? life.traffic.count : 0, peds: life && life.crowd ? life.crowd.count : 0,
           stars: stars(), down: down ? down.kind : null }; });
         expose('teleport', (x, y) => { hero().place(x, y); game.cam.snap = true; });
-        expose('life', life); expose('auto', auto); expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat); expose('fleet', fleet); expose('fleetCount', fleetCount);
+        expose('views', views); expose('stage', stage); expose('life', life); expose('auto', auto); expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat); expose('fleet', fleet); expose('fleetCount', fleetCount);
         expose('perf', () => ({ ...rec, floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length, depth: stage.depth ? { ...stage.depth.stats } : null }));
         game.stateHash = () => [...crew.order.flatMap(id => { const p = crew.member(id).ped; return [Math.round(p.x * 8), Math.round(p.y * 8), Math.round(p.z * 8), Math.round(p.health * 10)]; }),
           crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash(), fleet.hash(), ...(life ? life.hash() : [])];
@@ -228,6 +228,8 @@ def('scenes', 'play', {
         if (p.dead && (!down || down.kind !== 'wrecked')) { down = { kind: 'wrecked', t: 0 }; BUS.emit('wrecked', { cause: lastCause || 'unknown' }); lastCause = null; }
         if (down) { down.t += dt; if (down.t > TUNE.cardTime) { const k = down.kind; down = null; respawn(k); } }
         if (v && !down) respray(p, v);
+        if (!busy && !down) views.context(v ? 'vehicle' : 'foot', v ? v.speed / ((v.body && v.body.h.top) || 260) : 0);   // (the view kept on foot and in a vehicle; Auto)
+        stage.update(dt, { vehicle: !!v, vel: v && v.body ? [v.body.vx, v.body.vy] : null });   // (MODE 7's Auto-rail)
         if (I.tap.view && !busy) views.next();
         if ((I.tap.turnLeft || I.tap.turnRight) && !busy) stage.turn(I.tap.turnRight ? 1 : -1);
         if (toast) { toast.t -= real; if (toast.t <= 0) toast = null; }
@@ -236,13 +238,14 @@ def('scenes', 'play', {
         // the camera leads a moving vehicle by a third of a second (eased: presentation only, nothing reads it back)
         const k = Math.min(1, real * 2.5), want = qv ? [qv.body.vx * TUNE.camLead, qv.body.vy * TUNE.camLead] : [0, 0];
         lead[0] += (want[0] - lead[0]) * k; lead[1] += (want[1] - lead[1]) * k;
-        if (!cam) game.focus(fx1 + (stage.depth ? 0 : lead[0]), fy1 + (stage.depth ? 0 : lead[1]), 16);   // (TOP leads by itself; MODE 7 rides its rail)
+        if (stage.rig) game.focus(stage.rig.x, stage.rig.y, 16);   // (the camera rig holds every view: photo mode, a cut-scene)
+        else if (!cam) game.focus(fx1 + (stage.depth ? 0 : lead[0]), fy1 + (stage.depth ? 0 : lead[1]), 16);   // (TOP leads by itself; MODE 7 rides its rail)
       },
       draw(r) {
         if (rec) { const st = game.stats; rec.update.push(+st.updateMs.toFixed(3)); rec.render.push(+st.renderMs.toFixed(3)); rec.frames++; }
         const p = hero(), hold = stage.top.hold, pv = p.seat && p.seat.vehicle, fx0 = hold ? hold.x : pv ? pv.x : p.x, fy0 = hold ? hold.y : pv ? pv.y : p.y;
         stage.setSky(skyAt(clock.hour, weather));
-        stage.begin(r, { focus: [fx0, fy0], vel: hold ? [0, 0] : pv ? [pv.body.vx, pv.body.vy] : [p.mover.vx, p.mover.vy], speed01: pv ? Math.min(1, pv.speed / 300) : 0, player: [p.x, p.y, p.z] });
+        stage.begin(r, { focus: [fx0, fy0], vel: hold ? [0, 0] : pv ? [pv.body.vx, pv.body.vy] : [p.mover.vx, p.mover.vy], speed01: pv ? Math.min(1, pv.speed / 300) : 0, vehicle: !!pv, player: [p.x, p.y, p.z] });
         cityR.queue(stage, fx0, fy0, hold ? Math.min(1400, 520 * hold.H / 320) : stage.depth === stage.side7 ? 700 : 520, stage.world.lamps, [p.x, p.y, p.z]);
         if (life) life.draw(stage, fx0, fy0, hold ? 1400 : stage.depth === stage.side7 ? 760 : 600);
         if (crowd) {   // (presentation only: offsets round the focus, walking in place along their own line, topping the real crowd up to the gate's 40)

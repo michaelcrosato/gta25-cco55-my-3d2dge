@@ -70,7 +70,7 @@ function cityZone(id, size, nWalkers) {
           game.focus(hero.x, hero.y, 16);
         },
         draw(r) {
-          stage.begin(r, { focus: [hero.x, hero.y], vel: [hero.vx || 0, hero.vy || 0], speed01: walk ? 0 : 1 });
+          stage.begin(r, { focus: [hero.x, hero.y], vel: [hero.vx || 0, hero.vy || 0], speed01: walk ? 0 : 1, vehicle: !walk });
           const ci = Math.floor(hero.x / 256), cj = Math.floor(hero.y / 256);
           for (let j = cj - 3; j <= cj + 3; j++) for (let i = ci - 3; i <= ci + 3; i++) for (const [lx, ly] of lamps.get(j * 64 + i) || []) {
             if (Math.abs(lx - hero.x) > 700 || Math.abs(ly - hero.y) > 700) continue;

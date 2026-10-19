@@ -30,6 +30,23 @@ test('the same seed gives the same city: traffic, crowd and services hash alike 
   assert.deepEqual(await run('side7'), iso, 'MODE 7');
 });
 
+test('switching views mid-run (R3\'s cycle) and turning the camera leave the sim hash unchanged: the AutoPlayer driving across Lowtown', async () => {
+  const seen = new Set(), run = async switches => {
+    const { game, gtm, snap } = await loadGame({ hash: '#play/safehouse', query: { seed: '1999', time: 'day', weather: 'clear', auto: 'rats-hq' } });
+    const p0 = [gtm.crew.ped.x, gtm.crew.ped.y];
+    for (let t = 0; t < 24; t += .5) {
+      if (switches && t % 4 === 2) seen.add(gtm.views.next());   // (ISO, TOP-DOWN, MODE 7, ISO...)
+      if (switches && t % 6 === 3) gtm.stage.turn(1);   // (ISO's yaw, MODE 7's rail)
+      game.advance(.5);
+    }
+    const s = snap(), at = s.vehicle ? s.car || s.hero : s.hero;
+    assert.ok(s.vehicle && Math.hypot(at[0] - p0[0], at[1] - p0[1]) > 300, `the AutoPlayer drove: ${JSON.stringify(p0)} -> ${JSON.stringify(at)} (${s.vehicle})`);
+    return [...game.stateHash()];
+  };
+  assert.deepEqual(await run(true), await run(false));
+  assert.deepEqual([...seen].sort(), ['iso', 'side7', 'top'], 'every view was switched to');
+});
+
 test('a shot: the peds round it run away from it (of ten on the sidewalks 30-110 u off, those that flee are all farther off 2 s later, on average by 60 u and more)', async () => {
   const { game, gtm } = await play('greasy-spoke'), C = gtm.life.crowd, P = gtm.crew.ped, S = gtm.life.walks;
   const near = nearest(C, P, 10, m => !m.brain.follow);

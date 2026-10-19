@@ -10558,13 +10558,22 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var handle = H;
 
   // src/motor/render/view-manager.js
+  knob("Camera", "camMemory", "Remember views", 1, 0, 1, 1, "The last view on foot and the last in a vehicle kept apart, each back on getting out or in (1); one view for both (0)");
+  knob("Camera", "camAuto", "Auto view", 0, 0, 1, 1, "The view picked by itself (1): ISO on foot, TOP-DOWN at speed in a vehicle");
+  var AUTO_UP = 0.55;
+  var AUTO_DOWN = 0.3;
   var ViewManager = class {
     /** game: the E.Game; base: the engine view MOTOR draws ISO with */
     constructor(game2, base3 = "iso") {
       this.game = game2;
       this.views = /* @__PURE__ */ new Map();
       this.active = base3;
+      this.base = base3;
       this.listeners = [];
+      this.ctx = null;
+      this.mem = { foot: base3, vehicle: base3 };
+      this.held = false;
+      this.fast = false;
       const engineSetView = game2.setView.bind(game2);
       this.views.set(base3, { id: base3, label: "ISO", engine: true });
       game2.views = [base3];
@@ -10611,17 +10620,35 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const v = this.spec;
       return v && v.mouseGround ? v.mouseGround() : this.game.mouseGround();
     }
-    /** cycle to the next view in game.views */
+    /** the player's switch (R3 / V): the next view in game.views, remembered for where they are (on foot, in a vehicle) */
     next() {
       const ids = this.game.views, i = ids.indexOf(this.active);
       this.game.setView(ids[(i + 1) % ids.length]);
+      this.mem[this.ctx || "foot"] = this.active;
+      this.held = true;
       return this.active;
+    }
+    /** each step from the scene: where the player is ('foot' | 'vehicle') and how fast (0..1 of top speed). Getting in or
+     *  out brings that place's remembered view back (TUNE.camMemory); Auto (TUNE.camAuto) picks one by itself */
+    context(ctx, speed01 = 0) {
+      if (ctx !== this.ctx) {
+        const first = this.ctx === null;
+        this.ctx = ctx;
+        this.held = false;
+        this.fast = false;
+        if (first) this.mem.foot = this.mem.vehicle = this.active;
+        if (!first && !TUNE.camAuto && TUNE.camMemory && this.mem[ctx] !== this.active && this.views.has(this.mem[ctx])) this.game.setView(this.mem[ctx]);
+      }
+      if (!TUNE.camAuto || this.held) return;
+      this.fast = ctx === "vehicle" && (speed01 > AUTO_UP || this.fast && speed01 > AUTO_DOWN);
+      const want = this.fast && this.views.has("top") ? "top" : this.base;
+      if (want !== this.active) this.game.setView(want);
     }
     onChange(fn) {
       this.listeners.push(fn);
     }
     _notify(prev) {
-      for (const fn of this.listeners) fn(this.active);
+      for (const fn of this.listeners) fn(this.active, prev);
       if (prev !== this.active) BUS.emit("view", { view: this.active, prev });
     }
   };
@@ -10973,6 +11000,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var DEG = Math.PI / 180;
   var RAIL = { 0: { f: [0, -1], r: [1, 0] }, 90: { f: [1, 0], r: [0, 1] }, 180: { f: [0, 1], r: [-1, 0] }, 270: { f: [-1, 0], r: [0, -1] } };
   var NEAR_D = 10;
+  var RIGS = { foot: { h: 70, near: 110, far: 260, fov: 50, widen: 0 }, vehicle: { h: 90, near: 160, far: 380, fov: 50, widen: 12 } };
+  var AUTO_RAIL = 1.5;
+  var AUTO_SPEED = 40;
+  var AUTO_SHARE = 0.9;
   var Side7View = class {
     /** o: { map (TileMap), floor (FloorChunks), spans (Spans), sky: [colors top to bottom], fog: colour, farClip: 600,
      *  h: 70, pitch: 14, fov: 50, near: 110, far: 260 } */
@@ -11010,6 +11041,33 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.y = fy - a.f[1] * d;
         this.ready = true;
       }
+    }
+    /** the lens for where the focus is (in a vehicle or not) and how fast (speed01, 0..1 of top speed): eased, so getting
+     *  in or out moves the camera rather than cutting it */
+    rig(dt, vehicle, speed01 = 0) {
+      const R2 = vehicle ? RIGS.vehicle : RIGS.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R2.fov + R2.widen * E.clamp(speed01, 0, 1);
+      this.h += (R2.h - this.h) * k;
+      this.near += (R2.near - this.near) * k;
+      this.far += (R2.far - this.far) * k;
+      this.fov += (fov - this.fov) * k;
+    }
+    /** Auto-rail: given a vehicle's velocity each step, the heading of the axis it has held steady for 1.5 s (going
+     *  faster than 40, nine tenths of it along that axis) once it differs from the rail's own, else null */
+    autoRail(dt, vx, vy) {
+      const sp = Math.hypot(vx, vy), ax = Math.abs(vx) > Math.abs(vy) ? vx > 0 ? 90 : 270 : vy > 0 ? 180 : 0;
+      if (sp < AUTO_SPEED || Math.max(Math.abs(vx), Math.abs(vy)) < sp * AUTO_SHARE || ax === this.heading) {
+        this.steadyT = 0;
+        this.steadyAx = null;
+        return null;
+      }
+      if (ax !== this.steadyAx) {
+        this.steadyAx = ax;
+        this.steadyT = 0;
+      }
+      if ((this.steadyT += dt) < AUTO_RAIL) return null;
+      this.steadyT = 0;
+      this.steadyAx = null;
+      return ax;
     }
     /** the camera follows the focus: sideways always (smoothed), in depth only when it comes nearer than near or goes past
      *  far. Presentation only: the simulation never reads it */
@@ -11108,9 +11166,26 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return E.clamp((D - this.fogStart) / (this.farClip - this.fogStart), 0, 1);
     }
     /* ---- drawing ---- */
-    /** the sky above the horizon: a gradient (the backdrop with yaw parallax comes with M7's sky) */
-    drawSky(g, top2) {
-      const P16 = this.P, gr = g.createLinearGradient(0, 0, 0, Math.max(1, top2));
+    /** the sky above the horizon (top: its buffer row): the hour's backdrop bd (render/sky.js: its stars, moon and
+     *  skyline) drawn through the engine renderer r into the band above it, the skyline turning with the rail (a quarter
+     *  turn moves it on a long way, the rail's sideways run a little: the yaw parallax); with none, a gradient */
+    drawSky(g, top2, bd = null, r7 = null) {
+      const P16 = this.P;
+      if (bd && r7) {
+        const a = RAIL[this.heading], R2 = this._R && this._Rof === r7 ? this._R : (this._Rof = r7, this._R = Object.create(r7));
+        g.fillStyle = this.fog;
+        g.fillRect(0, 0, P16.W, P16.H);
+        const own = { ctx: g, bh: Math.max(4, Math.ceil((top2 + 2) / 4) * 4), ix: this.heading * 4 + (this.x * a.r[0] + this.y * a.r[1]) * 0.25, iy: 0 };
+        for (const k in own) Object.defineProperty(R2, k, { value: own[k], writable: true, configurable: true });
+        bd.draw(R2);
+        const [fr, fgr, fb] = this.fogRGB, b = own.bh, hz = g.createLinearGradient(0, b * 0.45, 0, b);
+        hz.addColorStop(0, `rgba(${fr},${fgr},${fb},0)`);
+        hz.addColorStop(1, `rgba(${fr},${fgr},${fb},.92)`);
+        g.fillStyle = hz;
+        g.fillRect(0, Math.floor(b * 0.45), P16.W, Math.ceil(b * 0.55) + 1);
+        return;
+      }
+      const gr = g.createLinearGradient(0, 0, 0, Math.max(1, top2));
       this.sky.forEach((c, i) => gr.addColorStop(i / Math.max(1, this.sky.length - 1), c));
       g.fillStyle = gr;
       g.fillRect(0, 0, P16.W, P16.H);
@@ -11559,8 +11634,82 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return `rgba(${c[0]},${c[1]},${c[2]},${(0.34 * sky.haze).toFixed(3)})`;
   }
 
+  // src/motor/render/crossfade.js
+  knob("Camera", "viewFade", "View switch fade", 0.35, 0, 1, 0.05, "Seconds the old view takes to dissolve into the new one (0: a cut)");
+  var BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  var CrossFade = class {
+    constructor() {
+      this.cv = null;
+      this.t = 0;
+      this.dur = 0;
+      this.level = 0;
+      this.tiles = [];
+    }
+    /** is the old frame still showing? */
+    get active() {
+      return !!this.cv;
+    }
+    /** the old frame: a copy of the buffer as it is now (the last frame drawn) */
+    start(src) {
+      if (!src || !(TUNE.viewFade > 0)) {
+        this.cv = null;
+        return;
+      }
+      const w8 = src.width, h = src.height;
+      if (!this._cv || this._cv.width !== w8 || this._cv.height !== h) this._cv = E.mkCanvas(w8, h);
+      const g = this._cv.getContext("2d");
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = "source-over";
+      g.clearRect(0, 0, w8, h);
+      g.drawImage(src, 0, 0);
+      this.cv = this._cv;
+      this.t = 0;
+      this.dur = TUNE.viewFade;
+      this.level = 0;
+    }
+    /** what is left of the old frame, drawn over this one, dt seconds on (its last call clears it) */
+    draw(g, dt) {
+      if (!this.cv) return;
+      this.t += dt;
+      const want = Math.min(16, Math.floor(this.t / this.dur * 17));
+      if (want >= 16) {
+        this.cv = null;
+        return;
+      }
+      if (want > this.level) {
+        const cg = this.cv.getContext("2d");
+        cg.globalCompositeOperation = "destination-out";
+        for (let l7 = this.level; l7 < want; l7++) {
+          cg.fillStyle = cg.createPattern(this._tile(l7), "repeat");
+          cg.fillRect(0, 0, this.cv.width, this.cv.height);
+        }
+        cg.globalCompositeOperation = "source-over";
+        this.level = want;
+      }
+      g.save();
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = "source-over";
+      g.drawImage(this.cv, 0, 0);
+      g.restore();
+      g._c = null;
+    }
+    // a 4x4 tile with the one pixel of Bayer rank l
+    _tile(l7) {
+      let t = this.tiles[l7];
+      if (t) return t;
+      t = this.tiles[l7] = E.mkCanvas(4, 4);
+      const tg = t.getContext("2d");
+      tg.fillStyle = "#000";
+      for (let i = 0; i < 16; i++) if (BAYER[i] === l7) tg.fillRect(i % 4, i >> 2, 1, 1);
+      return t;
+    }
+  };
+
   // src/motor/render/stage.js
   knob("Graphics", "crowdEvery", "Crowd animation rate", 4, 1, 8, 1, "A crowd body (o.key) is drawn every n frames (4: 15 a second, like classic townsfolk) and its image reused in between, at the place it is now (the player never)");
+  knob("Camera", "autoRail", "Auto-rail", 1, 0, 1, 1, "MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0)");
   knob("Graphics", "lightRes", "Light field coarseness", 2, 1, 4, 1, "ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work");
   var CROWD = { outline: false, rim: false };
   var XRAY = { xray: true };
@@ -11587,6 +11736,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.wfx = new WeatherFX();
       this.frameNo = 0;
       this._kept = /* @__PURE__ */ new WeakMap();
+      this.fade = new CrossFade();
+      this.bx = null;
+      this._dt = 0;
+      views.onChange((now, prev) => {
+        if (now === prev) return;
+        this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas);
+        this.bx = !views.spec || !views.spec.depth ? { t: 0 } : null;
+      });
       this.side7 = new Side7View({});
       this.top = new TopView({});
       for (const v of [this.top, this.side7]) views.addView({
@@ -11678,6 +11835,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.frameNo++;
       const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, 0.1);
       this.last = now;
+      this._dt = dt;
       const d = this.depth, W20 = this.world, sky = this.skyNow;
       if (sky) this.wfx.update(dt, sky, this.focus);
       if (!d) {
@@ -11688,12 +11846,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         r7.overlay((g) => {
           this._isoGlows(g, r7);
           if (sky) this.wfx.draw(g, this._isoProj(r7), r7.bw, r7.bh, sky);
+          this.fade.draw(g, dt);
         });
         if (sky && sky.wet > 0.02) r7.decal((g) => this.wfx.floor(g, r7.bw, r7.bh, sky));
         if (W20.backdrop) W20.backdrop.draw(r7);
         if (W20.engineFloor && W20.map) W20.map.drawFloor(r7);
         else if (W20.floor) W20.floor.drawIso(r7);
         if (this.fx) this._turnFrame(r7, dt, o.player || this.focus);
+        else if (W20.map && this.bx) this._bakeIn(r7, dt);
         else if (W20.map) {
           W20.map.queueWalls(r7);
           if (this.zx) this._zoomFrame(r7, dt, o.player || this.focus);
@@ -11701,14 +11861,59 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
         return;
       }
-      if (this.focus) d === this.top ? d.follow(dt, this.focus[0], this.focus[1], (o.vel || [0, 0])[0], (o.vel || [0, 0])[1], o.speed01 || 0) : d.follow(dt, this.focus[0], this.focus[1]);
+      const rig = this.rig;
+      if (rig) {
+        this.focus = [rig.x, rig.y];
+        o = { ...o, vel: [0, 0] };
+      }
+      if (d === this.side7) {
+        d.rig(dt, !!o.vehicle, o.speed01 || 0);
+        if (rig && rig.heading !== void 0) d.setHeading(rig.heading, rig.x, rig.y);
+      }
+      d.zoom = rig && rig.zoom ? rig.zoom : 1;
+      if (this.focus) d === this.top ? d.follow(dt, this.focus[0], this.focus[1], (o.vel || [0, 0])[0], (o.vel || [0, 0])[1], rig ? 0 : o.speed01 || 0) : d.follow(dt, this.focus[0], this.focus[1]);
       d.frame(r7);
     }
-    /** turn the camera a quarter, dir -1 (turnLeft) or 1 (turnRight): ISO's yaw, MODE 7's rail; TOP-DOWN stays north-up.
-     *  Returns true if it turns */
+    // into ISO from a depth view: flat blocks while the walls bake (under the crossfade), then the walls
+    _bakeIn(r7, dt) {
+      const bx = this.bx, map = this.world.map;
+      bx.t += dt;
+      if (this.game.headless) {
+        this.bx = null;
+        return;
+      }
+      const left = map.prebakeWalls(r7, { ms: TURN.bakeMs });
+      if (left > 0 && bx.t < TURN.most) {
+        this._flatWalls(r7);
+        return;
+      }
+      this.bx = null;
+      map.queueWalls(r7);
+    }
+    /** each simulation step from the scene (o.vehicle: the focus is in one; o.vel: its velocity): MODE 7's Auto-rail
+     *  turns the rail to the axis a vehicle has held 1.5 s, through the crossfade (TUNE.autoRail; here, between frames, so
+     *  the fade starts from the last one drawn). Presentation only: the simulation never reads it */
+    update(dt, o = {}) {
+      const d = this.depth;
+      if (d !== this.side7 || this.rig) return;
+      const want = TUNE.autoRail && o.vehicle && o.vel ? d.autoRail(dt, o.vel[0], o.vel[1]) : (d.steadyT = 0, null);
+      if (want === null) return;
+      const f = this.focus;
+      this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas);
+      d.setHeading(want, f ? f[0] : d.x, f ? f[1] : d.y);
+    }
+    /** the camera rig (photo mode, cut-scenes; PLAN.md 8.2, 8.22): { x, y, zoom, heading } holds every view's camera on
+     *  that point (ISO's through the scene's focus: stage.rig), at that zoom, MODE 7's rail at that heading; null lets the
+     *  views follow the focus again. Presentation only */
+    setRig(rig) {
+      this.rig = rig ? { ...rig } : null;
+    }
+    /** turn the camera a quarter, dir -1 (turnLeft) or 1 (turnRight): ISO's yaw, MODE 7's rail (through the crossfade);
+     *  TOP-DOWN stays north-up. Returns true if it turns */
     turn(dir) {
       const d = this.depth, f = this.focus;
       if (d === this.side7) {
+        this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas);
         d.setHeading(d.heading + 90 * dir, f ? f[0] : d.x, f ? f[1] : d.y);
         return true;
       }
@@ -12248,7 +12453,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       d.stats.quads = 0;
       let spans = [];
       if (d === this.side7) {
-        d.drawSky(g, Math.max(0, d.P.hy));
+        d.drawSky(g, Math.max(0, d.P.hy), W20.backdrop, r7);
         if (W20.floor) {
           const [i0, j0, i1, j1] = d.wedge(S);
           for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W20.floor.canvas(i, j);
@@ -12286,6 +12491,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       if (this.game.lights && this.game.lights.enabled) this._depthLight(g, d);
       if (this.skyNow) this.wfx.draw(g, d, r7.bw, r7.bh, this.skyNow);
+      this.fade.draw(g, this._dt);
       for (const f of this.marks) f();
       g.restore();
       g._c = null;
@@ -28141,7 +28347,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             game2.focus(hero.x, hero.y, 16);
           },
           draw(r7) {
-            stage.begin(r7, { focus: [hero.x, hero.y], vel: [hero.vx || 0, hero.vy || 0], speed01: walk ? 0 : 1 });
+            stage.begin(r7, { focus: [hero.x, hero.y], vel: [hero.vx || 0, hero.vy || 0], speed01: walk ? 0 : 1, vehicle: !walk });
             const ci = Math.floor(hero.x / 256), cj = Math.floor(hero.y / 256);
             for (let j = cj - 3; j <= cj + 3; j++) for (let i = ci - 3; i <= ci + 3; i++) for (const [lx, ly] of lamps2.get(j * 64 + i) || []) {
               if (Math.abs(lx - hero.x) > 700 || Math.abs(ly - hero.y) > 700) continue;
@@ -28392,7 +28598,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         },
         draw(r7) {
           const b = car.body;
-          stage.begin(r7, { focus: [car.x, car.y], vel: [b.vx, b.vy], speed01: car.speed / b.h.top });
+          stage.begin(r7, { focus: [car.x, car.y], vel: [b.vx, b.vy], speed01: car.speed / b.h.top, vehicle: true });
           for (const [lx, ly] of map.lamps) stage.shape(lx, ly, 0, (g, P16) => drawLamp(g, P16, lx, ly));
           const dt = Math.min(0.1, game2.real - (this._t ?? game2.real));
           this._t = game2.real;
@@ -28955,6 +29161,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             hero().place(x, y);
             game2.cam.snap = true;
           });
+          expose("views", views);
+          expose("stage", stage);
           expose("life", life);
           expose("auto", auto);
           expose("city", city);
@@ -29112,6 +29320,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             }
           }
           if (v && !down) respray(p, v);
+          if (!busy && !down) views.context(v ? "vehicle" : "foot", v ? v.speed / (v.body && v.body.h.top || 260) : 0);
+          stage.update(dt, { vehicle: !!v, vel: v && v.body ? [v.body.vx, v.body.vy] : null });
           if (I.tap.view && !busy) views.next();
           if ((I.tap.turnLeft || I.tap.turnRight) && !busy) stage.turn(I.tap.turnRight ? 1 : -1);
           if (toast) {
@@ -29125,7 +29335,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           const k = Math.min(1, real * 2.5), want = qv ? [qv.body.vx * TUNE.camLead, qv.body.vy * TUNE.camLead] : [0, 0];
           lead[0] += (want[0] - lead[0]) * k;
           lead[1] += (want[1] - lead[1]) * k;
-          if (!cam) game2.focus(fx1 + (stage.depth ? 0 : lead[0]), fy1 + (stage.depth ? 0 : lead[1]), 16);
+          if (stage.rig) game2.focus(stage.rig.x, stage.rig.y, 16);
+          else if (!cam) game2.focus(fx1 + (stage.depth ? 0 : lead[0]), fy1 + (stage.depth ? 0 : lead[1]), 16);
         },
         draw(r7) {
           if (rec) {
@@ -29136,7 +29347,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           }
           const p = hero(), hold = stage.top.hold, pv = p.seat && p.seat.vehicle, fx0 = hold ? hold.x : pv ? pv.x : p.x, fy0 = hold ? hold.y : pv ? pv.y : p.y;
           stage.setSky(skyAt(clock.hour, weather));
-          stage.begin(r7, { focus: [fx0, fy0], vel: hold ? [0, 0] : pv ? [pv.body.vx, pv.body.vy] : [p.mover.vx, p.mover.vy], speed01: pv ? Math.min(1, pv.speed / 300) : 0, player: [p.x, p.y, p.z] });
+          stage.begin(r7, { focus: [fx0, fy0], vel: hold ? [0, 0] : pv ? [pv.body.vx, pv.body.vy] : [p.mover.vx, p.mover.vy], speed01: pv ? Math.min(1, pv.speed / 300) : 0, vehicle: !!pv, player: [p.x, p.y, p.z] });
           cityR.queue(stage, fx0, fy0, hold ? Math.min(1400, 520 * hold.H / 320) : stage.depth === stage.side7 ? 700 : 520, stage.world.lamps, [p.x, p.y, p.z]);
           if (life) life.draw(stage, fx0, fy0, hold ? 1400 : stage.depth === stage.side7 ? 760 : 600);
           if (crowd) {
