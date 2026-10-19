@@ -209,7 +209,7 @@ export class Career {
   // ---- shops and properties
   _shopCard(s, ctx) {
     const items = s.items.filter(it => !it.unlock || this.save.missions.done.includes(it.unlock) || it.kind !== 'weapon').map(it => {
-      const c = this.econ.check(it, ctx), why = { cash: 'NOT ENOUGH CASH', full: 'FULL', have: 'FITTED', vehicle: 'DRIVE IN', none: '—' }[c.reason] || '';
+      const c = this.econ.check(it, ctx), why = c.reason === 'none' && it.kind === 'ammo' ? 'NO GUN' : { cash: 'NOT ENOUGH CASH', full: 'FULL', have: 'FITTED', vehicle: 'DRIVE IN', none: '—' }[c.reason] || '';
       return { label: it.name.toUpperCase(), right: '$' + c.price.toLocaleString('en-US'), sub: c.ok ? '' : why, disabled: !c.ok, act: () => (c.confirm ? this._confirm(s, it, ctx, c.price) : this._buy(s, it, ctx)) };
     });
     this._open({ id: 'shop', title: s.name.toUpperCase(), color: s.color, body: [`CASH  $${this.W.crew.fund.toLocaleString('en-US')}`], items, shop: s, ctx, back: () => this.close() });
@@ -312,18 +312,23 @@ export class Career {
   /** the radar's blips: [{ x, y, color, shape }] */
   blips() {
     const out = [];
-    if (this.R.active) { for (const mk of this.R.markers) if (!mk.gone && mk.blip) { const a = mk.actor; out.push({ x: a ? a.x : mk.at[0], y: a ? a.y : mk.at[1], color: mk.color, shape: a ? 'diamond' : 'square' }); } }
+    // (the job's own markers and the waypoint pinned to the rim when far: which way to go)
+    if (this.R.active) { for (const mk of this.R.markers) if (!mk.gone && mk.blip) { const a = mk.actor; out.push({ x: a ? a.x : mk.at[0], y: a ? a.y : mk.at[1], color: mk.color, shape: a ? 'diamond' : 'square', edge: true }); } }
     else {
       for (const m of this.available()) { const at = giverAt(this.W.city, m), g = m.gang && get('gangs', m.gang); out.push({ x: at[0], y: at[1], color: g ? g.colors[0] : '#ffe066', shape: g ? g.icon || 'square' : 'square', label: m.title }); }
       for (const { at } of this.startable()) out.push({ x: at[0], y: at[1], color: '#5af0ff', shape: 'flag' });
-      if (this.waypoint) out.push({ x: this.waypoint[0], y: this.waypoint[1], color: '#7af0ff', shape: 'square' });
+      if (this.waypoint) out.push({ x: this.waypoint[0], y: this.waypoint[1], color: '#7af0ff', shape: 'square', edge: true });
     }
     return out;
   }
   /** the HUD's part: the objective, the timer, the subtitles, the race, the pops, the card */
   hud(g, Wd, Hd, o = {}) {
     const R = this.R, B = this.app.bindings, input = this.app.game.input, t = this.W.game.real || 0;
-    if (R.state === 'running' && R.objective && !this.card) E.font.text(g, R.objective.text, Wd / 2, Hd - 86, '#f0ecff', { align: 'center', outline: '#05030c', wrap: Wd - 80 });
+    if (R.state === 'running' && R.objective && !this.card) {   // (on a band of its own: over a busy street it had blurred into the scene)
+      const rows = E.font.wrap(R.objective.text, Wd - 80, {}), bw = Math.min(Wd - 40, Math.max(...rows.map(r => E.font.width(r))) + 14);
+      g.fillStyle = 'rgba(5,3,12,.6)'; g.fillRect(Math.round(Wd / 2 - bw / 2), Hd - 89, Math.round(bw), rows.length * 10 + 5); g._c = null;
+      E.font.text(g, R.objective.text, Wd / 2, Hd - 86, '#f0ecff', { align: 'center', outline: '#05030c', wrap: Wd - 80 });
+    }
     if (R.timer && R.state === 'running') { const s = Math.ceil(R.timer.left), txt = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; E.font.text(g, (R.timer.label ? R.timer.label + ' ' : '') + txt, Wd - 8, 22, s <= 10 && Math.floor(t * 3) % 2 ? '#ff5a4a' : '#ffe066', { align: 'right', scale: 2, outline: '#05030c' }); }
     if (R.course && R.state === 'running') E.font.text(g, `CHECKPOINT ${R.checkpoint + 1 + R.lap * R.course.length}/${R.course.length * (R.laps || 1)}`, Wd - 8, 42, '#5af0ff', { align: 'right', outline: '#05030c' });
     const L = R.lines || (this.events.R.lines); if (L && L.list[L.i]) { const line = L.list[L.i]; E.ui.box(g, Wd / 2 - 160, Hd - 58, 320, 24, { alpha: .75 }); E.font.text(g, (L.name ? L.name.toUpperCase() + ': ' : '') + line, Wd / 2, Hd - 54, '#f0ecff', { align: 'center', wrap: 308 }); if (L.name) E.font.text(g, L.name.toUpperCase() + ':', Wd / 2 - 154, Hd - 54, L.color, {}); }
@@ -346,19 +351,21 @@ function fits(need, v) { const l = Array.isArray(need) ? need : [need]; return l
 // a card: a panel in the middle, its title, its lines, up to six items with the focus, a page count, the legend
 function drawCard(g, W, H, c, B, input, t) {
   const items = c.items || [], pages = Math.max(1, Math.ceil(items.length / PAGE)), page = Math.min(c.page || 0, pages - 1), shown = items.slice(page * PAGE, page * PAGE + PAGE);
-  const w = Math.min(W - 40, 320), lines = (c.body || []).length, h = 34 + lines * 10 + shown.length * 18 + (c.medal ? 20 : 0) + 22, x = Math.round(W / 2 - w / 2), y = Math.max(12, Math.round(H / 2 - h / 2));
+  const w = Math.min(W - 40, 320), rows = (c.body || []).map(l => Math.max(1, E.font.wrap(l, w - 16, {}).length)), lines = rows.reduce((a, b) => a + b, 0), gap = lines ? 6 : 0;
+  const h = 34 + lines * 10 + gap + shown.length * 18 + (c.medal ? 20 : 0) + 22, x = Math.round(W / 2 - w / 2), y = Math.max(12, Math.round(H / 2 - h / 2));
   g.fillStyle = 'rgba(5,3,12,.55)'; g.fillRect(0, 0, W, H); g._c = null;
   E.ui.box(g, x, y, w, h, { bg: ['#1a1830', '#0e0c1c'] });
   E.font.text(g, c.title, W / 2, y + 8, c.color || '#ffe066', { align: 'center', scale: 2, outline: '#05030c' });
   let yy = y + 30;
   if (c.medal) { E.font.text(g, c.medal.toUpperCase() + ' MEDAL', W / 2, yy, MEDAL[c.medal] || '#fff', { align: 'center', scale: 2, outline: '#05030c' }); yy += 20; }
-  for (const l of c.body || []) { E.font.text(g, l, W / 2, yy, '#c8c0e8', { align: 'center', wrap: w - 16 }); yy += 10; }
+  (c.body || []).forEach((l, i) => { E.font.text(g, l, W / 2, yy, '#c8c0e8', { align: 'center', wrap: w - 16 }); yy += 10 * rows[i]; });
+  yy += gap;   // (the items clear of the last line: a one-line reason had sat under the first item's frame)
   shown.forEach((it, i) => {
     const k = page * PAGE + i, on = k === c.sel, iy = yy + i * 18 + (on ? -1 : 0);
     if (on) { const a = .65 + .35 * Math.sin(t * 6); g.strokeStyle = c.color || '#ffe066'; g.globalAlpha = a; g.lineWidth = 2; g.strokeRect(x + 8, iy - 2, w - 16, 16); g.globalAlpha = 1; g._c = null; }
     E.font.text(g, it.label, x + 14, iy + 2, it.disabled ? '#6a6488' : on ? '#ffffff' : '#d8d4f0', {});
     if (it.right) E.font.text(g, it.right, x + w - 14, iy + 2, it.disabled ? '#6a6488' : '#ffe066', { align: 'right' });
-    else if (it.sub) E.font.text(g, it.sub, x + w - 14, iy + 2, '#8a84a8', { align: 'right' });
+    if (it.sub) E.font.text(g, it.sub, x + w - 14 - (it.right ? E.font.width(it.right) + 12 : 0), iy + 2, '#8a84a8', { align: 'right' });   // (why it can't be had: left of its price)
   });
   if (pages > 1) E.font.text(g, `${page + 1}/${pages}`, x + w - 10, y + 8, '#8a84a8', { align: 'right' });
   const legend = items.length ? '{menu:confirm} SELECT   {menu:back} BACK' : '{menu:confirm} CONTINUE';

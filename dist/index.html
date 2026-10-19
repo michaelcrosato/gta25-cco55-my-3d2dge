@@ -33273,7 +33273,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     // ---- shops and properties
     _shopCard(s, ctx) {
       const items = s.items.filter((it) => !it.unlock || this.save.missions.done.includes(it.unlock) || it.kind !== "weapon").map((it) => {
-        const c = this.econ.check(it, ctx), why = { cash: "NOT ENOUGH CASH", full: "FULL", have: "FITTED", vehicle: "DRIVE IN", none: "—" }[c.reason] || "";
+        const c = this.econ.check(it, ctx), why = c.reason === "none" && it.kind === "ammo" ? "NO GUN" : { cash: "NOT ENOUGH CASH", full: "FULL", have: "FITTED", vehicle: "DRIVE IN", none: "—" }[c.reason] || "";
         return { label: it.name.toUpperCase(), right: "$" + c.price.toLocaleString("en-US"), sub: c.ok ? "" : why, disabled: !c.ok, act: () => c.confirm ? this._confirm(s, it, ctx, c.price) : this._buy(s, it, ctx) };
       });
       this._open({ id: "shop", title: s.name.toUpperCase(), color: s.color, body: [`CASH  $${this.W.crew.fund.toLocaleString("en-US")}`], items, shop: s, ctx, back: () => this.close() });
@@ -33445,7 +33445,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this.R.active) {
         for (const mk of this.R.markers) if (!mk.gone && mk.blip) {
           const a = mk.actor;
-          out.push({ x: a ? a.x : mk.at[0], y: a ? a.y : mk.at[1], color: mk.color, shape: a ? "diamond" : "square" });
+          out.push({ x: a ? a.x : mk.at[0], y: a ? a.y : mk.at[1], color: mk.color, shape: a ? "diamond" : "square", edge: true });
         }
       } else {
         for (const m of this.available()) {
@@ -33453,14 +33453,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           out.push({ x: at[0], y: at[1], color: g ? g.colors[0] : "#ffe066", shape: g ? g.icon || "square" : "square", label: m.title });
         }
         for (const { at } of this.startable()) out.push({ x: at[0], y: at[1], color: "#5af0ff", shape: "flag" });
-        if (this.waypoint) out.push({ x: this.waypoint[0], y: this.waypoint[1], color: "#7af0ff", shape: "square" });
+        if (this.waypoint) out.push({ x: this.waypoint[0], y: this.waypoint[1], color: "#7af0ff", shape: "square", edge: true });
       }
       return out;
     }
     /** the HUD's part: the objective, the timer, the subtitles, the race, the pops, the card */
     hud(g, Wd, Hd, o = {}) {
       const R2 = this.R, B2 = this.app.bindings, input = this.app.game.input, t = this.W.game.real || 0;
-      if (R2.state === "running" && R2.objective && !this.card) E.font.text(g, R2.objective.text, Wd / 2, Hd - 86, "#f0ecff", { align: "center", outline: "#05030c", wrap: Wd - 80 });
+      if (R2.state === "running" && R2.objective && !this.card) {
+        const rows = E.font.wrap(R2.objective.text, Wd - 80, {}), bw = Math.min(Wd - 40, Math.max(...rows.map((r7) => E.font.width(r7))) + 14);
+        g.fillStyle = "rgba(5,3,12,.6)";
+        g.fillRect(Math.round(Wd / 2 - bw / 2), Hd - 89, Math.round(bw), rows.length * 10 + 5);
+        g._c = null;
+        E.font.text(g, R2.objective.text, Wd / 2, Hd - 86, "#f0ecff", { align: "center", outline: "#05030c", wrap: Wd - 80 });
+      }
       if (R2.timer && R2.state === "running") {
         const s = Math.ceil(R2.timer.left), txt = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
         E.font.text(g, (R2.timer.label ? R2.timer.label + " " : "") + txt, Wd - 8, 22, s <= 10 && Math.floor(t * 3) % 2 ? "#ff5a4a" : "#ffe066", { align: "right", scale: 2, outline: "#05030c" });
@@ -33516,7 +33522,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
   function drawCard(g, W20, H18, c, B2, input, t) {
     const items = c.items || [], pages = Math.max(1, Math.ceil(items.length / PAGE)), page = Math.min(c.page || 0, pages - 1), shown = items.slice(page * PAGE, page * PAGE + PAGE);
-    const w8 = Math.min(W20 - 40, 320), lines = (c.body || []).length, h = 34 + lines * 10 + shown.length * 18 + (c.medal ? 20 : 0) + 22, x = Math.round(W20 / 2 - w8 / 2), y = Math.max(12, Math.round(H18 / 2 - h / 2));
+    const w8 = Math.min(W20 - 40, 320), rows = (c.body || []).map((l7) => Math.max(1, E.font.wrap(l7, w8 - 16, {}).length)), lines = rows.reduce((a, b) => a + b, 0), gap = lines ? 6 : 0;
+    const h = 34 + lines * 10 + gap + shown.length * 18 + (c.medal ? 20 : 0) + 22, x = Math.round(W20 / 2 - w8 / 2), y = Math.max(12, Math.round(H18 / 2 - h / 2));
     g.fillStyle = "rgba(5,3,12,.55)";
     g.fillRect(0, 0, W20, H18);
     g._c = null;
@@ -33527,10 +33534,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       E.font.text(g, c.medal.toUpperCase() + " MEDAL", W20 / 2, yy, MEDAL[c.medal] || "#fff", { align: "center", scale: 2, outline: "#05030c" });
       yy += 20;
     }
-    for (const l7 of c.body || []) {
+    (c.body || []).forEach((l7, i) => {
       E.font.text(g, l7, W20 / 2, yy, "#c8c0e8", { align: "center", wrap: w8 - 16 });
-      yy += 10;
-    }
+      yy += 10 * rows[i];
+    });
+    yy += gap;
     shown.forEach((it, i) => {
       const k = page * PAGE + i, on = k === c.sel, iy = yy + i * 18 + (on ? -1 : 0);
       if (on) {
@@ -33544,7 +33552,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       E.font.text(g, it.label, x + 14, iy + 2, it.disabled ? "#6a6488" : on ? "#ffffff" : "#d8d4f0", {});
       if (it.right) E.font.text(g, it.right, x + w8 - 14, iy + 2, it.disabled ? "#6a6488" : "#ffe066", { align: "right" });
-      else if (it.sub) E.font.text(g, it.sub, x + w8 - 14, iy + 2, "#8a84a8", { align: "right" });
+      if (it.sub) E.font.text(g, it.sub, x + w8 - 14 - (it.right ? E.font.width(it.right) + 12 : 0), iy + 2, "#8a84a8", { align: "right" });
     });
     if (pages > 1) E.font.text(g, `${page + 1}/${pages}`, x + w8 - 10, y + 8, "#8a84a8", { align: "right" });
     const legend = items.length ? "{menu:confirm} SELECT   {menu:back} BACK" : "{menu:confirm} CONTINUE";

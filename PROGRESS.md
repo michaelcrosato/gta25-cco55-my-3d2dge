@@ -733,3 +733,13 @@ PR 2), from `docs/HANDOFF.md`'s `/goal`.
 - **M8 · the gate (part 1):** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 237 unit
   and sim tests with 1 skipped until the content, the e2e smoke, replay and self-tests, the engine checker on the city
   and on `#interior/bank`).
+- **M8 · the career's screens (part 1b)** (`docs/media/m8/`, from `dist/index.html` at 1920x1080): `job-card.png` (S1's
+  JOB card at the Saints' payphone: the brief wrapped, the pay and the respect, ✕ START THE JOB), `stage-marker.png` (a
+  running stage: the objective on its band, the floor ring, the GPS line), `deliver.png` (the bot driving the Zephyr to
+  the car wash at dusk), `job-blown.png` (the reason, RETRY THIS STAGE / QUIT TO FREE ROAM), `job-done.png` (the medal,
+  the rewards, the bonus objectives ticked and not), `shop-card.png` (Lead Farm, page 1 of 2, a refused row saying why),
+  `phone.png` and `cabs.png` (the destinations with their fares). Look notes found and fixed: a card's last body line sat
+  under its first item's frame (JOB BLOWN, the shop, the cabs: the body is now measured as it wraps, with a gap); the
+  objective line was lost on a busy street (it now sits on a dark band); a target off the radar's edge was not shown
+  (mission blips now pin to the rim); a refused shop row showed no reason (it now says NO GUN, NOT ENOUGH CASH, FULL,
+  beside the price). Verdict: every screen reads at 10 feet; M9 rebuilds them with the UI kit.
