@@ -32,6 +32,16 @@ export class Inventory {
     if (!quiet && fresh && this.current === 'fists' && s.slot !== 'melee' && s.slot !== 'special') this.select(id);   // (a first gun goes to the hand)
     return old;
   }
+  /** lose every weapon keep(id, spec) doesn't keep (NABBED: the police take the guns, not a mission's things); the
+   *  fists stay. Returns the ids taken */
+  strip(keep = () => false) {
+    const gone = this.owned.filter(id => !keep(id, get('weapons', id)));
+    for (const id of gone) { delete this.ammo[id]; delete this.mag[id]; const s = get('weapons', id); if (this.slots[s.slot] === id) delete this.slots[s.slot]; }
+    this.owned = this.owned.filter(id => !gone.includes(id));
+    for (const id of this.owned) { const s = get('weapons', id); if (!this.slots[s.slot]) this.slots[s.slot] = id; }
+    if (!this.has(this.current)) { this.current = 'fists'; this.reloading = 0; }
+    return gone;
+  }
   /** weapon ids held, in wheel order */
   list() { return ['fists', ...this.owned]; }
   select(id) {

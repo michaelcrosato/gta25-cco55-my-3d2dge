@@ -48,8 +48,9 @@ export class Combat {
   /** fire one shot of a weapon from a ped (the Inventory has counted it) */
   shoot(p, spec) {
     const A = p.aimer, ab = p.ability, seat = p.seat, moving = !seat && Math.hypot(p.mover.vx, p.mover.vy) > 20;
-    // the muzzle: the gun in hand, or out of the vehicle's window on the side the aim points to
-    let muzzle = p.rig.muzzle();
+    // the muzzle: the gun in hand (a body posed only when drawn: where its hand would be, so no view moves a shot), or
+    // out of the vehicle's window on the side the aim points to
+    let muzzle = p.lazyRig ? handOf(p, A.dir, 10) : p.rig.muzzle();
     if (seat) {
       const b = seat.body, hx = Math.cos(b.heading), hy = Math.sin(b.heading), side = (hx * A.dir[1] - hy * A.dir[0]) >= 0 ? 1 : -1, off = (b.hw || 13) + 3;
       muzzle = [b.x - hy * side * off + hx * 2, b.y + hx * side * off + hy * 2, (b.z || 0) + 15];
@@ -60,7 +61,7 @@ export class Combat {
     let base = at ? [at[0] - muzzle[0], at[1] - muzzle[1], at[2] - muzzle[2]] : [A.dir[0], A.dir[1], 0];
     if (at) { const l = Math.hypot(...base); if (l > 12) base = base.map(v => v / l); else base = shotFrom(p, A.dir, at); }
     this._fx('muzzle', muzzle[0], muzzle[1], muzzle[2], { dir: base });
-    BUS.emit('crime', { type: 'shooting', x: p.x, y: p.y, by: p.id, victim: null, severity: 1 });
+    BUS.emit('crime', { type: 'shooting', x: p.x, y: p.y, by: p.id, victim: null, severity: 1, lawful: p.faction === 'police' });   // (lawful: the police's own: nobody phones it in)
     if (spec.projectile === 'rocket') {
       this.explosives.throw({ kind: 'rocket', x: muzzle[0], y: muzzle[1], z: muzzle[2], vx: base[0] * spec.speed, vy: base[1] * spec.speed, vz: base[2] * spec.speed, damage, splash: spec.splash, range: spec.range, by: p.id, vehicle: seat ? seat.body.id : null });
       this._sfx('boom', { vol: .5 }); return;
@@ -111,13 +112,13 @@ export class Combat {
     const dx = t.x - a.x, dy = t.y - a.y, d = Math.hypot(dx, dy) || 1;
     const floors = (move && move.name === 'uppercut') || spec.id === 'slugger' && move && move.name === 'overhead';
     const r = this.hurt(t, { amount, kind: 'melee', by: a.id, knock: TUNE.meleeKnock * k * (ab ? ab.knockback : 1), knockdown: floors || (ab && ab.knockback > 1 && k >= 1.25), dir: [dx / d, dy / d], at: [t.x, t.y, t.z + CHEST * .9] });
-    if (r) { a.stats.did('meleeHit'); if (ab) ab.feed('meleeHit'); BUS.emit('crime', { type: 'assault', x: t.x, y: t.y, by: a.id, victim: t.id, severity: 1 }); }
+    if (r) { a.stats.did('meleeHit'); if (ab) ab.feed('meleeHit'); BUS.emit('crime', { type: 'assault', x: t.x, y: t.y, by: a.id, victim: t.id, severity: 1, lawful: a.faction === 'police' }); }
     if (this.game && this.game.hitFx) this.game.hitFx(t.x, t.y, t.z + CHEST * .9, { power: k, sound: spec.id === 'slugger' ? 'kick' : 'punch' });
   }
   swing(p, spec) { this._sfx(spec.id === 'slugger' ? 'swing' : 'whoosh', { vol: .5 }); }
   /** throw a Molotov or a grenade from a ped's hand toward its aim */
   throwFrom(p, spec) {
-    const h = p.rig.hand(), A = p.aimer, to = A.target ? [A.target.x, A.target.y, A.target.z] : A.point ? [A.point[0], A.point[1], A.point[2] || 0] : [p.x + A.dir[0] * TUNE.throwDist, p.y + A.dir[1] * TUNE.throwDist, p.z];
+    const A = p.aimer, h = p.lazyRig ? handOf(p, A.dir, 4) : p.rig.hand(), to = A.target ? [A.target.x, A.target.y, A.target.z] : A.point ? [A.point[0], A.point[1], A.point[2] || 0] : [p.x + A.dir[0] * TUNE.throwDist, p.y + A.dir[1] * TUNE.throwDist, p.z];
     const [vx, vy, vz] = Explosives.aimArc(h, to, spec.speed, spec.projectile === 'grenade' ? .35 : 0);   // (a grenade lands short and rolls up)
     this.explosives.throw({ kind: spec.projectile, x: h[0], y: h[1], z: h[2], vx, vy, vz, fuse: spec.fuse || 2.5, damage: spec.damage, splash: spec.splash, burn: spec.burn, by: p.id });
     p.rig.lit = false; this._sfx('whoosh', { vol: .4 });
@@ -132,7 +133,7 @@ export class Combat {
     if (r.armor > 0) this._fx('spark', at[0], at[1], at[2]);
     const by = this.bodies.find(b => b.id === o.by);
     if (by && (o.kind === 'bullet' || o.kind === 'pellet')) { by.stats.did('shotHit'); if (by.ability) by.ability.feed('shotHit'); }
-    if (r.killed) { this.kills++; BUS.emit('kill', { target: t.id, by: o.by, kind: o.kind }); BUS.emit('crime', { type: 'murder', x: at[0], y: at[1], by: o.by, victim: t.id, severity: 3 }); }
+    if (r.killed) { this.kills++; BUS.emit('kill', { target: t.id, by: o.by, kind: o.kind }); BUS.emit('crime', { type: 'murder', x: at[0], y: at[1], by: o.by, victim: t.id, severity: 3, lawful: by ? by.faction === 'police' : false }); }
     return r;
   }
   /** a body standing in fire, or burning itself: damage, and the cells it crosses catch */
@@ -161,7 +162,7 @@ export class Combat {
       hurt: (t, amount, b, o) => this.hurt(t, { amount, kind: b.source === 'molotov' ? 'fire' : 'explosion', by: b.by, knock: o.knock, dir: o.dir, knockdown: b.source !== 'molotov' && amount > 8 }),
       onBlast: b => {
         BUS.emit('explode', { x: b.x, y: b.y, z: b.z, r: b.splash, by: b.by, power: b.damage });
-        if (b.source !== 'molotov') BUS.emit('crime', { type: 'explosion', x: b.x, y: b.y, by: b.by, victim: null, severity: 2 });
+        if (b.source !== 'molotov') BUS.emit('crime', { type: 'explosion', x: b.x, y: b.y, by: b.by, victim: null, severity: 2, lawful: this.bodies.some(q => q.id === b.by && q.faction === 'police') });
         if (this.game && this.game.particles && b.source !== 'molotov') this.game.particles.explosion(b.x, b.y, b.z, Math.min(2, b.splash / 48), { sound: true });
         if (b.source === 'molotov') { for (const t of bodies) if (Math.hypot(t.x - b.x, t.y - b.y) < b.splash * 1.4 && t.ignite) t.ignite(4); this._sfx('hurt', { pitch: 1.8, vol: .4 }); }
       } });
@@ -179,3 +180,7 @@ export class Combat {
   /** for state hashes */
   hash() { let h = (this.shots.hash() * 31 + this.explosives.hash()) >>> 0; if (this.fire) h = (h * 31 + this.fire.hash()) >>> 0; h = (h * 31 + this.pickups.hash()) >>> 0; for (const b of this.bodies) h = (h * 31 + Math.round(b.vitals.health * 10) + (b.dead ? 7 : 0)) >>> 0; return h; }
 }
+
+// a body's right hand held out along dir, reach units ahead at shoulder height: the muzzle (or the throwing hand) of
+// one whose rig is posed only when drawn (the crowd's, the police's, the gangs'), from its body alone
+function handOf(p, dir, reach) { const [dx, dy] = dir || [Math.cos(p.facing), Math.sin(p.facing)]; return [p.x + dx * reach - dy * 3, p.y + dy * reach + dx * 3, (p.z || 0) + CHEST - 6]; }

@@ -3,7 +3,9 @@
 // protagonists live in the city as Peds: Dex starts at the safehouse (#play/<poi> starts him at any point of interest:
 // #play/bank-door, #play/marina), Viv at the Greasy Spoke, Gus at the car wash. The player possesses one through the
 // HumanController's Intent; hold d-pad down (Z) for the character wheel and the switch camera, hold L1 (Q) for the
-// weapon wheel. Pickups lie where the district puts them; Molotovs, grenades and rockets light the Fire grid. The world
+// weapon wheel. Pickups lie where the district puts them; Molotovs, grenades and rockets light the Fire grid. Crimes
+// earn stars (M6: the police come; lose them out of sight, at Spray & Pray in a car, or a star with a bribe); WRECKED
+// wakes you at the hospital, NABBED at the precinct without your guns, each for a fee. The world
 // clock runs from night (?time=day | dusk | night | dawn | <hour>) and the weather changes with it (?weather=clear |
 // overcast | rain | storm | fog holds one); Dock Road's drawbridge lifts every 3 game hours (?bridge=up starts it up).
 // ?crowd=1 tops the real crowd and cars round the focus up to the perf gate's 40 walkers and 20 cars with stand-ins
@@ -11,7 +13,8 @@
 // at car speed and ?perf=1 records each frame's times (tools/perf.mjs).
 import { E, def, get, all, expose, BUS, TUNE, knob, FloorChunks, buildCity, CityRenderer, WorldClock, Weather, Drawbridge, skyAt, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
-  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, boxDistance, stationLabel, modelOf, SpeedZoom, drawPrompt, CityLife, AutoPlayer, roadsOf } from '../../motor/index.js';
+  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, boxDistance, stationLabel, modelOf, SpeedZoom, drawPrompt, CityLife, AutoPlayer, roadsOf,
+  Radar, drawWanted } from '../../motor/index.js';
 import { VIGNETTE_PROPS } from '../characters/vignette-props.js';
 
 let cached = null;   // one Lowtown per seed: built once (about 80 ms), kept across scene changes
@@ -29,22 +32,32 @@ function standIns() {
 }
 function lowtown(seed) { if (!cached || cached.seed !== seed) { const city = buildCity('lowtown', seed); cached = { seed, city, render: new CityRenderer(city) }; } return cached; }
 knob('Camera', 'camLead', 'Driving look-ahead', .32, 0, 1, .02, 'Seconds of a vehicle\'s travel the ISO camera looks ahead of it');
+knob('Wanted', 'hospitalFee', 'Hospital bill', 100, 0, 5000, 10, 'What WRECKED costs ($)');
+knob('Wanted', 'bailFee', 'Bail', 250, 0, 5000, 10, 'What NABBED costs ($), the guns aside');
+knob('Wanted', 'resprayFee', 'Respray', 100, 0, 5000, 10, 'What Spray & Pray charges to lose the stars ($)');
+knob('Wanted', 'cardTime', 'WRECKED and NABBED last', 3.2, 1, 10, .1, 'Seconds the card shows before the respawn');
 const NOAIM = { candidates: [], level: 'off' };
 const REFUSED = { wanted: 'NOT WHILE WANTED', mission: 'NOT DURING THIS JOB', down: 'THEY\'RE IN NO STATE', busy: '', same: '', unknown: '' };
+const DOWN = { wrecked: { text: 'WRECKED', color: '#ff3a3a', tint: 'rgba(40,0,0,.35)' }, nabbed: { text: 'NABBED', color: '#5a9aff', tint: 'rgba(0,8,40,.35)' } };
 
 def('scenes', 'play', {
   make(app) {
     const { game, views, human, footprint, links, stage, bindings: B } = app;
     let city, map, cityR, floor, clock, weather, bridges = [], hoodName = '', tour = null, rec = null, crowd = null;
-    let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, wasted = 0, prevView = null, mouse0 = null;
+    let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, down = null, prevView = null, mouse0 = null, radar = null, inShop = false, lastCause = null;
     let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null, life = null, unsub = [], auto = null;
     const lead = [0, 0];
     const idle = makeIntent(), TOUR_SPEED = 300;   // (the tour: a sports car's top speed, PLAN.md 7.6)
     const hero = () => crew.ped, chOf = id => get('characters', id);
     function spawnCrew(startPoi) {
       crew = new Crew(); combat = new Combat({ game, city });
+      const taken = [];
       for (const ch of all('characters').filter(c => c.protagonist)) {
-        const first = !crew.active, at = (first && startPoi && city.poi(startPoi)) || city.poi(ch.start.poi) || city.poi('safehouse');
+        const first = !crew.active; let at = (first && startPoi && city.poi(startPoi)) || city.poi(ch.start.poi) || city.poi('safehouse');
+        // (a deep link to another one's hangout puts the possessed one on that spot: the other stands a few steps aside)
+        if (taken.some(q => Math.hypot(q.x - at.x, q.y - at.y) < 16)) at = [[-22, 0], [22, 0], [0, 22], [0, -22], [-30, 18], [30, 18]].map(([dx, dy]) => ({ x: at.x + dx, y: at.y + dy }))
+          .find(q => city.walkable(Math.floor(q.x / city.T), Math.floor(q.y / city.T)) && !taken.some(o => Math.hypot(o.x - q.x, o.y - q.y) < 16)) || at;
+        taken.push(at);
         const p = new Ped({ x: at.x, y: at.y, faction: 'crew', character: ch.id, look: ch.outfits[0], weapons: ch.start.weapons, ammo: ch.start.ammo, ability: ch.ability });
         const gun = ch.start.weapons.find(w => w !== 'fists'); if (gun) p.inv.select(gun);
         crew.add(ch.id, p); combat.add(p);
@@ -53,7 +66,7 @@ def('scenes', 'play', {
       fleet = new Fleet({ city, combat, bridges, game });
       const fl = get('fleets', 'lowtown'); fleetCount = fl ? spawnFleet(fleet, city, fl, city.seed) : null;
       if (life) life.dispose();
-      life = links.query.get('traffic') === '0' ? null : new CityLife({ city, fleet, combat, footprint, spec: fl || {} });   // (?traffic=0: an empty city)
+      life = links.query.get('traffic') === '0' ? null : new CityLife({ city, fleet, combat, footprint, spec: fl || {}, isPlayer: id => !!crew.ped && crew.ped.id === id });   // (?traffic=0: an empty city)
     }
     // the vehicle the possessed one could get into now: the nearest in reach, by its nearest door (the driver's seat)
     function boardTarget(p) {
@@ -69,20 +82,54 @@ def('scenes', 'play', {
       if (k.kind === 'weapon') { const had = p.inv.has(k.item); p.inv.give(k.item, k.amount); if (!had) toast = { text: (get('weapons', k.item)?.name || k.item).toUpperCase(), t: 2 }; BUS.emit('pickup', { item: k.item, by: p.id }); return true; }
       if (k.kind === 'ammo') { if (!p.inv.has(k.item)) return false; p.inv.give(k.item, k.amount); return true; }
       if (k.kind === 'cash') { crew.fund += k.amount; BUS.emit('cash', { amount: k.amount, reason: 'pickup' }); toast = { text: '+$' + k.amount, t: 1.5 }; return true; }
+      if (k.kind === 'bribe') { const W = wanted(); if (!W || !W.stars) return false; W.lose(1); BUS.emit('pickup', { item: 'bribe', by: p.id }); toast = { text: 'BRIBED  \u2605 -1', t: 2 }; return true; }   // (a star off; left lying with none)
       BUS.emit('pickup', { item: k.kind, by: p.id }); return true;
+    }
+    const wanted = () => life && life.wanted;
+    const turfOf = () => all('gangs').map(q => ({ hoods: q.turf, color: q.colors[0], pattern: q.pattern }));   // (the radar's hatching)
+    const stars = () => { const W = wanted(); return W ? W.stars : 0; };
+    // WRECKED and NABBED: the card for downTime, then a fresh start at the hospital or the precinct, a fee, the stars
+    // cleared (and, nabbed, the guns gone: not a job's tools)
+    function respawn(kind) {
+      const p = hero(), poi = city.poi(kind === 'nabbed' ? 'precinct' : 'hospital'), fee = kind === 'nabbed' ? TUNE.bailFee : TUNE.hospitalFee;
+      // (out on the sidewalk in front, the nearest within 4 tiles: a forecourt has its trees, and one stood in front of them)
+      const T = city.T, cx = Math.floor(poi.x / T), cy = Math.floor(poi.y / T); let at = null;
+      for (let r = 0; r <= 4 && !at; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++)
+        if (Math.max(Math.abs(dx), Math.abs(dy)) === r && city.surfaceAt(cx + dx, cy + dy) === 'walk' && city.walkable(cx + dx, cy + dy) && (!at || Math.hypot(dx, dy) < at.d)) at = { x: (cx + dx + .5) * T, y: (cy + dy + .5) * T, d: Math.hypot(dx, dy) };
+      at = at || poi;
+      if (p.seat) p.seat.vehicle.unseat(p); p.boarding = null;
+      if (p.dead) p.revive(at.x, at.y); else { p.place(at.x, at.y, 0); p.mover.vx = p.mover.vy = 0; }
+      if (kind === 'nabbed') { const gone = p.inv.strip((id, spec) => spec.keep); if (gone.length) BUS.emit('confiscated', { weapons: gone }); }
+      const paid = Math.min(crew.fund, fee); crew.fund -= paid; BUS.emit('cash', { amount: -paid, reason: kind === 'nabbed' ? 'bail' : 'hospital' });
+      if (life && life.police) life.police.reset(kind);
+      game.cam.snap = true;   // (a cut to the hospital or the precinct, not a slide across town)
+      toast = { text: (kind === 'nabbed' ? 'BAIL  -$' : 'HOSPITAL BILL  -$') + paid, t: 2.5 };
+      BUS.emit('respawn', { kind, x: Math.round(at.x), y: Math.round(at.y) });
+    }
+    // Spray & Pray: drive in wanted and out of sight, pay, and the car comes out another colour with the stars gone
+    function respray(p, v) {
+      const W = wanted(), shop = city.poi('spray-pray'); if (!W || !W.stars || !shop || v.driver !== p || v.speed > 40 || Math.hypot(v.x - shop.x, v.y - shop.y) > 44) { inShop = false; return; }
+      if (W.seen) { if (!inShop) toast = { text: 'NOT WHILE THEY\'RE WATCHING', t: 2 }; inShop = true; return; }   // (said once a visit; out of sight, it goes ahead)
+      if (inShop === 'broke') return; inShop = true;
+      if (crew.fund < TUNE.resprayFee) { toast = { text: 'NO MONEY, NO PAINT  $' + TUNE.resprayFee, t: 2 }; inShop = 'broke'; return; }
+      if (crew.fund < TUNE.resprayFee) { toast = { text: 'NO MONEY, NO PAINT  $' + TUNE.resprayFee, t: 2 }; return; }
+      crew.fund -= TUNE.resprayFee; BUS.emit('cash', { amount: -TUNE.resprayFee, reason: 'respray' });
+      const pal = v.def.palette || [v.color], next = pal[(Math.max(0, pal.indexOf(v.color)) + 1) % pal.length]; v.color = next !== v.color ? next : '#' + ((parseInt(v.color.slice(1), 16) ^ 0x5a5a5a) >>> 0).toString(16).padStart(6, '0');
+      v.flats = 0; if (v.body) v.body.flat = 0;
+      W.clear('respray'); BUS.emit('respray', { vehicle: v.id, color: v.color }); toast = { text: 'RESPRAYED  -$' + TUNE.resprayFee, t: 2.5 };
     }
     const aimCtx = () => ({ candidates: combat.bodies.filter(b => b.aimable && !b.dead), toScreen: (x, y, z) => views.screenVec(x, y, z), los: (s, c) => losClear(map, s, c), level: 'standard' });
     function switchItems() {
       const ANG = { dex: Math.PI, viv: -Math.PI / 2, gus: 0 };
       const items = crew.order.map(id => {
-        const m = crew.member(id), ch = chOf(id), hood = city.hoodAtPoint(m.ped.x, m.ped.y), ok = crew.canSwitch(id, { wanted: 0 });
+        const m = crew.member(id), ch = chOf(id), hood = city.hoodAtPoint(m.ped.x, m.ped.y), ok = crew.canSwitch(id, { wanted: stars() });
         return { id, label: ch.name, sub: id === crew.active ? 'YOU' : `${hood ? hood.name : 'Lowtown'}  ${Math.round(m.ped.health)}%`, color: ch.color, angle: ANG[id], disabled: id !== crew.active && !ok.ok,
           icon: (g, x, y, r) => { const s = Math.round(r * 1.6); m.ped.rig.portrait(g, Math.round(x - s / 2), Math.round(y - s / 2), s, { frame: false, bg: null }); } };
       });
       return { items, sel: Math.max(0, crew.order.indexOf(crew.active)) };
     }
     function trySwitch(id) {
-      const r = crew.request(id, { wanted: 0, mission: null, H0: stage.top.H || 320, vignetteAt: who => { const v = chOf(who).vignette, q = v && city.poi(v.poi); return q ? [q.x, q.y] : null; } },
+      const r = crew.request(id, { wanted: stars(), mission: null, H0: stage.top.H || 320, vignetteAt: who => { const v = chOf(who).vignette, q = v && city.poi(v.poi); return q ? [q.x, q.y] : null; } },
         (m, fresh, at) => { if (fresh && at) m.ped.place(at[0], at[1], 0); });
       if (!r.ok) { if (REFUSED[r.reason]) toast = { text: REFUSED[r.reason], t: 2 }; return; }
       prevView = views.active; if (prevView !== 'top') game.setView('top');
@@ -98,7 +145,7 @@ def('scenes', 'play', {
         const w = links.query.get('weather'); weather = new Weather(w ? { state: w, fixed: true } : {});
         bridges = city.drawbridges.map(b => new Drawbridge(b, city)); cityR.bridges = bridges;
         if (links.query.get('bridge') === 'up') bridges.forEach(b => b.raiseNow());
-        tour = links.query.get('tour') === '1' && city.tour.length ? { leg: 0 } : null;
+        tour = links.query.get('tour') === '1' && city.tour.length ? { leg: 0, at: [...city.tour[0]] } : null;
         rec = links.query.get('perf') === '1' ? { update: [], render: [], frames: 0 } : null;
         crowd = links.query.get('crowd') === '1' ? standIns() : null;
         spawnCrew(data && data.route && data.route[1]);
@@ -108,14 +155,17 @@ def('scenes', 'play', {
         auto = goal ? new AutoPlayer({ city, roads: roadsOf(city), fleet, junctions: life ? life.junctions : null }).goto(goal.x, goal.y) : null;
         footprint.update(hero().x, hero().y);   // (the rings round the focus before the first step: traffic spawns round it)
         fx = new CombatFX(game); weaponWheel = new WeaponWheel(B); switchWheel = new Wheel({ title: 'CREW' });
-        holdS = 0; toast = null; wasted = 0; prevView = null; stage.top.hold = null; zoom = new SpeedZoom(); vfx = new VehicleFX(game); lastRadio = null; board = null;
-        for (const u of unsub) u(); unsub = [BUS.on('encore', () => { toast = { text: 'ENCORE!', t: 3 }; }, 'scene')];   // (the Marching Mimes, flattened)
+        holdS = 0; toast = null; down = null; prevView = null; stage.top.hold = null; zoom = new SpeedZoom(); vfx = new VehicleFX(game); lastRadio = null; board = null; radar = null; inShop = false;
+        for (const u of unsub) u(); unsub = [BUS.on('encore', () => { toast = { text: 'ENCORE!', t: 3 }; }, 'scene'),   // (the Marching Mimes, flattened)
+          BUS.on('busted', e => { if (!down) down = { kind: 'nabbed', t: 0, by: e.by }; }, 'scene'),
+          BUS.on('kill', e => { if (e.target === hero().id) lastCause = e.kind || 'unknown'; }, 'scene')];
         game.cam.bounds = v => map.bounds(v);
         if (!game.headless) floor.warm(hero().x, hero().y, 420);
         expose('snapshot', () => { const p = hero(), v = p.seat && p.seat.vehicle; return { scene: 'play', view: views.active, hero: [p.x, p.y, p.z].map(v => Math.round(v)), hood: hoodName, time: clock.label(), weather: weather.state,
           crew: crew.active, health: Math.round(p.health), armor: Math.round(p.armor), weapon: p.inv.current, switching: crew.switching, fund: crew.fund,
-          vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake, traffic: life && life.traffic ? life.traffic.count : 0, peds: life && life.crowd ? life.crowd.count : 0 }; });
-        expose('teleport', (x, y) => hero().place(x, y));
+          vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake, traffic: life && life.traffic ? life.traffic.count : 0, peds: life && life.crowd ? life.crowd.count : 0,
+          stars: stars(), down: down ? down.kind : null }; });
+        expose('teleport', (x, y) => { hero().place(x, y); game.cam.snap = true; });
         expose('life', life); expose('auto', auto); expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat); expose('fleet', fleet); expose('fleetCount', fleetCount);
         expose('perf', () => ({ ...rec, floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length, depth: stage.depth ? { ...stage.depth.stats } : null }));
         game.stateHash = () => [...crew.order.flatMap(id => { const p = crew.member(id).ped; return [Math.round(p.x * 8), Math.round(p.y * 8), Math.round(p.z * 8), Math.round(p.health * 10)]; }),
@@ -144,7 +194,7 @@ def('scenes', 'play', {
         // controls while seated, on foot otherwise
         const seated = p.seat && p.seat.vehicle;
         let I = auto ? auto.update(dt, p, { t: life ? life.t : 0, pedsNear: life ? (x, y, r) => life.pedsNear(x, y, r) : null, wet: weather.wet }) : human.update(seated ? 'vehicle' : 'onFoot', p);
-        if (busy) I = clearIntent(I);
+        if (busy || down) I = clearIntent(I);   // (WRECKED, NABBED: the card plays out)
         if (!busy && !p.dead && I.tap.interact && !p.boarding) {   // △ / E: get in (the nearest door), or get out
           if (seated) p.leave(exitFor(p, seated, (x, y) => city.walkable(Math.floor(x / city.T), Math.floor(y / city.T)) && !fleet.near(x, y, 2).some(o => o !== seated && boxDistance(o, x, y) < 4)));
           else { const plan = boardTarget(p); if (plan) p.board(plan); }
@@ -153,9 +203,11 @@ def('scenes', 'play', {
           const moved = Math.hypot(I.move[0], I.move[1]) > .3 || I.down.aim || Object.values(I.tap).some(Boolean);   // (any press ends it)
           if (moved) { crew.endVignette(); p.posing = null; } else { p.posing = crew.vignette.pose; I = clearIntent(I); }
         } else p.posing = null;
-        if (tour) {   // the camera tour: the possessed body rides straight legs between the tour's corners at car speed
-          const to = city.tour[(tour.leg + 1) % city.tour.length], dx = to[0] - p.x, dy = to[1] - p.y, d = Math.hypot(dx, dy), step = TOUR_SPEED * dt;
-          if (d <= step) { p.place(to[0], to[1]); tour.leg = (tour.leg + 1) % city.tour.length; } else p.place(p.x + dx / d * step, p.y + dy / d * step);
+        if (tour) {   // the camera tour: the possessed body rides straight legs between the tour's corners at car speed (from the
+          // tour's own point: a car or a body in its way pushes it aside a moment, never holds the tour up)
+          const A = tour.at, to = city.tour[(tour.leg + 1) % city.tour.length], dx = to[0] - A[0], dy = to[1] - A[1], d = Math.hypot(dx, dy), step = TOUR_SPEED * dt;
+          if (d <= step) { A[0] = to[0]; A[1] = to[1]; tour.leg = (tour.leg + 1) % city.tour.length; } else { A[0] += dx / d * step; A[1] += dy / d * step; }
+          p.place(A[0], A[1]);
           p.mover.vx = dx / (d || 1) * TOUR_SPEED; p.mover.vy = dy / (d || 1) * TOUR_SPEED; p.mover.facing = Math.atan2(dy, dx); I = clearIntent(I);
         }
         const night = clock.hour >= 19 || clock.hour < 6.5;
@@ -170,10 +222,12 @@ def('scenes', 'play', {
         if (v && lastRadio === null) { toast = { text: v.def.name.toUpperCase(), t: 2.2 }; lastRadio = v.radio; }
         else if (v && v.radio !== lastRadio) { lastRadio = v.radio; toast = { text: stationLabel(v.radio), t: 2 }; }
         if (!v) lastRadio = null;
-        if (!tour) stage.zoomTo(zoom.update(dt, !!v, v ? v.speed : 0));
+        if (!tour) stage.zoomTo(down && down.kind === 'nabbed' ? 1.6 : zoom.update(dt, !!v, v ? v.speed : 0));   // (the bust camera: in close)
         board = !v && !p.boarding && !p.dead && !busy ? boardTarget(p) : null;
-        // WASTED: three seconds, then the hospital (and its bill)
-        if (p.dead) { wasted += real; if (wasted > 3.2) { const h = city.poi('hospital'); if (p.seat) p.seat.vehicle.unseat(p); p.boarding = null; p.revive(h.x, h.y); crew.fund = Math.max(0, crew.fund - 100); wasted = 0; toast = { text: 'HOSPITAL BILL  -$100', t: 2.5 }; } } else wasted = 0;
+        // WRECKED (dead) or NABBED (the police's `busted`): the card, then the respawn
+        if (p.dead && (!down || down.kind !== 'wrecked')) { down = { kind: 'wrecked', t: 0 }; BUS.emit('wrecked', { cause: lastCause || 'unknown' }); lastCause = null; }
+        if (down) { down.t += dt; if (down.t > TUNE.cardTime) { const k = down.kind; down = null; respawn(k); } }
+        if (v && !down) respray(p, v);
         if (I.tap.view && !busy) views.next();
         if ((I.tap.turnLeft || I.tap.turnRight) && !busy) stage.turn(I.tap.turnRight ? 1 : -1);
         if (toast) { toast.t -= real; if (toast.t <= 0) toast = null; }
@@ -218,14 +272,19 @@ def('scenes', 'play', {
         r.overlay(g => {
           const W = r.W, H = r.H, ch = chOf(crew.active);
           E.font.text(g, (hoodName || 'LOWTOWN').toUpperCase() + '  •  ' + clock.label() + '  •  ' + (views.spec.label || views.active).toUpperCase(), 6, 6, '#ffe066', { shadow: '#000' });
-          if (!crew.switching) drawPedHud(g, W, H, p, { color: ch.color, name: ch.short + '   $' + crew.fund });
-          if (!crew.switching && pv) drawVehicleHud(g, W, H, pv, { radio: stationLabel(pv.radio) });
+          if (!crew.switching) {
+            drawPedHud(g, W, H, p, { color: ch.color, name: ch.short + '   $' + crew.fund });
+            radar ||= new Radar(city, { turf: turfOf() }); const R = radar.r;
+            radar.draw(g, 12 + R, H - 48 - R, { focus: [fx0, fy0], heading: pv && !pv.def.tool ? pv.heading : null, player: p, police: life && life.police, t: game.real });
+            drawWanted(g, W, 56, wanted(), game.real);
+          }
+          if (!crew.switching && pv) drawVehicleHud(g, W, H, pv, { radio: stationLabel(pv.radio), x: 2 * (radar ? radar.r : 44) + 22 });
           if (board && !crew.switching) drawPrompt(g, `{interact} ${board.locked ? PROMPT.breakIn : PROMPT[board.kind]}  ${board.vehicle.def.name.toUpperCase()}`, W / 2, H - 64, B, game.input, { align: 'center', color: '#ffe066' });
           weaponWheel.draw(g, W, H); switchWheel.draw(g, W, H);
           if (vg && vg.line && vg.who === crew.active) { E.ui.box(g, W / 2 - 150, H - 46, 300, 22, { alpha: .7 }); E.font.text(g, `${chOf(vg.who).short}: ${vg.line}`, W / 2, H - 40, '#f0ecff', { align: 'center', wrap: 290 }); }
           if (crew.switching) E.font.text(g, chOf(crew.seq.to).name.toUpperCase(), W / 2, H - 30, chOf(crew.seq.to).color, { align: 'center', scale: 2, outline: '#05030c' });
           if (toast) E.font.text(g, toast.text, W / 2, 34, '#ffe066', { align: 'center', outline: '#05030c' });
-          if (p.dead && wasted > .6) { g.fillStyle = 'rgba(40,0,0,.35)'; g.fillRect(0, 0, W, H); E.font.text(g, 'WASTED', W / 2, H / 2 - 12, '#ff3a3a', { align: 'center', scale: 3, outline: '#05030c' }); }
+          if (down && down.t > .6) { const D = DOWN[down.kind]; g.fillStyle = D.tint; g.fillRect(0, 0, W, H); g.fillStyle = '#05030c'; g.fillRect(0, 0, W, 18); g.fillRect(0, H - 18, W, 18); g._c = null; E.font.text(g, D.text, W / 2, H / 2 - 12, D.color, { align: 'center', scale: 3, outline: '#05030c' }); }
         });
       },
     };

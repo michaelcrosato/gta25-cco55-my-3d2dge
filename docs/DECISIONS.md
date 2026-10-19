@@ -373,3 +373,98 @@ and where it landed.
     signal cycle (30 s) is a wait, not stuck; the traffic's mean-speed band is 20-90 u/s (stops, queues and crossings
     included; about 40 by day, 45 at night).
 - **Answered:** no. **Landed in:** M5.
+
+## D19 · 2026-10-19 · M6's law and order: heat a cop sees, units that get there unseen, NABBED and WRECKED, gangs on their turf
+- **Principle:** PLAN.md 8.13 and 8.14 and M6's Accept, GTA V's search-and-evade; the engine's perception where it
+  serves (`E.sees`, `E.Suspicion`); one fighting brain for everyone who fights on foot; a look fixed at its cause.
+- **Calls:**
+  - **Crimes are content** (`def('crimes')`: heat, `report`, `violent`, `severity`; `src/game/crimes.js`, 15 of
+    them). A crime earns heat only when the police hear of it: a cop's own eyes file it with half again
+    (`copSeenMul` 1.5), a civilian's report at its face value. A crime against someone counts once a victim for 30 s (a
+    beating's punches; the cop and the witness telling of the same thing); against no one, once in 6 s within 120 u (an
+    SMG's burst). Heat to stars at 20 / 60 / 150 / 300 / 600.
+  - **Traffic offences** (speeding over 230 u/s, a red light entered) are crimes only in a cop's sight, and nobody else
+    minds them (`report: false`, severity 0: no witness phones them in, no driver panics).
+  - **The police's own violence is `lawful`** (a field on the crime event): nobody phones in an officer's shots, though
+    the crowd still runs from them; and an officer on its beat is never a witness for the crowd (it files what it sees).
+  - **Who sees:** an officer on foot in a 2.6 rad cone to 240 u, a crew in its car or at a roadblock all round to 300
+    (240), the Eye all round to 520 from above. An alley halves every sight; under a deck the ground units see .6 as
+    far and the Eye nothing. A crime in a cop's sight fills its `Suspicion` (a violent or grave one at once, a mild one
+    over a moment's look), and its alert files the crime.
+  - **The tiers are content** (`def('policeTiers', '1'..'5')`): 1★ a cruiser, arresting; 2★ two, shooting; 3★ three, the
+    Eye and a roadblock; 4★ two cruisers, two SWAT vans, two roadblocks and a spike strip; 5★ two cruisers, a SWAT van,
+    three Feds' sedans (they flank) and two strips. **The Feds carry the Buzzsaw:** the plan says rifles, and the
+    slice's arsenal (9.7's eleven) has none; SWAT carry the Persuader. SWAT and the Feds are new archetypes (9.8 names
+    them), armoured 60 and 40.
+  - **Units come from the annulus** (Traffic.dispatch) and are driven by `police/pursuit.js`: the GPS route re-planned
+    as the player moves; within 170 u on a clear line, straight at them (a stop short of a body on foot or a stopped
+    car; a PIT at a moving car's rear quarter), braking for anyone on foot in the way. **Out of every view's sight**
+    (beyond the spawn ring's inner edge) a unit held up in a queue slips ahead along its route past it: nobody pulls
+    over for a siren they can't see, and the first units had sat in a jam at a light half a kilometre off. In sight it
+    waits like anyone. Its crew gets out at the player on foot or stopped (within 90 u and seen, or held up 3 s within
+    320 u), and runs back to drive on when the player drives off (beyond 140 u at over 60 u/s).
+  - **One fighter brain** (`ai/fighter.js`) for the police's officers and the gangs' members: close to range and a clear
+    line of fire (round a wall's corner; a step aside when a car stands in the line, which had soaked up a whole gang's
+    fire until it blew up and took them with it), then bursts a little off each time; a bat swung in close; a Molotov or
+    a grenade now and then at a throw's distance.
+  - **Bodies posed only when drawn shoot from their body** (a hand held out at the shoulder), never their rig's joints:
+    the officers' first shots had come from wherever their rig was last drawn (a view would have moved a shot).
+  - **Officers already about join in:** a patrol officer of the crowd, or the pair a report sent to look round
+    (emergency.js), who sees the player wanted is handed to the chase (`Crowd.release`, `Emergency.handOver`).
+  - **Roadblocks and spike strips** go down on the lane ahead of a driving player, at its first point in the annulus,
+    clear of each other; the police's own cars never ride their strips. A strip bursts a car's tyres (`flats`: grip and
+    drive down 45%, the wheel tugging, sparks off the rims). Both go once passed and out of sight.
+  - **NABBED** (`busted`): a cop within 12 u of the player on foot while slow (under 35 u/s) or unarmed for .8 s, or
+    within 16 u of the driver's door of their stopped car (under 4 u/s) for 1.5 s. The police hold still; the bust
+    camera (zoom 1.6) and the card for 3.2 s; then the precinct, bail ($250), every weapon taken but a job's tools
+    (the weapons' new `keep`: the Snap), the stars cleared. **WRECKED** (D14's WASTED renamed, the plan's word): the
+    card, the hospital, its bill ($100). Every fee a TUNE knob. The respawn is the sidewalk in front of the door (the
+    hospital's forecourt palm had stood in front of the protagonist), the camera cuts to it (it had slid across town),
+    and a revived body is on its feet at once (its rig's get-up played out).
+  - **Respray:** in a car at Spray & Pray (within 44 u, under 40 u/s), wanted, and nobody seeing: $100, the next colour
+    of the car's palette, its tyres mended, the stars gone. Seen: "NOT WHILE THEY'RE WATCHING". **Bribes:** four in
+    Lowtown's alleys, a star each, left lying with none.
+  - **Switching is refused while wanted:** the crew wheel and the switch pass the stars to `Crew.canSwitch`.
+  - **The radar** (`ui/radar.js`, ahead of M9 because M6 needs its cones): round, at the bottom left, north-up on foot
+    and the vehicle's heading up in one; the city baked a pixel a tile; each gang's turf hatched sparsely in its colour
+    and pattern; police blips (cars red and blue by turns, officers dots, the Eye a diamond, pinned to the rim beyond
+    it); while wanted, the search circle and the cops' sight (TUNE `radarCones`: an officer's cone, a car's or the
+    Eye's all-round sight a faint ring; filled, they had turned the radar red). The stars: five outlined, the earned
+    ones gold, flashing while the police search. M9 adds the GPS line and the rest.
+  - **Gangs are content** (`def('gangs')`, `src/game/gangs.js`) with one field the plan's list lacks: `beats`, where its
+    patrols walk by its borders, so rival patrols meet. Respect (the save's, -100..100): -5 for a member killed, +1 with
+    the gang whose rival it was, -2 for a gang car damaged (once a car in 10 s). Hostile at -20: members in their turf
+    come for the player on sight; friendly at 40: a punch let go once in 10 s, and members go for whoever goes for the
+    player. Three hang out at each HQ and two walk each beat while the place is near (the crowd's ring, `Crowd.group`);
+    gang cars are 30% of a turf's traffic and keep to it (`DriverBrain` `keep`); a hostile gang's driver who sees the
+    player near gets out to fight. Rival members who see each other start a turf war: every member of both sides within
+    240 u joins; it ends when a side is down or gone, or after 60 s; the same two not again there within 45 s.
+  - **The BUS catalogue grows** (`core/events.js`): M5's dispatch, onScene, revived and encore; M6's roadblock, spikes,
+    spiked, respray, respawn, confiscated, turfWar and turfWarEnd; crime gains vehicle and lawful, report its by,
+    victim, witness and severity, busted how, wanted why, respect value and why.
+  - **Shop signs are drawn in slices along their wall**, each ordered at its own spot on the wall's foot: the
+    protagonist at the Greasy Spoke's door had been drawn under its sign (the lamp beside it lifted the board's order),
+    and one sort key for the whole board put it under its own wall.
+  - **A unit never parks inside a junction, nor where nobody can pass it, and a dead crew doesn't keep its car** (found
+    by the 10-minute soak, the first with gangs and police about). A unit stopped with its front at its call's point:
+    by a lane's start its body was still on the junction's connector, and its crew got out there; a second unit called
+    to the same scene stood behind it in the junction for good. A unit now stands only where it may (Traffic.parkable):
+    on a lane, short of its end by room for the traffic to go round it, and far enough along it to leave a car room
+    behind it past the lane's `clearS` (the road graph's point where a car's tail is out of the junction and off the
+    zebra: one stopped just out of a junction had left the car behind it on the connector, over the crossing, for its
+    whole call). Its stop is on the nearest lane with room for that and for a pass ahead, else for that alone, else the
+    nearest (the Pumper aside: it stops as near the fire as it can, and sprays, as before); a unit held up waits until
+    it stands where it may before its crew gets out (a call's, and the police's own in a jam), unless it is held behind
+    a car that won't move, when the way is blocked already. A driver enters a junction only when the lane beyond has
+    room for it past `clearS`: a queue no longer backs up over a crossing. A car behind a unit at its scene with no way
+    round has a cause, the scene ('scene', in the soak's causes, its longest wait reported apart): it still tries to go
+    round, every 0.75 s. A call's crew all dead ends the call: a living one aboard takes
+    the wheel, and with none the car is left as any abandoned car (it had waited for them for good). One Medic serves a
+    street's bodies (calls merge within 180 u, not 90: three units had parked nose to tail at one fight). **The tow:** a
+    car the traffic left with nobody alive at the wheel (its driver killed in a fight, or out to fight) is taken away
+    once it has stood 10 s beyond the spawn ring's inner edge, out of every view's sight: one had blocked its lane, and
+    a crossing beside it, for good. A gang car is sent home only from a lane with room to stop (a new way taken just
+    short of a light had run its red), and a way with no goal (the GPS's road home) ends in ordinary driving.
+  - **The AutoPlayer core's long drive** (`city-life.test.mjs`) gets 180 s instead of 120: the gangs' fights in the
+    street and the police's calls slow the city (it arrives in about 150 s).
+- **Answered:** no. **Landed in:** M6.

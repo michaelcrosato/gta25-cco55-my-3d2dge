@@ -1,4 +1,4 @@
-// The on-foot HUD, first pass (PLAN.md 8.18; M9 brings the radar and the rest of the 10-foot kit): health, armour and
+// The on-foot HUD, first pass (PLAN.md 8.18; the radar and the stars: radar.js; M9 brings the rest of the 10-foot kit): health, armour and
 // the ability meter at the bottom left, where GTA V keeps them under the radar; the weapon in hand and its rounds at
 // the top right; the lock-on's mark and the free aim's sight in the world (drawn through the Stage, so they sit right
 // in every view). Big enough to read from a sofa at the game's resolution.
@@ -42,8 +42,8 @@ function drawWeaponCorner(g, W, p, spec, rd, label) {
   if (label) E.font.text(g, label, rx - 4, ry + 16, p.inv.reloading > 0 ? '#ffd23a' : rd.total ? '#f0ecff' : '#ff5a5a', { align: 'right', font: 'tiny', outline: '#05030c' });
   if (spec) E.font.text(g, spec.name.toUpperCase(), rx - 72, ry - 12, '#c8c0e8', { font: 'tiny', outline: '#05030c' });
 }
-/** the vehicle panel (bottom left, over the on-foot bars): its name, its health, the nitro charges, the station tuned
- *  in. A cached corner like the others: redrawn only when something on it changes */
+/** the vehicle panel (bottom left, over the on-foot bars; o.x: right of the radar): its name, its health, the nitro
+ *  charges, the station tuned in. A cached corner like the others: redrawn only when something on it changes */
 export function drawVehicleHud(g, W, H, v, o = {}) {
   const share = Math.max(0, v.damage.health / v.damage.max), radio = o.radio || '', sig = [v.def.name, Math.round(share * 46), v.mods.nitro, v.nitroT > 0 ? 1 : 0, v.damage.state, radio].join('|');
   g.drawImage(corner('vehicle', sig, 200, 30, cg => {
@@ -52,7 +52,7 @@ export function drawVehicleHud(g, W, H, v, o = {}) {
     P.rect(cg, x - 1, y + 3, w + 2, 6, '#05030c'); P.rect(cg, x, y + 4, w, 4, '#3a2a1a'); P.rect(cg, x, y + 4, Math.round(w * share), 4, col);
     for (let i = 0; i < Math.min(5, v.mods.nitro); i++) P.rect(cg, x + w + 6 + i * 6, y + 4, 4, 4, v.nitroT > 0 && i === 0 ? '#ffffff' : '#5ac8ff');
     if (radio) E.font.text(cg, radio, x, y + 12, '#c8c0e8', { font: 'tiny', outline: '#05030c' });
-  }), 0, H - 76);
+  }), o.x || 0, H - 76);
 }
 /** the aim in the world: a mark over a locked target, a sight along a free aim. Call between stage.begin and end */
 export function drawAimMarks(stage, p, t) {

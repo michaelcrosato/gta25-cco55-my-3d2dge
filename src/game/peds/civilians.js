@@ -1,5 +1,5 @@
 // Lowtown's people (PLAN.md 9.8): the civilian archetypes the crowd and the traffic's drivers are made from, each in
-// many colours (no two alike), and the services' uniforms. The gangs' members come with the gangs (M6).
+// many colours (no two alike), and the services' uniforms. The gangs' members come with the gangs (src/game/gangs.js).
 import { def } from '../../motor/index.js';
 
 const SUITS = ['#2a3048', '#3a3a44', '#5a4a3a', '#2a2a30', '#4a4a58'];
@@ -33,6 +33,12 @@ def('peds', 'firefighter', { name: 'Firefighter', kind: 'service', faction: 'fir
   palettes: { cloth: ['#c8423a'], coat: ['#3a3a30'], pants: ['#3a3a30'], boot: ['#18161c'] }, traits: { brave: .8, phone: 0 } });
 def('peds', 'mpd', { name: 'MPD officer', kind: 'service', faction: 'police', weight: 0, builds: ['heroic'], outfits: ['shirt'], hats: [{ style: 'cap', color: '#1e2a4a' }], uniform: true,
   palettes: { cloth: ['#3a5a9a'], pants: ['#1e2a4a'], boot: ['#101014'], belt: ['#101014'] }, traits: { tough: 1, brave: 1, phone: 0 }, weapons: ['fists', 'snub38'] });
+// SWAT (4 stars: in the Rhino, three to a van) and the Feds (5 stars: two to a black sedan); D19: the Feds' long gun is
+// the Buzzsaw (the slice's arsenal has no rifle)
+def('peds', 'swat', { name: 'SWAT trooper', kind: 'service', faction: 'police', weight: 0, builds: ['bulky'], outfits: ['coat'], sleeves: ['long'], hats: [{ style: 'helmet', color: '#1e1e24' }], uniform: true,
+  palettes: { cloth: ['#2a2a30'], coat: ['#1e1e24'], pants: ['#1e1e24'], boot: ['#101014'], belt: ['#3a3a44'] }, traits: { tough: 1, brave: 1, phone: 0 }, weapons: ['fists', 'persuader'], health: 120, armor: 60 });
+def('peds', 'fed', { name: 'Fed', kind: 'service', faction: 'police', weight: 0, builds: ['heroic'], outfits: ['coat'], sleeves: ['long'], hairs: ['short'], uniform: true,
+  palettes: { cloth: ['#e8e8ec'], coat: ['#202026'], pants: ['#202026'], boot: ['#101014'], hair: ['#1e1a22'] }, traits: { tough: 1, brave: 1, phone: 0 }, weapons: ['fists', 'buzzsaw'], health: 110, armor: 40 });
 // the Marching Mimes (PLAN.md 8.10): six in single file, striped and white-faced
 def('peds', 'mime', { name: 'Marching Mime', kind: 'special', faction: 'mimes', weight: 0, builds: ['chibi'], outfits: ['shirt'], sleeves: ['long'], hairs: ['bald'], hats: [{ style: 'cap', color: '#1e1e24' }], uniform: true,
   palettes: { skin: ['#f4f0f0'], cloth: ['#f0f0f0'], pants: ['#1e1e24'], boot: ['#1e1e24'], belt: ['#c8423a'] }, traits: { tough: 1, brave: 1, phone: 0, pace: .7 } });

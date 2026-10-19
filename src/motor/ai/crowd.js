@@ -235,6 +235,33 @@ export class Crowd {
     else if (car) brain.react('flee', { x: car.x, y: car.y, t: 5 + 3 * this.rng.next() });
     return m;
   }
+  /** a group put down for someone else (a gang's hangout or patrol: gangs.js): n peds of the archetypes (ids, in turn)
+   *  together on sidewalk points o.where(point) keeps, inside the crowd's ring (o.rIn: its inner edge, the default; 60
+   *  as the disc fills), walking a beat round o.home ({ x, y, r }); o.tag(ped) marks each, o.idles are theirs. Returns
+   *  the members put down (none when there is no room) */
+  group(o) {
+    const fp = this.fp, rIn = o.rIn ?? TUNE.crowdIn, cand = this.points.filter(q => { const d = Math.hypot(q.x - fp.x, q.y - fp.y); return d >= rIn && d <= TUNE.crowdOut && (!o.where || o.where(q)); });
+    const out = []; if (!cand.length) return out;
+    const q0 = cand[Math.floor(this.rng.next() * cand.length)], near = cand.filter(q => Math.hypot(q.x - q0.x, q.y - q0.y) < 50).sort((a, b) => Math.hypot(a.x - q0.x, a.y - q0.y) - Math.hypot(b.x - q0.x, b.y - q0.y));
+    for (let i = 0; i < o.n; i++) {
+      const q = near[i % near.length], arch = get('peds', o.arch[i % o.arch.length]); if (!arch) continue;
+      const dir = this.rng.next() < .5 ? 1 : -1, lat = this.S.freeAt(q.e, q.d, (2 + (i % 3) * 4) * dir) ?? 0, [x, y] = this.S.along(q.e, q.d, lat), A = this.S.nodes[q.e.a], B = this.S.nodes[q.e.b];
+      if (this.pedsNear(x, y, 10).some(p => Math.hypot(p.x - x, p.y - y) < 8)) continue;
+      const ped = new Ped({ x, y, faction: arch.faction || 'civilian', look: pedLook(arch, this.rng), lazyRig: true, health: arch.health || 100, maxHealth: arch.health || 100, armor: arch.armor || 0, weapons: arch.weapons || ['fists'], facing: Math.atan2((B.y - A.y) * dir, (B.x - A.x) * dir) });
+      ped.archetype = arch.id; ped.crowd = true; if (o.tag) o.tag(ped);
+      const tr = traitsOf(arch), brain = new PedBrain(ped, this.S, { rng: this.rng, traits: { ...tr, idles: o.idles || tr.idles } }); brain.place(q.e, q.d, lat, dir); if (o.home) brain.home = o.home;
+      out.push(this._add(ped, brain, arch));
+    }
+    return out;
+  }
+  /** a member let go to someone else (a patrol officer who joins the police's chase): out of the crowd, still in Combat.
+   *  Returns true when it was one */
+  release(m) {
+    const i = this.members.indexOf(m); if (i < 0) return false;
+    this.members.splice(i, 1); m.brain._cancelCall(); m.brain.gone = true; m.ped.coast = false; m.ped.gliding = false;
+    for (const q of this.members) if (q.brain.follow && q.brain.follow.leader === m.brain) q.brain.follow = null;
+    return true;
+  }
   /** a dead ped brought back (the Medic's crew): on its feet again, calm, walking on */
   revive(m) {
     const p = m.ped; p.revive(p.x, p.y, p.z); p.vitals.health = Math.min(p.vitals.maxHealth, p.vitals.health); p.mover.play('getUp');
@@ -290,9 +317,10 @@ export class Crowd {
     }
     return null;
   }
-  // a crime: the peds who hear it flee, those who see it may phone it in
+  // a crime: the peds who hear it flee, those who see it may phone it in (not one only the police care about: speeding)
   _crime(e) {
     if (e.x === undefined) return;
+    const spec = get('crimes', e.type); if (spec && spec.report === false) return;
     const now = this.t;
     let c = this.crimes.find(q => q.type === e.type && q.by === e.by && now - q.t < 3 && Math.hypot(q.x - e.x, q.y - e.y) < 80);
     if (!c) { c = { type: e.type, x: e.x, y: e.y, by: e.by, victim: e.victim, severity: e.severity || 1, t: now, witnesses: 0, reported: false, cancelled: 0 }; this.crimes.push(c); if (this.crimes.length > 40) this.crimes.shift(); }
@@ -300,7 +328,7 @@ export class Crowd {
     const violent = VIOLENT.has(e.type), loud = e.type === 'explosion' ? TUNE.hearShots * 1.4 : e.type === 'shooting' ? TUNE.hearShots : 0, map = this.city.map;
     const R = Math.max(loud, TUNE.witnessRange), cand = [];
     for (const m of this.members) {
-      const p = m.ped; if (p.dead || m.deadT || p.id === e.by || p.id === e.victim || p.seat) continue;
+      const p = m.ped; if (p.dead || m.deadT || p.id === e.by || p.id === e.victim || p.seat || p.faction === 'police' || p.gang) continue;   // (an officer on its beat, a gang's member: they see to crimes themselves)
       const d = Math.hypot(p.x - e.x, p.y - e.y); if (d > R) continue;
       cand.push({ m, d });
     }
@@ -310,7 +338,7 @@ export class Crowd {
       const seen = d <= TUNE.witnessRange && E.sees(p, { x: e.x, y: e.y, z: 0, r: 5 }, { range: TUNE.witnessRange, fov: 3.6, facing: p.facing, map }).seen;
       const heard = loud > 0 && E.hears(p, { x: e.x, y: e.y, z: 0, loud }, map) > 0;
       if (!seen && !heard) continue;
-      if (seen && c.witnesses < TUNE.witnessMax && !c.reported && this.rng.next() < (b.traits.phone ?? .5) && (!violent || d > 120 || b.traits.brave > .4)) {
+      if (seen && !e.lawful && c.witnesses < TUNE.witnessMax && !c.reported && this.rng.next() < (b.traits.phone ?? .5) && (!violent || d > 120 || b.traits.brave > .4)) {   // (the police's own shots: nobody phones them in)
         if (b.react('witness', { crime: c })) { c.witnesses++; continue; }
       }
       if (violent && b.state !== 'witness' && b.state !== 'phone' && (d < 120 || this.rng.next() > b.traits.brave)) b.react('flee', { x: e.x, y: e.y, t: TUNE.fleeTime * (d < 120 ? 1.3 : 1) });
@@ -318,7 +346,7 @@ export class Crowd {
   }
   // a hit on one of ours: it fights back (the tough) or runs; a hit near makes the nervous run
   _hit(e) {
-    const m = this.members.find(q => q.ped.id === e.target); if (!m) return;
+    const m = this.members.find(q => q.ped.id === e.target); if (!m || m.ped.gang) return;   // (a gang's member: gangs.js decides)
     m.hurtT = this.t; m.near = true; const p = m.ped;
     const by = this.combat ? this.combat.bodies.find(b => b.id === e.by) : null, b = m.brain;
     const t = p.troupe && this.troupes.find(q => q.id === p.troupe);
@@ -331,7 +359,7 @@ export class Crowd {
   // a blast (a Molotov too: the crime is only the bigger ones): everyone near runs from it
   _blast(e) {
     if (e.x === undefined) return; const r = Math.max(120, (e.r || 40) * 3);
-    for (const m of this.members) { const p = m.ped; if (p.dead || m.deadT || p.seat) continue; if (Math.abs(p.x - e.x) < r && Math.abs(p.y - e.y) < r && Math.hypot(p.x - e.x, p.y - e.y) < r) m.brain.react('flee', { x: e.x, y: e.y, t: TUNE.fleeTime * 1.2 }); }
+    for (const m of this.members) { const p = m.ped; if (p.dead || m.deadT || p.seat || p.gang) continue; if (Math.abs(p.x - e.x) < r && Math.abs(p.y - e.y) < r && Math.hypot(p.x - e.x, p.y - e.y) < r) m.brain.react('flee', { x: e.x, y: e.y, t: TUNE.fleeTime * 1.2 }); }
   }
   /** draw the crowd round the focus (reach: world units either way) */
   draw(stage, fx, fy, reach) {

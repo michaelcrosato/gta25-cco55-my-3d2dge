@@ -1,7 +1,8 @@
 // Emergency services (PLAN.md 8.10): the city answers what happens in it.
-//   - the police answer reports (a witness's call: BUS 'report'): a patrol car comes with its siren on, its two officers
-//     get out and look round where it happened, then drive on (M6's wanted system takes over when they see the one
-//     who did it);
+//   - the police answer reports (a witness's call: BUS 'report'; with the wanted system in the city, police.js decides
+//     which reports earn the player stars and calls the rest in here): a patrol car comes with its siren on, its two
+//     officers get out and look round where it happened, then drive on (police.js takes the unit over when they see
+//     the player wanted: handOver);
 //   - the Medic comes to bodies: its paramedics walk to the body, kneel over it and may bring a non-story ped back
 //     (TUNE.reviveChance); a dead protagonist is the hospital's business, not theirs;
 //   - the Pumper comes to car and street fires and plays its water cannon on them from the road until they are out.
@@ -29,19 +30,20 @@ const UNITS = {   // (each call's vehicle, crew, and how far short of the call i
 const NOAIM = { candidates: [], level: 'off' };
 
 export class Emergency {
-  /** o: { life (CityLife: traffic, crowd), combat, fleet, footprint, spec ({ units: overrides of UNITS }), rng } */
+  /** o: { life (CityLife: traffic, crowd), combat, fleet, footprint, spec ({ units: overrides of UNITS }), rng, reports
+   *  (false: the police's reports come through police.js, not the BUS) } */
   constructor(o) {
     this.life = o.life; this.combat = o.combat || null; this.fleet = o.fleet; this.fp = o.footprint; this.rng = o.rng || RNG.stream('services');
     this.units = { ...UNITS, ...((o.spec && o.spec.units) || {}) };
     this.calls = []; this.onFoot = []; this.t = 0; this._ids = 0; this.answered = 0; this.revived = 0; this.step = 0;
-    this._unsub = [BUS.on('report', e => this.call('police', e.x, e.y, { crime: e.crime, by: e.by }), 'world')];
+    this._unsub = o.reports === false ? [] : [BUS.on('report', e => this.call('police', e.x, e.y, { crime: e.crime, by: e.by }), 'world')];
   }
   dispose() { for (const u of this._unsub) u(); for (const f of this.onFoot) if (this.combat) this.combat.remove(f.ped); this.onFoot = []; }
   /** open a call ('police' | 'medic' | 'fire') at (x, y): a unit is sent (or the call is settled, far from the focus).
    *  Returns the call, or null when one like it is already being answered */
   call(kind, x, y, o = {}) {
     const U = this.units[kind]; if (!U) return null;
-    if (this.calls.some(c => c.kind === kind && c.state !== 'done' && Math.hypot(c.x - x, c.y - y) < (kind === 'police' ? 260 : 90))) return null;   // (already on its way)
+    if (this.calls.some(c => c.kind === kind && c.state !== 'done' && Math.hypot(c.x - x, c.y - y) < (kind === 'police' ? 260 : kind === 'medic' ? 180 : 90))) return null;   // (already on its way: one Medic a street's bodies, one after another)
     const T = this.life.traffic, far = this.fp.d(x, y) > TUNE.fpActivity;
     if (!far && T && this.calls.filter(q => q.kind === kind && q.unit && q.state !== 'done').length >= U.max) return null;   // (every unit out: it waits its turn)
     const c = { id: ++this._ids, kind, x, y, t: this.t, state: 'sent', unit: null, crew: [], target: o.target || null, info: o, done: null };
@@ -51,6 +53,14 @@ export class Emergency {
     if (!c.unit) { this.calls.pop(); return null; }   // (no lane free to send one from: asked again in a moment)
     BUS.emit('dispatch', { kind, call: c.id, x, y, unit: c.unit.v.id });
     return c;
+  }
+  /** a police call given to the wanted system's chase (its officers saw the player wanted): its unit and its crew (on
+   *  foot or aboard: { ped, seat }) leave the call, which ends here. Returns them, or null */
+  handOver(c) {
+    if (!c || c.kind !== 'police' || c.state === 'done' || !c.unit || !c.unit.duty || c.unit.duty.lost) return null;
+    const out = { unit: c.unit, crew: c.crew.map(f => ({ ped: f.ped, seat: f.seat })), scene: c.state !== 'sent' };
+    this.onFoot = this.onFoot.filter(f => !c.crew.includes(f)); c.state = 'done'; c.done = 'police'; this.answered++;
+    return out;
   }
   /** one step. ctx: { t } */
   update(dt, ctx = {}) {
@@ -84,8 +94,10 @@ export class Emergency {
     if (c.state === 'sent') {
       // there: at its stop, or standing near it; a crew on foot also gets out where its unit is held up short of the scene
       // a while (behind another unit parked there, on a street with no way round): they walk the rest
-      const dist = Math.hypot(u.v.x - c.x, u.v.y - c.y); c.stillT = u.v.speed < 4 ? (c.stillT || 0) + dt : 0;
-      if (d.arrived || (u.v.speed < 4 && dist < 90) || (c.kind !== 'fire' && c.stillT > 3 && dist < 220)) { c.state = 'scene'; c.sceneT = this.t; this._arrive(c); }
+      // (never parked inside a junction, just out of one, nor where the traffic can't go round it, Traffic.parkable: held
+      // up there, it waits; held up on a lane behind a car that won't move, it stops anyway: the way is blocked already)
+      const T = this.life.traffic, dist = Math.hypot(u.v.x - c.x, u.v.y - c.y), ok = T.parkable(u); c.stillT = u.v.speed < 4 ? (c.stillT || 0) + dt : 0;
+      if (d.arrived || (ok && u.v.speed < 4 && dist < 90) || (c.kind !== 'fire' && c.stillT > 3 && dist < 220 && (ok || T.heldBehind(u)))) { c.state = 'scene'; c.sceneT = this.t; this._arrive(c); }
       else if (this.t - c.t > TUNE.callTimeout) this._standDown(c, 'late');
       return;
     }
@@ -95,10 +107,10 @@ export class Emergency {
         d.spray = tg; if (!tg || this.t - c.sceneT > 30) { d.spray = null; this._back(c); }
         return;
       }
-      if (c.crew.every(f => f.task === 'aboard')) this._back(c);
+      if (c.crew.every(f => f.task === 'aboard' || f.ped.dead)) this._back(c);
       return;
     }
-    if (c.state === 'leaving' && c.crew.every(f => f.task === 'aboard' || f.ped.dead)) { this.onFoot = this.onFoot.filter(f => !c.crew.includes(f)); this.life.traffic.release(u); c.state = 'done'; c.done = c.done || 'answered'; this.answered++; }
+    if (c.state === 'leaving' && c.crew.every(f => f.task === 'aboard' || f.ped.dead)) { this.onFoot = this.onFoot.filter(f => !c.crew.includes(f)); if (this._driver(u)) this.life.traffic.release(u); c.state = 'done'; c.done = c.done || 'answered'; this.answered++; }
   }
   // on the scene: the crew gets out (the Pumper's stays at its cannon)
   _arrive(c) {
@@ -122,7 +134,7 @@ export class Emergency {
     c.done = why; if (c.target && c.target.attended !== undefined) c.target.attended = false;
     for (const f of c.crew) { if (this.combat) this.combat.remove(f.ped); }
     this.onFoot = this.onFoot.filter(f => !c.crew.includes(f));
-    if (c.unit && c.unit.duty && !c.unit.duty.lost) { this._resume(c.unit); this.life.traffic.release(c.unit); }
+    if (c.unit && c.unit.duty && !c.unit.duty.lost) { this._resume(c.unit); if (!c.unit.duty.lost) this.life.traffic.release(c.unit); }
     c.state = 'done';
   }
   // the nearest thing still burning within r of the call (from: and within reach of that, nearest it: what the cannon
@@ -202,7 +214,16 @@ export class Emergency {
     f.task = 'back'; f.t = 0;
   }
   // the crew back aboard (or gone): the unit drives again
-  _resume(u) { if (!u || !u.duty) return; u.duty.out = false; u.brain.parked = false; }
+  _resume(u) { if (!u || !u.duty || !this._driver(u)) return; u.duty.out = false; u.brain.parked = false; }
+  // a unit whose driver is dead: a living crew member aboard takes the wheel; with none, the car is left where it stands
+  // (it had waited there for good, in a junction too)
+  _driver(u) {
+    const v = u.v; if (v.driver && !v.driver.dead) { u.driver = v.driver; return true; }
+    if (v.driver) v.unseat(v.driver);
+    const q = (u.crew || []).find(p => p && !p.dead && p.seat && p.seat.vehicle === v);
+    if (!q) { this.life.traffic.abandon(u); return false; }
+    v.unseat(q); v.sit(q, 0); u.driver = q; return true;
+  }
   // a crew member who could not get back in (its seat taken, its unit gone): it walks off with the crowd
   _strand(f) {
     f.task = 'aboard'; const p = f.ped; this.onFoot = this.onFoot.filter(q => q !== f);

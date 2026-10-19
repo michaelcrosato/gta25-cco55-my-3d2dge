@@ -379,7 +379,7 @@ export class PedBrain {
   // through to the police: the report (once a crime)
   _report() {
     const c = this.crime, p = this.ped; this.crime = null; this._stopIdle(); this.state = 'walk'; this.calls++;
-    if (c && !c.reported) { c.reported = true; BUS.emit('report', { crime: c.type, x: c.x, y: c.y, by: c.by, witness: p.id, severity: c.severity || 1 }); }
+    if (c && !c.reported) { c.reported = true; BUS.emit('report', { crime: c.type, x: c.x, y: c.y, by: c.by, victim: c.victim ?? null, witness: p.id, severity: c.severity || 1 }); }
   }
   _die() { if (this.state !== 'dead') { this._cancelCall(); this._stopIdle(); this.state = 'dead'; } }
 }

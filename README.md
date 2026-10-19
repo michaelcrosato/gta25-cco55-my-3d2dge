@@ -22,10 +22,10 @@ It also includes:
 
 Under it sits **MOTOR**, an open-city engine layer on top of my-3D2dge, built to carry the full game.
 
-> **Status: implementation in progress (M4 of M13 done: the core and input, the three views' renderers, Lowtown,
-> on foot and combat, and the vehicles: 13 models, 19 definitions).** `PROGRESS.md` has each milestone's evidence.
-> `PLAN.md` is the full plan, `GOAL.md` is the `/goal` prompt that started the run, and `docs/HANDOFF.md` is where the
-> next session picks it up (M5).
+> **Status: implementation in progress (M6 of M13 done: the core and input, the three views' renderers, Lowtown,
+> on foot and combat, the vehicles, the roads with their traffic and crowds, and the wanted level, the police and the
+> gangs).** `PROGRESS.md` has each milestone's evidence. `PLAN.md` is the full plan, `GOAL.md` is the `/goal` prompt
+> that started the run, and `docs/HANDOFF.md` is where the current session picked it up (M5).
 
 ## Source Information
 

@@ -13,4 +13,4 @@ W('hotmess', { name: 'Hot Mess', slot: 'heavy', projectile: 'stream', damage: 4,
 W('partystarter', { name: 'Party Starter', slot: 'thrown', projectile: 'molotov', damage: 18, rate: .8, range: 260, speed: 260, splash: 40, burn: 6, ammo: 5, model: 'molotov', sound: 'glass', price: 150 });
 W('pineapple', { name: 'Pineapple', slot: 'thrown', projectile: 'grenade', damage: 110, rate: .8, range: 280, speed: 280, splash: 72, fuse: 2.5, ammo: 5, model: 'grenade', sound: 'boom', price: 300, unlock: 'm6' });
 W('zapomatic', { name: 'Zap-O-Matic', slot: 'special', projectile: 'zap', damage: 6, rate: 4, range: 180, chain: 3, stun: 1.2, ammo: 60, model: 'zapper', sound: 'zap', rumble: .4, price: 4000, unlock: 'm12' });
-W('snap', { name: 'Snap', slot: 'special', projectile: 'photo', damage: 0, rate: 1.5, range: 600, model: 'phone', sound: 'shutter' });
+W('snap', { name: 'Snap', slot: 'special', projectile: 'photo', damage: 0, rate: 1.5, range: 600, model: 'phone', sound: 'shutter', keep: true });

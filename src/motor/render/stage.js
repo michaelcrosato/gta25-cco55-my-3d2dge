@@ -305,6 +305,9 @@ export class Stage {
    *  that looks the same from frame to frame (a parked car): drawn once into an image of its own (r: its reach round
    *  (x, y), h: its height, in world units; sig: a string that changes when its look does) and put where it stands
    *  until the view, its size or its sig changes */
+  /** the view's projector this frame ({ proj(x, y, z) -> [sx, sy, k] }), for whoever must work out where a thing lands
+   *  on the screen before it queues it (a sign's board, sliced along its wall) */
+  projector() { return this.depth || this._isoProj(this.r); }
   shape(x, y, z, draw, o) {
     const d = this.depth, r = this.r, kept = o && o.kept;
     if (!d) { r.queue(x, y, z, kept ? g => this._keptShape(g, this._isoProj(r), r.view, x, y, z, draw, kept) : g => draw(g, this._isoProj(r)), o); return; }

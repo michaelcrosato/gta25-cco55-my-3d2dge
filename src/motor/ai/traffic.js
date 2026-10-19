@@ -5,7 +5,8 @@
 //     leave beyond its outer edge; when the focus first arrives somewhere (the scene starts, a teleport, a switch, the
 //     hospital: nothing round it has been seen yet) the whole disc fills at once;
 //   - each car: a civilian definition picked by the neighbourhood's weights and the time of day, a driver (a Ped of a
-//     local archetype, sitting in the driver's seat) and a DriverBrain;
+//     local archetype, sitting in the driver's seat) and a DriverBrain; or, where o.pick says so (gangs.js: a gang's turf),
+//     one of a gang's cars with a member at the wheel, keeping to its turf;
 //   - LOD (PLAN.md 7.11): within fpFull of the focus a car drives on its physics (the brain writes the driver's
 //     Intent); beyond it, its brain moves it along its lane (kinematic), so far traffic costs little and never stalls;
 //   - panic: shots, blasts and killings near a driver scare it (faster, the lights ignored, for a while);
@@ -13,7 +14,11 @@
 //     handed on (onDriverOut: the crowd decides whether it flees or fights); a car the player rams hard stops, and its
 //     driver may get out angry or scared;
 //   - service units (dispatch): a police car, the Medic or the Pumper sent to a point with its siren on, crewed, routed
-//     by the GPS; it waits where it stops while its crew is out (emergency.js), then rejoins the traffic.
+//     by the GPS; it waits where it stops while its crew is out (emergency.js), then rejoins the traffic. A unit on
+//     duty.ext is driven by someone else (police.js's chase): the traffic only keeps its record;
+//   - the tow: a car the traffic left standing with nobody alive at the wheel (its driver killed, or out to fight, a
+//     unit's crew all dead) is taken away once it has stood 10 s out of every view's sight (beyond the spawn ring's
+//     inner edge): it had blocked its lane, and the crossing beside it, for good.
 // Deterministic: the 'traffic' RNG stream, lanes and cars in a fixed order; the camera is never read.
 //   const T = new Traffic({ city, fleet, graph, junctions, footprint, spec });  T.update(dt, ctx);  T.intentFor(v)
 import { TUNE, knob } from '../core/tune.js';
@@ -32,16 +37,17 @@ knob('Traffic', 'trafficRain', 'Rain traffic', .8, 0, 1.5, .05, 'Traffic density
 knob('Traffic', 'panicRange', 'Panics within', 220, 0, 800, 10, 'A shot, blast or killing scares drivers this near (u)');
 knob('Traffic', 'rammedOut', 'Gets out when rammed', .55, 0, 1, .05, 'The chance a driver the player rams hard gets out (angry or scared)');
 const LOD_IN = 20;   // hysteresis either side of fpFull (u)
-const SPAWN_EVERY = .25, SAMPLE = 40, FILL_IN = 100, SPAWN_SHORT = 40;   // (FILL_IN: the nearest a car is put when the disc fills; SPAWN_SHORT: how far short of a stop line)
+const SPAWN_EVERY = .25, SAMPLE = 40, FILL_IN = 100, SPAWN_SHORT = 40, TOW_AFTER = 10, PARK_BEHIND = 72, PASS_ROOM = 92;   // (FILL_IN: the nearest a car is put when the disc fills; SPAWN_SHORT: how far short of a stop line; TOW_AFTER: s an abandoned car stands before the tow; PARK_BEHIND: the room a unit standing at a call leaves behind it past its lane's clearS, a car's length and its gap; PASS_ROOM: past its front, short of the stop line, for a car to go round it, a car's length and the pass's margin)
 
 export class Traffic {
   /** o: { city, fleet, graph, gps, junctions, footprint, spec (the fleets entry's traffic: { hoods: { id: factor },
-   *  roles, classes }), rng, onDriverOut(ped, car, why) } */
+   *  roles, classes }), rng, onDriverOut(ped, car, why) }; pick (set later: (point, hood, rng) -> { def, arch, gang,
+   *  color, keep } or null) */
   constructor(o) {
     this.city = o.city; this.fleet = o.fleet; this.g = o.graph; this.gps = o.gps || null; this.J = o.junctions; this.fp = o.footprint;
     this.spec = Object.assign({ hoods: {}, roles: ['civilian'], classes: ['car', 'truck', 'bike'] }, o.spec || {});
-    this.rng = o.rng || RNG.stream('traffic'); this.onDriverOut = o.onDriverOut || null;
-    this.cars = []; this.t = 0; this._spawnT = 0; this.spawned = 0; this.despawned = 0; this.idle = makeIntent(); this.filled = false; this.fills = 0; this._fx = 0; this._fy = 0;
+    this.rng = o.rng || RNG.stream('traffic'); this.onDriverOut = o.onDriverOut || null; this.pick = o.pick || null;
+    this.cars = []; this.t = 0; this._spawnT = 0; this.spawned = 0; this.despawned = 0; this.towed = 0; this._towT = 0; this.idle = makeIntent(); this.filled = false; this.fills = 0; this._fx = 0; this._fy = 0;
     // spawn points: every SAMPLE units along each lane that goes somewhere (no dead ends, no jump), clear of the junction
     // boxes at both ends and short of its stop line by a braking distance (a car put down is never already in a junction)
     this.points = [];
@@ -51,7 +57,7 @@ export class Traffic {
       for (let s = 24; s < end; s += SAMPLE) { const p = this.g.pointOn(l, s); this.points.push({ lane: l, s, x: p[0], y: p[1], z: p[2] }); }
     }
     this.pool = all('vehicles').filter(d => d.spawn && (d.spawn.weight || 0) > 0 && d.spawn.zones && this.spec.roles.includes(d.role) && this.spec.classes.includes(classOf(d)));
-    this._unsub = [BUS.on('crime', e => this._scare(e.x, e.y, e.type === 'murder' || e.type === 'explosion' ? 1.4 : 1), 'world'), BUS.on('explode', e => this._scare(e.x, e.y, 1.6), 'world')];
+    this._unsub = [BUS.on('crime', e => { if (e.severity !== 0) this._scare(e.x, e.y, e.type === 'murder' || e.type === 'explosion' ? 1.4 : 1); }, 'world'), BUS.on('explode', e => this._scare(e.x, e.y, 1.6), 'world')];   // (a traffic offence scares nobody)
   }
   /** stop listening (the scene is leaving) */
   dispose() { for (const u of this._unsub) u(); for (const c of [...this.cars]) this._drop(c, false); }
@@ -82,10 +88,14 @@ export class Traffic {
     if (!this.filled || jump) { this.filled = true; this.fills++; const want = this.target(ctx); for (let k = 0; k < want * 3 && this.cars.length < want; k++) this._spawn(ctx, FILL_IN); }
     this._spawnT -= dt;
     if (this._spawnT <= 0) { this._spawnT = SPAWN_EVERY; const want = this.target(ctx); for (let k = 0; k < 2 && this.cars.length < want; k++) this._spawn(ctx); }
+    if ((this._towT -= dt) <= 0) {   // (the tow, out of sight)
+      this._towT = 2;
+      for (const v of [...this.fleet.vehicles]) if (v.abandonT !== undefined && this.t - v.abandonT > TOW_AFTER && fp.d(v.x, v.y) > TUNE.fpSpawnIn && !v.seats.some(p => p && !p.dead) && !(v.damage && v.damage.burning)) { this.fleet.remove(v); this.towed++; }
+    }
     const W = { fleet: this.fleet, t: ctx.t ?? this.t, pedsNear: ctx.pedsNear || null, wet: ctx.wet || 0, sirens: ctx.sirens || null };
     for (const c of this.cars) {
       const v = c.v, b = c.brain, d = fp.d(v.x, v.y);
-      if (c.duty && c.duty.out) continue;   // (parked at the scene: the crew is out)
+      if (c.duty && (c.duty.out || c.duty.ext)) continue;   // (parked at the scene, the crew out; or in the police's chase)
       // near and far (with a little hysteresis); a car pushed off its lane stays physical until it is back on one
       if (v.kinematic && d < TUNE.fpFull - LOD_IN) { v.kinematic = false; v.body.setVelocity(Math.cos(v.heading) * b.speed, Math.sin(v.heading) * b.speed); }
       else if (!v.kinematic && d > TUNE.fpFull + LOD_IN && b.snap()) v.kinematic = true;
@@ -102,10 +112,17 @@ export class Traffic {
   }
   /** a service unit (a vehicle definition) sent to (x, y) with its siren on, for o.stop units short of it along its
    *  lane: spawned on a lane in the annulus (the nearest the call it can route from), crewed by o.crew (archetype ids:
-   *  the first drives), routed by the GPS. Returns its record ({ v, driver, crew, brain, duty }) or null */
+   *  the first drives), routed by the GPS; its stop is where it may stand (see parkable: a call by a junction had
+   *  parked units on its connector, or where nobody could pass them, the junction blocked); the Pumper stops as near the
+   *  fire as it can (it sprays, never parks).
+   *  Returns its record ({ v, driver, crew, brain, duty }) or null */
   dispatch(defId, x, y, o = {}) {
     if (!this.gps) return null;
-    const goal = this.g.nearestLane(x, y, null, o.z || 0, 240); if (!goal) return null;
+    // (the goal: the nearest point a unit may stand at, with room for the traffic to go round it before the junction,
+    // else with room behind it at least, else the nearest; the Pumper's anywhere)
+    const fire = o.kind === 'fire', def = get('vehicles', defId), hl = def && def.length ? def.length / 2 : 30, G = this.g, z = o.z || 0;
+    const span = ahead => l => { const lo = l.clearS + hl + PARK_BEHIND, hi = Math.min(l.len - hl - 80, ahead ? l.stopS - hl - PASS_ROOM : Infinity); return hi >= lo ? [lo, hi] : null; };
+    const goal = (!fire && (G.nearestLane(x, y, null, z, 240, span(true)) || G.nearestLane(x, y, null, z, 240, span(false)))) || G.nearestLane(x, y, null, z, 240); if (!goal) return null;
     // (the spawn point in the annulus with the quickest drive there, by one search back from the goal: a one-way street
     // can make the nearest the farthest)
     const fp = this.fp, D = this.gps.costsTo(goal.lane.id), cand = [];
@@ -119,10 +136,10 @@ export class Traffic {
       const r = this.gps.route(p.lane.id, goal.lane.id, { s: p.s }); if (!r) continue;
       const v = this.fleet.spawn(defId, p.x, p.y, Math.atan2(p.lane.dir[1], p.lane.dir[0])); v.body.z = p.z; v.traffic = true; v.bornT = this.t; v.owner = 'service'; v.siren = v.hasSiren;
       const crew = (o.crew || ['civilian']).slice(0, v.seats.length).map((id, i) => {
-        const arch = get('peds', id), ped = new Ped({ x: p.x, y: p.y, faction: arch ? arch.faction : 'civilian', look: arch ? pedLook(arch, this.rng) : {}, lazyRig: true, health: arch && arch.health || 100, weapons: arch && arch.weapons || ['fists'] });
+        const arch = get('peds', id), ped = new Ped({ x: p.x, y: p.y, faction: arch ? arch.faction : 'civilian', look: arch ? pedLook(arch, this.rng) : {}, lazyRig: true, health: arch && arch.health || 100, maxHealth: arch && arch.health || 100, armor: arch && arch.armor || 0, weapons: arch && arch.weapons || ['fists'] });
         ped.archetype = id; v.sit(ped, i); return ped;
       });
-      const stopS = Math.max(0, goal.s - (o.stop || 0)), brain = new DriverBrain(v, this.g, { junctions: this.J, rng: this.rng, lane: p.lane.id, s: p.s, siren: v.siren, personality: { speed: 1.15, gap: .9, patience: 1.4, calm: true } });
+      const lo = fire ? 0 : goal.lane.clearS + v.hl + PARK_BEHIND, hi = goal.lane.len - (fire ? 0 : v.hl + 80), stopS = hi >= lo ? Math.min(hi, Math.max(lo, goal.s - (o.stop || 0))) : Math.min(lo, goal.lane.len - 4), brain = new DriverBrain(v, this.g, { junctions: this.J, rng: this.rng, lane: p.lane.id, s: p.s, siren: v.siren, personality: { speed: 1.15, gap: .9, patience: 1.4, calm: true } });
       brain.setRoute(r.lanes, { lane: goal.lane.id, s: stopS }); brain.speed = startSpeed(p); v.brain = brain; v.kinematic = true;
       const c = { v, driver: crew[0], crew, brain, tough: 1, out: null, duty: { kind: o.kind || 'service', x, y, goal, t0: this.t, arrived: false, out: false, lost: false, spray: null } };
       v.duty = c.duty; this.cars.push(c); this.spawned++;
@@ -130,8 +147,19 @@ export class Traffic {
     }
     return null;
   }
+  /** may this unit stand where it is now? On a lane, short enough of its end for the traffic to go round it, and far
+   *  enough along it to leave a car room behind it clear of the junction it came out of and the zebra beside it (one
+   *  left on the connector behind it can't go round it, and stood on the crossing for as long as the unit did) */
+  parkable(c) {
+    const b = c.brain, h = b.here; if (!h) return true; if (h.k !== 'lane') return false;
+    return h.len - b.s > c.v.hl + 80 && (h.s0 || 0) + b.s - c.v.hl >= this.g.lanes[h.id].clearS + PARK_BEHIND;
+  }
+  /** is this car held up on a lane right behind one that won't move (a unit parked at its scene, a car nobody drives)? */
+  heldBehind(c) { const b = c.brain, h = b.here, L = b.leader; return !!(h && h.k === 'lane' && L && L.gap < 24 && L.speed < 2 && (!L.v.brain || L.v.brain.parked)); }
   /** a service unit off duty: siren off, back to wandering the lanes as traffic */
   release(c) { if (!c || !c.duty) return; c.duty = null; c.v.duty = null; c.v.siren = false; c.v.owner = 'world'; c.brain.siren = false; c.brain.setRoute(null); }
+  /** a unit nobody will drive again (its crew dead): out of the traffic, the car left standing where it is */
+  abandon(c) { if (!c || !this.cars.includes(c)) return; if (c.duty) c.duty.lost = true; c.v.duty = null; c.v.siren = false; this._drop(c, false); }
   // a new car somewhere in the annulus, on a lane, with room, of a definition the neighbourhood and the hour allow
   _spawn(ctx, inR = TUNE.fpSpawnIn) {
     const fp = this.fp, outR = TUNE.fpSpawnOut, cand = [];
@@ -143,16 +171,18 @@ export class Traffic {
       if (this.city.zonesAt(p.x, p.y).some(z => z.kind === 'noSpawn')) continue;
       if (this.fleet.near(p.x, p.y, 70).some(o => o.body && Math.abs(o.z - p.z) < 12 && Math.hypot(o.x - p.x, o.y - p.y) < o.hl + 46)) continue;   // (near, not around: the cars put down this step are in no grid yet)
       if (ctx.pedsNear && ctx.pedsNear(p.x, p.y, 50).some(q => !q.seat && Math.abs((q.z || 0) - p.z) < 12 && Math.hypot(q.x - p.x, q.y - p.y) < 48)) continue;   // (never on top of someone crossing)
-      const def = this._pickDef(hood ? hood.id : '', ctx.night); if (!def) return null;
-      const h = Math.atan2(p.lane.dir[1], p.lane.dir[0]), v = this.fleet.spawn(def.id, p.x, p.y, h, { color: def.palette[Math.floor(this.rng.next() * def.palette.length)] });
+      const gang = this.pick ? this.pick(p, hood ? hood.id : '', this.rng) : null;   // (a gang's car in its turf)
+      const def = gang ? get('vehicles', gang.def) : this._pickDef(hood ? hood.id : '', ctx.night); if (!def) return null;
+      const h = Math.atan2(p.lane.dir[1], p.lane.dir[0]), v = this.fleet.spawn(def.id, p.x, p.y, h, { color: gang && gang.color || def.palette[Math.floor(this.rng.next() * def.palette.length)] });
       v.body.z = p.z; v.traffic = true; v.bornT = this.t;
-      const arch = pickPed(this.rng, s => s.kind === 'civilian' && pedFits(s, hood ? hood.id : '', ctx.night)) || pickPed(this.rng, s => s.kind === 'civilian');
-      const driver = new Ped({ x: p.x, y: p.y, faction: 'civilian', look: arch ? pedLook(arch, this.rng) : {}, lazyRig: true, health: arch && arch.health || 60 });
+      const arch = gang ? get('peds', gang.arch) : pickPed(this.rng, s => s.kind === 'civilian' && pedFits(s, hood ? hood.id : '', ctx.night)) || pickPed(this.rng, s => s.kind === 'civilian');
+      const driver = new Ped({ x: p.x, y: p.y, faction: gang ? arch.faction : 'civilian', look: arch ? pedLook(arch, this.rng) : {}, lazyRig: true, health: arch && arch.health || 60, maxHealth: arch && arch.health || 60, armor: arch && arch.armor || 0, weapons: gang && arch ? arch.weapons : ['fists'] });
       driver.archetype = arch ? arch.id : null; v.sit(driver, 0);
-      const brain = new DriverBrain(v, this.g, { junctions: this.J, rng: this.rng, lane: p.lane.id, s: p.s,
+      if (gang) { driver.gang = gang.gang; v.gang = gang.gang; }
+      const brain = new DriverBrain(v, this.g, { junctions: this.J, rng: this.rng, lane: p.lane.id, s: p.s, keep: gang ? gang.keep : null,
         personality: { speed: .88 + this.rng.next() * .24, gap: .85 + this.rng.next() * .4, patience: .7 + this.rng.next() * .7, calm: true } });
       brain.speed = startSpeed(p); v.brain = brain; v.kinematic = true;
-      const c = { v, driver, brain, tough: arch && arch.traits ? arch.traits.tough ?? .15 : .15, out: null };
+      const c = { v, driver, brain, tough: arch && arch.traits ? arch.traits.tough ?? .15 : .15, out: null, gang: gang ? gang.gang : null };
       this.cars.push(c); this.spawned++;
       return c;
     }
@@ -177,6 +207,7 @@ export class Traffic {
     const i = this.cars.indexOf(c); if (i >= 0) this.cars.splice(i, 1);
     c.brain.dispose(); const v = c.v; v.brain = null; v.kinematic = false; v.traffic = false;
     if (despawn) { this.fleet.remove(v); this.despawned++; return; }
+    if ((!v.driver || v.driver.dead) && v.owner !== 'mission') v.abandonT = this.t;   // (left with nobody at the wheel: the tow takes it, out of sight)
     if (jacked && c.driver && v.driver !== c.driver && this.onDriverOut) this.onDriverOut(c.driver, v, c.driver.dead ? 'dead' : 'jacked');
   }
   // shots, blasts and killings near drivers scare them
@@ -188,7 +219,7 @@ export class Traffic {
   /** draw the riders the traffic's open vehicles show (a bike's) round the focus */
   draw(stage, fx, fy, reach) { for (const c of this.cars) { const v = c.v; if ((v.cls === 'bike' || v.cls === 'boat') && c.driver && Math.abs(v.x - fx) < reach && Math.abs(v.y - fy) < reach) c.driver.draw(stage, { crowd: true, key: c.driver.rig }); } }
   /** for tests and the dev overlay */
-  stats() { let kin = 0, moving = 0; for (const c of this.cars) { if (c.v.kinematic) kin++; if (c.v.speed > 5) moving++; } return { cars: this.cars.length, kinematic: kin, moving, spawned: this.spawned, despawned: this.despawned }; }
+  stats() { let kin = 0, moving = 0; for (const c of this.cars) { if (c.v.kinematic) kin++; if (c.v.speed > 5) moving++; } return { cars: this.cars.length, kinematic: kin, moving, spawned: this.spawned, despawned: this.despawned, towed: this.towed }; }
 }
 
 // a new car's speed: most of its lane's, but no more than lets it stop at the lane's stop line (it may come up to a red)

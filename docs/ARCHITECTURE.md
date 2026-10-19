@@ -78,6 +78,16 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The vehicle renderer (paint, dents, steering, doors, lights, beams, sirens, rotors, wakes) and VehicleFX (skids, smoke, sparks, slicks, mines, jets) | `src/motor/render/vehicle-draw.js`, `box-model.js` | M4 |
 | The radio stub (`stations`), the vehicle HUD panel, the Proving Ground's `garage` and the model sheet | `src/motor/audio/stations.js`, `src/motor/ui/hud.js`, `src/game/proving/garage-zone.js`, `tools/model-sheet.mjs` | M4 |
 | The slice's vehicles: 13 models and 19 definitions (FAN-OUT A1) | `src/game/vehicles/` | M4 |
+| The road graph (lanes, junction regions, connectors, crosswalks), the GPS (A*, reverse costs), the signals and the junction reservations, the sidewalk graph | `src/motor/nav/` | M5 |
+| Traffic (the spawner in the annulus, the far LOD, hand-offs, service units) and its DriverBrain (IDM, junctions, sirens, passing) | `src/motor/ai/traffic.js`, `driver.js` | M5 |
+| The crowd (its own ring, gliding peds, reactions, witnesses, troupes, patrols, groups) and the PedBrain | `src/motor/ai/crowd.js`, `pedbrain.js` | M5, M6 |
+| The emergency services (the police's look-round, the Medic, the Pumper) and CityLife, which steps the city together | `src/motor/ai/emergency.js`, `city-life.js` | M5 |
+| The AutoPlayer core (walks the sidewalks, drives the GPS route) | `src/motor/ai/autoplayer.js` | M5 |
+| The wanted level (crimes, heat, stars, search and evade) and the police (sight, tiers, units, the Eye, roadblocks, spike strips, NABBED) | `src/motor/police/wanted.js`, `police.js`, `pursuit.js`, `cop.js` | M6 |
+| One fighting brain for everyone who fights on foot (guns in bursts, a clear line of fire, bats, throws) | `src/motor/ai/fighter.js` | M6 |
+| Gangs (respect, stances, hangouts and beats, gang cars in their turf, turf wars) | `src/motor/gangs/gangs.js`, `src/game/gangs.js`, `src/game/peds/gangs.js` | M6 |
+| The radar (the city baked, turf hatched, blips, the search circle and the cops' cones) and the wanted stars | `src/motor/ui/radar.js` | M6 |
+| Lowtown's crimes and police tiers; WRECKED, NABBED, the respray, bribes in play | `src/game/crimes.js`, `police.js`, `scenes/play.js` | M6 |
 
 ## Frozen contracts (M1)
 
@@ -166,10 +176,11 @@ events MOTOR's systems speak, with their payloads:
 
 | Group | Events (payload fields) |
 |---|---|
-| Crime and police | `crime` (type, x, y, by, victim, severity) · `witness` (crime, by) · `report` (crime, x, y) · `wanted` (stars, heat, prev) · `search` (x, y, r) · `evaded` (stars) · `busted` (by) · `wrecked` (cause) |
+| Crime and police | `crime` (type, x, y, by, victim, severity, vehicle, lawful) · `witness` (crime, by) · `report` (crime, x, y, by, victim, witness, severity) · `wanted` (stars, heat, prev, why) · `search` (x, y, r) · `evaded` (stars) · `busted` (by, how) · `wrecked` (cause) · `dispatch` (kind, x, y, unit, call, tier) · `onScene` (kind, call, unit, x, y) · `roadblock` / `spikes` (x, y) · `spiked` (vehicle) · `respray` (vehicle, color) · `respawn` (kind, x, y) · `confiscated` (weapons) (M5, M6: D18, D19) |
+| The city | `revived` (target, by) · `encore` (troupe, by) · `turfWar` (gangs, x, y) · `turfWarEnd` (gangs, x, y, dead) (M5, M6) |
 | Combat | `hit` (target, by, damage, kind, x, y, z) · `kill` (target, by, kind) · `explode` (x, y, z, r, by, power) · `fire` (x, y, r, by) |
 | Vehicles | `vehicleEnter` / `vehicleExit` (vehicle, actor, seat) · `carjack` (vehicle, by, victim) · `vehicleDamage` (vehicle, amount, x, y, by) · `vehicleDestroyed` (vehicle, by) |
-| Rewards | `pickup` (item, by) · `cash` (amount, reason) · `respect` (gang, delta) · `stunt` (id, score) · `collectible` (id) · `stat` (stat, delta) |
+| Rewards | `pickup` (item, by) · `cash` (amount, reason) · `respect` (gang, delta, value, why) · `stunt` (id, score) · `collectible` (id) · `stat` (stat, delta) |
 | Missions | `missionStart` (id) · `stageStart` (mission, stage) · `stageFail` (mission, stage, reason) · `missionPass` (id, medal, elapsed) · `missionFail` (id, reason) · `activityStart` (id, level) · `activityEnd` (id, level, result) |
 | The player | `switch` (from, to) · `ability` (who, on) |
 | World | `view` (view, prev) · `radio` (station) · `clock` (hour) · `weather` (state, prev) |

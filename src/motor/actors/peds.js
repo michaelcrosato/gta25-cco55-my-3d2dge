@@ -5,7 +5,7 @@
 //     palettes: { skin, hair, cloth, coat, pants, boot } (each a list: one is picked per ped, so no two look alike),
 //     traits: { tough (0..1: fights back when hurt or jacked), brave (0..1: stands rather than flees), phone (0..1:
 //     calls the police when it sees a crime), pace (a walking speed factor), idles: ['phone', 'chat', 'bench', 'shop',
-//     'cab', 'smoke', 'dance'] }, weapons, uniform (true: the palettes' first entries, always) }
+//     'cab', 'smoke', 'dance'] }, weapons, uniform (true: the palettes' first entries, always), health, armor }
 // pedLook(spec, rng) makes one look from an archetype; pickPed(rng, filter) picks an archetype by weight.
 import { declare, all } from '../core/registry.js';
 import { shape } from '../core/schema.js';
@@ -16,6 +16,7 @@ declare('peds', shape({
   times: { type: 'array', def: ['day', 'night'] }, builds: { type: 'array', def: ['heroic', 'chibi'] }, outfits: { type: 'array', def: ['shirt'] },
   sleeves: { type: 'array', def: ['short'] }, hairs: { type: 'array', def: ['short'] }, hats: { type: 'array', def: [null] }, size: { type: 'number', def: .9 },
   palettes: { type: 'object', def: {} }, traits: { type: 'object', def: {} }, weapons: { type: 'array', def: ['fists'] }, uniform: { type: 'boolean', def: false },
+  health: { type: 'number', def: 0, min: 0 }, armor: { type: 'number', def: 0, min: 0 },   // (0: the spawner's default)
 }));
 
 const SKIN = ['#e8c0a0', '#c8906a', '#a8724e', '#8a5a3a', '#5a3a2a', '#f0d0b0'];

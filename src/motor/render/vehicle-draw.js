@@ -100,7 +100,12 @@ function drawHeliExtras(stage, v, o) {
   const b = v.body, g0 = o.ground ? o.ground(b.x, b.y) : 0;
   stage.floor((g, P) => { const q = P.proj(b.x, b.y, g0); if (!q) return; const k = q[2], rx = Math.max(4, v.hl * .8 * k), ry = Math.max(2, v.hw * .9 * k); g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(q[0], q[1], rx, ry, 0, 0, Math.PI * 2); g.fill(); });
   if (b.spot && !v.wrecked && o.night) {   // (its searchlight: after dark only; by day the beam doesn't show)
-    const [sx, sy] = b.spot; stage.light(sx, sy, 0, 64, 1.5);
+    const [sx, sy] = b.spot, gs = o.ground ? o.ground(sx, sy) : 0; stage.light(sx, sy, 0, 64, 1.5);
+    stage.floor((g, P) => {   // (the pool itself: a hard-edged white disc on the ground, brighter than any street lamp's)
+      const q = P.proj(sx, sy, gs); if (!q) return; const k = q[2], rx = 26 * k, ry = rx * (stage.depth === stage.top ? 1 : .5), op = g.globalCompositeOperation;
+      g.globalCompositeOperation = 'lighter'; const gr = g.createRadialGradient(q[0], q[1], 0, q[0], q[1], rx); gr.addColorStop(0, 'rgba(255,255,240,.55)'); gr.addColorStop(.75, 'rgba(240,245,255,.35)'); gr.addColorStop(1, 'rgba(240,245,255,0)');
+      g.fillStyle = gr; g.beginPath(); g.ellipse(q[0], q[1], rx, ry, 0, 0, Math.PI * 2); g.fill(); g.globalCompositeOperation = op; g._c = null;
+    });
     stage.glowLine([b.x, b.y, b.z - 2], [sx, sy, 0], (g, A, B, k) => { const op = g.globalCompositeOperation; g.globalCompositeOperation = 'lighter'; const gr = g.createLinearGradient(A[0], A[1], B[0], B[1]); gr.addColorStop(0, 'rgba(230,240,255,.22)'); gr.addColorStop(1, 'rgba(230,240,255,.05)'); g.fillStyle = gr; const dx = B[0] - A[0], dy = B[1] - A[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, w = Math.max(6, 22 * k); g.beginPath(); g.moveTo(A[0] + nx * 2, A[1] + ny * 2); g.lineTo(B[0] + nx * w, B[1] + ny * w); g.lineTo(B[0] - nx * w, B[1] - ny * w); g.lineTo(A[0] - nx * 2, A[1] - ny * 2); g.closePath(); g.fill(); g.globalCompositeOperation = op; });
   }
 }

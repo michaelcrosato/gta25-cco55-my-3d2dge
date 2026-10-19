@@ -14,6 +14,7 @@
 //   the air the tyres do nothing and a roll (rollW, set by a blast or a hard hit) turns the body over: landing past 90
 //   degrees leaves it on its roof (flipped: it slides to a stop and burns, damage.js).
 //   A towed car rides on one axle (lifted: 'front' | 'rear': that axle has no grip and its wheels don't steer).
+//   Flat tyres (flat 0..1: a spike strip's) cost grip and drive.
 //   Determinism: plain arithmetic at the fixed step; substeps keep a step's travel under 6 u (no tunnelling at 400 u/s).
 //   Units: world units (16 per tile) and seconds. Grip and brake are accelerations (u/s²): arcade numbers, tuned on the
 //   Proving Ground's pad.
@@ -87,13 +88,13 @@ export class VehicleBody {
     const want = E.clamp(C.steer, -1, 1) * h.steer * (1 - h.steerFade * Math.min(1, Math.abs(this.u) / h.top));
     this.steerAngle += E.clamp(want - this.steerAngle, -h.steerRate * dt, h.steerRate * dt);
     const d = this.lifted === 'front' ? 0 : this.steerAngle, cd = Math.cos(d), sd = Math.sin(d), u = this.u, v = this.v, w = this.w;
-    const mu = this._grip(world), wet = world.wet ? .8 : 1, grip = h.grip * mu * wet;
+    const mu = this._grip(world), wet = world.wet ? .8 : 1, flat = this.flat || 0, grip = h.grip * mu * wet * (1 - .45 * flat);
     // the throttle drives forward, or backward once stopped with the brake held a moment (and the brake pedal brakes)
     this.held = Math.abs(u) < 1 && C.brake > 0 && !(C.throttle > 0) ? (this.held || 0) + dt : 0;
     const fwd = u > .5 || (u > -.5 && C.throttle >= C.brake), rev = !fwd && C.brake > 0 && u < 2 && (u < -.5 || this.held > .2);
     let drive = 0, braking = 0;
     if (contact) {
-      if (fwd && C.throttle > 0) drive = C.throttle * Math.min(h.accel * (C.boost || 1), this.P * (C.boost || 1) / Math.max(1, Math.abs(u)));
+      if (fwd && C.throttle > 0) drive = C.throttle * Math.min(h.accel * (C.boost || 1), this.P * (C.boost || 1) / Math.max(1, Math.abs(u))) * (1 - .45 * flat);
       if (rev) drive = -C.brake * (Math.abs(u) < h.reverseTop ? h.accel * .6 : 0);
       if (fwd && C.brake > 0 && u > .5) braking = C.brake * h.brake;
       if (!fwd && C.throttle > 0 && u < -.5) braking = C.throttle * h.brake;   // the throttle brakes a reversing car

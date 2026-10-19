@@ -46,8 +46,8 @@ def('districts', 'lowtown', {
   // Dock Road's bridge over the canal lifts for the boats (PLAN.md 9.1): its span, sidewalks and all
   drawbridges: [{ id: 'dock', rect: [124, 124, 132, 131], axis: 'y' }],
   // a loop through all four neighbourhoods on the streets, under the Loop twice (perf runs, the attract camera)
-  // pickups (PLAN.md 8.12): health by the hospital and the safehouse, armour by the precinct and the marina, and
-  // weapons where their kind of trouble lives (Molotovs at the gas station, grenades on the container yard...)
+  // pickups (PLAN.md 8.12): health by the hospital and the safehouse, armour by the precinct and the marina,
+  // weapons where their kind of trouble lives (Molotovs at the gas station, grenades on the container yard...), bribes
   pickups: [
     { kind: 'health', amount: 50, at: [21, 74], respawn: 60 }, { kind: 'health', amount: 50, at: [24, 50], respawn: 60 },
     { kind: 'armor', amount: 50, at: [94, 74], respawn: 90 }, { kind: 'armor', amount: 50, at: [136, 118], respawn: 90 },
@@ -56,6 +56,8 @@ def('districts', 'lowtown', {
     { kind: 'weapon', item: 'persuader', amount: 12, at: [96, 98], respawn: 150 }, { kind: 'weapon', item: 'hotmess', amount: 100, at: [15, 94], respawn: 180 },
     { kind: 'weapon', item: 'zapomatic', amount: 30, at: [92, 54], respawn: 180 }, { kind: 'weapon', item: 'boomtube', amount: 3, at: [148, 145], respawn: 240 },
     { kind: 'ammo', item: 'snub38', amount: 24, at: [58, 32], respawn: 60 }, { kind: 'cash', amount: 75, at: [82, 80], respawn: 300 },
+    // police bribes (PLAN.md 8.13: a star off), one in an alley of each neighbourhood
+    { kind: 'bribe', at: [144, 13], respawn: 120 }, { kind: 'bribe', at: [68, 61], respawn: 120 }, { kind: 'bribe', at: [116, 134], respawn: 120 }, { kind: 'bribe', at: [6, 134], respawn: 120 },
   ],
   tour: [[32, 30], [128, 30], [128, 118], [32, 118]],
   zones: [

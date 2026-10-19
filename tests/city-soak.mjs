@@ -14,14 +14,14 @@
 import { loadGame } from './harness.mjs';
 
 const OVERLAP = 14, DT = 1 / 120;
-const LEGIT = new Set(['queue', 'ped', 'signal', 'stop', 'yield', 'exit', 'arrived']);   // (DriverBrain's causes; 'crash' is no cause to stand)
+const LEGIT = new Set(['queue', 'ped', 'signal', 'stop', 'yield', 'exit', 'arrived', 'scene']);   // (DriverBrain's causes; 'crash' is no cause to stand; 'scene': behind a unit parked at its call, no way round: reported as its own longest wait)
 
 export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather = 'clear', hop = 20, log = null, watch = null } = {}) {
   const { game, gtm } = await loadGame({ hash: '#play', query: { seed: String(seed), time, weather } });
   const M = gtm.motor, L = gtm.life, T = L.traffic, C = L.crowd, G = L.graph, fp = T.fp, TUNE = M.TUNE;
   const pois = gtm.city.pois.filter(p => p.kind !== 'gang');
   const r = { secs, seed, time, weather, steps: 0, overlaps: 0, overlapAt: null, maxStall: 0, stallAt: null, redRuns: 0, redAt: null, speedSum: 0, speedN: 0,
-    carsSeen: 0, spawnsInside: 0, insideAt: null, pedsSeen: 0, pedsInside: 0, worstStuck: 0, stuckAt: null, worstCrossWait: 0, ms: 0, maxCars: 0, maxPeds: 0 };
+    carsSeen: 0, spawnsInside: 0, insideAt: null, pedsSeen: 0, pedsInside: 0, worstStuck: 0, stuckAt: null, worstCrossWait: 0, ms: 0, maxCars: 0, maxPeds: 0, maxScene: 0, sceneAt: null };
   const cars = new Map(), peds = new Map();
   let fillsT = T.fills, fillsC = C.fills, filledSince = false;
   // a ped seen for the first time: where it came in (a fill aside: the focus has just arrived)
@@ -54,6 +54,8 @@ export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather 
       }
       w.el = key;
       w.still = v.speed < 1 && !LEGIT.has(b.cause) ? w.still + DT : 0;
+      w.scene = v.speed < 1 && b.cause === 'scene' ? (w.scene || 0) + DT : 0;
+      if (w.scene > r.maxScene) { r.maxScene = w.scene; r.sceneAt = { car: v.def.id, x: Math.round(v.x), y: Math.round(v.y), t: +(step / 120).toFixed(2) }; }
       if (w.still > r.maxStall) { r.maxStall = w.still; r.stallAt = { car: v.def.id, x: Math.round(v.x), y: Math.round(v.y), cause: b.cause, kin: v.kinematic, t: +(step / 120).toFixed(2) }; }
       r.speedSum += v.speed; r.speedN++;
     }

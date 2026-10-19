@@ -20,6 +20,7 @@ const STEPS = [
 ];
 const FULL = [   // heavy suites join here milestone by milestone (PLAN.md 6.3)
   ['city soak (10 min)', 'node', ['tests/full/city-soak.mjs', '--secs', '600']],
+  ['gang sim (5 min)', 'node', ['tests/full/gang-soak.mjs', '--secs', '300']],
 ];
 let failed = 0;
 for (const [name, cmd, args] of full ? [...STEPS, ...FULL] : STEPS) {

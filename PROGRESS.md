@@ -1,7 +1,9 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M5 is done (the roads, the traffic, the crowd and its reactions, the emergency services, the Marching Mimes, the
-AutoPlayer core); next is M6 (the wanted level, the police and the gangs). Blockers: none. The run started inside the
+Now: M6 is built and `npm test` passes (the crimes and the wanted level, the police by tier with the Eye, roadblocks
+and spike strips, NABBED and WRECKED, the respray and the bribes, the gangs with their respect, turf, cars and turf
+wars, the radar); its gate is open on test:full's 10-minute city soak, whose day run still has a crossing wait over
+30 s (M6 · the gate). Next is M7 (TOP-DOWN and MODE 7 finished, the view manager, the bank). Blockers: none. The run started inside the
 planning session (DECISIONS D5); at M4's close it was handed off (D16), and this session carries it on from M5 on the
 branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md`'s `/goal`.
 
@@ -12,8 +14,8 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
 | M2 Lowtown + ISO | done | the world layer, Lowtown, the street painter, the city renderer, the cut-away (`b781439`); the quarter turn, the speed zoom, the clock and sky, night ISO in budget (`fe4f6dc`); weather, the drawbridge, the stand-in crowd and the gate (`8f175be`); roofs, shopfronts, yards, the shot matrix and the acceptance (this commit) · ISO at the gate 9.3-10.0 ms · 86 unit + sim tests · `docs/media/lowtown-map-sheet.png`, `docs/media/shots/` |
 | M3 On foot + combat | done | saves, weapons, vitals, fire (`edec102`); the crew on foot, combat, the wheels, the switch, the range (`42c3054`); the accept tests, the view lab, the self-tests, perf (this commit) · ISO at the gate the same as M2's build, interleaved · 114 unit + sim tests, 3 e2e suites · `docs/media/m3/` |
 | M4 Vehicles | done | the models registry, the class bodies, the Fleet, boarding, damage, the renderer, the handling bench (`b442d89`); Lowtown's fleet, driving in play, the accept tests (`f198207`, `a7eb6ae`, `87c52c9`); FAN-OUT A1's 19 definitions, the painter's order, the fixes its reviews found (`f61bf2e` to `c9e3ef6`); the acceptance and the handoff (this commit) · 172 unit + sim tests, 3 e2e suites · ISO at the gate the same as M3's build, interleaved; TOP 9.1 ms · `docs/media/m4/` (the model sheet, 15 shots) |
-| M5 Roads, traffic, peds | done | the roads and the traffic (`6e94f04`); the sidewalks, the crowd, its reactions and witnesses, the emergency services, the Marching Mimes, the AutoPlayer core, the soaks and the evidence (this commit) · 184 unit + sim tests, 3 e2e suites, the 10-minute city soak in test:full · ISO at the gate 12-23% faster than M4's build, TOP-DOWN and MODE 7 the same, interleaved · `docs/media/m5/` (13 filmstrips, 5 shots) |
-| M6 Wanted, police, gangs | | |
+| M5 Roads, traffic, peds | done | the roads and the traffic (`6e94f04`); the sidewalks, the crowd, its reactions and witnesses, the emergency services, the Marching Mimes, the AutoPlayer core, the soaks and the evidence (this commit) · 184 unit + sim tests, 3 e2e suites, the 10-minute city soak in test:full · ISO at the gate 12-23% faster than M4's build, TOP-DOWN and MODE 7 the same, interleaved (measured with M5's tour stuck at its start: corrected at M6) · `docs/media/m5/` (13 filmstrips, 5 shots) |
+| M6 Wanted, police, gangs | the soak | the crimes and the wanted level, the police by tier with the Eye, roadblocks and spikes, NABBED and WRECKED, the respray and the bribes, the gangs with respect, turf, cars and turf wars, the radar (part 1, this commit) · 200 unit + sim tests (wanted 11, gangs 5), 3 e2e suites, the 5-minute gang sim in test:full · ISO and TOP-DOWN the same as M5's build, MODE 7 within the tolerance, interleaved (the tour fixed in both) · `docs/media/m6/` (10 filmstrips) |
 | M7 TOP + SIDE7 + bank | | |
 | M8 Missions + economy | | |
 | M9 10-foot UI | | |
@@ -449,7 +451,124 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
   - **Found on the way** (D18): every body within 600 u queued its contact shadow before the on-screen test, and the
     depth views (TOP-DOWN, MODE 7) drew every crowd body in reach, on the screen or not: TOP-DOWN had been 30-45%
     slower than M4's build before both were culled. MODE 7's far, small bodies are redrawn half as often.
+  - **Corrected at M6:** M5's build never toured in these runs. The tour's body stopped dead against a car or a body
+    on its line, and in M5's build one stood at the tour's start: the M5 column above was measured standing still, so
+    "12-23% faster than M4" does not hold. M6 fixed the tour and measured again against M5's build with the same fix
+    (M6 · performance).
 - **M5 · the gate:** `npm test` passes every step: lint, boundary, vendor (28 files with the mocap cut set, 6
   patches), goal-sync, dist current, 184 unit and sim tests, the e2e smoke, replay and self-tests, and the engine
   checker. `npm run test:full` adds the city soak (`tests/full/city-soak.mjs`: 10 minutes by day, 5 at night in the
   rain), and passes. Decisions in D17 and D18.
+- **M6 · section 8.13, the wanted level and the police** (`tests/sim/wanted.test.mjs`, 11 tests; D19):
+  - a crime nobody sees earns nothing; four onlookers who see a murder phone it in: one star, 45 heat, filed as a
+    report; the same four killed before their calls go through: no report, no stars;
+  - an assault in an officer's sight is filed by the cop at once with 22.5 heat (half again a report's 15): one star;
+    speeding with nobody watching earns nothing, past a cop it is filed;
+  - the stars come at 20 / 60 / 150 / 300 / 600 heat, one at a time; each tier's response goes out within 4 s of its
+    stars (a cruiser at 1 and 2, the Eye at 3, SWAT at 4, the Feds at 5; no Eye below 3, no SWAT or Feds below 4);
+  - at 3 stars at night the Eye is over the player within 30 s, its light on them; at 2 it goes back to its patrol;
+  - a chase (the AutoPlayer driving, 4 stars): a roadblock and a spike strip go down ahead of the car, inside the
+    annulus; a car driven over the strip goes flat;
+  - hiding: seen, then out of every unit's sight, the stars clear 15.15 s later at 2 stars (`evade2` 15), the search
+    circle widening meanwhile;
+  - 96 u up an alley a unit with a 160 u sight doesn't see the player (on a street, the same line does); under the
+    Loop the Eye sees nothing, out in the open it does;
+  - the respray: at Spray & Pray out of sight, 2 stars gone for $100 and another colour; with a cop watching, nothing;
+  - NABBED: cuffed standing armed, or running unarmed; not running armed; at the door of a stopped car after 1.5 s;
+    not in a moving one; never at no stars; then the precinct, $250 bail, the guns taken and the Snap kept, the stars
+    cleared. WRECKED: the card, the hospital, its $100 bill, the stars cleared;
+  - a chase is the same in every view: 3 stars and the Saints hostile for 20 s hash alike in ISO, TOP-DOWN and MODE 7.
+- **M6 · section 8.14, the gangs** (`tests/sim/gangs.test.mjs`, 5 tests; `tests/full/gang-soak.mjs` in test:full):
+  - respect: a Saint killed by the player -5 with the Saints and +1 with the Gnomes (their rivals are the Saints); a
+    Rat -5 with the Rats and +1 with the Saints; one killed by someone else, nothing; a Rats car shot -2, again at once
+    nothing, 10 s later -2 again; capped at 100 and -100; each change on the BUS;
+  - hostility: at -19 two Saints in Neon let the player be, at -20 both come for them; at -40 in Palm Terraces (not
+    their turf) nobody comes;
+  - friendly: at 40 a Saint lets one punch go and not a second, and the Saints near go for a Rat who hits the player;
+    at 39 the first punch starts a fight;
+  - gang cars: at Neon's middle the Saints' cars (a share of the traffic, a Saint at each wheel) stay in Neon (under
+    5% of a minute's samples out). By the Neon / Harbor line the one-way streets carry some over the border; out of
+    their turf they are routed home;
+  - a turf war breaks out by itself on seed 1 by the Neon / Harbor line, the Saints against the Rats, 18 s in, and
+    ends 10 s later;
+  - the 5-minute gang sim (seed 1, the focus touring the borders and HQs a minute at a time): no errors, 5 turf wars,
+    all ended, at most 23 members and 17 fighters at once, the longest fight 15 s, nobody's respect moved.
+- **M6 · the filmstrips** (`docs/media/m6/strip-*.png`, `node tools/reaction-strips.mjs --set m6`), with verdicts:
+  - `cuffed`: at 1 star an officer runs up the sidewalk to Dex, standing unarmed at the Greasy Spoke's door (Viv a few
+    steps along), and stops face to face; the bust camera closes in, NABBED. Pass.
+  - `door`: Dex in a stopped Cortez; the officer walks up its side to the driver's door and waits there; the bust
+    camera, NABBED. Pass.
+  - `shootout`: at 2 stars two officers stand off and fire in bursts, one on the sidewalk, one across the street
+    stepping round the parked car in his line of fire; a muzzle flash in the last frame. Pass.
+  - `eye`: 3 stars at night: the Eye flies in over the roofs, its beam down across the Greasy Spoke to a white pool at
+    Dex's feet. Pass.
+  - `roadblock`: a cruiser across the lane with its officer at his post, a spike strip before it; a Cortez sent over
+    the strip throws sparks off its rims and runs on to the cruiser. Pass (the strip had been dark on dark asphalt:
+    now steel with bright teeth and yellow ends).
+  - `hostile`: the Saints at -20: Dex crossing a Neon street; two Saints on its far sidewalk turn to him, aim and
+    fire, and from the seventh frame he is hit. Pass.
+  - `turfwar`: three Saints and three Rats at the Neon / Harbor line: the Rats cross the avenue to the Saints' corner,
+    shots, blood and a Molotov's flames among the Saints; Dex looks on from the side, his feet in x-ray behind a
+    planter's wall. Pass.
+  - `respray`: at 2 stars Dex rolls a red Cortez into Spray & Pray; it comes out blue, RESPRAYED -$100, the stars gone.
+    Pass.
+  - `wrecked`: shot dead at 3 stars: the fall, WRECKED, then a cut to the sidewalk in front of Lowtown General, Dex on
+    his feet in the first frame there. Pass.
+  - `lineup`: along the sidewalk, each gang's grunt and enforcer (the Saints in cyan, the Rats in yellow, the Gnomes in
+    pink with their pointed hats), an MPD officer, a SWAT trooper (helmet and mask) and a Fed (white shirt). Pass.
+- **M6 · look notes fixed on the way:**
+  - The Greasy Spoke's sign was drawn over Dex at its door (a lamp beside it lifted the board's order) and then,
+    ordered by one end, under its own wall: boards are now drawn in slices along their wall, each ordered at its own
+    spot.
+  - The radar had drowned in red (every car's and the Eye's sight filled, the turf hatched densely): cones show only
+    while wanted, a car's or the Eye's sight as a faint ring, the hatching sparser, the empty stars outlined.
+  - **Viv's hangout is the Greasy Spoke**, and `#play/greasy-spoke` put Dex on her very spot: every strip taken there,
+    M5's too, showed the two as one body (Viv's grey over Dex's red: the "officer cuffs Dex" of the first takes cuffed
+    that blend). A deep link to another member's hangout now puts that member a few steps aside.
+  - WRECKED: the revived body had still shown the fall for a frame (the rig's get-up eases over a third of a second):
+    it is played out at once. And the hospital's respawn stood behind its forecourt's palm: it is now the sidewalk in
+    front.
+  - The strips' framing: the filmstrip page draws a 432×243 buffer, not 480×270, so the radar had sat in some crops and
+    the lineup's gangs behind it; a crop past the right edge showed black; the turf war and the hostile Saints had Dex
+    in their line of fire, the shootout's second officer was out of the frame and the Eye above it, and the respray's
+    car had stopped short of the shop (no paint). Restaged and reframed.
+- **M6 · performance** (`tools/perf.mjs`, interleaved with M5's build, `04f8c94`, on the same machine; both builds with
+  the tour fix below, M5's applied to a worktree of `04f8c94`):
+
+  | Scenario (night, rain; the gate's 40 walkers and 20 cars in view) | M5 draw | M6 draw | M5 update | M6 update |
+  |---|---|---|---|---|
+  | ISO, the tour at 300 u/s (`lowtown-gate`, 3 rounds) | 24.9-31.0 ms | 25.9-28.1 ms | 4.6-7.1 ms | 4.7-5.4 ms |
+  | TOP-DOWN, the tour (2 rounds) | 15.8-17.5 ms | 17.6 ms | 3.4-3.9 ms | 3.8-3.9 ms |
+  | MODE 7, the tour (2 rounds) | 28.6-29.5 ms | 30.8-35.0 ms | 5.3-5.7 ms | 5.8-6.4 ms |
+  | ISO, standing at the bank (`lowtown-walk`, clear, 2 rounds) | 17.3-19.0 ms | 17.8-19.4 ms | 4.7-5.2 ms | 5.7-6.4 ms |
+
+  - **The draw:** the same as M5's build in ISO, touring and standing; TOP-DOWN within noise. MODE 7 came out 13%
+    slower over its two rounds (inside the gates' 15%), so it was profiled: a 10-second CPU profile of each build's
+    MODE 7 tour drew alike (medians 38.2 and 39.1 ms under the profiler), every function's time within about a
+    millisecond a second of the other's. The rounds' spread is where the tour's 12-second window falls.
+  - **The update:** the police and the gangs (their senses, lines of sight and fighters) add about 1 ms a frame
+    standing at the bank, about 0.25 ms a step at this machine's 4 steps a frame, and nothing measurable on the tour:
+    about 1.5 ms a step here, about 0.5 on the gate's machine (budget 1.5, D10).
+  - **Found on the way:** since M3 the perf tour had ridden at about twice its 300 u/s (its body placed along the leg,
+    then moved on again by the velocity it was given), and it stopped dead wherever a car or a body stood on its line.
+    M5's build stood at the tour's start in every M5 perf run and in this milestone's first runs too, where its ISO
+    "tour" drew 19.5-22.5 ms against M6's 28.4-30.5: a 40% gap that was only M6's tour moving. The tour now keeps its own
+    point, rides at 300 u/s and can't be held up. M5's record is corrected above.
+- **M6 · the gate (open):** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 200 unit and
+  sim tests, the e2e smoke, replay and self-tests, the engine checker). In test:full the 5-minute gang sim passes (5 turf
+  wars, all ended; at most 23 members and 17 fighters; the longest fight 15 s) and so does the city soak's night run;
+  its day run does not yet (a crossing wait over 30 s). What the day soak found, the first with gangs and the police
+  about, and what was fixed (D19):
+  - units parked inside junctions, and kept for crews that were dead: they stop only on a lane, and a dead crew's car is
+    left as any abandoned car, which the tow takes once it is out of sight;
+  - a unit stopped just out of a junction (its call by the corner) left the car behind it on the connector, over the
+    crossing, where no driver may go round: 30.5 s of a crossing held. A unit now stands with a car's room behind it
+    past its lane's `clearS` (where a car's tail is out of the junction and off the zebra), on the nearest lane with
+    room for that (and for a pass ahead, where there is one);
+  - drivers entered a junction with no room to stop past the zebra beyond it, and a queue backed up over the crossing:
+    a driver now waits at its line until there is room;
+  - a car behind a unit at its scene with no way round (no room before the junction, the far lane busy, the crew in the
+    street) stood with no cause: 23.5 s. It still tries to go round, and its cause is the scene; the soak reports that
+    wait apart (10.4 s at most). The longest stall with no cause is now 1.8 s;
+  - still open: a crossing held 31 s by a car with nobody in it standing on the zebra, and a ped held 37 s at a lit
+    crossing with no car on it.

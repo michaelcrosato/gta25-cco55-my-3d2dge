@@ -1,16 +1,30 @@
 // The BUS catalogue (PLAN.md 7.4), frozen in M1: every event a system may emit, with its payload's fields. BUS.emit
 // takes any name (a game adds its own), but these are the ones MOTOR's systems speak, and tests check emitters
-// against this list. Ids are Actor ids; points are world units.
+// against this list. Ids are Actor ids; points are world units. Added since, each by a decision (docs/DECISIONS.md):
+// the services' and the troupes' (D18, M5), the police's, the respawns' and the gangs' (D19, M6).
 export const EVENTS = {
   // crime and police
-  crime: 'type, x, y, by, victim, severity',   // type: 'assault' | 'murder' | 'carjack' | 'theft' | 'shooting' | 'explosion' | 'vandalism' | 'speeding' | ...
+  crime: 'type, x, y, by, victim, severity, vehicle, lawful',   // type: def('crimes') ids; vehicle: a car theft's; lawful: the police's own doing
   witness: 'crime, by',
-  report: 'crime, x, y',
-  wanted: 'stars, heat, prev',
+  report: 'crime, x, y, by, victim, witness, severity',
+  wanted: 'stars, heat, prev, why',
   search: 'x, y, r',
   evaded: 'stars',
-  busted: 'by',
+  busted: 'by, how',                            // how: 'cuffed' | 'door'
   wrecked: 'cause',
+  dispatch: 'kind, x, y, unit, call, tier',     // a unit sent (the services' calls; the police's tiers: 'cruiser' | 'swat' | 'fed' | 'chopper')
+  onScene: 'kind, call, unit, x, y',
+  roadblock: 'x, y',
+  spikes: 'x, y',
+  spiked: 'vehicle',
+  respray: 'vehicle, color',
+  respawn: 'kind, x, y',                        // kind: 'wrecked' (the hospital) | 'nabbed' (the precinct)
+  confiscated: 'weapons',
+  // the city
+  revived: 'target, by',
+  encore: 'troupe, by',
+  turfWar: 'gangs, x, y',
+  turfWarEnd: 'gangs, x, y, dead',
   // combat
   hit: 'target, by, damage, kind, x, y, z',     // kind: 'bullet' | 'melee' | 'vehicle' | 'explosion' | 'fire' | 'fall'
   kill: 'target, by, kind',
@@ -26,7 +40,7 @@ export const EVENTS = {
   // rewards
   pickup: 'item, by',
   cash: 'amount, reason',
-  respect: 'gang, delta',
+  respect: 'gang, delta, value, why',
   stunt: 'id, score',
   collectible: 'id',
   stat: 'stat, delta',

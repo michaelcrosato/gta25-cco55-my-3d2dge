@@ -202,10 +202,10 @@ export class Ped {
         const victim = v.seats[P.seat]; if (!victim) { P.kind = 'enterCar'; return this._sync(); }
         v.unseat(victim); victim.boarding = null; o.other = victim.mover; B.victim = victim;
         BUS.emit('carjack', { vehicle: v.id, by: this.id, victim: victim.id });
-        BUS.emit('crime', { type: 'carjack', x: m.x, y: m.y, by: this.id, victim: victim.id, severity: 2 });
+        BUS.emit('crime', { type: 'carjack', x: m.x, y: m.y, by: this.id, victim: victim.id, vehicle: v.id, severity: 2 });
       }
       B.act = new E.Action(kind, o); B.phase = 'act'; B.kind = kind; if (B.victim) B.victim.held = B.act;
-      if (kind === 'breakIn') BUS.emit('crime', { type: 'breakIn', x: m.x, y: m.y, by: this.id, victim: null, severity: 1 });
+      if (kind === 'breakIn') BUS.emit('crime', { type: 'breakIn', x: m.x, y: m.y, by: this.id, victim: null, vehicle: v.id, severity: 1 });
     }
     // the beats: the door swings with them
     const act = B.act, running = act.update(dt);
@@ -296,7 +296,9 @@ export class Ped {
   revive(x, y, z = 0) {
     const v = this.vitals; v.dead = false; v.health = v.maxHealth; v.armor = 0; v.down = 0; v.stun = 0; v.sinceHit = 1e9; v.zaps = 0;
     this.burning = 0; this.flinch = 0; this._dieT = 0; this._down = false; this.throwing = null; this.combo = null; this._comboFor = '';
-    this.place(x, y, z); this.stamina = this.stats.sprintTime(); return this._sync();
+    this.place(x, y, z); this.stamina = this.stats.sprintTime();
+    for (let i = 0; i < 24; i++) this._pose(1 / 60, {});   // (up on its feet at once: the rig's get-up, a third of a second, played out here, never a frame of the fall where it wakes)
+    return this._sync();
   }
   /** catch fire for some seconds (a Molotov, the flamethrower, standing in the flames) */
   ignite(s = 4) { this.burning = Math.max(this.burning, s); }

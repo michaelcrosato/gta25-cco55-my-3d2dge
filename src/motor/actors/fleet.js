@@ -255,7 +255,7 @@ export class Fleet {
         const amount = (closing - TUNE.knockSpeed * .7) * TUNE.runOver;
         if (this.combat) this.combat.hurt(p, { amount, kind: 'vehicle', by, knock: closing * .8, knockdown: true, dir }); else p.hurt({ amount, kind: 'vehicle', knock: closing * .8, knockdown: true, dir });
         b.setVelocity(b.vx * .94, b.vy * .94);
-        if (by) BUS.emit('crime', { type: 'runOver', x: m.x, y: m.y, by, victim: p.id, severity: 2 });
+        if (by) BUS.emit('crime', { type: 'runOver', x: m.x, y: m.y, by, victim: p.id, severity: 2, lawful: v.driver.faction === 'police' });
       } else if (closing > 0) { m.vx += hit.nx * closing; m.vy += hit.ny * closing; }
     };
     // (a ped gliding its sidewalk line never walks into a parked car: only what moves can reach it)
@@ -323,7 +323,7 @@ export class Fleet {
       while (v._cool <= 0) {
         v._cool += 1 / 8; const [mx, my] = v.toWorld(v.hl * .2, 0);
         C.shots.fire({ x: mx + hx * (v.hl * .8 + 4), y: my + hy * (v.hl * .8 + 4), z: b.z + v.height + 2, dir: [hx, hy, 0], speed: 900, range: 420, damage: 9, by, team: v.driver.faction, weapon: 'roofmg', vehicle: v.id, kind: 'bullet', tracer: true, casing: null });
-        BUS.emit('crime', { type: 'shooting', x: v.x, y: v.y, by, victim: null, severity: 1 });
+        BUS.emit('crime', { type: 'shooting', x: v.x, y: v.y, by, victim: null, severity: 1, lawful: v.driver.faction === 'police' });
       }
     } else if (w === 'oil' && I.tap.fire && v.mods.oil > 0) { v.mods.oil--; const [x, y] = v.toWorld(-v.hl - 14, 0); this.slicks.push({ x, y, z: b.z, r: 22, t: 40 }); }
     else if (w === 'mines' && I.tap.fire && v.mods.mines > 0) { v.mods.mines--; const [x, y] = v.toWorld(-v.hl - 8, 0); this.mines.push({ x, y, z: b.z, arm: 1.2, by }); }
@@ -360,6 +360,7 @@ export class Fleet {
         if (sp > 60 && (this._n++ % 4) === 0) for (const q of pts) this.fx.push({ kind: 'smoke', x: q[0], y: q[1], z: b.z + 2, t: 0 });
       } else v._skid = null;
       if (b.felt.hit / b.h.mass > 30) this.fx.push({ kind: 'sparks', x: b.felt.hitX, y: b.felt.hitY, z: b.z + 6, t: 0, n: Math.min(12, Math.round(b.felt.hit / b.h.mass / 12)) });
+      if (v.flats > 0 && sp > 60 && (this._n++ % 3) === 0) for (const w of v.model.wheels) { const [x, y] = v.toWorld(w.x, w.y); this.fx.push({ kind: 'sparks', x, y, z: b.z + 1, t: 0, n: 2 }); }   // (on its rims)
       if (v.damage.smoking && (this._n++ % (v.damage.burning ? 2 : 5)) === 0) { const [x, y] = v.toWorld(v.hl * .6, 0); this.fx.push({ kind: v.damage.burning ? 'flame' : 'engine', x, y, z: b.z + v.height * .6, t: 0 }); }
     }
     if (this.skids.length > SKID_MAX) this.skids.splice(0, this.skids.length - SKID_MAX);

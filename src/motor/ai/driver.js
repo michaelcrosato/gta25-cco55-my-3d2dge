@@ -10,10 +10,13 @@
 //   - junctions: it asks the Junctions for its connector once within braking distance of the stop line (short of the
 //     crosswalk), ready when its light is green (or amber with no room to stop and time to clear), when it has halted
 //     at a stop sign, or always at a merge, and the lane beyond has room for it; it stops at the line until granted, and
-//     releases the box once its tail is out. A siren asks first and treats a red as a give-way;
+//     releases the box once its tail is out (the lane beyond has room when a car stopped there would stand clear of the
+//     junction and the zebra: lane.clearS). A siren asks first and treats a red as a give-way;
 //   - stuck behind something stopped that isn't queueing (a parked car poking out, a wreck, the player): a honk, then a
 //     pass on whichever side has a clear corridor (walls, street furniture, vehicles, peds checked along it); a jammed
-//     exit makes it pick another turn; pinned against something (physics), it backs off and tries again;
+//     exit makes it pick another turn; pinned against something (physics), it backs off and tries again; behind a unit
+//     parked at its scene with no way round (no room before the junction, the far lane busy, its crew in the street) it
+//     waits for it, its cause the scene ('scene'), still trying to go round;
 //   - panic (shots, a blast nearby): faster, the lights and the reservations ignored; a crash: a pause, then on;
 //   - a siren behind it: it pulls over into a gap on its right wide enough to clear the siren's way and waits there;
 //     with none (a street parked up on both sides) it drives on ahead of it at its own speed.
@@ -45,7 +48,8 @@ const OVER_RAMP = 30;   // units a car takes to pull over (and back)
 
 export class DriverBrain {
   /** v: the Vehicle; graph: the RoadGraph; o: { junctions, rng (a stream), personality: { speed, gap, patience, calm },
-   *  lane, s (where it starts on its lane; else the nearest lane), route: [lane ids], siren } */
+   *  lane, s (where it starts on its lane; else the nearest lane), route: [lane ids], siren, keep (lane -> a weight,
+   *  0..1: where it likes to wander, a gang car's turf: each way on is weighed by it) } */
   constructor(v, graph, o = {}) {
     this.v = v; this.g = graph; this.J = o.junctions || null; this.rng = o.rng || null; this.I = makeIntent(); this.id = v.id;
     this.p = Object.assign({ speed: 1, gap: 1, patience: 1, calm: true }, o.personality || {});
@@ -53,7 +57,7 @@ export class DriverBrain {
     this.path = []; this.i = 0; this.s = 0; this.speed = v.speed || 0;
     this.cause = null; this.leader = null; this.held = null; this.halted = null; this.haltT = 0;
     this.blocked = 0; this.honkT = 0; this.pass = null; this.passTry = 0; this.panic = 0; this.crashT = 0; this.exitT = 0;
-    this.pinned = 0; this.unstick = 0; this.unsticks = 0; this.tr = null; this.siren = !!o.siren; this.lost = false;
+    this.pinned = 0; this.unstick = 0; this.unsticks = 0; this.tr = null; this.siren = !!o.siren; this.lost = false; this.keep = o.keep || null;
     this.yieldTo = null; this.over = 0; this.overT = 0; this.overTry = 0; this.overS = 0; this.overWait = 0; this.lat = 0; this.noYield = null; this.noYieldT = 0;   // (pulled over for a siren: by how far, for how long after)
     const at = o.lane !== undefined ? { lane: graph.lanes[o.lane], s: o.s || 0 } : graph.nearestLane(v.x, v.y, v.heading, v.z);
     if (at) this.reset(at.lane, at.s); else this.lost = true;
@@ -99,8 +103,12 @@ export class DriverBrain {
   _choose(lane, avoid = null) {
     const G = this.g, outs = lane.out.map(id => G.conns[id]).filter(c => c.kind !== 'change' && !(avoid && avoid.has(c.id)));
     if (!outs.length) return null;
-    if (this.route) { const k = this.route.indexOf(lane.id); if (k >= 0 && k + 1 < this.route.length) { const c = outs.find(q => q.to === this.route[k + 1]); if (c) return c; } if (k === this.route.length - 1) return null; }
+    if (this.route) {
+      const k = this.route.indexOf(lane.id); if (k >= 0 && k + 1 < this.route.length) { const c = outs.find(q => q.to === this.route[k + 1]); if (c) return c; }
+      if (k === this.route.length - 1) { if (this.goal) return null; this.route = null; }   // (a route with no goal is only a way there: at its end, on as anyone)
+    }
     let w = outs.map(q => { const to = G.lanes[q.to]; return to.deadEnd || !to.out.length ? 0 : TURN_W[q.kind] ?? .1; });
+    if (this.keep) { const k = outs.map(q => this.keep(G.lanes[q.to])); if (k.some((x, i) => x > 0 && w[i] > 0)) w = w.map((x, i) => x * k[i]); }   // (inside its turf while it can, back toward it when out)
     if (!w.some(x => x > 0) && !avoid) w = outs.map(q => (G.lanes[q.to].deadEnd === 'jump' ? 0 : 1));   // (forced: only a dead end goes on; never to dodge a jam)
     const tot = w.reduce((a, b) => a + b, 0); if (tot <= 0) return null;
     let r = (this.rng ? this.rng.next() : .5) * tot;
@@ -223,13 +231,14 @@ export class DriverBrain {
   _onCross(q) { const e = this.path[q.j]; if (!e || e.k !== 'lane') return false; const l = this.g.lanes[e.id], s = (e.s0 || 0) + q.s; for (const c of l.cross) if (s >= c[0] - 2 && s <= c[1] + 2) return true; return false; }
   // is that vehicle queueing for something (a light, a stop sign, the car ahead of it)? Then we queue behind it
   _queued(o) { const b = o && o.brain; return !!b && b !== this && !b.parked && b.yieldTo !== this.v && (b.cause !== null || b.speed > 3); }   // (parked: a unit whose crew is out; or pulled over for our siren: passed like any stopped car)
-  // the lane beyond a connector has no room for us: something slow within our length and a gap of its start
+  // the lane beyond a connector has no room for us: something slow there with its tail within our length and a gap of
+  // where that lane is clear of the junction and its zebra (lane.clearS): stopped behind it, we would stand on either
   _exitFull(w, c) {
-    if (!w.fleet) return false; const L = this.g.lanes[c.to], need = this.v.hl * 2 + 16, fx = L.a[0] + L.dir[0] * need / 2, fy = L.a[1] + L.dir[1] * need / 2;
-    for (const o of w.fleet.around(fx, fy, need / 2 + 40)) {
+    if (!w.fleet) return false; const L = this.g.lanes[c.to], need = (L.clearS || 0) + this.v.hl * 2 + 16, fx = L.a[0] + L.dir[0] * need / 2, fy = L.a[1] + L.dir[1] * need / 2;
+    for (const o of w.fleet.around(fx, fy, need / 2 + 56)) {
       if (o === this.v || !o.body || o.cls === 'heli' || Math.abs(o.z - L.a[2]) > 12) continue;
       const dx = o.x - L.a[0], dy = o.y - L.a[1], along = dx * L.dir[0] + dy * L.dir[1], off = Math.abs(-dx * L.dir[1] + dy * L.dir[0]);
-      if (along > -o.hl && along < need && off < o.hw + 8 && o.speed < 30) return true;
+      if (along > -o.hl && along - o.hl < need && off < o.hw + 8 && o.speed < 30) return true;
     }
     return false;
   }
@@ -427,7 +436,7 @@ export class DriverBrain {
     const stuck = L && L.speed < 2 && L.gap < 30 && sp < 3 && (!this._queued(L.v) || (ob && ob.leader && ob.leader.v === v)) && !this.cause;
     this.blocked = stuck ? this.blocked + dt : Math.max(0, this.blocked - dt * 2);
     if (stuck && this.siren) this.blocked = Math.max(this.blocked, TUNE.passAfter * this.p.patience);   // (a siren goes round at once)
-    if (stuck) this.cause = null;
+    if (stuck) this.cause = L.v.duty && L.v.duty.out ? 'scene' : null;   // (a unit at its scene: a cause to wait, while it tries to go round)
     this.honkT = Math.max(0, this.honkT - dt);
     if (this.blocked > TUNE.honkAfter * this.p.patience && this.honkT <= 0) this.honkT = 3.5;
     if (stuck && !this.pass && this.blocked > TUNE.passAfter * this.p.patience) { this.passTry -= dt; if (this.passTry <= 0) { this.passTry = .75; this.pass = this._planPass(L, w, S); } }

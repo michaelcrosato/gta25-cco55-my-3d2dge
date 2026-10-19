@@ -105,7 +105,7 @@ test('the AutoPlayer core: it walks a short way on the sidewalks, and drives a l
     assert.ok(A.arrived, `walked there: ${A.state}, ${Math.hypot(gtm.crew.ped.x - goal.x, gtm.crew.ped.y - goal.y).toFixed(0)} u off`);
     assert.ok(!states.has('drive'), 'on foot all the way'); }
   { const { game, gtm } = await loadGame({ hash: '#play/safehouse', query: { seed: '1999', time: 'day', weather: 'clear', auto: 'precinct' } }), A = gtm.auto, goal = gtm.city.poi('precinct');
-    const states = new Set(); for (let t = 0; t < 120 && !A.arrived; t += .25) { game.advance(.25); states.add(A.state); }
+    const states = new Set(); for (let t = 0; t < 180 && !A.arrived; t += .25) { game.advance(.25); states.add(A.state); }   // (M6: the gangs' fights and the police's calls slow the streets: D19)
     assert.ok(states.has('board') && states.has('drive'), 'took a car and drove: ' + [...states]);
     assert.ok(A.arrived, `got there: ${A.state}, ${Math.hypot(gtm.crew.ped.x - goal.x, gtm.crew.ped.y - goal.y).toFixed(0)} u off`); }
 });

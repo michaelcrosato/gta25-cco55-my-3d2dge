@@ -17,7 +17,8 @@
 //     every lane kept can be driven to and away from.
 // The GPS is A* over the pieces (gps.js); the signals cycle by junction (signals.js). Plain data, deterministic.
 //   - crosswalks: where a lane crosses one (the zebra across a road beside a junction), as a stretch along the lane; a
-//     driver stops short of the one before a junction (lane.stopS) and waits while someone is on one ahead.
+//     driver stops short of the one before a junction (lane.stopS) and waits while someone is on one ahead; past the one
+//     after it (lane.clearS: a car's tail there is out of the junction and off the zebra) it must have room to stop.
 //   const G = new RoadGraph(city);  G.lanes · G.conns · G.regions · G.nearestLane(x, y, heading) · G.pointOn(lane, s)
 import { E } from '../engine.js';
 
@@ -271,8 +272,9 @@ export class RoadGraph {
     for (const cn of conns) { lanes[cn.from].out.push(cn.id); lanes[cn.to].in.push(cn.id); }
     this.lanes = lanes; this.conns = conns; this.components = c;
   }
-  // ---- crosswalks along each lane: lane.cross = [[s0, s1, index]] (the zebra's stretch along the lane), and lane.stopS:
-  // where a driver stops for the junction at its end (short of a crosswalk just before it)
+  // ---- crosswalks along each lane: lane.cross = [[s0, s1, index]] (the zebra's stretch along the lane), lane.stopS:
+  // where a driver stops for the junction at its end (short of a crosswalk just before it), and lane.clearS: where a car's
+  // tail is clear of the junction at its start (where every connector into it joins) and of the zebra beside it
   _crosswalks() {
     const cws = this.city.crosswalks || [];
     for (const l of this.lanes) {
@@ -287,6 +289,7 @@ export class RoadGraph {
       const last = l.cross[l.cross.length - 1];
       if (l.atEnd && last && l.len - last[1] < 6) l.stopS = Math.max(0, last[0] - 3);
     }
+    for (const l of this.lanes) l.clearS = Math.min(l.len, Math.max(0, ...l.in.filter(id => this.conns[id].kind !== 'change').map(id => this.conns[id].toS), ...l.cross.filter(c => c[0] < 4).map(c => c[1])));   // (a lane change joins along the way: not a junction)
   }
   // ---- a grid of lane pieces for nearest-lane queries
   _index() {
@@ -297,12 +300,14 @@ export class RoadGraph {
     }
   }
   /** the lane piece nearest (x, y) (and z within 12), preferring one heading within 90 degrees of heading if given:
-   *  { lane, s (distance along it), d (distance off it) } or null */
-  nearestLane(x, y, heading = null, z = 0, r = 160) {
+   *  { lane, s (distance along it), d (distance off it) } or null. span: lane => [s0, s1], the stretch of each lane
+   *  that may be taken (null: none of it) */
+  nearestLane(x, y, heading = null, z = 0, r = 160, span = null) {
     let best = null, bd = Infinity;
     for (let gy = Math.floor((y - r) / 64); gy <= Math.floor((y + r) / 64); gy++) for (let gx = Math.floor((x - r) / 64); gx <= Math.floor((x + r) / 64); gx++) {
       for (const l of this.grid.get(gy * 4096 + gx) || []) {
-        const dx = l.b[0] - l.a[0], dy = l.b[1] - l.a[1], L2 = dx * dx + dy * dy || 1, f = E.clamp(((x - l.a[0]) * dx + (y - l.a[1]) * dy) / L2, 0, 1);
+        const w = span && span(l); if (span && !w) continue;
+        const dx = l.b[0] - l.a[0], dy = l.b[1] - l.a[1], L2 = dx * dx + dy * dy || 1, f = E.clamp(((x - l.a[0]) * dx + (y - l.a[1]) * dy) / L2, w ? w[0] / (l.len || 1) : 0, w ? w[1] / (l.len || 1) : 1);
         const zz = l.a[2] + (l.b[2] - l.a[2]) * f; if (Math.abs(zz - z) > 12) continue;
         let d = Math.hypot(l.a[0] + dx * f - x, l.a[1] + dy * f - y);
         if (heading !== null && Math.cos(heading) * l.dir[0] + Math.sin(heading) * l.dir[1] < 0) d += 400;

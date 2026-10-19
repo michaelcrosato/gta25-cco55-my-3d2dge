@@ -95,7 +95,10 @@ export class CityRenderer {
     const glints = []; for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) { const w = this.water.get(j * 64 + i); if (w) glints.push(w); }
     if (glints.length) { const t = stage.game.real; stage.floor((g, P) => drawGlints(g, P, glints, t, stage.r.bw, stage.r.bh)); }
     for (const s of this.signs) if (Math.abs(s.x - fx) < radius && Math.abs(s.y - fy) < radius && stage.onScreen(s.x, s.y, s.z, s.z, 48)) {
-      stage.shape(s.x, s.y, s.z, (g, P) => drawSign(g, P, s, night), { bias: .01 });
+      // (the board in slices along its wall, each ordered at its own spot on the wall's foot: whoever stands in front of
+      // the door is drawn over the board wherever along it they stand, the wall behind never covers it, and a lamp
+      // beside it no longer lifts it over everything)
+      for (const [ax, ay, i, n] of signSlices(stage.projector(), s, night)) stage.shape(ax, ay, 0, (g, P) => drawSign(g, P, s, night, i, n), { bias: .01 });
       if (night) stage.glow(s.x, s.y, s.z, (g, sx, sy, k) => { const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * .75)), true); g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2)); }, { iso: true });   // (neon: lit after the dark)
     }
   }
@@ -271,14 +274,26 @@ function placeSign(C, s) {
 /** a neon sign: the name in the pixel font on a dark board, glowing, at the board's projected point (it scales with
  *  the view, never below the font's own size; seen from far higher than any normal view, the switch camera's climb,
  *  it is a stroke of its colour the board's width) */
-export function drawSign(g, P, s, night) {
+export function drawSign(g, P, s, night, i = 0, n = 1) {
   const p = P.proj(s.x, s.y, s.z); if (!p) return;
-  if (p[2] < .5) { const w = Math.max(2, Math.round(s.text.length * 5 * p[2])); g.fillStyle = s.color; g.fillRect(Math.round(p[0] - w / 2), Math.round(p[1]), w, Math.max(1, Math.round(p[2] * 4))); return; }
+  if (p[2] < .5) { if (i) return; const w = Math.max(2, Math.round(s.text.length * 5 * p[2])); g.fillStyle = s.color; g.fillRect(Math.round(p[0] - w / 2), Math.round(p[1]), w, Math.max(1, Math.round(p[2] * 4))); return; }
   const k = Math.max(1, Math.round(p[2] * .75)), cv = signImage(s.text, s.color, k, night && !s.billboard, s.board);
-  if (s.billboard) {   // two posts down to the roof
-    const q = P.proj(s.x, s.y, s.roofZ); if (q) { g.fillStyle = '#2a2a30'; const top = Math.round(p[1] + cv.height / 2), w = Math.max(1, Math.round(k)); for (const dx of [-cv.width * .3, cv.width * .3]) g.fillRect(Math.round(p[0] + dx), top, w, Math.max(1, Math.round(q[1]) - top)); }
+  const x0 = Math.round(p[0] - cv.width / 2), y0 = Math.round(p[1] - cv.height / 2), a = Math.round(i * cv.width / n), b = Math.round((i + 1) * cv.width / n);   // (slice i of n: the columns a..b of the board)
+  if (s.billboard) {   // two posts down to the roof (each with the slice it stands in)
+    const q = P.proj(s.x, s.y, s.roofZ); if (q) { g.fillStyle = '#2a2a30'; const top = Math.round(p[1] + cv.height / 2), w = Math.max(1, Math.round(k)); for (const dx of [-cv.width * .3, cv.width * .3]) { const c = Math.round(cv.width / 2 + dx); if (c >= a && c < b) g.fillRect(x0 + c, top, w, Math.max(1, Math.round(q[1]) - top)); } }
   }
-  g.drawImage(cv, Math.round(p[0] - cv.width / 2), Math.round(p[1] - cv.height / 2));
+  if (b > a) g.drawImage(cv, a, 0, b - a, cv.height, x0 + a, y0, b - a, cv.height);
+}
+/** a sign's board cut along its wall: [x, y, i, n] each slice's spot on the wall's foot (where along the wall its middle
+ *  column lands on the screen), about 16 u a slice; a wall seen edge on is one slice */
+function signSlices(P, s, night) {
+  const c = P.proj(s.x, s.y, s.z); if (!c || c[2] < .5) return [[s.x, s.y, 0, 1]];
+  const along = s.side === 'n' || s.side === 's' ? [1, 0] : [0, 1], e = P.proj(s.x + along[0], s.y + along[1], s.z); if (!e) return [[s.x, s.y, 0, 1]];
+  const per = e[0] - c[0], W = signImage(s.text, s.color, Math.max(1, Math.round(c[2] * .75)), night && !s.billboard, s.board).width;   // (screen columns a unit along the wall; the board's width)
+  if (Math.abs(per) < .2) return [[s.x, s.y, 0, 1]];
+  const n = Math.max(1, Math.min(8, Math.round(W / Math.abs(per) / 16))), out = [];
+  for (let i = 0; i < n; i++) { const t = ((i + .5) * W / n - W / 2) / per; out.push([s.x + along[0] * t, s.y + along[1] * t, i, n]); }
+  return out;
 }
 const SIGNS = new Map();
 /** a sign's board, drawn once per text, colour, size and lighting (the pixel font is slow to draw every frame) */

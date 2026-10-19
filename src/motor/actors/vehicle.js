@@ -39,6 +39,7 @@ export class Vehicle {
     this.locked = o.locked ?? d.locked; this.hasSiren = d.siren || SIREN_ROLES.has(d.role) && this.model.lights.siren.length > 0;
     this.siren = false; this.sirenT = 0; this.horn = false; this.radio = o.radio || d.radio;
     this.nitroT = 0; this.sinking = 0; this.sunk = false; this.ai = null; this.ctlNow = { throttle: 0, brake: 0, steer: 0, handbrake: true };
+    /** flats: its tyres burst (a spike strip: 0..1), slower and slipping, the wheel tugging; flatT: the tug's clock */ this.flats = 0; this.flatT = 0;
     /** brain: the AI driving it (a DriverBrain: traffic, services, police); kinematic: moved along its lane by that brain
      *  (far from the focus), its physics skipped */ this.brain = null; this.kinematic = false;
     /** lights this step: head (on at night or when told), brake, reverse */ this.lights = { head: false, brake: false, reverse: false };
@@ -104,6 +105,7 @@ export class Vehicle {
       if (b.lifted) ctl.handbrake = false; this.horn = false;
     }
     if (this.nitroT > 0) { this.nitroT -= dt; ctl.boost = TUNE.nitroBoost; }
+    if (this.flats > 0) { b.flat = this.flats; this.flatT += dt; if (b.speed > 20) ctl = { ...ctl, steer: E.clamp((ctl.steer || 0) + Math.sin(this.flatT * 7) * .14 * this.flats, -1, 1) }; }   // (on its rims: the wheel tugs)
     this.ctlNow = ctl;
     // a land vehicle in deep water goes under (its people swim out: the Fleet's business)
     if (this.cls !== 'boat' && this.cls !== 'heli' && w.water && b.z < 4 && w.water(Math.floor(b.x / 16), Math.floor(b.y / 16))) {
@@ -127,6 +129,8 @@ export class Vehicle {
     for (const id in this.doors) this.doors[id] = E.approach(this.doors[id], this.doorWant[id], dt * 4);
     const a = this.actor; a.x = b.x; a.y = b.y; a.z = b.z; a.facing = b.heading; a.dead = wreck;
   }
+  /** its tyres burst (a spike strip): a land vehicle with wheels only */
+  flatten(k = 1) { if (!this.body || this.cls === 'heli' || this.cls === 'boat' || this.cls === 'rail') return false; this.flats = Math.min(1, this.flats + k); this.asleep = false; return true; }
   /** for state hashes */
   hash() { const b = this.body; return b ? [Math.round(b.x * 8), Math.round(b.y * 8), Math.round(b.z * 8), Math.round(b.heading * 1000), this.damage.hash()] : [this.damage.hash()]; }
   /** the save's part (Boom Box mods and the garage): definition, paint, mods, health */
