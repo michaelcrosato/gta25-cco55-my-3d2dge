@@ -17,8 +17,83 @@ Every recipe below names the test to run. From M12 on, `tests/recipes/*.test.js`
 | A radio station (M4's stub) | `def('stations', id, { name, freq, dj, genre, color })` in `src/game/radio/` | `npm test` |
 | An interior | `def('interiors', id, { name, blocks, legend, types, floor, rooms, doors, guards, cameras, lights, music })` in `src/game/interiors/`, and a city door: a `{ kind: 'door', interior: id }` point of interest beside the building | `validateInterior(buildInterior(id))` has no errors (`tests/sim/interior.test.mjs` for the bank); `node vendor/my-3d2dge/tools/check.mjs 'dist/index.html#interior/<id>'` |
 
-More recipes are added as each system lands: vehicle, variant, weapon, ped, outfit, gang, mission, activity, station,
-song, shop, property, reel, district.
+| A mission | `defMission(id, { title, giver, gang, tier, requires, plays, brief, rewards, bonus, stages })` in a file of its own under `src/game/missions/` (`s1-holy-rollers.js` is the template) | `node tools/bot.mjs --mission <id>` (the bot, seeds 1-3) and `--pad` (through a gamepad); `node --test tests/sim/mission-links.test.mjs` |
+| An activity (a job, a race, a MAYHEM, a random event) | `defActivity(id, { title, kind, start, levels, brief, rewardsFor(level), stages })` under `src/game/activities/` | `node tools/bot.mjs --mission <id> --level <n>` |
+| A shop | `def('shops', id, { name, poi, items: [{ id, name, kind, item, amount, price }], drive, holdup })` in `src/game/economy.js` (prices are `Prices` knobs) | `node --test tests/sim/economy.test.mjs` |
+| A property | `def('properties', id, { name, poi, price, income, cap })` | the same |
+| Moto Tokens, stunt jumps | `def('collectibles', id, { name, reward, bonus, spots: [{ id, at: [x, y, z], via }] })`, `def('stunts', id, { name, takeoff, r, landing, minDist, minAir, reward, approach })` | the same; the bot campaign |
+
+More recipes are added as each system lands: vehicle, variant, weapon, ped, outfit, gang, station, song, reel, district.
+
+## Missions
+
+A mission is an ordered list of **stages** (PLAN.md 8.15). Each stage has a `setup(m)` that puts the world as the
+stage needs it and a generator `*run(m)` that yields **ops** the runtime steps until each is done. A retry, and every
+deep link `#mission/<id>/<stage>`, starts a stage from its setup, so **a setup must be idempotent**: run on a stage
+already under way (or twice) it changes nothing. The tools for that:
+
+- `m.ensure.vehicle(tag, def, at, o)` / `m.ensure.ped(tag, arch, at, o)`: the tagged one if it is still about, else a
+  new one; `m.place('player', at, { within })` leaves a player already that near where they are;
+  `m.place(actor, { in: vehicle, seat })` leaves one already in it.
+- `m.curb(at)` is the free curb spot nearest a point (a parked car's place: never on another car); `m.lane(at,
+  heading, z)` the lane point nearest it (a car that drives off from there; with `z`, on the deck at that height: the
+  Loop's lanes are in the road graph up there).
+- A point is a poi's id, `[x, y]`, or `[x, y, z]`: with a height (a deck, a roof), `m.reach` and `m.race` count it
+  (within 24 u), and the bot routes to the lane up there.
+
+**Spawning** (all of it the mission's: `owner: 'mission'`, released when it ends; a retry releases what the stage
+spawned and its setup makes it again): `m.spawn.vehicle(def, at, { tag, heading, color, locked, health, gang, driver,
+passengers, weapons, drive })` (a `drive` of `{ to } | { route, loop } | { race, laps } | { chase: 'player' } |
+{ flee: 'player' }` and a `style` of `calm | fast | race` puts a driver on the GPS), `m.spawn.ped(arch, at, { tag,
+role, facing, weapons, health, armor, attack, alert, route, follow })` (roles: `enemy` fights once alerted, `guard`
+watches a post or walks a round, `ally` follows and fights the alerted, `flee`, `idle`), `m.spawn.pickup(kind, at, {
+item, tag })` (kind `item`: a mission's package), `m.spawn.prop(kind, at)` (one of the city's prop models).
+`m.remove(actor)` takes one out now (the garage takes the car). The cast (`src/game/peds/cast.js`): `fender`,
+`bilge`, `nana`, `kettle`, `pennywhistle`, `lefty`; the gangs' `saint-grunt`, `saint-enforcer`, `rat-grunt`...
+
+**Ops** (yield them; each sets the objective line and the bot's hint itself, and its markers go when it ends):
+`m.reach(at, { text, radius, foot, inVehicle, vehicle, stopped })`, `m.enter(tag)`, `m.deliver({ what, to, radius,
+stopped, health })`, `m.follow(tag, { dist, lose, near, to, until })`, `m.chase(tag)`, `m.kill(tag, { count })`,
+`m.protect(tag, { until })`, `m.collect(tag)`, `m.photo(tag | [x, y], { from, range })`, `m.evade()`,
+`m.race(course, { racers })` (its value: the place), `m.say(lines, { name, color })`, `m.cutscene(shots)`,
+`m.wait(s)`, `m.waitUntil(pred, { timeout })`, `m.choice(options, { title, bot })` (its value: the option's id),
+`m.parallel([...])`, `m.first([...])`, `m.sequence([...])`, `m.switchTo(id)`, `m.reward()`. Immediate:
+`m.objective(text, { hint })` (a hint of `HINTS`' kinds, with its data: `stealth` needs a `path` of waypoints),
+`m.marker(at | actor)`, `m.route(to)`, `m.timer(secs, { reason })`, `m.failIf(pred, reason)`, `m.wanted.set / floor /
+cap / clear`, `m.time(h)`, `m.weather(state)`, `m.as(id)` (play as a protagonist from now), `m.interior(id, door)`,
+`m.outside()`, `m.loadout({ weapons, ammo, select, health, armor })`, `m.data` (kept across the stages and retries),
+`m.save` (the save, to read: respect, missions done), `m.allowWanted()` (the stage goes on with stars: on the way
+somewhere the bot loses any stars first otherwise, unless a timer runs),
+`m.on(event, fn)` (a BUS listener for the stage), `m.fire(at, r, fuel)` and `m.heat(at, r)` (a fire on the grid, and
+how hot it is now), `m.crewPed(id)` (a protagonist's body: seat Dex at a getaway car's wheel while Viv shoots), `m.stash(vehicle, id)` and
+`m.garaged(id)` (a car kept in the save's garage, back where it was left in later missions), `m.view(id)` (a set
+piece's view: presentation only).
+
+**The bot's hints** (what `tools/bot.mjs` plays from): `goto` (`at`, `radius`; `foot`; `vehicle`: a tag to be in;
+`interact`: press △ there, a door's or the safehouse's; `spray`: [x, y] to aim at with the fire button held, from
+within `reach`: the Pumper's cannon, a gun), `enterVehicle` (`vehicle`), `deliver` (`what`, `to`; `tow`:
+the tow truck's tag, for a car on its hook), `kill` (`targets`: rammed from the wheel, shot or beaten on foot, out of
+the window from a passenger seat), `evade` (away from the police), `follow` (`target`, `dist`), `race` (`line`),
+`photo` (`target`: a tag or [x, y], `from`), `stealth` (`path`: waypoints walked crouched, waiting while a guard is
+uneasy; a guard outdoors that has seen it fought; a guard close with its back turned taken down). The ops above set
+their own. The bot does not swim, fly or sail: a stage it must finish is reachable by road or on foot. It fights with
+the best gun it carries that has rounds (so give a stage's loadout the gun you mean), drives as a player does (round a
+stalled queue, through a junction that stays shut, off the road out of a jam), and never takes a police car, an
+ambulance or a fire engine unless the stage hands it one.
+
+**Failing**: a `failIf`, the timer, an op's own (the escort dead, the delivery lost or wrecked) and the player
+WRECKED or NABBED stop the stage on JOB BLOWN (retry the stage, or quit). Give every fail a reason a player reads.
+
+**Passing**: the last stage's end (or `m.reward()`) pays `rewards` (`{ cash, respect: { gang: delta } }`), grades the
+medal from `bonus` (`[{ id, text, check(m) }]`: all met and no retry is gold; half or more silver; else bronze), and
+records the mission in the save (then the autosave). `requires` lists the missions passed first; `unlock(save)` adds
+any other condition (the heist's); `giver: { phone: gang }` puts the offer at that gang's payphone, `{ at: poi }`
+anywhere, and `{ intro: true }` starts it with a new game.
+
+**The test**: `node tools/bot.mjs --mission <id>` plays it on seeds 1, 2 and 3 with the mission bot, and `--pad`
+again through a gamepad (the bot's wishes pressed on a pad: everything a player can do). Both must pass; `npm run
+test:full` runs them for every mission and activity level (`--all`). `npm test`'s `tests/sim/mission-links.test.mjs`
+checks that each stage's deep link lands at that stage, and the mission lint.
 
 ## Vehicles
 

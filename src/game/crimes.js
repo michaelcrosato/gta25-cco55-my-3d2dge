@@ -20,4 +20,5 @@ C('murder', { name: 'Murder', heat: 45, violent: true, severity: 3 });
 C('copAssault', { name: 'Assaulting an officer', heat: 60, severity: 2 });
 C('policeCarTheft', { name: 'Stealing a police car', heat: 60, severity: 2 });
 C('bankAlarm', { name: 'A bank alarm', heat: 60, severity: 2 });   // (the CCTV or a guard: two stars, the police waiting outside)
+C('holdup', { name: 'A hold-up', heat: 60, severity: 2 });   // (a Kwik-Lux's silent alarm: two stars)
 C('copMurder', { name: 'Killing an officer', heat: 160, violent: true, severity: 3 });

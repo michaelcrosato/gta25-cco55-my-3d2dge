@@ -47,7 +47,8 @@ const DRIVE = new Set(['road', 'bridge', 'alley']);   // the surfaces a car pull
 const OVER_RAMP = 30;   // units a car takes to pull over (and back)
 
 export class DriverBrain {
-  /** v: the Vehicle; graph: the RoadGraph; o: { junctions, rng (a stream), personality: { speed, gap, patience, calm },
+  /** v: the Vehicle; graph: the RoadGraph; o: { junctions, rng (a stream), personality: { speed, gap, patience, calm,
+   *  squeeze (seconds in a stopped queue before it goes round it; none: it waits) },
    *  lane, s (where it starts on its lane; else the nearest lane), route: [lane ids], siren, keep (lane -> a weight,
    *  0..1: where it likes to wander, a gang car's turf: each way on is weighed by it) } */
   constructor(v, graph, o = {}) {
@@ -63,10 +64,10 @@ export class DriverBrain {
     if (at) this.reset(at.lane, at.s); else this.lost = true;
   }
   /** start over on a lane, s along it */
-  reset(lane, s = 0) { this.path = [{ k: 'lane', id: lane.id, s0: 0, len: lane.len }]; this.i = 0; this.s = s; this.lost = false; this.pass = null; this.tr = null; this._release(); this._grow(); }
+  reset(lane, s = 0) { this.path = [{ k: 'lane', id: lane.id, s0: 0, len: lane.len }]; this.i = 0; this.s = s; this.rk = 0; this.lost = false; this.pass = null; this.tr = null; this._release(); this._grow(); }
   /** follow a GPS route (lane ids) to its last lane, stopping at s there (goal: { lane, s }) */
   setRoute(route, goal = null) {
-    this.route = route ? route.slice() : null; this.goal = goal; this.arrived = false;
+    this.route = route ? route.slice() : null; this.goal = goal; this.arrived = false; this.rk = 0;
     const here = this.path[this.i];
     if (here && here.k === 'lane' && this.route && this.route.includes(here.id)) { this.path.length = this.i + 1; this._grow(); }
     else if (this.route && this.route.length) { const n = this.g.nearestLane(this.v.x, this.v.y, this.v.heading, this.v.z); if (n) this.reset(n.lane, n.s); }
@@ -104,7 +105,9 @@ export class DriverBrain {
     const G = this.g, outs = lane.out.map(id => G.conns[id]).filter(c => c.kind !== 'change' && !(avoid && avoid.has(c.id)));
     if (!outs.length) return null;
     if (this.route) {
-      const k = this.route.indexOf(lane.id); if (k >= 0 && k + 1 < this.route.length) { const c = outs.find(q => q.to === this.route[k + 1]); if (c) return c; }
+      // (where the path has grown to along the route: a route round the block visits its first lane twice)
+      let k = this.route.indexOf(lane.id, this.rk || 0); if (k < 0) k = this.route.indexOf(lane.id);
+      if (k >= 0 && k + 1 < this.route.length) { const c = outs.find(q => q.to === this.route[k + 1]); if (c) { this.rk = k + 1; return c; } }
       if (k === this.route.length - 1) { if (this.goal) return null; this.route = null; }   // (a route with no goal is only a way there: at its end, on as anyone)
     }
     let w = outs.map(q => { const to = G.lanes[q.to]; return to.deadEnd || !to.out.length ? 0 : TURN_W[q.kind] ?? .1; });
@@ -273,9 +276,11 @@ export class DriverBrain {
           cause = 'stop';
           if (this.halted !== c.region) { if (lineD < 14 && sp < 3) { this.haltT += dt; if (this.haltT >= TUNE.stopHalt) { this.halted = c.region; this.haltT = 0; } } ready = false; }
         }
-        if (ready && this._exitFull(w, c)) { ready = false; cause = 'exit'; this.exitT += dt; if (this.exitT > TUNE.exitWait && !this.route) { this.exitT = 0; this._reroute(j, c, w); } }
+        if (ready && this._exitFull(w, c)) { ready = false; cause = 'exit'; this.exitConn = c; this.exitT += dt; if (this.exitT > TUNE.exitWait && !this.route) { this.exitT = 0; this._reroute(j, c, w); } }
         else if (ready) this.exitT = 0;
-        if (this.J.ask(this, c, t, ready, this.siren ? 1 : 0)) { this.held = { conn: c, el: e }; this.halted = null; return null; }
+        // (a squeezer kept yielding by a box that never clears, its way otherwise open: in anyway, as a player would)
+        this.yieldT = ready && cause === 'yield' && this.p.squeeze ? (this.yieldT || 0) + dt : 0;
+        if (this.J.ask(this, c, t, ready, this.siren ? 1 : 0) || this.yieldT > this.p.squeeze + 4) { this.held = { conn: c, el: e }; this.halted = null; this.yieldT = 0; return null; }
         this.cause = cause; return Math.max(0, lineD);
       }
       d += e.len;
@@ -397,7 +402,7 @@ export class DriverBrain {
     let goalGap = null;   // (from our centre to where the goal wants it)
     if (this.goal) {
       let d = -this.s;
-      for (let j = this.i; j < this.path.length; j++) { const e = this.path[j]; if (e.k === 'lane' && e.id === this.goal.lane) { goalGap = Math.max(0, d + this.goal.s - (e.s0 || 0)); break; } d += e.len; }
+      for (let j = this.i; j < this.path.length; j++) { const e = this.path[j]; if (e.k === 'lane' && e.id === this.goal.lane) { const gg = d + this.goal.s - (e.s0 || 0); if (gg >= -1 || j > this.i) { goalGap = Math.max(0, gg); break; } } d += e.len; }   // (the goal behind us on this lane: the next time round)
       if (goalGap !== null && goalGap < 8 && sp < 8) this.arrived = true;
     }
     if (this.pass) { this.pass.d += sp * dt; if (this.pass.d >= this.pass.end) this.pass = null; }
@@ -432,8 +437,12 @@ export class DriverBrain {
     const ob = L && L.v.brain, mutual = !!(ob && ob.leader && ob.leader.v === v && sp < 3 && L.gap < 12);
     this.canBack = mutual ? this._roomBehind(w, 30) : false;
     if (mutual && !(this.unstick > 0) && !(ob.unstick > 0) && this.canBack && (this.id > ob.id || !ob.canBack)) this.unstick = .9;
-    // stuck behind something stopped that isn't queueing: a honk, then a pass round it
-    const stuck = L && L.speed < 2 && L.gap < 30 && sp < 3 && (!this._queued(L.v) || (ob && ob.leader && ob.leader.v === v)) && !this.cause;
+    // stuck behind something stopped that isn't queueing (or, a driver who squeezes, behind a queue that hasn't moved for
+    // its squeeze seconds: a player's way round a jam): a honk, then a pass round it
+    this.queueT = this.cause === 'queue' && sp < 3 ? (this.queueT || 0) + dt : 0;
+    const cur = this.path[this.i], left = cur && cur.k === 'lane' ? cur.len - this.s : 0;   // (a queue at a junction's line is no place to squeeze: only mid-lane, room past it)
+    const squeeze = !!this.p.squeeze && this.queueT > this.p.squeeze && !!L && left > L.gap + L.v.hl * 2 + 50;
+    const stuck = L && L.speed < 2 && L.gap < 30 && sp < 3 && (!this._queued(L.v) || (ob && ob.leader && ob.leader.v === v) || squeeze) && (!this.cause || squeeze);
     this.blocked = stuck ? this.blocked + dt : Math.max(0, this.blocked - dt * 2);
     if (stuck && this.siren) this.blocked = Math.max(this.blocked, TUNE.passAfter * this.p.patience);   // (a siren goes round at once)
     if (stuck) this.cause = L.v.duty && L.v.duty.out ? 'scene' : null;   // (a unit at its scene: a cause to wait, while it tries to go round)

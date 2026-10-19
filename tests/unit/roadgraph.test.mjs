@@ -89,3 +89,12 @@ test('the signals: NS and EW are never open together; each phase lasts its time;
   assert.ok(new Set(sig.map(r => signalAt(r, 0).ns + signalAt(r, 0).ew)).size > 1, 'not all in step');
   assert.deepEqual(signalAt(stop, 3), { ns: 'stop', ew: 'stop' });
 });
+
+test('a goal behind on the lane the car is on: the route leaves it and comes round, back onto it short of the goal', () => {
+  const L = G.lanes.find(l => l.len > 200 && !l.deadEnd && l.a[2] === 0 && l.out.length > 1);
+  const at = G.pointOn(L, L.len * .8), goal = G.pointOn(L, L.len * .3), h = Math.atan2(L.dir[1], L.dir[0]);
+  const r = gps.routeTo(at[0], at[1], h, goal[0], goal[1]);
+  assert.ok(r && r.lanes.length > 2, 'round the block: ' + (r && r.lanes.join(' ')));
+  assert.equal(r.lanes[0], L.id); assert.equal(r.lanes[r.lanes.length - 1], L.id);
+  assert.ok(r.to.s < r.from.s, 'the goal behind where it starts');
+});

@@ -1,6 +1,8 @@
 // The title screen: the logo over the city at night, PRESS ✕ in the player's own glyphs, and the attract mode after
-// TUNE.attractIdle seconds without input from any device (the 10-foot menu arrives in M9).
+// TUNE.attractIdle seconds without input from any device (the 10-foot menu arrives in M9). ✕ continues the latest save,
+// or starts a new game (the prologue) when there is none.
 import { E, def, expose, TUNE, drawPrompt } from '../../motor/index.js';
+import { makeSaves } from '../save.js';
 
 def('scenes', 'title', {
   make(app) {
@@ -11,7 +13,11 @@ def('scenes', 'title', {
       enter() { t = 0; activity.reset(); bg = new E.Backdrop('city-night'); expose('snapshot', () => ({ scene: 'title', t: +t.toFixed(2), idle: +activity.idle().toFixed(2) })); },
       update(dt) {
         t += dt; bindings.setContext('menu');
-        if (bindings.tap('confirm') || bindings.tap('close')) { game.input.consumeAll(); game.go('play'); return; }
+        if (bindings.tap('confirm') || bindings.tap('close')) {
+          game.input.consumeAll();
+          const last = makeSaves().list().sort((a, b) => b.savedAt - a.savedAt)[0];
+          game.go('play', last ? { load: last.slot } : { newGame: true }); return;
+        }
         if (activity.idle() >= TUNE.attractIdle) game.go('attract');
       },
       draw(r) {

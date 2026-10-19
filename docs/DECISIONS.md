@@ -564,3 +564,83 @@ and where it landed.
     budget rather than all at once. M7's own Accept ("medians within budget in all views") passes for TOP-DOWN and moves
     to M13 for ISO and MODE 7.
 - **Answered:** no. **Landed in:** M7.
+
+## D21 · 2026-10-19 · M8's career: ops that clean up after themselves, a bot that plays from the hints, a pad pass, interim cards
+- **Principle:** PLAN.md 8.15, 8.16, 9.4, 9.5 and M8's Accept; the staged contract frozen in M1 kept whole (stages of
+  a setup and a generator run), everything added to it optional.
+- **Calls:**
+  - **An op is `{ step, start, end, nav }`**: `start` when the run yields it, `step` each simulation step until it
+    returns `{ value }`, `end` when it finishes or the stage stops under it, `nav` where it wants the player (the
+    GPS line's and the bot's goal). Markers made, and the objective set, while an op starts are its own and go with
+    it: a delivery's ring and its line never outlive it. The m API grew the verbs content needed (`reach`, `enter`,
+    `evade`, `kill` with a count, `collect`, `photo` of a ped or a point, `sequence`, `remove`, `curb` and `lane`
+    spots, `as`, `interior` and `outside`, `on`, `fire` and `heat`, `allowWanted`, `crewPed`, `stash` and `garaged`,
+    `view`), all listed in docs/CONTENT-GUIDE.md. The mission and activity shapes gained optional fields (`plays`,
+    `allowSwitch`, `unlock`; an activity's `kind`, `brief`, `rewardsFor`, `where`); the BUS's `photo` gained the
+    Snap's `dir` (a photo of a point needs it), and four events (`purchase`, `property`, `holdup`, `cab`).
+  - **One slot for a mission or an activity**; the random events run in a second runtime (the BUS scope `event`) only
+    while the first is idle and the player is outdoors, and a job starting quits one. Tokens, stunt jumps and hold-ups
+    are passive frameworks, on in free roam (the stunts always).
+  - **A retry starts the stage from its setup** with what the stage spawned released first, and the player put out of
+    a mission car that goes too (a retried delivery had left its wreck across the lane, and the bot behind it).
+    Content code that throws fails the job with the reason `error`, logged and kept in `R.errors`, instead of stopping
+    the scene.
+  - **The bot** (`ai/missionbot.js`) plays any objective from its hint's kind and data, through the AutoPlayer's
+    moves, which M8 widens: into one given vehicle (its door, another door when one is blocked; a door walked to before
+    △, so the scene's own straight walk is a step), a stop seated at the goal, an off-road last stretch at a crawl,
+    straight walks where the way is open (a palm's trunk or a post in the way counted), a sidestep and then another
+    start node when a walk is stuck or no nearer its waypoint, a goal's height (a deck's lanes). It drives as a player
+    does: through the lights and stop signs, first into a junction's box (the driver brain's siren mode, with no siren
+    sounding), round a queue that has not moved for a few seconds mid-lane (the brain's `squeeze`; never at a
+    junction's line, where a pass overshoots the turn), into a box that stays shut past that, off a jammed exit when
+    the other way costs little more (a route that keeps off the lane past it; a lorry's U-turn at the map's edge is
+    worse than waiting), off the road toward a point farther along its route when a jam still holds it, back onto
+    the nearest lane when lost far from its goal, and out of a car stuck for good (not taken again); carefully when a
+    delivery's health counts. It never takes a police car, an ambulance or a fire engine on its own. On the way
+    somewhere it loses any stars first, unless a timer runs or the stage allows them; it fights with its best loaded
+    gun, from farther off and in longer bursts than a gang's grunt, backing off as it fires from one come close; it rams (backing off for another run when pressed
+    against the target at a crawl), tows (lined up on the car's axis past whichever end has room, backed straight onto
+    it), shoots from a passenger seat, sprays the Pumper's cannon, photographs, and sneaks a stealth path (an outdoor
+    guard that has seen it is fought: outdoors there is no unease to wait out). A retry starts it afresh, and it
+    retries a failed stage up to TUNE.botRetries (2) times. `m.curb` turns down only the spots a stopped vehicle
+    stands in (traffic going by is no matter: the old rule had sent a stage's car 440 u off).
+  - **What the slice's content needed of MOTOR**, found by a gym of one fixture mission per hint kind before the
+    fan-out: a swing now meets vehicles and props too (the nearest side of each box in reach and in the arc; a car
+    dented is `vandalism`), since G1's bat had no way to dent a Saints car; a stage's kit can be the mission's alone
+    (`loadout({ only: true })`, the player's own weapons back when it ends); a `kill` counts a vehicle on fire as done
+    (its wreck is coming, and its blast kills whoever stands at it: the bot backs away); a point can carry a height
+    (`[x, y, z]`, the Loop's deck: `reach` and `race` count it, `m.lane` snaps to it, the bot routes up there); and
+    `m.save` reads the save (QUIET's respect terms).
+  - **Two MOTOR bugs the gym turned up:** a goal behind the car on the lane it is on was a one-lane route the brain
+    took for arrived (the GPS now routes round the block back onto it, and the brain skips a goal behind it: a tow
+    hooked facing away from its drop-off had driven off-road at it); and a roadblock with no room ahead (traffic where
+    its two cars go) waited the whole 18 s before the next try (now 3 s; a spike strip the same).
+  - **FAN-OUT A2 runs eight workers, not six.** PLAN.md M8 names one per gang chain, one for P0, one for the heist and
+    one for the jobs and activities. The heist's finale (LOUD and QUIET, the switching, the MODE 7 getaway, the
+    credits) weighs as much as its three setups together, and the side content splits cleanly into the activities
+    with levels (jobs, races, MAYHEM) and the placed things (tokens, stunt jumps, random events): each half has its own
+    worker, each owning disjoint new files, two at a time (the machine's cores less two). S1 was written first, by
+    hand, as the reference the workers copy.
+  - **The scripted human-style pass is the same bot through a gamepad**: its wishes are pressed on a pad by the pad
+    pilot (`ai/padpilot.js`) each step, and the game reads the pad through the bindings and the HumanController (the
+    camera-relative sticks, the dead zone, presses and releases; weapons stepped with the d-pad, never picked from the
+    inventory). Whatever passes that way a player with a DualSense could do. `node tools/bot.mjs --pad`.
+  - **The cards are M8's interim 10-foot screens** (≤ 6 items a page with a page count, ✕ confirms, ○ backs out, a
+    focus frame that pulses, a legend in the player's glyphs): the JOB card at a giver, JOB BLOWN, JOB DONE, a choice,
+    the shops, a confirm above $5,000, the phone (jobs in a job's vehicle, Lowtown Cabs, contacts, completion). M9
+    rebuilds them with the UI kit. While a card is up, Esc and Options back out of it instead of pausing.
+  - **Givers:** a mission is offered at its giver's point (a gang's payphone, a character's hangout, the planning
+    board) once its `requires` (and `unlock`) hold; `giver.intro` starts with a new game. The title's ✕ continues the
+    latest save, or starts a new game.
+  - **The economy** keeps every price as a `Prices` knob, a weapon on Lead Farm's shelves once its mission is done (the
+    M3 placeholders `m3`... now name the missions), the Kwik-Lux chain as three stores of one shop with a till each,
+    Boom Box and Spray & Pray as drive-in shops; a property is bought once and pays into a till at every midnight (the
+    clock's day turning) up to its cap, collected by walking up to it. Completion's seven categories weigh 420, 120,
+    60, 90, 100, 100 and 110 tenths of a percent (missions, jobs at level 3, races, MAYHEMs, stunts, tokens,
+    properties): exactly 100 with everything done.
+  - **Saves:** △ SAVE at the safehouse writes slot 1, and the autosave follows each mission and job passed; during a
+    mission only a step that asks for it (a `goto` hint with `interact`) offers a door's prompt (the prologue's save).
+    A stashed vehicle is kept in the save's garage and stands where it was left after a load.
+  - **Hold-ups:** a Kwik-Lux's clerk stands at the counter (its door); a gun held on them for TUNE.holdupTime empties
+    the till at the counter and files a `holdup` (60 heat: two stars, the store's silent alarm); that store is shut to
+    hold-ups for a game day.

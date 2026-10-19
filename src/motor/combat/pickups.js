@@ -1,10 +1,11 @@
-// Pickups (PLAN.md 8.12): weapons, ammo, health, armour, cash, police bribes and Moto Tokens lying in the world. A
-// placed pickup (the district's, a mission's) comes back after its respawn time; a dropped one (a dead ped's weapon,
-// cash) is gone once taken or after a while. Walking over one takes it when take() says it can be used: a full-health
-// protagonist leaves the health where it is (GTA). Bobbing and the glow are the renderer's.
+// Pickups (PLAN.md 8.12): weapons, ammo, health, armour, cash, police bribes, Moto Tokens and a mission's items (M8)
+// lying in the world. A placed pickup (the district's) comes back after its respawn time; a dropped one (a dead ped's
+// weapon, cash) is gone once taken or after a while. Walking over one takes it when take() says it can be used (a
+// full-health protagonist leaves the health where it is: GTA); taken, it is marked taken. Bobbing and the glow are the
+// renderer's.
 //   const P = new Pickups();  P.place({ kind: 'weapon', item: 'snub38', x, y, respawn: 60 })
 //   P.update(dt, takers, take)   take(taker, pickup) -> true when it was used
-export const PICKUP_KINDS = ['weapon', 'ammo', 'health', 'armor', 'cash', 'bribe', 'token'];
+export const PICKUP_KINDS = ['weapon', 'ammo', 'health', 'armor', 'cash', 'bribe', 'token', 'item'];
 
 export class Pickups {
   constructor() { this.list = []; this.taken = 0; this.nextId = 1; }
@@ -28,7 +29,7 @@ export class Pickups {
       if (!take) continue;
       for (const k of takers) {
         if (!k || k.dead || Math.abs((k.z || 0) - p.z) > 16 || Math.hypot(k.x - p.x, k.y - p.y) > 12) continue;
-        if (take(k, p)) { this.taken++; if (p.respawn) p.away = p.respawn; else p.gone = true; break; }
+        if (take(k, p)) { this.taken++; p.taken = true; if (p.respawn) p.away = p.respawn; else p.gone = true; break; }
       }
     }
     this.list = this.list.filter(p => !p.gone);

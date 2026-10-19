@@ -27,6 +27,8 @@ knob('Combat', 'throwDist', 'Throw distance', 150, 30, 400, 10, 'How far a throw
 /** each melee move's damage and knockback against the weapon's own damage: a combo's moves average 1, so a weapon's
  *  spec (damage x rate) is what its combo deals */
 const MOVE_POWER = { jab: .7, cross: .9, hook: 1.1, uppercut: 1.3, overhead: 1.15, slash: .85, kick: 1.2 };
+// the point of box b (a vehicle, a prop) nearest (x, y), at height z
+const nearestOnBox = (b, x, y, z) => { const c = Math.cos(b.heading || 0), s = Math.sin(b.heading || 0), dx = x - b.x, dy = y - b.y, lx = Math.max(-b.hl, Math.min(b.hl, dx * c + dy * s)), ly = Math.max(-b.hw, Math.min(b.hw, -dx * s + dy * c)); return [b.x + lx * c - ly * s, b.y + lx * s + ly * c, z]; };
 
 export class Combat {
   /** o: { game (for the engine's effects and sounds; null headless), city (the CityMap: fire's surfaces, decks), map
@@ -42,6 +44,8 @@ export class Combat {
   remove(ped) { const i = this.bodies.indexOf(ped); if (i >= 0) this.bodies.splice(i, 1); }
   /** the bodies within r of a ped (alive or not: a swing can't hurt the dead anyway) */
   bodiesNear(p, r) { return this.bodies.filter(b => b !== p && Math.abs(b.x - p.x) <= r && Math.abs(b.y - p.y) <= r); }
+  /** the boxes (vehicles, props) whose centres lie within r of ped p, the one it rides in left out */
+  boxesNear(p, r) { const mine = p.seat && p.seat.vehicle; return this.boxes.filter(b => b !== mine && b.hurt && Math.abs(b.x - p.x) <= r && Math.abs(b.y - p.y) <= r); }
   _fx(kind, x, y, z, o = {}) { this.fx.push({ kind, x, y, z, t: 0, ...o }); if (this.fx.length > 200) this.fx.shift(); }
   _sfx(name, o) { const a = this.game && this.game.audio; if (a && a.sfx) a.sfx(name, o); }
 
@@ -103,7 +107,7 @@ export class Combat {
   // the Snap: a photo of whatever is in front (missions listen for it)
   _photo(p, spec) {
     const d = p.aimer.dir, seen = this.bodies.filter(b => b !== p && !b.dead && Math.hypot(b.x - p.x, b.y - p.y) < spec.range && ((b.x - p.x) * d[0] + (b.y - p.y) * d[1]) > 0).map(b => b.id);
-    BUS.emit('photo', { by: p.id, x: p.x, y: p.y, targets: seen });
+    BUS.emit('photo', { by: p.id, x: p.x, y: p.y, targets: seen, dir: [d[0], d[1]] });
     this._fx('flash', p.x, p.y, p.z + CHEST); this._sfx('select', { pitch: 1.6 });
   }
   /** a melee move connecting (Ped's combo hit): damage by the move and strength, knockback by RED MIST */
@@ -111,9 +115,10 @@ export class Combat {
     const k = MOVE_POWER[move && move.name] || 1, ab = a.ability, amount = spec.damage * k * a.stats.melee() * (ab ? ab.damage : 1);
     const dx = t.x - a.x, dy = t.y - a.y, d = Math.hypot(dx, dy) || 1;
     const floors = (move && move.name === 'uppercut') || spec.id === 'slugger' && move && move.name === 'overhead';
-    const r = this.hurt(t, { amount, kind: 'melee', by: a.id, knock: TUNE.meleeKnock * k * (ab ? ab.knockback : 1), knockdown: floors || (ab && ab.knockback > 1 && k >= 1.25), dir: [dx / d, dy / d], at: [t.x, t.y, t.z + CHEST * .9] });
-    if (r) { a.stats.did('meleeHit'); if (ab) ab.feed('meleeHit'); BUS.emit('crime', { type: 'assault', x: t.x, y: t.y, by: a.id, victim: t.id, severity: 1, lawful: a.faction === 'police' }); }
-    if (this.game && this.game.hitFx) this.game.hitFx(t.x, t.y, t.z + CHEST * .9, { power: k, sound: spec.id === 'slugger' ? 'kick' : 'punch' });
+    const at = t.vitals || !t.hl ? [t.x, t.y, t.z + CHEST * .9] : nearestOnBox(t, a.x, a.y, (t.z || 0) + CHEST * .6);   // (a car: dented where the bat met it)
+    const r = this.hurt(t, { amount, kind: 'melee', by: a.id, knock: TUNE.meleeKnock * k * (ab ? ab.knockback : 1), knockdown: floors || (ab && ab.knockback > 1 && k >= 1.25), dir: [dx / d, dy / d], at });
+    if (r) { a.stats.did('meleeHit'); if (ab) ab.feed('meleeHit'); BUS.emit('crime', { type: t.vitals ? 'assault' : 'vandalism', x: t.x, y: t.y, by: a.id, victim: t.id, severity: 1, lawful: a.faction === 'police' }); }   // (a car dented: vandalism)
+    if (this.game && this.game.hitFx) this.game.hitFx(at[0], at[1], at[2], { power: k, sound: spec.id === 'slugger' ? 'kick' : 'punch' });
   }
   swing(p, spec) { this._sfx(spec.id === 'slugger' ? 'swing' : 'whoosh', { vol: .5 }); }
   /** throw a Molotov or a grenade from a ped's hand toward its aim */

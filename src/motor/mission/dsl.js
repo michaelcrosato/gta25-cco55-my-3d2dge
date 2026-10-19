@@ -10,10 +10,11 @@ import { shape } from '../core/schema.js';
 
 /** the bot hints an objective can carry, and the fields each needs ([x, y] points; tags name mission actors) */
 export const HINTS = {
-  goto: ['at'],                // at: [x, y] (or route: [[x, y], ...]); radius
+  goto: ['at'],                // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); interact (△ there);
+                               // spray: [x, y] (within reach, aimed there, the fire button held: a fire hose's, a gun's); reach
   enterVehicle: ['vehicle'],   // vehicle: a tag
   kill: ['targets'],           // targets: a tag
-  deliver: ['what', 'to'],     // what: a tag; to: [x, y]
+  deliver: ['what', 'to'],     // what: a tag; to: [x, y]; tow (the tow truck's tag: what goes on its hook)
   evade: [],                   // lose the wanted level
   follow: ['target'],          // target: a tag; dist
   race: ['line'],              // line: [[x, y], ...] checkpoints
@@ -50,14 +51,23 @@ const missionShape = shape({
   rewards: { type: 'object', def: {} },        // { cash, respect: { gang: delta } }
   bonus: { type: 'array', def: [] },           // [{ id, text, check(m) }]: the medal's extra objectives
   stages: { type: 'array', req: true },
+  // (M8, optional) plays: the protagonist it is played as ('any' | a character id: a stage's setup m.as()s it);
+  // allowSwitch: the crew's switch allowed meanwhile; unlock(save, W): an extra requirement (the heist's)
+  plays: { type: 'string', def: 'any' },
+  allowSwitch: { type: 'boolean', def: false },
 });
 declare('missions', (spec, id) => [...missionShape(spec, id), ...checkStages(spec.stages)]);
-const activityShape = shape({ title: { type: 'string', req: true }, start: { type: 'object', def: {} }, levels: { type: 'number', def: 1, min: 1 }, stages: { type: 'array', req: true } });
+const activityShape = shape({ title: { type: 'string', req: true }, start: { type: 'object', def: {} }, levels: { type: 'number', def: 1, min: 1 }, stages: { type: 'array', req: true },
+  // (M8, optional) kind: what it counts as (completion.js: jobs at their top level, races and MAYHEMs passed; events
+  // happen by themselves, mission/ambient.js); brief: the card's lines; rewards or rewardsFor(level): its pay
+  kind: { type: 'string', def: 'other', oneOf: ['job', 'race', 'mayhem', 'event', 'other'] }, brief: { type: 'array', def: [] } });
 declare('activities', (spec, id) => [...activityShape(spec, id), ...checkStages(spec.stages)]);
 
 /** register a mission: defMission(id, { title, giver, gang, tier, requires, brief, rewards, bonus, stages }) */
 export const defMission = (id, spec) => def('missions', id, spec);
-/** register a repeatable activity in the same staged form: defActivity(id, { title, start, levels, stages }) */
+/** register a repeatable activity in the same staged form: defActivity(id, { title, kind, start, levels, stages,
+ *  rewardsFor(level) }); start: { at (a poi or [x, y]: a marker to drive or walk into), vehicle (ids, classes or roles:
+ *  in one to start; a job starts from the phone in one), radius, foot } */
 export const defActivity = (id, spec) => def('activities', id, spec);
 /** a stage of a mission by ids, or null */
 export const missionStage = (id, stage) => { const m = get('missions', id); return (m && m.stages.find(s => s.id === stage)) || null; };

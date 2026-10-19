@@ -8,7 +8,7 @@ import { drawWeaponIcon } from './weapon-models.js';
 import { get } from '../core/registry.js';
 
 const BLOOD = ['#8a1a1a', '#a82424', '#6a1010'];
-const PICKUP_LOOK = { health: ['#ff4a5a', '+'], armor: ['#5ab0ff', 'A'], cash: ['#5aff8a', '$'], bribe: ['#ffd23a', '*'], token: ['#ff7ac8', 'M'], ammo: ['#e8c040', 'a'], weapon: ['#e8e8f0', ''] };
+const PICKUP_LOOK = { health: ['#ff4a5a', '+'], armor: ['#5ab0ff', 'A'], cash: ['#5aff8a', '$'], bribe: ['#ffd23a', '*'], token: ['#ff7ac8', 'M'], item: ['#ffe066', '!'], ammo: ['#e8c040', 'a'], weapon: ['#e8e8f0', ''] };
 
 export class CombatFX {
   constructor(game) { this.game = game; this._done = new WeakSet(); this.t = 0; }

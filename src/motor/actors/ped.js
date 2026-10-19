@@ -32,6 +32,16 @@ knob('On foot', 'staminaBack', 'Stamina recovery', .5, 0, 3, .05, 'Seconds of sp
 const COMBOS = { fists: () => ['jab', 'cross', 'hook', 'uppercut'],
   slugger: () => [new E.Attack('overhead', { wind: .22, active: .1, recover: .33 }), new E.Attack('slash', { wind: .12, active: .1, recover: .28 })] };
 const MELEE_ARC = 1.1;   // radians either side of the facing a swing reaches
+// is the nearest point of box b (a vehicle, a prop: { x, y, z, hl, hw, heading }) within range of ped a, inside the
+// arc either side of its facing, and at its height?
+const boxInArc = (a, facing, b, range, half) => {
+  const c = Math.cos(b.heading || 0), s = Math.sin(b.heading || 0), dx = a.x - b.x, dy = a.y - b.y;
+  const lx = Math.max(-b.hl, Math.min(b.hl, dx * c + dy * s)), ly = Math.max(-b.hw, Math.min(b.hw, -dx * s + dy * c));
+  const px = b.x + lx * c - ly * s, py = b.y + lx * s + ly * c, d = Math.hypot(px - a.x, py - a.y);
+  if (d > range || Math.abs((b.z || 0) - (a.z || 0)) > 24) return false;
+  if (d < 4) return true;   // (against it: any swing lands)
+  let da = Math.atan2(py - a.y, px - a.x) - facing; da = Math.atan2(Math.sin(da), Math.cos(da)); return Math.abs(da) <= half;
+};
 const OPEN = new Set(['bike', 'boat']);   // vehicles whose riders are seen
 const SEATED = { crouch: true };   // (a rider's pose)
 
@@ -263,7 +273,10 @@ export class Ped {
       this._swingCool = Math.max(0, (this._swingCool || 0) - dt); this._swingBuf = I.tap.attack ? .3 : Math.max(0, (this._swingBuf || 0) - dt);
       if (this._swingBuf > 0 && this._swingCool <= 0 && this.combo.press()) { this._swingBuf = 0; this._swingCool = 1 / spec.rate; this.inCombat = 6; C.swing(this, spec); }
       this.combo.update(dt);
-      if (this.combo.active) this.combo.hits(C.bodiesNear(this, spec.range + 12), t => t !== this && !t.dead && E.inArc(this, this.mover.facing, t, spec.range, MELEE_ARC, 16), t => C.meleeHit(this, t, spec, this.combo.current.spec));
+      if (this.combo.active) {
+        this.combo.hits(C.bodiesNear(this, spec.range + 12), t => t !== this && !t.dead && E.inArc(this, this.mover.facing, t, spec.range, MELEE_ARC, 16), t => C.meleeHit(this, t, spec, this.combo.current.spec));
+        this.combo.hits(C.boxesNear(this, spec.range + 40), b => !b.wrecked && boxInArc(this, this.mover.facing, b, spec.range, MELEE_ARC), b => C.meleeHit(this, b, spec, this.combo.current.spec));   // (a car, a prop: its nearest side in reach)
+      }
       return this.combo.state;
     }
     if (spec.projectile === 'molotov' || spec.projectile === 'grenade') {

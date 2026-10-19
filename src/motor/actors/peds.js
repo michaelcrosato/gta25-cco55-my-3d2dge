@@ -11,12 +11,13 @@ import { declare, all } from '../core/registry.js';
 import { shape } from '../core/schema.js';
 
 declare('peds', shape({
-  name: { type: 'string', req: true }, kind: { type: 'string', def: 'civilian', oneOf: ['civilian', 'gang', 'service', 'special'] },
+  name: { type: 'string', req: true }, kind: { type: 'string', def: 'civilian', oneOf: ['civilian', 'gang', 'service', 'special', 'cast'] },
   faction: { type: 'string', def: 'civilian' }, weight: { type: 'number', def: 1, min: 0 }, zones: { type: 'array', def: [] },
   times: { type: 'array', def: ['day', 'night'] }, builds: { type: 'array', def: ['heroic', 'chibi'] }, outfits: { type: 'array', def: ['shirt'] },
   sleeves: { type: 'array', def: ['short'] }, hairs: { type: 'array', def: ['short'] }, hats: { type: 'array', def: [null] }, size: { type: 'number', def: .9 },
   palettes: { type: 'object', def: {} }, traits: { type: 'object', def: {} }, weapons: { type: 'array', def: ['fists'] }, uniform: { type: 'boolean', def: false },
   health: { type: 'number', def: 0, min: 0 }, armor: { type: 'number', def: 0, min: 0 },   // (0: the spawner's default)
+  look: { type: 'object', def: null },   // (the story cast's own look: the protagonists' detailed rig, never picked from palettes)
 }));
 
 const SKIN = ['#e8c0a0', '#c8906a', '#a8724e', '#8a5a3a', '#5a3a2a', '#f0d0b0'];

@@ -3,7 +3,8 @@
 // kind of move) and then the next lane at its speed; the heuristic is the straight distance left at the network's top
 // speed, which never overestimates, so A* finds what Dijkstra finds (the unit suite checks 1,000 pairs).
 //   const gps = new GPS(graph);  gps.route(fromLane, toLane, { s, avoid }) -> { lanes, conns, cost } | null
-//   gps.routeTo(x, y, heading, tx, ty) (nearest lanes at both ends); gps.dijkstra(fromLane, toLane) (the reference);
+//   gps.routeTo(x, y, heading, tx, ty) (nearest lanes at both ends; a goal behind on the same lane: round the block to
+//   it); gps.dijkstra(fromLane, toLane) (the reference);
 //   gps.costsTo(lane) (every lane's cost to it: where to start a drive from)
 import { TURN_SPEED } from './roadgraph.js';
 
@@ -54,7 +55,11 @@ export class GPS {
   /** a route between two world points (each snapped to its nearest lane; heading prefers lanes running that way) */
   routeTo(x, y, heading, tx, ty, o = {}) {
     const a = this.g.nearestLane(x, y, heading, o.z || 0), b = this.g.nearestLane(tx, ty, null, o.tz || 0); if (!a || !b) return null;
-    const r = this.route(a.lane.id, b.lane.id, { ...o, s: a.s }); if (r) { r.from = a; r.to = b; } return r;
+    let r;
+    if (a.lane.id === b.lane.id && b.s < a.s - 1) {   // (the goal behind us on our own lane: off it and round, back onto it)
+      for (const cid of a.lane.out) { const c = this.g.conns[cid]; if (o.avoid && o.avoid(this.g.lanes[c.to])) continue; const q = this.route(c.to, b.lane.id, { ...o, s: c.toS || 0 }); if (q && (!r || q.cost + this.stepCost(c) < r.cost)) r = { lanes: [a.lane.id, ...q.lanes], conns: [cid, ...q.conns], cost: q.cost + this.stepCost(c) }; }
+    } else r = this.route(a.lane.id, b.lane.id, { ...o, s: a.s });
+    if (r) { r.from = a; r.to = b; } return r;
   }
 }
 

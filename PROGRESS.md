@@ -1,10 +1,12 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M7 is done: the view manager, MODE 7's lenses, Auto-rail and sky, the camera rig, the First Lowtown Bank to sneak
-into, and the draw levers; ISO's and MODE 7's remaining draw budgets are carried to M13 (D20). Next is M8: the
-missions, the activities and the economy (FAN-OUT A2). Blockers: none. The run started inside the
-planning session (DECISIONS D5); at M4's close it was handed off (D16), and this session carries it on from M5 on the
-branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md`'s `/goal`.
+Now: M8 is under way. Part 1 (this commit) is the staged runtime and its ops, the mission bot and the pad pass, the
+economy with its shops, properties and completion, the tokens, stunt jumps, hold-ups and random events, the career's
+interim cards, saves and the title's continue, and the reference mission S1 (Holy Rollers), which the bot passes on
+seeds 1-3 and through a pad. Next is FAN-OUT A2: the other 13 missions and the side content, eight workers in their own
+worktrees (D21). Blockers: none. The run started inside the planning session (DECISIONS D5); at M4's close it was
+handed off (D16), and this session carries it on from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft
+PR 2), from `docs/HANDOFF.md`'s `/goal`.
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
@@ -16,7 +18,7 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
 | M5 Roads, traffic, peds | done | the roads and the traffic (`6e94f04`); the sidewalks, the crowd, its reactions and witnesses, the emergency services, the Marching Mimes, the AutoPlayer core, the soaks and the evidence (this commit) · 184 unit + sim tests, 3 e2e suites, the 10-minute city soak in test:full · ISO at the gate 12-23% faster than M4's build, TOP-DOWN and MODE 7 the same, interleaved (measured with M5's tour stuck at its start: corrected at M6) · `docs/media/m5/` (13 filmstrips, 5 shots) |
 | M6 Wanted, police, gangs | done | the crimes and the wanted level, the police by tier with the Eye, roadblocks and spikes, NABBED and WRECKED, the respray and the bribes, the gangs with respect, turf, cars and turf wars, the radar (`a1a65cb`); what the 10-minute city soak found with gangs and police about, and the gate (this commit) · 201 unit + sim tests (wanted 11, gangs 5), 3 e2e suites, the 5-minute gang sim and both city soaks pass in test:full · ISO and TOP-DOWN the same as M5's build, MODE 7 within the tolerance, interleaved (the tour fixed in both) · `docs/media/m6/` (10 filmstrips) |
 | M7 TOP + SIDE7 + bank | done | the view manager, MODE 7's lens, Auto-rail and sky, the camera rig (`a856add`); the bank with its guards, CCTV, doors and takedowns, the indoor cut-aways, the occluder fixture, the draw levers and the acceptance (this commit) · 220 unit + sim tests (the bank 9), 3 e2e suites (the occluder's self-test), `check.mjs` on `#interior/bank` · TOP-DOWN inside its gate; ISO (about 11.4 against 10.4) and MODE 7 (about 18 against 12.7) carried to M13 (D20) · `docs/media/m7/` (16 shots, the chase strip) |
-| M8 Missions + economy | | |
+| M8 Missions + economy | in progress | the runtime and its ops, the mission bot and the pad pilot, the economy, the activity frameworks, the career's cards and saves, S1 (part 1, this commit) · 237 unit + sim tests (the runtime 6, the deep links and the lint 2, the economy 8 with 1 waiting for the content) · S1 through the bot on seeds 1-3 (gold, gold, silver) and through the pad (silver); the bot gym's 13 hint kinds pass with the bot and through the pad |
 | M9 10-foot UI | | |
 | M10 Audio + radio | | |
 | M11 Attract + kiosk | | |
@@ -698,3 +700,36 @@ branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md
   from nothing, being put back on its line facing the way it was going. The wait now counts at the spot where a ped
   stands at the curb, whatever it is doing, until it has moved away; the worst wait in the same run fell to 21 s.
 
+- **M8 · section 8.15, the runtime (part 1)** (`tests/sim/missions.test.mjs`, 6 tests): a stage's setup run twice
+  changes nothing (ensure, place within, the kit); every fail fires with its reason (a `failIf`, the timer, WRECKED,
+  NABBED, the delivery lost, the escort dead) and JOB BLOWN shows it; a retry releases what the stage spawned and starts
+  its op again, and a quit leaves nothing of the mission behind; a pass pays, grades the medal by the bonus objectives
+  and the retries, and keeps the save's best; the bot plays the verbs (on foot, into a car, a delivery across town)
+  and each op's markers go with it; a stage's kit of only a bat gives the player's own weapons back at the end, and the
+  bat dents a parked car (vandalism) till it burns. Verdict: the contract holds.
+- **M8 · the deep links and the lint** (`tests/sim/mission-links.test.mjs`): every stage of every mission, and every
+  activity at level 1, lands from `#mission/<id>/<stage>` running at that stage with its objective set, no errors; a
+  stage of lines only goes on to the next. The lint checks each mission's id against the slice's 14, its giver, its
+  cash reward, its `requires` and its bonus objectives. Verdict: lands.
+- **M8 · section 8.16, the economy (part 1)** (`tests/sim/economy.test.mjs`, 7 tests and 1 waiting for the content):
+  Lead Farm's purchases and refusals (cash, a full slot, the Buzzsaw locked until S1, a confirm above $5,000); the shop
+  card by keys (E, Enter, Escape); a property's till filling at midnight to its cap and collected; the cab skip, refused
+  with stars; a Kwik-Lux hold-up through the scene's own pilot seam; a stunt fixture scored; tokens kept across a save
+  and a load. Completion's weights (1000 tenths) wait for the categories' content. Verdict: pays and refuses right.
+- **M8 · the bot gym (part 1):** a local probe (`tools/_botgym.mjs`) plays one fixture mission per hint kind: walk,
+  board, deliver, kill, ram, bat, evade, follow, race, photo, stealth, tow, spray. All 13 pass with the bot and all 13
+  through the pad (the deliver and tow fixtures run again after the last two fixes). What it found and what
+  changed (D21): the bat never dented a car (a swing met peds only); the player's best gun went unused through the pad
+  (the fighter took the first one carried); a ram stalled pushing its target at a crawl; a tow backed into a lamp post
+  from a lane beside the car; the curb search turned down every spot that traffic passed and put a car 440 u off; a
+  walk slid along a wall toward a sidewalk node behind it, and its timers ran 30 times slow at the bot's quarter-second
+  step; jams held the bot for minutes (a parked car shoved into a lane, a junction box held by a car that could not
+  leave it, a jammed exit, a ped standing in the road, a queue up the Loop): it now squeezes past a still queue, takes
+  a box that stays shut, keeps off a jammed exit, backs round a ped, drives off the road out of a jam, rejoins the road
+  when lost, and leaves a car stuck for good. Verdict: every hint kind plays.
+- **M8 · S1, Holy Rollers (part 1)** (`node tools/bot.mjs --mission saints_holy_rollers`): seeds 1, 2 and 3 pass gold
+  (349 s), gold (350 s) and silver (322 s, one retry after a bust); through the pad (`--pad`, the bot's wishes pressed
+  on a gamepad and read through the bindings) it passes silver in 349 s with no retry. Verdict: the reference mission plays both ways.
+- **M8 · the gate (part 1):** `npm test` passes every step (lint, boundary, vendor, goal-sync, dist current, 237 unit
+  and sim tests with 1 skipped until the content, the e2e smoke, replay and self-tests, the engine checker on the city
+  and on `#interior/bank`).

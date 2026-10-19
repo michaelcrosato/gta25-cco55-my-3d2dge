@@ -17,11 +17,18 @@
 // (the attack button); seen past the counter, with a gun out or wanted, the guards come; a camera that sees you raises the
 // alarm and the stars. △ at a door goes back out: by the door you came in, to the spot you left; by the other, to its
 // own. #interior/bank starts inside.
+// M8: the career (career.js) on top: the missions and their givers, the activities, the random events, the shops, the
+// properties, the tokens, the stunt jumps, the hold-ups, the phone (d-pad up / T: jobs, cabs, contacts, completion) and
+// the save (△ at the safehouse; the autosave after a mission or a job). #mission/<id>/<stage> starts a mission at a
+// stage; ?bot=1 has the mission bot play it (?bot=pad: its wishes kept for a pad, tools/bot.mjs --pad); ?load=<slot>
+// loads a save (the title's NEW GAME starts the prologue).
 import { E, def, get, all, expose, BUS, TUNE, knob, FloorChunks, buildCity, CityRenderer, WorldClock, Weather, Drawbridge, skyAt, indoorSky, InteriorRun, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
   Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, boxDistance, stationLabel, modelOf, SpeedZoom, drawPrompt, CityLife, AutoPlayer, roadsOf,
   Radar, drawWanted } from '../../motor/index.js';
 import { VIGNETTE_PROPS } from '../characters/vignette-props.js';
+import { Career } from './career.js';
+import { makeSaves, blankSave, normalizeSave } from '../save.js';
 
 let cached = null;   // one Lowtown per seed: built once (about 80 ms), kept across scene changes
 /** the perf stand-ins: walkers and parked cars at fixed offsets round the focus (a seeded spread, the same each run).
@@ -54,6 +61,9 @@ const PLAY = {
     let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, down = null, prevView = null, mouse0 = null, radar = null, inShop = false, lastCause = null;
     let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null, life = null, unsub = [], auto = null;
     let inside = null, transit = null, door = null, takedown = null;   // (the interior the player is in; a door's fade; the door or the guard the prompt offers)
+    let career = null, save = null;   // (M8: the career on top of free roam, and the save it plays)
+    let pilot = null;   // (tests and tools: a function (dt, ped) -> Intent in place of the player's controller)
+    const saves = makeSaves();
     const lead = [0, 0];
     const idle = makeIntent(), TOUR_SPEED = 300;   // (the tour: a sports car's top speed, PLAN.md 7.6)
     const hero = () => crew.ped, chOf = id => get('characters', id);
@@ -74,7 +84,7 @@ const PLAY = {
       fleet = new Fleet({ city, combat, bridges, game });
       const fl = get('fleets', 'lowtown'); fleetCount = fl ? spawnFleet(fleet, city, fl, city.seed) : null;
       if (life) life.dispose();
-      life = links.query.get('traffic') === '0' ? null : new CityLife({ city, fleet, combat, footprint, spec: fl || {}, isPlayer: id => !!crew.ped && crew.ped.id === id });   // (?traffic=0: an empty city)
+      life = links.query.get('traffic') === '0' ? null : new CityLife({ city, fleet, combat, footprint, spec: fl || {}, respect: save.respect, isPlayer: id => !!crew.ped && crew.ped.id === id });   // (?traffic=0: an empty city; respect: the save's)
     }
     // the vehicle the possessed one could get into now: the nearest in reach, by its nearest door (the driver's seat)
     function boardTarget(p) {
@@ -85,6 +95,7 @@ const PLAY = {
     const PROMPT = { enterCar: 'GET IN', carjack: 'JACK', mount: 'RIDE', breakIn: 'BREAK IN' };
     // what a pickup does for the one who walks over it (true: it was used)
     function take(p, k) {
+      const c = career && career.take(p, k); if (c !== null && c !== undefined) return c;   // (a Moto Token, a mission's item)
       if (k.kind === 'health') { if (p.vitals.health >= 100) return false; p.vitals.heal(k.amount); return true; }
       if (k.kind === 'armor') { if (p.vitals.armor >= 100) return false; p.vitals.addArmor(k.amount); return true; }
       if (k.kind === 'weapon') { const had = p.inv.has(k.item); p.inv.give(k.item, k.amount); if (!had) toast = { text: (get('weapons', k.item)?.name || k.item).toUpperCase(), t: 2 }; BUS.emit('pickup', { item: k.item, by: p.id }); return true; }
@@ -136,8 +147,8 @@ const PLAY = {
       });
       return { items, sel: Math.max(0, crew.order.indexOf(crew.active)) };
     }
-    function trySwitch(id) {
-      const r = crew.request(id, { wanted: stars(), mission: null, H0: stage.top.H || 320, vignetteAt: who => { const v = chOf(who).vignette, q = v && city.poi(v.poi); return q ? [q.x, q.y] : null; } },
+    function trySwitch(id, forced = false) {
+      const r = crew.request(id, forced ? { forced: true, H0: stage.top.H || 320 } : { wanted: stars(), mission: career && career.running ? career.R.spec : null, H0: stage.top.H || 320, vignetteAt: who => { const v = chOf(who).vignette, q = v && city.poi(v.poi); return q ? [q.x, q.y] : null; } },
         (m, fresh, at) => { if (fresh && at) m.ped.place(at[0], at[1], 0); });
       if (!r.ok) { if (REFUSED[r.reason]) toast = { text: REFUSED[r.reason], t: 2 }; return; }
       prevView = views.active; if (prevView !== 'top') game.setView('top');
@@ -177,10 +188,10 @@ const PLAY = {
     }
     // a door's fade: dark over DOOR_FADE, through the door at the dark, light again (the simulation's steps time it)
     const through = go => { transit = { t: 0, go, done: false }; };
-    // a door's spot on the floor: a ring that breathes, in the door's colour (yellow in, green out)
-    function doorRing(x, y, color) {
+    // a door's spot on the floor: a ring that breathes, in the door's colour (yellow in, green out); a mission's marker too
+    function doorRing(x, y, color, r = 9) {
       const t = game.real; stage.floor((g, P) => {
-        const k = 1 + .12 * Math.sin(t * 4), pts = []; for (let i = 0; i <= 16; i++) { const a = i / 16 * Math.PI * 2, q = P.proj(x + Math.cos(a) * 9 * k, y + Math.sin(a) * 9 * k, 0); if (!q) return; pts.push(q); }
+        const k = 1 + .12 * Math.sin(t * 4), pts = []; for (let i = 0; i <= 16; i++) { const a = i / 16 * Math.PI * 2, q = P.proj(x + Math.cos(a) * r * k, y + Math.sin(a) * r * k, 0); if (!q) return; pts.push(q); }
         g.strokeStyle = color; g.lineWidth = 1.5; g.globalAlpha = .85; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const q of pts) g.lineTo(q[0], q[1]); g.stroke(); g.globalAlpha = 1;
       });
     }
@@ -194,8 +205,30 @@ const PLAY = {
       fx.draw(stage, R.combat, [fx0, fy0]);
       drawAimMarks(stage, p, game.real);
     }
+    // the world the career and its missions see (live: the scene makes its parts again on enter)
+    const world = {
+      game, stage,
+      get city() { return city; }, get fleet() { return fleet; }, get combat() { return combat; }, get crew() { return crew; }, get life() { return life; },
+      get clock() { return clock; }, get weather() { return weather; }, get roads() { return city ? roadsOf(city) : null; }, get junctions() { return life ? life.junctions : null; },
+      get bot() { return !!(career && career.bot); },
+      wanted: () => wanted(),
+      cash: (n, why) => { crew.fund = Math.max(0, crew.fund + n); BUS.emit('cash', { amount: n, reason: why }); },
+      respect: (g, d, why) => { if (life && life.gangs) life.gangs.add(g, d, why); else save.respect[g] = Math.max(-100, Math.min(100, (save.respect[g] || 0) + d)); },
+      possess: id => { if (crew.possess(id)) game.cam.snap = true; },
+      switchTo: id => trySwitch(id, true),
+      enter: (id, doorId) => { const spec = get('interiors', id), d = spec && (spec.doors.find(q => q.id === doorId) || spec.doors[0]); if (d && !inside) goInside(city.poi(d.from)); },
+      leave: () => { if (inside) goOutside(inside.run.spec.doors.find(q => q.from === inside.back.poi) || inside.run.spec.doors[0]); },
+      inside: () => inside,
+      snap: () => { game.cam.snap = true; const p = hero(), v = p.seat && p.seat.vehicle; footprint.update(v ? v.x : p.x, v ? v.y : p.y); },
+      fade: go => through(go),
+      ring: (x, y, color, r) => doorRing(x, y, color, r),
+      outfit: i => { const ch = chOf(crew.active), look = ch && ch.outfits[i]; if (look) { hero().rig.setLook(look); crew.member(crew.active).outfit = i; } },
+      stash: (v, id, at) => career && career.stash(v, id, at),
+      garaged: id => (career ? career.garaged(id) : null),
+      endMission: () => {},
+    };
     return {
-      pausable: true,
+      get pausable() { return !(career && career.busy); },   // (with a card up, Esc and Options back out of it instead)
       enter(data) {
         ({ city, render: cityR } = lowtown(+(links.query.get('seed') || 1999)));
         map = city.map;
@@ -209,7 +242,9 @@ const PLAY = {
         rec = links.query.get('perf') === '1' ? { update: [], render: [], frames: 0 } : null;
         crowd = links.query.get('crowd') === '1' ? standIns() : null;
         const route = (data && data.route) || [], into = route[0] === 'interior' ? get('interiors', route[1] || 'bank') : null;   // (#interior/bank: in at its first door)
-        spawnCrew(into ? into.doors[0].from : route[1]);
+        const slot = (data && data.load) || links.query.get('load'), loaded = slot ? saves.read(slot).data : null;
+        save = normalizeSave(loaded || blankSave());
+        spawnCrew(into ? into.doors[0].from : route[0] === 'mission' ? null : route[1]);
         if (tour) hero().place(city.tour[0][0], city.tour[0][1]);
         // ?auto=<poi>: the AutoPlayer takes the possessed protagonist there (walking, or driving a long way)
         const goal = links.query.get('auto') && city.poi(links.query.get('auto'));
@@ -224,19 +259,23 @@ const PLAY = {
         game.cam.bounds = v => map.bounds(v);
         if (!game.headless) floor.warm(hero().x, hero().y, 420);
         if (into) goInside(city.poi(into.doors[0].from));
+        if (career) career.dispose();
+        career = new Career({ app, world, save, saves, bot: links.query.get('bot') === 'pad' ? 'pad' : links.query.get('bot') === '1' });
+        career.start({ loaded: !!loaded, newGame: !!(data && data.newGame), mission: route[0] === 'mission' ? route[1] : null, stage: route[0] === 'mission' ? route[2] : undefined, level: +links.query.get('level') || undefined });
+        expose('career', career); expose('pilot', f => { pilot = f || null; });
         expose('snapshot', () => { const p = hero(), v = p.seat && p.seat.vehicle; return { scene: 'play', view: views.active, hero: [p.x, p.y, p.z].map(v => Math.round(v)), hood: hoodName, time: clock.label(), weather: weather.state,
           crew: crew.active, health: Math.round(p.health), armor: Math.round(p.armor), weapon: p.inv.current, switching: crew.switching, fund: crew.fund,
           vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake, traffic: life && life.traffic ? life.traffic.count : 0, peds: life && life.crowd ? life.crowd.count : 0,
-          stars: stars(), down: down ? down.kind : null, interior: inside ? inside.id : null, alarm: inside ? !!inside.run.alarm : false, door: door ? door.id || door.label : null }; });
+          stars: stars(), down: down ? down.kind : null, interior: inside ? inside.id : null, alarm: inside ? !!inside.run.alarm : false, door: door ? door.id || door.label : null, career: career ? career.debug() : null }; });
         expose('teleport', (x, y) => { hero().place(x, y); game.cam.snap = true; });
         expose('interior', () => inside); expose('views', views); expose('stage', stage); expose('life', life); expose('auto', auto); expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat); expose('fleet', fleet); expose('fleetCount', fleetCount);
         expose('perf', () => ({ ...rec, floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length, depth: stage.depth ? { ...stage.depth.stats } : null }));
         // (indoors the city's part stands as it was at the door: the possessed one counted where it went in; the interior's
         // own part, its guards, its fights and where the possessed one is in it, follows)
         game.stateHash = () => [...crew.order.flatMap(id => { const p = crew.member(id).ped, at = inside && inside.run.player === p ? inside.back : p; return [Math.round(at.x * 8), Math.round(at.y * 8), Math.round(at.z * 8), Math.round(p.health * 10)]; }),
-          crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash(), fleet.hash(), ...(life ? life.hash() : []), ...(inside ? inside.run.hash() : [])];
+          crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash(), fleet.hash(), ...(life ? life.hash() : []), ...(inside ? inside.run.hash() : []), crew.fund, ...(career ? career.hash() : [])];
       },
-      exit() { game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (inside) { inside.run.dispose(); inside = null; BUS.unmute('world'); } if (life) { life.dispose(); life = null; } if (auto) { auto.dispose(); auto = null; } for (const u of unsub) u(); unsub = []; },
+      exit() { if (career) { career.dispose(); career = null; } game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (inside) { inside.run.dispose(); inside = null; BUS.unmute('world'); } if (life) { life.dispose(); life = null; } if (auto) { auto.dispose(); auto = null; } for (const u of unsub) u(); unsub = []; },
       update(dt) {
         const real = dt / Math.max(.05, game.timeScale);
         if (transit) { transit.t += dt; if (!transit.done && transit.t >= DOOR_FADE) { transit.done = true; transit.go(); } if (transit.t >= DOOR_FADE * 2) transit = null; }
@@ -261,18 +300,22 @@ const PLAY = {
         // the player's intent (nothing while a wheel is open, the switch camera flies or the vignette plays): the vehicle
         // controls while seated, on foot otherwise
         const seated = p.seat && p.seat.vehicle;
-        let I = auto && !inside ? auto.update(dt, p, { t: life ? life.t : 0, pedsNear: life ? (x, y, r) => life.pedsNear(x, y, r) : null, wet: weather.wet }) : human.update(seated ? 'vehicle' : 'onFoot', p);
+        let I = pilot ? pilot(dt, p) : auto && !inside ? auto.update(dt, p, { t: life ? life.t : 0, pedsNear: life ? (x, y, r) => life.pedsNear(x, y, r) : null, wet: weather.wet }) : human.update(seated ? 'vehicle' : 'onFoot', p);
+        I = career.update(dt, { p, I, inside, busy, down });   // (the career: the bot's Intent while it plays a mission; none while a card is up)
         if (busy || down) I = clearIntent(I);   // (WRECKED, NABBED: the card plays out)
+        if (I.tap.phone && !inside && !career.busy) { career.phone(); I = clearIntent(I); }   // (d-pad up / T: the phone)
         // a door: a city door's spot, or inside one of the interior's own (its marked cells)
         door = !busy && !down && !p.dead && !p.seat && !p.boarding ? (inside ? inside.run.doorAt(p) : cityDoor(p)) : null;
         if (!busy && !p.dead && I.tap.interact && !p.boarding) {   // △ / E: through a door; get in (the nearest door of a vehicle), or get out
           if (door) { const d = door; through(inside ? () => goOutside(d) : () => goInside(d)); I = clearIntent(I); }
+          else if (career.prompt && !seated) { career.prompt.act(); I = clearIntent(I); }   // (a shop's door, a property, the safehouse)
           else if (seated) p.leave(exitFor(p, seated, (x, y) => city.walkable(Math.floor(x / city.T), Math.floor(y / city.T)) && !fleet.near(x, y, 2).some(o => o !== seated && boxDistance(o, x, y) < 4)));
           else if (!inside) { const plan = boardTarget(p); if (plan) p.board(plan); }
         }
         // a takedown: from behind and close, a guard who isn't hunting you (the attack button, instead of a swing)
-        takedown = inside && !busy && !down && !p.dead && !p.mover.action ? inside.run.takedownFor(p) : null;
-        if (takedown && I.tap.attack) { inside.run.takedown(p, takedown); I.tap.attack = I.down.attack = false; takedown = null; }
+        const td = inside ? inside.run : career.R.active ? career.R.actors : null;   // (indoors the bank's guards; outdoors a mission's)
+        takedown = td && !busy && !down && !p.dead && !p.mover.action ? td.takedownFor(p) : null;
+        if (takedown && I.tap.attack) { td.takedown(p, takedown); I.tap.attack = I.down.attack = false; takedown = null; }
         if (crew.vignette && crew.vignette.who === crew.active) {
           const moved = Math.hypot(I.move[0], I.move[1]) > .3 || I.down.aim || Object.values(I.tap).some(Boolean);   // (any press ends it)
           if (moved) { crew.endVignette(); p.posing = null; } else { p.posing = crew.vignette.pose; I = clearIntent(I); }
@@ -292,7 +335,7 @@ const PLAY = {
         } else {
           { const pv = p.seat && p.seat.vehicle; footprint.update(pv ? pv.x : p.x, pv ? pv.y : p.y); }   // (the focus where it is now: a teleport, a switch or the hospital may have moved it)
           if (life) life.update(dt, { night, wet: weather.wet, player: p.seat && p.seat.vehicle && p.seat.vehicle.driver === p ? p.seat.vehicle : null, ped: p, others: crew.order.map(id => crew.member(id).ped) });
-          fleet.update(dt, { intent: v => (v.driver === p ? I : (life && life.intentFor(v)) || clearIntent(idle)), peds: combat.bodies, night, wet: weather.wet });
+          fleet.update(dt, { intent: v => (v.driver === p ? I : (life && life.intentFor(v)) || career.intentFor(v) || clearIntent(idle)), peds: combat.bodies, night, wet: weather.wet });
           const W = { map, city, combat, fleet, aim: aimCtx() }, W0 = { map, city, combat, fleet, aim: NOAIM };
           for (const id of crew.order) { const q = crew.member(id).ped; q.lazyRig = q !== p; q.update(dt, q === p ? I : clearIntent(idle), q === p ? W : W0); }   // (the others stand about: posed when drawn, aiming at nothing)
           combat.update(dt, { wet: weather.wet, takers: [p], take });
@@ -303,7 +346,7 @@ const PLAY = {
         else if (v && v.radio !== lastRadio) { lastRadio = v.radio; toast = { text: stationLabel(v.radio), t: 2 }; }
         if (!v) lastRadio = null;
         if (!tour) stage.zoomTo(down && down.kind === 'nabbed' ? 1.6 : zoom.update(dt, !!v, v ? v.speed : 0));   // (the bust camera: in close)
-        board = !v && !p.boarding && !p.dead && !busy && !inside && !door ? boardTarget(p) : null;
+        board = !v && !p.boarding && !p.dead && !busy && !inside && !door && !career.prompt && !career.busy ? boardTarget(p) : null;
         // WRECKED (dead) or NABBED (the police's `busted`): the card, then the respawn
         if (p.dead && (!down || down.kind !== 'wrecked')) { down = { kind: 'wrecked', t: 0 }; BUS.emit('wrecked', { cause: lastCause || 'unknown' }); lastCause = null; }
         if (down) { down.t += dt; if (down.t > TUNE.cardTime) { const k = down.kind; down = null; if (inside) goOutside(null); respawn(k); } }
@@ -351,6 +394,7 @@ const PLAY = {
         for (const v of fleet.vehicles) if (Math.abs(v.x - fx0) < reach && Math.abs(v.y - fy0) < reach && stage.onScreen(v.x, v.y, v.z, v.z + v.height, v.hl + 8)) drawVehicle(stage, v, { dt: dtr, night: stage.world.lamps });
         for (const tr of fleet.trains) if (Math.abs(tr.cars[0].x - fx0) < reach + 200 && Math.abs(tr.cars[0].y - fy0) < reach + 200) drawTrain(stage, tr, modelOf(tr.line.def), { color: tr.line.def.palette[0], night: stage.world.lamps });
         vfx.draw(stage, fleet, [fx0, fy0]);
+        career.draw(stage, fx0, fy0, reach);   // (the mission's peds and props, its markers; the givers' and the starts' rings)
         if (vg && VIGNETTE_PROPS[vg.prop]) { const q = crew.member(vg.who).ped, x = q.x + 14, y = q.y + 4; stage.shape(x, y, 0, (g, P) => drawBoxModel(g, P, VIGNETTE_PROPS[vg.prop], x, y, 0, vg.prop === 'moto' ? Math.PI / 2 : 0, { lit: true })); }
         fx.draw(stage, combat, [fx0, fy0]);
         if (!crew.switching) drawAimMarks(stage, p, game.real);
@@ -362,7 +406,7 @@ const PLAY = {
           if (!crew.switching) {
             drawPedHud(g, W, H, p, { color: ch.color, name: ch.short + '   $' + crew.fund });
             radar ||= new Radar(city, { turf: turfOf() }); const R = radar.r;
-            if (!inside) radar.draw(g, 12 + R, H - 48 - R, { focus: [fx0, fy0], heading: pv && !pv.def.tool ? pv.heading : null, player: p, police: life && life.police, t: game.real });   // (indoors: no street map)
+            if (!inside) radar.draw(g, 12 + R, H - 48 - R, { focus: [fx0, fy0], heading: pv && !pv.def.tool ? pv.heading : null, player: p, police: life && life.police, blips: career.blips(), t: game.real });   // (indoors: no street map)
             drawWanted(g, W, 56, wanted(), game.real);
           }
           if (inside && inside.run.alarm && Math.floor(game.real * 2.5) % 2 === 0) E.font.text(g, 'ALARM', W / 2, 52, '#ff3a30', { align: 'center', scale: 2, outline: '#05030c' });
@@ -370,6 +414,7 @@ const PLAY = {
           else if (takedown && !down) drawPrompt(g, '{attack} TAKEDOWN', W / 2, H - 64, B, game.input, { align: 'center', color: '#ff8a5a' });
           if (!crew.switching && pv) drawVehicleHud(g, W, H, pv, { radio: stationLabel(pv.radio), x: 2 * (radar ? radar.r : 44) + 22 });
           if (board && !crew.switching) drawPrompt(g, `{interact} ${board.locked ? PROMPT.breakIn : PROMPT[board.kind]}  ${board.vehicle.def.name.toUpperCase()}`, W / 2, H - 64, B, game.input, { align: 'center', color: '#ffe066' });
+          career.hud(g, W, H, { blocked: !!door || !!board || !!takedown || crew.switching });
           weaponWheel.draw(g, W, H); switchWheel.draw(g, W, H);
           if (vg && vg.line && vg.who === crew.active) { E.ui.box(g, W / 2 - 150, H - 46, 300, 22, { alpha: .7 }); E.font.text(g, `${chOf(vg.who).short}: ${vg.line}`, W / 2, H - 40, '#f0ecff', { align: 'center', wrap: 290 }); }
           if (crew.switching) E.font.text(g, chOf(crew.seq.to).name.toUpperCase(), W / 2, H - 30, chOf(crew.seq.to).color, { align: 'center', scale: 2, outline: '#05030c' });
@@ -383,3 +428,4 @@ const PLAY = {
 };
 def('scenes', 'play', PLAY);
 def('scenes', 'interior', { make: app => PLAY.make(app) });   // (#interior/bank: the same free roam, started inside)
+def('scenes', 'mission', { make: app => PLAY.make(app) });   // (#mission/<id>/<stage>: the same, a mission started at a stage)

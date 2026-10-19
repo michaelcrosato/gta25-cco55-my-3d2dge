@@ -2,7 +2,7 @@
 // takes any name (a game adds its own), but these are the ones MOTOR's systems speak, and tests check emitters
 // against this list. Ids are Actor ids; points are world units. Added since, each by a decision (docs/DECISIONS.md):
 // the services' and the troupes' (D18, M5), the police's, the respawns' and the gangs' (D19, M6), the interiors' (D20,
-// M7).
+// M7), the economy's (D21, M8).
 export const EVENTS = {
   // crime and police
   crime: 'type, x, y, by, victim, severity, vehicle, lawful',   // type: def('crimes') ids; vehicle: a car theft's; lawful: the police's own doing
@@ -35,7 +35,7 @@ export const EVENTS = {
   kill: 'target, by, kind',
   explode: 'x, y, z, r, by, power',
   fire: 'x, y, r, by',
-  photo: 'by, x, y, targets',                   // the Snap (M3: a photo objective's shutter)
+  photo: 'by, x, y, targets, dir',              // the Snap (M3: a photo objective's shutter; dir, M8: where it pointed)
   // vehicles
   vehicleEnter: 'vehicle, actor, seat',
   vehicleExit: 'vehicle, actor, seat',
@@ -48,6 +48,10 @@ export const EVENTS = {
   respect: 'gang, delta, value, why',
   stunt: 'id, score',
   collectible: 'id',
+  purchase: 'shop, item, price',                // (M8) a shop's item bought
+  property: 'id, price',                        // (M8) a property bought
+  holdup: 'shop, by, cash',                     // (M8) a Kwik-Lux's till taken
+  cab: 'to, fee',                               // (M8) the cab skip
   stat: 'stat, delta',
   // missions and activities
   missionStart: 'id',

@@ -349,8 +349,9 @@ export class Police {
     const T = this.tier();
     if (!standDown && !this.busted && T && car && car.speed > 60) {
       this._blockT -= dt; this._spikeT -= dt;
-      if (T.roadblocks && this._blockT <= 0 && this.blocks.length < T.roadblocks) { this._blockT = TUNE.roadblockEvery; this._roadblock(car); }
-      if (T.spikes && this._spikeT <= 0 && this.spikes.length < T.spikes) { this._spikeT = TUNE.spikeEvery; this._spikeStrip(car); }
+      // (one that found no room, the road ahead full of traffic, is tried again in a moment)
+      if (T.roadblocks && this._blockT <= 0 && this.blocks.length < T.roadblocks) this._blockT = this._roadblock(car) ? TUNE.roadblockEvery : 3;
+      if (T.spikes && this._spikeT <= 0 && this.spikes.length < T.spikes) this._spikeT = this._spikeStrip(car) ? TUNE.spikeEvery : 3;
     }
     // gone once passed (or no longer called for, or stale) and out of sight
     const behind = (x, y) => car && (x - car.x) * Math.cos(car.heading) + (y - car.y) * Math.sin(car.heading) < -200;
@@ -390,7 +391,7 @@ export class Police {
   }
   // (A: where, { lane, p }: the dev menu's and the strips' own spot; else ahead of the car)
   _roadblock(car, A = this._ahead(car)) {
-    if (!A) return;
+    if (!A) return false;
     const { lane, p } = A, h = Math.atan2(lane.dir[1], lane.dir[0]), nx = -lane.dir[1], ny = lane.dir[0], U = this.unitsSpec.cruiser;
     const b = { x: p[0], y: p[1], z: p[2], t: this.t, cars: [], cops: [], mind: null };
     for (const side of [-1, 1]) {   // (two cars nose to nose across the lane, their crews behind them)
@@ -402,14 +403,14 @@ export class Police {
       const px = x - lane.dir[0] * 34, py = y - lane.dir[1] * 34, ped = this._newCop(arch, px, py, p[2]);
       b.cops.push(this._addCop(ped, { post: [px, py], block: b }));
     }
-    if (!b.cars.length) return;
-    this.blocks.push(b); BUS.emit('roadblock', { x: Math.round(p[0]), y: Math.round(p[1]) });
+    if (!b.cars.length) return false;
+    this.blocks.push(b); BUS.emit('roadblock', { x: Math.round(p[0]), y: Math.round(p[1]) }); return true;
   }
   _spikeStrip(car, A = this._ahead(car)) {
-    if (!A) return;
+    if (!A) return false;
     const { lane, p } = A, nx = -lane.dir[1], ny = lane.dir[0], half = 26;
     this.spikes.push({ x: p[0], y: p[1], z: p[2], half, a: [p[0] - nx * half, p[1] - ny * half], b: [p[0] + nx * half, p[1] + ny * half], t: this.t, hit: new Set() });
-    BUS.emit('spikes', { x: Math.round(p[0]), y: Math.round(p[1]) });
+    BUS.emit('spikes', { x: Math.round(p[0]), y: Math.round(p[1]) }); return true;
   }
   _newCop(arch, x, y, z) {
     const ped = new Ped({ x, y, z, faction: arch.faction || 'police', look: pedLook(arch, this.rng), lazyRig: true, health: arch.health || 100, maxHealth: arch.health || 100, armor: arch.armor || 0, weapons: arch.weapons || ['fists'] });
