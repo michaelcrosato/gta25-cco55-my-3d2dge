@@ -35,6 +35,7 @@ knob('Vehicles', 'skidSlip', 'Skid marks at', .2, .05, 1, .01, 'Rear slip (radia
 
 const LAND = new Set(['car', 'truck', 'tow', 'bike']);
 const GRID = 128;   // the neighbour grid's cell (units)
+const TURRET = 1.75;   // how far a water cannon's turret swings either side of the nose (radians: a roof turret, round to the sides)
 const SKID_MAX = 900;
 
 export class Fleet {
@@ -109,8 +110,16 @@ export class Fleet {
   /** the vehicles within r of (x, y), nearest first (pred filters) */
   near(x, y, r, pred = null) {
     const out = [];
-    for (const v of this.vehicles) { if (!v.body) continue; const d = Math.hypot(v.x - x, v.y - y); if (d <= r + v.hl && (!pred || pred(v))) out.push([d, v]); }
+    for (const v of this.vehicles) { if (!v.body) continue; const d = Math.hypot(v.x - x, v.y - y); if (d <= r + v.hl && (!pred || pred(v))) out.push([d, v]); }   // (every vehicle: one spawned this step is in no grid yet)
     return out.sort((a, b) => a[0] - b[0]).map(a => a[1]);
+  }
+  /** call fn(v) for each vehicle whose cells reach within r of (x, y), once each, without making a list (hot loops) */
+  each(x, y, r, fn, sleepers = true) {
+    const st = ++this._stamp, S = sleepers ? this.gridStatic : null;
+    for (let gy = Math.floor((y - r) / GRID); gy <= Math.floor((y + r) / GRID); gy++) for (let gx = Math.floor((x - r) / GRID); gx <= Math.floor((x + r) / GRID); gx++) {
+      const k = gy * 4096 + gx, a = this.grid.get(k); if (a) for (const v of a) if (v._st !== st) { v._st = st; fn(v); }
+      const b = S && S.get(k); if (b) for (const v of b) if (v._st !== st && v.asleep) { v._st = st; fn(v); }
+    }
   }
   /** a rail line (o: RailLine's options) and trains on it (each { s, cars, id }) */
   addLine(o, trains = []) { const line = new RailLine(o); this.lines.push(line); this.addTrains(line, trains); return line; }
@@ -158,13 +167,14 @@ export class Fleet {
     this._regrid();
     // vehicles against vehicles (towing pairs aside; boats only meet boats; helis fly over it all): each awake one
     // against its neighbours; a sleeper it touches wakes
+    // (far traffic on its lanes meets nothing by itself: its brain keeps it off other cars and its lanes clear of the
+    // parked ones; the physical vehicles meet it)
     for (const a of this.vehicles) {
-      if (a.asleep || !a.body || a.cls === 'heli') continue;
+      if (a.asleep || !a.body || a.cls === 'heli' || a.kinematic) continue;
       for (const b of this.around(a.x, a.y, a.hl + 8)) {
-        if (b === a || !b.body || b.cls === 'heli' || (!b.asleep && b._i < a._i)) continue;
+        if (b === a || !b.body || b.cls === 'heli' || (!b.asleep && !b.kinematic && b._i < a._i)) continue;
         if ((a.cls === 'boat') !== (b.cls === 'boat')) continue;
         if (a.towing && a.towing.car === b || b.towing && b.towing.car === a) continue;
-        if (a.kinematic && b.kinematic) continue;   // (far traffic on its lanes: the brains keep it apart)
         const imp = collideCars(a.body, b.body);
         if (imp > 0) {   // (who hit whom, and how hard: a velocity change, u/s; traffic's drivers react to the player's)
           if (b.asleep) this.wake(b);
@@ -231,42 +241,48 @@ export class Fleet {
   }
   // peds in the way: pushed out, or knocked down by the closing speed
   _peds(dt, peds) {
-    for (const p of peds) {
-      if (p.seat || p.held) continue;
-      const m = p.mover;
-      for (const v of this.around(m.x, m.y, 12)) {
-        if (!v.body || v.cls === 'heli' || v.cls === 'boat' || v.sunk || (p.boarding && p.boarding.v === v)) continue;
-        const b = v.body, reach = v.hl + 12;
-        if (Math.abs(m.x - b.x) > reach || Math.abs(m.y - b.y) > reach || m.z > b.z + v.height || m.z + 30 < b.z) continue;
-        const hit = circleObb(v, m.x, m.y, p.r || 6); if (!hit) continue;
-        const closing = (b.vx - m.vx) * hit.nx + (b.vy - m.vy) * hit.ny;
-        m.x += hit.nx * hit.depth; m.y += hit.ny * hit.depth;
-        if (closing > TUNE.knockSpeed && !p.dead && !p.anchored && !p.floored) {
-          const sp = Math.hypot(b.vx, b.vy) || 1, dir = [b.vx / sp * .7 + hit.nx * .3, b.vy / sp * .7 + hit.ny * .3], by = v.driver ? v.driver.id : null;
-          const amount = (closing - TUNE.knockSpeed * .7) * TUNE.runOver;
-          if (this.combat) this.combat.hurt(p, { amount, kind: 'vehicle', by, knock: closing * .8, knockdown: true, dir }); else p.hurt({ amount, kind: 'vehicle', knock: closing * .8, knockdown: true, dir });
-          b.setVelocity(b.vx * .94, b.vy * .94);
-          if (by) BUS.emit('crime', { type: 'runOver', x: m.x, y: m.y, by, victim: p.id, severity: 2 });
-        } else if (closing > 0) { m.vx += hit.nx * closing; m.vy += hit.ny * closing; }
-      }
-    }
+    let p = null, m = null;
+    const meet = v => {
+      if (!v.body || v.cls === 'heli' || v.cls === 'boat' || v.sunk || (p.boarding && p.boarding.v === v)) return;
+      const b = v.body, reach = v.hl + 12;
+      if (Math.abs(m.x - b.x) > reach || Math.abs(m.y - b.y) > reach || m.z > b.z + v.height || m.z + 30 < b.z) return;
+      const hit = circleObb(v, m.x, m.y, p.r || 6); if (!hit) return;
+      // (knocked down by the vehicle's own speed into the body: running into a parked car only stops the runner)
+      const closing = (b.vx - m.vx) * hit.nx + (b.vy - m.vy) * hit.ny, driven = b.vx * hit.nx + b.vy * hit.ny;
+      m.x += hit.nx * hit.depth; m.y += hit.ny * hit.depth;
+      if (driven > TUNE.knockSpeed && closing > TUNE.knockSpeed && !p.dead && !p.anchored && !p.floored) {
+        const sp = Math.hypot(b.vx, b.vy) || 1, dir = [b.vx / sp * .7 + hit.nx * .3, b.vy / sp * .7 + hit.ny * .3], by = v.driver ? v.driver.id : null;
+        const amount = (closing - TUNE.knockSpeed * .7) * TUNE.runOver;
+        if (this.combat) this.combat.hurt(p, { amount, kind: 'vehicle', by, knock: closing * .8, knockdown: true, dir }); else p.hurt({ amount, kind: 'vehicle', knock: closing * .8, knockdown: true, dir });
+        b.setVelocity(b.vx * .94, b.vy * .94);
+        if (by) BUS.emit('crime', { type: 'runOver', x: m.x, y: m.y, by, victim: p.id, severity: 2 });
+      } else if (closing > 0) { m.vx += hit.nx * closing; m.vy += hit.ny * closing; }
+    };
+    // (a ped gliding its sidewalk line never walks into a parked car: only what moves can reach it)
+    for (const q of peds) { if (q.seat || q.held || q.coast) continue; p = q; m = q.mover; this.each(m.x, m.y, 12, meet, !q.gliding); }
   }
   // the L: its trains move on, and kill what stands on their track
   _trains(dt, peds) {
     for (const tr of this.trains) {
       tr.update(dt);
-      for (const c of tr.cars) {
-        for (const p of peds) {
-          if (p.seat || p.dead) continue; const m = p.mover;
+      // (the bodies inside the train's box first: a crowd is mostly nowhere near it)
+      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+      for (const c of tr.cars) { x0 = Math.min(x0, c.x - c.hl - 10); x1 = Math.max(x1, c.x + c.hl + 10); y0 = Math.min(y0, c.y - c.hl - 10); y1 = Math.max(y1, c.y + c.hl + 10); z0 = Math.min(z0, c.z - 10); z1 = Math.max(z1, c.z + 10); }
+      for (const p of peds) {
+        if (p.seat || p.dead || p.coast) continue; const m = p.mover;
+        if (m.z < z0 || m.z > z1 || m.x < x0 || m.x > x1 || m.y < y0 || m.y > y1) continue;
+        for (const c of tr.cars) {
           if (Math.abs(m.z - c.z) > 10 || Math.abs(m.x - c.x) > c.hl + 10 || Math.abs(m.y - c.y) > c.hl + 10) continue;
           if (!circleObb(c, m.x, m.y, p.r || 6)) continue;
           const d = [Math.cos(c.heading), Math.sin(c.heading)];
           if (this.combat) this.combat.hurt(p, { amount: 999, kind: 'train', by: null, knock: 320, knockdown: true, dir: d }); else p.hurt({ amount: 999, kind: 'train', knock: 320, knockdown: true, dir: d });
+          break;
         }
-        for (const v of this.around(c.x, c.y, c.hl + 8)) {
-          if (!v.body || v.wrecked || Math.abs(v.z - c.z) > 12 || Math.abs(v.x - c.x) > c.hl + v.hl || Math.abs(v.y - c.y) > c.hl + v.hl) continue;
-          if (obbOverlap(c, v)) { this.wake(v); v.damage.hit(999); this.explode(v, null); }
-        }
+      }
+      for (const c of tr.cars) {   // (only what moves can be on the track: a sleeper was left where no train runs)
+        const hit = [];
+        this.each(c.x, c.y, c.hl + 8, v => { if (v.body && !v.wrecked && Math.abs(v.z - c.z) <= 12 && Math.abs(v.x - c.x) <= c.hl + v.hl && Math.abs(v.y - c.y) <= c.hl + v.hl && obbOverlap(c, v)) hit.push(v); }, false);
+        for (const v of hit) { this.wake(v); v.damage.hit(999); this.explode(v, null); }
       }
     }
   }
@@ -292,9 +308,12 @@ export class Fleet {
     }
     if (v.def.tool === 'cannon' && I.down.fire) {   // the water cannon: knocks peds over, puts fires out
       if (v._cool <= 0) {
+        // (its turret swings toward the aim, up to TURRET either side of the nose; ahead with no aim)
+        let hx = Math.cos(b.heading), hy = Math.sin(b.heading);
+        if (I.aim) { const d = Math.max(-TURRET, Math.min(TURRET, E.angDiff(b.heading, Math.atan2(I.aim[1], I.aim[0])))); hx = Math.cos(b.heading + d); hy = Math.sin(b.heading + d); }
         v._cool += .06; const reach = 150, nz = v.model.nozzle, zx = v.toWorld(nz ? nz[0] : v.hl * .1, nz ? nz[1] : 0);   // (from the model's nozzle)
         this.jets.push({ x: zx[0], y: zx[1], z: b.z + (nz ? nz[2] : v.height + 6), dx: hx, dy: hy, t: 0, life: .5 });
-        for (let k = 30; k <= reach; k += 30) { const x = zx[0] + hx * k, y = zx[1] + hy * k; if (C && C.fire) C.fire.douse(x, y, 10); }
+        if (C && C.fire && C.fire.count) for (let k = 12; k <= reach; k += 18) C.fire.douse(zx[0] + hx * k, zx[1] + hy * k, 10);   // (the jet's whole length, from just off the nozzle)
         if (C) for (const p of C.bodies) { if (p.dead || p.seat) continue; const dx = p.x - zx[0], dy = p.y - zx[1], along = dx * hx + dy * hy, side = Math.abs(-dx * hy + dy * hx); if (along > 0 && along < reach && side < 14 && !p.floored) C.hurt(p, { amount: 1, kind: 'water', by, knock: 180, knockdown: true, dir: [hx, hy] }); }
       }
       return;

@@ -79,7 +79,7 @@ export class SurfacePainter {
       };
       if (r.median) { line(mid - 3, 2, false, P.yellow); line(mid + 3, 2, false, P.yellow); const lane = (across1 - across0) / 4; line(across0 + lane, 1.5, true, P.white); line(across1 - lane, 1.5, true, P.white); }
       else if (r.oneway) {   // a one-way street: the parking lane's line on the right of the way it runs, arrows down the lane
-        const right = r.axis === 'y' ? -r.oneway : r.oneway, lane = mid - right * 7;   // (the lane keeps 7 u left of the middle)
+        const right = r.axis === 'y' ? -r.oneway : r.oneway, lane = mid - right * 10;   // (the lane keeps 10 u left of the middle: a truck passes a parked truck)
         line(mid + right * 11, 1, true, P.white);
         g.fillStyle = P.white;
         for (let k = a0 + 3; k <= a1 - 3; k += 7) {

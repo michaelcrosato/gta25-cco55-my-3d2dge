@@ -240,7 +240,9 @@ export function buildDistrict(spec, o = {}) {
   // the TileMap: walls, floor tags (the surfaces), blocked water
   const floor = Array.from(C.surface, s => SURFACES[s]);
   const map = new E.TileMap({ w: W, h: H, cells: Array.from(cells), floor, types, block: ['water', 'deep'] });
-  for (const sol of map.addSolids(solids)) if (sol.prop) sol.prop.solidRef = sol;   // (a prop knows its solid: a fallen lamp lowers it)
+  // (every solid with the same fields in the same order: one object shape, so the hot loops that read them stay fast)
+  const one = q => ({ x: q.x, y: q.y, z: q.z, top: q.top, hx: q.hx, hy: q.hy, deck: q.deck ?? null, railing: q.railing ?? null, edge: q.edge ?? null, pillar: q.pillar ?? null, prop: q.prop ?? null, breakable: !!q.breakable });
+  for (const sol of map.addSolids(solids.map(one))) if (sol.prop) sol.prop.solidRef = sol;   // (a prop knows its solid: a fallen lamp lowers it)
   C.map = map; map.city = C;
   return C;
 }

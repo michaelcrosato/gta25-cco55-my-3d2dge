@@ -18,7 +18,9 @@ const STEPS = [
   ['e2e selftests', 'node', ['tests/e2e/selftest.mjs']],
   ['engine check', 'node', ['vendor/my-3d2dge/tools/check.mjs', 'dist/index.html', '--seconds', '3', '--out', 'check-output']],
 ];
-const FULL = [];   // heavy suites join here milestone by milestone (PLAN.md 6.3)
+const FULL = [   // heavy suites join here milestone by milestone (PLAN.md 6.3)
+  ['city soak (10 min)', 'node', ['tests/full/city-soak.mjs', '--secs', '600']],
+];
 let failed = 0;
 for (const [name, cmd, args] of full ? [...STEPS, ...FULL] : STEPS) {
   const t = Date.now(), r = spawnSync(cmd, args, { stdio: 'inherit', env, shell: false });

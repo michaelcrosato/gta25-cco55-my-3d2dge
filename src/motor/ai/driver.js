@@ -15,7 +15,8 @@
 //     pass on whichever side has a clear corridor (walls, street furniture, vehicles, peds checked along it); a jammed
 //     exit makes it pick another turn; pinned against something (physics), it backs off and tries again;
 //   - panic (shots, a blast nearby): faster, the lights and the reservations ignored; a crash: a pause, then on;
-//   - a siren behind it: it eases right and slows to let it by.
+//   - a siren behind it: it pulls over into a gap on its right wide enough to clear the siren's way and waits there;
+//     with none (a street parked up on both sides) it drives on ahead of it at its own speed.
 // Deterministic: its choices draw from the RNG stream it is given; it reads only the simulation (fleet, junctions,
 // peds), never the view.
 //   const b = new DriverBrain(vehicle, graph, { junctions, rng, lane, s });
@@ -37,6 +38,10 @@ knob('Traffic', 'passAfter', 'Goes round after', 2.5, .5, 15, .25, 'Seconds behi
 knob('Traffic', 'exitWait', 'Takes another turn after', 5, 1, 30, .5, 'Seconds a driver waits for a jammed exit before choosing another way');
 const TURN_W = { straight: .58, right: .24, left: .18, uturn: 0, change: 0 };
 const SAMPLE = 6;   // units between the samples along the path ahead
+const LANE_CLEAR = 18;   // a parked vehicle this far from every lane's line is out of everyone's way (the widest half-width, and room)
+const SNAP_OFF = 12;   // the farthest a car may be off its lane's line to go over to the far LOD (it is put on the line)
+const DRIVE = new Set(['road', 'bridge', 'alley']);   // the surfaces a car pulls over onto (never a curb or a sidewalk)
+const OVER_RAMP = 30;   // units a car takes to pull over (and back)
 
 export class DriverBrain {
   /** v: the Vehicle; graph: the RoadGraph; o: { junctions, rng (a stream), personality: { speed, gap, patience, calm },
@@ -49,6 +54,7 @@ export class DriverBrain {
     this.cause = null; this.leader = null; this.held = null; this.halted = null; this.haltT = 0;
     this.blocked = 0; this.honkT = 0; this.pass = null; this.passTry = 0; this.panic = 0; this.crashT = 0; this.exitT = 0;
     this.pinned = 0; this.unstick = 0; this.unsticks = 0; this.tr = null; this.siren = !!o.siren; this.lost = false;
+    this.yieldTo = null; this.over = 0; this.overT = 0; this.overTry = 0; this.overS = 0; this.overWait = 0; this.lat = 0; this.noYield = null; this.noYieldT = 0;   // (pulled over for a siren: by how far, for how long after)
     const at = o.lane !== undefined ? { lane: graph.lanes[o.lane], s: o.s || 0 } : graph.nearestLane(v.x, v.y, v.heading, v.z);
     if (at) this.reset(at.lane, at.s); else this.lost = true;
   }
@@ -152,6 +158,7 @@ export class DriverBrain {
       if (s > e.len) { if (j === this.path.length - 1) break; s -= e.len; j++; continue; }
       const a = this._at(e, s);
       if (this.pass) off = this.pass.off * E.clamp((this.pass.d + d) / 24, 0, 1) * E.clamp((this.pass.end - (this.pass.d + d)) / 24, 0, 1);
+      else if (this.over) off = this.lat + (this.over - this.lat) * E.clamp(d / OVER_RAMP, 0, 1);   // (where it is going: over to the right)
       out.push({ d, p: off ? [a.p[0] - a.t[1] * off, a.p[1] + a.t[0] * off, a.p[2]] : a.p, t: a.t, j, s });
       d += SAMPLE; s += SAMPLE;
     }
@@ -161,11 +168,17 @@ export class DriverBrain {
   // our way: 0 for one coming at us), v, k }
   _leader(w, S) {
     const v = this.v, hw = v.hw + 1.5, hl = v.hl; if (!w.fleet || !S.length) return null;
-    const mid = S[S.length >> 1].p; let best = null;
+    const mid = S[S.length >> 1].p; let best = null, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of S) { if (q.p[0] < x0) x0 = q.p[0]; if (q.p[0] > x1) x1 = q.p[0]; if (q.p[1] < y0) y0 = q.p[1]; if (q.p[1] > y1) y1 = q.p[1]; }
     for (const o of w.fleet.around(mid[0], mid[1], S[S.length - 1].d / 2 + 60)) {
+      const R = o.hl + hw + 4;
+      if (o.x < x0 - R || o.x > x1 + R || o.y < y0 - R || o.y > y1 + R) continue;   // (nowhere near the path's box)
       if (o === v || !o.body || o.cls === 'heli' || (this.pass && o === this.pass.obstacle) || o.towedBy === v || v.towedBy === o) continue;
-      for (const q of S) {
-        if (q.d < hl - 4 || Math.abs(o.z - q.p[2]) > 12 || Math.abs(o.x - q.p[0]) > o.hl + hw + 4 || Math.abs(o.y - q.p[1]) > o.hl + hw + 4) continue;
+      if (o.asleep && this._laneClear(o)) continue;   // (parked at a curb, clear of every lane)
+      for (let qi = 0; qi < S.length; qi++) {
+        const q = S[qi], far = Math.max(Math.abs(o.x - q.p[0]), Math.abs(o.y - q.p[1])) - R;
+        if (far > 0) { qi += Math.floor(far / (SAMPLE + 2)); continue; }   // (the samples are about SAMPLE apart: none nearer can come sooner)
+        if (q.d < hl - 4 || Math.abs(o.z - q.p[2]) > 12) continue;
         if (boxDistance(o, q.p[0], q.p[1]) >= hw) continue;
         // how far its near side is along our way from this sample: the gap from our front bumper
         const c = Math.cos(o.heading), s = Math.sin(o.heading); let minA = Infinity;
@@ -177,15 +190,31 @@ export class DriverBrain {
     }
     return best;
   }
-  // a ped in the way (calm drivers): the gap to it, or null. On a crosswalk ahead the reach is wider (it yields)
+  // is a vehicle at rest clear of every lane (a car parked at a curb)? Worked out once each time it comes to rest there
+  _laneClear(o) {
+    const key = Math.round(o.x) * 7919 + Math.round(o.y) * 31 + Math.round(o.heading * 100);
+    if (o._laneKey === key) return o._laneClr;
+    const G = this.g, r = o.hl + 24; let clear = true;
+    for (let gy = Math.floor((o.y - r) / 64); gy <= Math.floor((o.y + r) / 64) && clear; gy++) for (let gx = Math.floor((o.x - r) / 64); gx <= Math.floor((o.x + r) / 64) && clear; gx++) {
+      for (const l of G.grid.get(gy * 4096 + gx) || []) {
+        if (Math.abs(l.a[2] - o.z) > 14 && Math.abs(l.b[2] - o.z) > 14) continue;
+        const dx = l.b[0] - l.a[0], dy = l.b[1] - l.a[1], L2 = dx * dx + dy * dy || 1, f = E.clamp(((o.x - l.a[0]) * dx + (o.y - l.a[1]) * dy) / L2, 0, 1), L = Math.sqrt(L2);
+        for (const k of [-o.hl, 0, o.hl]) { const g = E.clamp(f + k / L, 0, 1); if (boxDistance(o, l.a[0] + dx * g, l.a[1] + dy * g) < LANE_CLEAR) { clear = false; break; } }
+        if (!clear) break;
+      }
+    }
+    o._laneKey = key; o._laneClr = clear; return clear;
+  }
+  // a ped in the way: the gap to it, or null. A calm driver yields on a crosswalk ahead (a wider reach); a panicking or
+  // reckless one still brakes for a body right in its path
   _peds(w, S) {
-    if (!w.pedsNear || !S.length || !this.p.calm || this.panic > 0) return null;
-    const v = this.v, hl = v.hl, mid = S[S.length >> 1].p; let best = null;
+    if (!w.pedsNear || !S.length) return null;
+    const v = this.v, hl = v.hl, mid = S[S.length >> 1].p, kind = this.p.calm && !(this.panic > 0); let best = null;
     for (const p of w.pedsNear(mid[0], mid[1], S[S.length - 1].d / 2 + 30)) {
       if (p.dead || p.floored || p.seat || Math.abs((p.z || 0) - mid[2]) > 14) continue;
       for (const q of S) {
         if (q.d < hl - 2) continue;
-        const reach = v.hw + (this._onCross(q) ? 14 : 5);
+        const reach = v.hw + (!kind ? 3 : this._onCross(q) ? 14 : 5);
         if ((p.x - q.p[0]) ** 2 + (p.y - q.p[1]) ** 2 < reach * reach) { const gap = Math.max(0, q.d - hl - 6); if (best === null || gap < best) best = gap; break; }
       }
     }
@@ -193,7 +222,7 @@ export class DriverBrain {
   }
   _onCross(q) { const e = this.path[q.j]; if (!e || e.k !== 'lane') return false; const l = this.g.lanes[e.id], s = (e.s0 || 0) + q.s; for (const c of l.cross) if (s >= c[0] - 2 && s <= c[1] + 2) return true; return false; }
   // is that vehicle queueing for something (a light, a stop sign, the car ahead of it)? Then we queue behind it
-  _queued(o) { const b = o && o.brain; return !!b && b !== this && (b.cause !== null || b.speed > 3); }
+  _queued(o) { const b = o && o.brain; return !!b && b !== this && !b.parked && b.yieldTo !== this.v && (b.cause !== null || b.speed > 3); }   // (parked: a unit whose crew is out; or pulled over for our siren: passed like any stopped car)
   // the lane beyond a connector has no room for us: something slow within our length and a gap of its start
   _exitFull(w, c) {
     if (!w.fleet) return false; const L = this.g.lanes[c.to], need = this.v.hl * 2 + 16, fx = L.a[0] + L.dir[0] * need / 2, fy = L.a[1] + L.dir[1] * need / 2;
@@ -283,6 +312,38 @@ export class DriverBrain {
     return null;
   }
 
+  // room to pull over for a siren: an offset to the right of at least need (its half-width and ours, and room) whose strip,
+  // from beside us to a length and a bit ahead on this lane, is road (no curb), clear of vehicles, walls, street
+  // furniture and peds: the offset, or 0
+  _pullRoom(w, need) {
+    const v = this.v, map = w.fleet && w.fleet.map, C = this.g.city, here = this.path[this.i]; if (!map || !here || here.k !== 'lane') return 0;
+    const reach = v.hl + OVER_RAMP + 20; if (here.len - this.s < reach + v.hl) return 0;   // (room to get right over before the car ahead; never into a junction)
+    for (const off of [need + 2, need]) {
+      let ok = true;
+      for (let d = 8; d <= reach && ok; d += 8) {
+        const a = this.ahead(d); if (!a) { ok = false; break; }
+        const k = E.clamp(d / OVER_RAMP, 0, 1), px = a.p[0] - a.t[1] * off * k, py = a.p[1] + a.t[0] * off * k, h = Math.atan2(a.t[1], a.t[0]);
+        if (a.p[2] < 30 && C && C.surfaceAtPoint) for (const r of [-v.hw, 0, v.hw]) if (!DRIVE.has(C.surfaceAtPoint(px - a.t[1] * r, py + a.t[0] * r))) { ok = false; break; }
+        if (!ok || !this._clearSpot(w, px, py, a.p[2], h, map)) { ok = false; break; }
+        for (const u of w.fleet.around(px, py, v.hl + 40)) { if (u === v || !u.body || u.cls === 'heli' || Math.abs(u.z - a.p[2]) > 12) continue; if (boxDistance(u, px, py) < v.hw + 3) { ok = false; break; } }
+        if (ok && w.pedsNear) for (const p of w.pedsNear(px, py, v.hw + 8)) if (!p.dead && !p.seat && Math.hypot(p.x - px, p.y - py) < v.hw + 5) { ok = false; break; }
+      }
+      if (ok) return off;
+    }
+    return 0;
+  }
+  // nothing moving along our lane beside or behind us (back into it after a siren has gone by)
+  _laneFree(w) {
+    const v = this.v, a = this.ahead(0); if (!a || !w.fleet) return true;
+    const c = Math.cos(v.heading), s = Math.sin(v.heading);
+    for (const u of w.fleet.around(v.x, v.y, v.hl + 90)) {
+      if (u === v || !u.body || u.cls === 'heli' || u.speed < 3 || Math.abs(u.z - v.z) > 12) continue;
+      const al = (u.x - v.x) * c + (u.y - v.y) * s, lat = (u.x - a.p[0]) * -a.t[1] + (u.y - a.p[1]) * a.t[0];
+      if (al > -(v.hl + 80) && al < v.hl + 12 && Math.abs(lat) < u.hw + v.hw + 2) return false;
+    }
+    return true;
+  }
+
   // can the vehicle stand at (x, y, z) facing h: no wall cell, no water, no solid in its box (street furniture still
   // standing, railings, pillars; a deck's own treads are road), and the ground under every corner within a step of z
   // (not off a deck's edge)
@@ -338,9 +399,19 @@ export class DriverBrain {
     const stop = this._junction(dt, w, sp, S); if (stop !== null && stop < gap) { gap = stop; lv = 0; }
     const pg = this._peds(w, S); if (pg !== null && pg < gap) { gap = pg; lv = 0; this.cause = 'ped'; }
     if (goalGap !== null && goalGap + TUNE.idmMin < gap) { gap = goalGap + TUNE.idmMin; lv = 0; if (this.arrived) this.cause = 'arrived'; }
-    // a siren coming up behind in our lane: ease off and over
-    this.yieldTo = null;
-    if (w.sirens && !this.siren) for (const s of w.sirens) { if (s === v) continue; const dx = v.x - s.x, dy = v.y - s.y, d = Math.hypot(dx, dy); if (d < 140 && d > 10 && Math.abs(s.z - v.z) < 12 && (dx * Math.cos(s.heading) + dy * Math.sin(s.heading)) / d > .8 && Math.cos(s.heading - v.heading) > .5) { this.yieldTo = s; v0 = Math.min(v0, 40); } }
+    // a siren coming up behind in our lane: over to the right into a gap that clears its way, and wait there; with no gap
+    // (parked up on both sides), on ahead of it at our own speed. Back into the lane a moment after it has gone by, when
+    // nothing is coming along it. A siren that stands behind us anyway (it could not get by) is led on instead
+    this.yieldTo = null; if (this.noYieldT > 0 && (this.noYieldT -= dt) <= 0) this.noYield = null;
+    if (w.sirens && !this.siren) for (const s of w.sirens) { if (s === v || s === this.noYield) continue; const dx = v.x - s.x, dy = v.y - s.y, d = Math.hypot(dx, dy); if (d < 140 && d > 10 && Math.abs(s.z - v.z) < 12 && (dx * Math.cos(s.heading) + dy * Math.sin(s.heading)) / d > .8 && Math.cos(s.heading - v.heading) > .5) { this.yieldTo = s; break; } }
+    if (this.overTry > 0) this.overTry -= dt;
+    if (this.yieldTo && !v.kinematic && !(this.panic > 0)) {
+      this.overT = 1.5;
+      if (!this.over && !(this.overTry > 0)) { this.overTry = .5; this.over = this._pullRoom(w, this.yieldTo.hw + v.hw + 4); this.overS = 0; }
+    } else if (this.over && (this.overT -= dt) <= 0) { if (this._laneFree(w)) this.over = 0; else this.overT = .3; }
+    this.overWait = this.over && this.yieldTo && sp < 2 && this.yieldTo.speed < 2 ? this.overWait + dt : 0;
+    if (this.overWait > 3) { this.noYield = this.yieldTo; this.noYieldT = 12; this.yieldTo = null; this.over = 0; this.overWait = 0; }
+    if (this.over) { v0 = Math.min(v0, 22); this.cause = this.cause || 'yield'; }
     // IDM
     const T = TUNE.idmGap * this.p.gap, s0 = TUNE.idmMin, a = TUNE.idmAccel, b = TUNE.idmBrake;
     const sStar = s0 + Math.max(0, sp * T + sp * (sp - lv) / (2 * Math.sqrt(a * b)));
@@ -355,6 +426,7 @@ export class DriverBrain {
     // stuck behind something stopped that isn't queueing: a honk, then a pass round it
     const stuck = L && L.speed < 2 && L.gap < 30 && sp < 3 && (!this._queued(L.v) || (ob && ob.leader && ob.leader.v === v)) && !this.cause;
     this.blocked = stuck ? this.blocked + dt : Math.max(0, this.blocked - dt * 2);
+    if (stuck && this.siren) this.blocked = Math.max(this.blocked, TUNE.passAfter * this.p.patience);   // (a siren goes round at once)
     if (stuck) this.cause = null;
     this.honkT = Math.max(0, this.honkT - dt);
     if (this.blocked > TUNE.honkAfter * this.p.patience && this.honkT <= 0) this.honkT = 3.5;
@@ -372,20 +444,22 @@ export class DriverBrain {
     const on = this._point(this.here, Math.min(this.s, this.here.len));
     if (Math.hypot(on[0] - b.x, on[1] - b.y) > 44 || Math.abs(on[2] - b.z) > 20) { const n = this.g.nearestLane(b.x, b.y, b.heading, b.z, 200); if (n) this.reset(n.lane, n.s); else return I; }
     this._grow();
-    const acc = this._think(dt, w), sp = this.speed;
+    // (it thinks on every other step, by its id, and drives on that wish in between)
+    const think = (this._tick = (this._tick || 0) + 1) % 2 === this.id % 2 || this._acc === undefined;
+    const acc = think ? (this._acc = this._think(dt * 2, w)) : this._acc, sp = this.speed;
     // the controls from the acceleration wanted: throttle by the power left at this speed, the brake by the grip; held
     // at a stop on the handbrake (the pedal held at rest reverses)
     const top = b.h.top || 260, can = Math.max(30, (b.h.accel || 120) * (1 - sp / top));
     if (acc >= 0) I.throttle = E.clamp(acc / can, 0, 1); else I.brake = E.clamp(-acc / Math.max(120, b.h.brake || 300), 0, 1);
     if (sp < 4 && acc < 8) { I.throttle = 0; I.brake = 0; I.down.handbrake = true; }
-    I.down.horn = this.honkT > 3 || (!!this.yieldTo && false);
+    I.down.horn = this.honkT > 3;
     // pursuit steering: a point ahead on the path (shifted while passing, or right for a siren)
     const tg = this.ahead(Math.max(v.hl * 1.2, 10 + sp * .32)); if (!tg) return I;   // (never shorter than the vehicle: no lurch at a crawl)
     let side = 0;
     if (this.pass) side = this.pass.off * E.clamp(this.pass.d / 24, 0, 1) * E.clamp((this.pass.end - this.pass.d) / 24, 0, 1);
-    else if (this.yieldTo) side = 10;
+    else if (this.over) { this.overS += sp * dt; side = this.over * E.clamp(this.overS / OVER_RAMP, 0, 1); }
     // (and pulled back across by how far off the path it is now: pursuit alone cuts a corner's inside)
-    const now = this.ahead(0), cross = now ? (b.x - now.p[0]) * -now.t[1] + (b.y - now.p[1]) * now.t[0] : 0, back = E.clamp(cross - side, -8, 8) * .6;
+    const now = this.ahead(0), cross = now ? (b.x - now.p[0]) * -now.t[1] + (b.y - now.p[1]) * now.t[0] : 0, back = E.clamp(cross - side, -8, 8) * .6; this.lat = cross;
     const tx = tg.p[0] - tg.t[1] * (side - back), ty = tg.p[1] + tg.t[0] * (side - back);
     const dx = tx - b.x, dy = ty - b.y, c = Math.cos(b.heading), sn = Math.sin(b.heading), lx = dx * c + dy * sn, ly = -dx * sn + dy * c;
     const curv = 2 * ly / Math.max(1, lx * lx + ly * ly), wb = b.h.wheelbase || 36;
@@ -406,7 +480,7 @@ export class DriverBrain {
     // (time-sliced: a far car looks about it every third step, by its id, and keeps its last wish in between; it still
     // keeps its junction asks alive)
     const look = (this._tick = (this._tick || 0) + 1) % 3 === this.id % 3 || this._acc === undefined;
-    const acc = look ? (this._acc = this._think(dt, w)) : Math.min(this._acc, this._think0(dt));
+    const acc = look ? (this._acc = this._think(dt * 3, w)) : Math.min(this._acc, this._think0(dt));
     this.speed = E.clamp(this.speed + acc * dt, 0, 400);
     this._advance(this.speed * dt, 0, 0); this._grow();
     const a = this.ahead(0); if (!a) return;
@@ -416,9 +490,9 @@ export class DriverBrain {
   }
   /** snap onto the path where the vehicle is (before going kinematic): false when it is too far off it */
   snap() {
-    const v = this.v, here = this.here; if (!here || !v.body) return false;
+    const v = this.v, here = this.here; if (!here || !v.body || this.over) return false;   // (pulled over for a siren: physical until back in its lane)
     const pr = this._project(here, v.x, v.y), p = this._point(here, pr);
-    if (Math.hypot(p[0] - v.x, p[1] - v.y) > 30 || Math.abs(p[2] - v.z) > 12) return false;
+    if (Math.hypot(p[0] - v.x, p[1] - v.y) > SNAP_OFF || Math.abs(p[2] - v.z) > 12) return false;   // (well off its line, pulled over or pushed: physical until it is back on it, never put down on a car beside it)
     this.s = Math.max(this.s, pr); this.speed = Math.max(0, v.body.u); return true;
   }
 }

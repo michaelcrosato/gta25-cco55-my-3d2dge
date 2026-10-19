@@ -1,8 +1,9 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M4 is done (vehicles: 7 classes, 13 models, 19 definitions). At the owner's request the run is handed off here
-(DECISIONS D16): the next session starts M5 from `docs/HANDOFF.md`, which holds its `/goal`. Blockers: none. The run
-started inside the planning session (DECISIONS D5); the owner launched the `/goal` itself after M3's bulk had landed.
+Now: M5 is done (the roads, the traffic, the crowd and its reactions, the emergency services, the Marching Mimes, the
+AutoPlayer core); next is M6 (the wanted level, the police and the gangs). Blockers: none. The run started inside the
+planning session (DECISIONS D5); at M4's close it was handed off (D16), and this session carries it on from M5 on the
+branch `claude/compassionate-shannon-h7k7zk` (draft PR 2), from `docs/HANDOFF.md`'s `/goal`.
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
@@ -11,7 +12,7 @@ started inside the planning session (DECISIONS D5); the owner launched the `/goa
 | M2 Lowtown + ISO | done | the world layer, Lowtown, the street painter, the city renderer, the cut-away (`b781439`); the quarter turn, the speed zoom, the clock and sky, night ISO in budget (`fe4f6dc`); weather, the drawbridge, the stand-in crowd and the gate (`8f175be`); roofs, shopfronts, yards, the shot matrix and the acceptance (this commit) · ISO at the gate 9.3-10.0 ms · 86 unit + sim tests · `docs/media/lowtown-map-sheet.png`, `docs/media/shots/` |
 | M3 On foot + combat | done | saves, weapons, vitals, fire (`edec102`); the crew on foot, combat, the wheels, the switch, the range (`42c3054`); the accept tests, the view lab, the self-tests, perf (this commit) · ISO at the gate the same as M2's build, interleaved · 114 unit + sim tests, 3 e2e suites · `docs/media/m3/` |
 | M4 Vehicles | done | the models registry, the class bodies, the Fleet, boarding, damage, the renderer, the handling bench (`b442d89`); Lowtown's fleet, driving in play, the accept tests (`f198207`, `a7eb6ae`, `87c52c9`); FAN-OUT A1's 19 definitions, the painter's order, the fixes its reviews found (`f61bf2e` to `c9e3ef6`); the acceptance and the handoff (this commit) · 172 unit + sim tests, 3 e2e suites · ISO at the gate the same as M3's build, interleaved; TOP 9.1 ms · `docs/media/m4/` (the model sheet, 15 shots) |
-| M5 Roads, traffic, peds | | |
+| M5 Roads, traffic, peds | done | the roads and the traffic (`6e94f04`); the sidewalks, the crowd, its reactions and witnesses, the emergency services, the Marching Mimes, the AutoPlayer core, the soaks and the evidence (this commit) · 184 unit + sim tests, 3 e2e suites, the 10-minute city soak in test:full · ISO at the gate 12-23% faster than M4's build, TOP-DOWN and MODE 7 the same, interleaved · `docs/media/m5/` (13 filmstrips, 5 shots) |
 | M6 Wanted, police, gangs | | |
 | M7 TOP + SIDE7 + bank | | |
 | M8 Missions + economy | | |
@@ -354,3 +355,101 @@ started inside the planning session (DECISIONS D5); the owner launched the `/goa
 - **M4 · the gate:** `npm test` passes every step: lint, boundary, vendor, goal-sync, dist current, 172 unit and
   sim tests, the e2e smoke, replay and self-tests (the garage's: every definition's model and handling), and the engine
   checker.
+- **M5 · section 8.7, the roads** (`tests/unit/roadgraph.test.mjs`, 5 tests; D17): every lane can be driven to and
+  on from but the marked dead ends; turns are arcs a turning circle fits; crossing and merging connectors conflict;
+  A* finds what Dijkstra finds on 1,000 random pairs, and a route across the city takes under 2 ms; NS and EW are never
+  open together, each phase lasts its time, junctions are offset. Verdict: pass.
+- **M5 · sections 8.9 and 8.10, the 10-minute soaks** (`tests/full/city-soak.mjs` in `npm run test:full`; 90 s of it in
+  `tests/sim/city-life.test.mjs`): Lowtown in play, the focus hopping its 30-odd sights every 20 s (each hop fills the
+  disc afresh), watched every step.
+
+  | | Day, clear (600 s) | Night, rain (300 s) | Bound |
+  |---|---|---|---|
+  | Cars seen (at most at once) | 1,119 (39) | 333 (19) | |
+  | Cars inside each other | 0 | 0 | 0 |
+  | Longest stall without a cause | 1.6 s | 0.4 s | under 20 s |
+  | Red runs by calm drivers | 0 | 0 | 0 |
+  | Mean speed (stops and queues in) | 40.8 u/s | 44.7 u/s | 20-90 |
+  | Cars or peds put down in sight | 0 | 0 | 0 (the fills aside) |
+  | Peds seen (at most at once) | 3,560 (193) | 630 (58) | |
+  | Longest a ped stood stuck | 12.5 s | 0.25 s | 15 s |
+  | Longest wait at a crossing | 28 s | 13.5 s | a cycle, 30 s |
+
+  The first runs found what the probes had missed, each fixed at its cause (D18): cars put down on top of one another
+  in the same step; cars put down in a junction's mouth, already past their stop line on a red; the long file of a
+  troupe reaching inside its ring; a car far off its lane put back on it onto the car beside it; a dozen peds held 54 s
+  at the long crossing over an avenue, on their own walk light. Verdict: pass.
+- **M5 · the reactions** (`tests/sim/city-life.test.mjs`, 7 tests):
+  - a shot among ten peds 30-110 u off: the ones that flee (at least eight; the rest may stand back and phone it in)
+    are all farther off 2 s later, on average by more than 60 u;
+  - an assault seen is phoned in: a `report`, the police sent and on the scene; killing or scaring the witnesses
+    first cancels the call (the killing itself is another crime, and may be reported);
+  - a body brings the Medic, a paramedic kneels at it and the unit leaves; a fire brings the Pumper, and its cannon
+    puts cells out;
+  - the Marching Mimes: six in single file 18 u apart, on their leader's trail; hurt one and all six fight the one
+    who did it; flatten all six with a vehicle and ENCORE! comes once;
+  - the same seed gives the same city (traffic, crowd and services) after 20 s, in ISO, TOP-DOWN and MODE 7.
+
+  The page and the harness run the same city step for step (compared frame by frame for 12 s at the Greasy Spoke).
+  Verdict: pass.
+- **M5 · the AutoPlayer core** (8.20; `?auto=<poi>`): from the Greasy Spoke it runs the 355 u to the safehouse on the
+  sidewalks (3.3 s); from the safehouse it takes the nearest car (in it at 6 s), drives the GPS route to the precinct,
+  1,255 u off, through the traffic and its lights, gets out at the lane point nearest it and walks the rest: there at
+  91 s. Verdict: pass.
+- **M5 · the filmstrips** (`docs/media/m5/strip-*.png`, `node tools/reaction-strips.mjs`: seeded, virtual time; a step
+  that waits for a unit is timed headless first, on the same simulation), with verdicts:
+  - `idles`: six peds lined up before the Greasy Spoke, each in another idle (phone, chat, dance, smoke, text, hailing
+    a cab). Pass.
+  - `bench`: a ped seated on a bench, facing the street. Pass.
+  - `flee`: six peds round Dex; on the shot they turn and run, each away from him, out of frame within a second. Pass.
+  - `cower`: three peds aimed at raise their hands and hold. Pass (the crouch under the clip is slight).
+  - `fight`: a tough ped hit by Dex squares up and trades punches, sparks on the hits. Pass.
+  - `knockdown`: two peds hit hard fly back, land and lie. Pass.
+  - `witness`: of four peds who saw an assault, one stops, faces it and lifts a phone to its ear. Pass.
+  - `police`: the cruiser at the curb, its light bar going; an officer walks up from it and looks round the scene, a
+    second searches beyond the lamp. Pass.
+  - `medic`: the body at the corner by the lamp, a paramedic kneeling at it and another standing by, Dex beside them
+    (the passers-by round it cleared for the shot: the corner is busy at noon). Pass.
+  - `pumper`: petrol alight in the street, spread by its burning runners; the Pumper parks in it with its lights
+    going, and its roof cannon throws a white jet across the flames, which die back where it lands (Dex given the
+    health to stand in it for the shot). Pass (the jet had never drawn: D18).
+  - `mimes`: six white-faced mimes in black caps walk in file along the sidewalk past Dex. Pass (13 u apart they read
+    as a clump; 18 now: D18).
+  - `mimesAttack`: Dex hits one; the troupe closes on him at once, a brawl of sparks and blood. Pass.
+  - `rain`: dusk in the rain: a few of the crowd sheltering under the café's awning beside Dex, the street empty.
+    Pass.
+- **M5 · the shots** (`docs/media/m5/`, `node tools/shots.mjs`, 1920×1080), with verdicts:
+  - `crowd-iso`: noon at the Greasy Spoke in Palm Terraces: about thirty people on the corners and the crossings, a
+    knot waiting at the far crossing, cars parked and passing, Dex by the café. Pass (the first take, with the crowd
+    spread over the traffic's disc, showed two people: D18).
+  - `crowd-top`: the same corner in TOP-DOWN: people on both crossings and along the sidewalks, seen from above. Pass.
+  - `crowd-side7`: the same corner in MODE 7: the sidewalk and the crossing busy up to the park. Pass.
+  - `traffic-plaza`: the Neon Mile plaza at noon: people round its edges, traffic and parked cars round it, the MPD
+    Eye on its patrol over Dex. Pass (its searchlight beam showed at noon: now drawn only after dark).
+  - `night-rain-neon`: the First Lowtown Bank at night in the rain: the street lamps' pools, a few people out in the
+    wet, one crossing. Pass.
+- **M5 · performance** (`tools/perf.mjs`, interleaved with M4's build, `main`, on the same machine). The session's
+  machine was replaced during M5 by a slower one: M4's own build now draws the ISO gate in 25.8-30.9 ms (10.4-10.9 ms
+  at M4), so only the comparison reads across machines.
+
+  | Scenario (night, rain; the gate's 40 peds and 20 cars in view) | M4 draw | M5 draw | M4 update | M5 update |
+  |---|---|---|---|---|
+  | ISO, the tour at 300 u/s (`lowtown-gate`, 4 rounds) | 25.8-30.9 ms | 20.4-26.2 ms | 2.0-2.6 ms | 4.2-6.1 ms |
+  | TOP-DOWN, the tour (2 rounds) | 20.0-20.3 ms | 20.5 ms | 1.9 ms | 3.6-3.7 ms |
+  | MODE 7, the tour (2 rounds) | 31.7-34.8 ms | 30.2-33.3 ms | 2.1-2.3 ms | 5.0-6.0 ms |
+  | ISO, standing at the bank (`lowtown-walk`, no stand-ins, 2 rounds) | 14.1-15.2 ms | 16.9-17.1 ms | 1.2-1.4 ms | 4.5-4.7 ms |
+
+  - **The draw:** ISO 12-23% faster than M4's build in every round (p90 30-32 ms against 45-51), TOP-DOWN the same,
+    MODE 7 the same within noise. The crowd's own ring puts real peds where the gate's stand-ins stood, and a body
+    off the screen no longer queues a shadow. Standing at the bank, with no stand-ins, the real crowd and traffic cost
+    about 2 ms. Scaled to the gate's machine: ISO about 9 ms (gate 10.4) and TOP-DOWN about 9 ms (gate 12.7), inside;
+    MODE 7 about M4's 14 ms, over its 12.7 as at M3 and M4: M7's lever (D10).
+  - **The update** is per frame: at the 22-28 fps this machine reaches, a frame takes 4-5 steps of 1/120 s, so the
+    city costs about 1 ms a step here (budget 1.5 ms, D10), less than half that on the gate's machine.
+  - **Found on the way** (D18): every body within 600 u queued its contact shadow before the on-screen test, and the
+    depth views (TOP-DOWN, MODE 7) drew every crowd body in reach, on the screen or not: TOP-DOWN had been 30-45%
+    slower than M4's build before both were culled. MODE 7's far, small bodies are redrawn half as often.
+- **M5 · the gate:** `npm test` passes every step: lint, boundary, vendor (28 files with the mocap cut set, 6
+  patches), goal-sync, dist current, 184 unit and sim tests, the e2e smoke, replay and self-tests, and the engine
+  checker. `npm run test:full` adds the city soak (`tests/full/city-soak.mjs`: 10 minutes by day, 5 at night in the
+  rain), and passes. Decisions in D17 and D18.

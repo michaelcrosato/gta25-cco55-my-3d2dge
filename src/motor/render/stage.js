@@ -22,6 +22,7 @@ knob('Graphics', 'crowdEvery', 'Crowd animation rate', 4, 1, 8, 1, 'A crowd body
 knob('Graphics', 'lightRes', 'Light field coarseness', 2, 1, 4, 1, 'ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work');
 
 const CROWD = { outline: false, rim: false }, XRAY = { xray: true };
+const SMALL = .7;   // a crowd body drawn smaller than this (its view's scale): redrawn half as often
 // an ISO quarter turn: its length, the longest it waits for walls to bake, the bake budget a frame while it turns and
 // while it waits at the new yaw, its yaw steps (degrees)
 const TURN = { time: .3, most: .45, bakeMs: 9, holdMs: 14, step: 3 };
@@ -264,14 +265,15 @@ export class Stage {
   actor(x, y, z, draw, o = {}) {
     const d = this.depth, r = this.r;
     if (!d) {
-      if (o.shadow) r.shadow(x, y, o.shadow);
+      if (!this.onScreen(x, y, z, z + 40, 24)) return;   // (off the screen: not even its shadow, a draw call a body)
+      if (o.shadow) r.shadow(x, y, o.shadow, .5 * (o.alpha ?? 1));
       if (o.crowd && o.key && TUNE.crowdEvery > 1) {   // (the engine's own every works on its composite path only, dearer than this)
-        if (!this.onScreen(x, y, z, z + 40, 24)) return;
-        r.queue(x, y, z, g => { const [a, b] = r.w(x, y, z); this._keptDraw(g, r.view, r.view.yawDeg, o.key, Math.round(a), Math.round(b), r.view.scale, draw, o.pose); }, { solid: true, actor: true });
+        r.queue(x, y, z, g => { const [a, b] = r.w(x, y, z); if (o.alpha < 1) g.globalAlpha = o.alpha; this._keptDraw(g, r.view, r.view.yawDeg, o.key, Math.round(a), Math.round(b), r.view.scale, draw, o.pose); g.globalAlpha = 1; }, { solid: true, actor: true });   // (o.alpha: a new arrival fading in)
         return;
       }
-      r.actor(x, y, z, (g, ox, oy) => draw(g, ox, oy, r.view, r.view.scale), o.crowd ? CROWD : o.xray ? XRAY : undefined); return;
+      r.actor(x, y, z, (g, ox, oy) => { if (o.pose) o.pose(1 / 60); draw(g, ox, oy, r.view, r.view.scale); }, o.crowd ? CROWD : o.xray ? XRAY : undefined); return;
     }
+    if (!this.onScreen(x, y, z, z + 40, 24)) return;   // (off the screen: not drawn, its image not redrawn)
     this.items.push({ k: d.depth(x, y), actor: true, fn: g => {
       const p = d.proj(x, y, z); if (!p) return;
       if (o.shadow) { const s = d.proj(x, y, 0); if (s) { g.fillStyle = 'rgba(5,3,12,.45)'; g.beginPath(); g.ellipse(s[0], s[1], o.shadow * s[2] * 1.1, Math.max(1, o.shadow * s[2] * (d === this.top ? 1.1 : .45)), 0, 0, Math.PI * 2); g.fill(); } }
@@ -285,7 +287,8 @@ export class Stage {
   // where it stands in between (each actor's frames are staggered by its key's own phase, so the work spreads evenly)
   _keptDraw(g, view, heading, key, sx, sy, k, draw, pose) {
     let K = this._kept.get(key);
-    if (!K || this.frameNo - K.n >= TUNE.crowdEvery || Math.abs(K.k - k) > K.k * .12 || K.view.id !== view.id || K.heading !== heading) {
+    const every = k < SMALL ? TUNE.crowdEvery * 2 : TUNE.crowdEvery;   // (small on screen, far off or seen from high up: its frames half as often)
+    if (!K || this.frameNo - K.n >= every || Math.abs(K.k - k) > K.k * .12 || K.view.id !== view.id || K.heading !== heading) {
       if (pose) { const now = this.game.real; pose(K && K.t !== undefined ? Math.min(.5, now - K.t) : 1 / 60); if (K) K.t = now; }
       const w = Math.ceil(30 * k) + 12, h = Math.ceil(52 * k) + 12, foot = Math.ceil(8 * k) + 6;
       if (!K) { K = { cv: E.mkCanvas(w, h) }; this._kept.set(key, K); }

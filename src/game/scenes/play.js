@@ -6,12 +6,12 @@
 // weapon wheel. Pickups lie where the district puts them; Molotovs, grenades and rockets light the Fire grid. The world
 // clock runs from night (?time=day | dusk | night | dawn | <hour>) and the weather changes with it (?weather=clear |
 // overcast | rain | storm | fog holds one); Dock Road's drawbridge lifts every 3 game hours (?bridge=up starts it up).
-// ?crowd=1 adds stand-ins for M5's traffic and peds (40 walkers round the focus, and cars to make 20 with the real ones
-// near it; presentation only: the perf gate measures their drawing before they exist); ?tour=1 drives the camera round the district's tour at car
-// speed and ?perf=1 records each frame's times (tools/perf.mjs).
+// ?crowd=1 tops the real crowd and cars round the focus up to the perf gate's 40 walkers and 20 cars with stand-ins
+// (presentation only); ?traffic=0 empties the streets and sidewalks; ?tour=1 drives the camera round the district's tour
+// at car speed and ?perf=1 records each frame's times (tools/perf.mjs).
 import { E, def, get, all, expose, BUS, TUNE, knob, FloorChunks, buildCity, CityRenderer, WorldClock, Weather, Drawbridge, skyAt, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
-  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, boxDistance, stationLabel, modelOf, SpeedZoom, drawPrompt, CityLife } from '../../motor/index.js';
+  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, boxDistance, stationLabel, modelOf, SpeedZoom, drawPrompt, CityLife, AutoPlayer, roadsOf } from '../../motor/index.js';
 import { VIGNETTE_PROPS } from '../characters/vignette-props.js';
 
 let cached = null;   // one Lowtown per seed: built once (about 80 ms), kept across scene changes
@@ -29,6 +29,7 @@ function standIns() {
 }
 function lowtown(seed) { if (!cached || cached.seed !== seed) { const city = buildCity('lowtown', seed); cached = { seed, city, render: new CityRenderer(city) }; } return cached; }
 knob('Camera', 'camLead', 'Driving look-ahead', .32, 0, 1, .02, 'Seconds of a vehicle\'s travel the ISO camera looks ahead of it');
+const NOAIM = { candidates: [], level: 'off' };
 const REFUSED = { wanted: 'NOT WHILE WANTED', mission: 'NOT DURING THIS JOB', down: 'THEY\'RE IN NO STATE', busy: '', same: '', unknown: '' };
 
 def('scenes', 'play', {
@@ -36,7 +37,7 @@ def('scenes', 'play', {
     const { game, views, human, footprint, links, stage, bindings: B } = app;
     let city, map, cityR, floor, clock, weather, bridges = [], hoodName = '', tour = null, rec = null, crowd = null;
     let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, wasted = 0, prevView = null, mouse0 = null;
-    let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null, life = null;
+    let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null, life = null, unsub = [], auto = null;
     const lead = [0, 0];
     const idle = makeIntent(), TOUR_SPEED = 300;   // (the tour: a sports car's top speed, PLAN.md 7.6)
     const hero = () => crew.ped, chOf = id => get('characters', id);
@@ -102,21 +103,25 @@ def('scenes', 'play', {
         crowd = links.query.get('crowd') === '1' ? standIns() : null;
         spawnCrew(data && data.route && data.route[1]);
         if (tour) hero().place(city.tour[0][0], city.tour[0][1]);
+        // ?auto=<poi>: the AutoPlayer takes the possessed protagonist there (walking, or driving a long way)
+        const goal = links.query.get('auto') && city.poi(links.query.get('auto'));
+        auto = goal ? new AutoPlayer({ city, roads: roadsOf(city), fleet, junctions: life ? life.junctions : null }).goto(goal.x, goal.y) : null;
         footprint.update(hero().x, hero().y);   // (the rings round the focus before the first step: traffic spawns round it)
         fx = new CombatFX(game); weaponWheel = new WeaponWheel(B); switchWheel = new Wheel({ title: 'CREW' });
         holdS = 0; toast = null; wasted = 0; prevView = null; stage.top.hold = null; zoom = new SpeedZoom(); vfx = new VehicleFX(game); lastRadio = null; board = null;
+        for (const u of unsub) u(); unsub = [BUS.on('encore', () => { toast = { text: 'ENCORE!', t: 3 }; }, 'scene')];   // (the Marching Mimes, flattened)
         game.cam.bounds = v => map.bounds(v);
         if (!game.headless) floor.warm(hero().x, hero().y, 420);
         expose('snapshot', () => { const p = hero(), v = p.seat && p.seat.vehicle; return { scene: 'play', view: views.active, hero: [p.x, p.y, p.z].map(v => Math.round(v)), hood: hoodName, time: clock.label(), weather: weather.state,
           crew: crew.active, health: Math.round(p.health), armor: Math.round(p.armor), weapon: p.inv.current, switching: crew.switching, fund: crew.fund,
-          vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake, traffic: life ? life.traffic.count : 0 }; });
+          vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake, traffic: life && life.traffic ? life.traffic.count : 0, peds: life && life.crowd ? life.crowd.count : 0 }; });
         expose('teleport', (x, y) => hero().place(x, y));
-        expose('life', life); expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat); expose('fleet', fleet); expose('fleetCount', fleetCount);
+        expose('life', life); expose('auto', auto); expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat); expose('fleet', fleet); expose('fleetCount', fleetCount);
         expose('perf', () => ({ ...rec, floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length, depth: stage.depth ? { ...stage.depth.stats } : null }));
         game.stateHash = () => [...crew.order.flatMap(id => { const p = crew.member(id).ped; return [Math.round(p.x * 8), Math.round(p.y * 8), Math.round(p.z * 8), Math.round(p.health * 10)]; }),
           crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash(), fleet.hash(), ...(life ? life.hash() : [])];
       },
-      exit() { game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (life) { life.dispose(); life = null; } },
+      exit() { game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (life) { life.dispose(); life = null; } if (auto) { auto.dispose(); auto = null; } for (const u of unsub) u(); unsub = []; },
       update(dt) {
         const real = dt / Math.max(.05, game.timeScale);
         const h0 = clock.hour; clock.update(dt); const hours = ((clock.hour - h0) + 24) % 24;
@@ -138,7 +143,7 @@ def('scenes', 'play', {
         // the player's intent (nothing while a wheel is open, the switch camera flies or the vignette plays): the vehicle
         // controls while seated, on foot otherwise
         const seated = p.seat && p.seat.vehicle;
-        let I = human.update(seated ? 'vehicle' : 'onFoot', p);
+        let I = auto ? auto.update(dt, p, { t: life ? life.t : 0, pedsNear: life ? (x, y, r) => life.pedsNear(x, y, r) : null, wet: weather.wet }) : human.update(seated ? 'vehicle' : 'onFoot', p);
         if (busy) I = clearIntent(I);
         if (!busy && !p.dead && I.tap.interact && !p.boarding) {   // △ / E: get in (the nearest door), or get out
           if (seated) p.leave(exitFor(p, seated, (x, y) => city.walkable(Math.floor(x / city.T), Math.floor(y / city.T)) && !fleet.near(x, y, 2).some(o => o !== seated && boxDistance(o, x, y) < 4)));
@@ -154,10 +159,11 @@ def('scenes', 'play', {
           p.mover.vx = dx / (d || 1) * TOUR_SPEED; p.mover.vy = dy / (d || 1) * TOUR_SPEED; p.mover.facing = Math.atan2(dy, dx); I = clearIntent(I);
         }
         const night = clock.hour >= 19 || clock.hour < 6.5;
-        if (life) life.update(dt, { night, wet: weather.wet, player: p.seat && p.seat.vehicle && p.seat.vehicle.driver === p ? p.seat.vehicle : null });
+        { const pv = p.seat && p.seat.vehicle; footprint.update(pv ? pv.x : p.x, pv ? pv.y : p.y); }   // (the focus where it is now: a teleport, a switch or the hospital may have moved it)
+        if (life) life.update(dt, { night, wet: weather.wet, player: p.seat && p.seat.vehicle && p.seat.vehicle.driver === p ? p.seat.vehicle : null, ped: p, others: crew.order.map(id => crew.member(id).ped) });
         fleet.update(dt, { intent: v => (v.driver === p ? I : (life && life.intentFor(v)) || clearIntent(idle)), peds: combat.bodies, night, wet: weather.wet });
-        const W = { map, city, combat, fleet, aim: aimCtx() };
-        for (const id of crew.order) { const q = crew.member(id).ped; q.update(dt, q === p ? I : clearIntent(idle), W); }
+        const W = { map, city, combat, fleet, aim: aimCtx() }, W0 = { map, city, combat, fleet, aim: NOAIM };
+        for (const id of crew.order) { const q = crew.member(id).ped; q.lazyRig = q !== p; q.update(dt, q === p ? I : clearIntent(idle), q === p ? W : W0); }   // (the others stand about: posed when drawn, aiming at nothing)
         combat.update(dt, { wet: weather.wet, takers: [p], take });
         // what the possessed one drives: its name on getting in, the station when it changes; the driving zoom
         const v = p.seat && p.seat.vehicle;
@@ -184,9 +190,10 @@ def('scenes', 'play', {
         stage.setSky(skyAt(clock.hour, weather));
         stage.begin(r, { focus: [fx0, fy0], vel: hold ? [0, 0] : pv ? [pv.body.vx, pv.body.vy] : [p.mover.vx, p.mover.vy], speed01: pv ? Math.min(1, pv.speed / 300) : 0, player: [p.x, p.y, p.z] });
         cityR.queue(stage, fx0, fy0, hold ? Math.min(1400, 520 * hold.H / 320) : stage.depth === stage.side7 ? 700 : 520, stage.world.lamps, [p.x, p.y, p.z]);
-        if (crowd) {   // (presentation only: offsets round the focus, walking in place along their own line)
-          const t = game.real;
-          for (const c of crowd.peds) {
+        if (life) life.draw(stage, fx0, fy0, hold ? 1400 : stage.depth === stage.side7 ? 760 : 600);
+        if (crowd) {   // (presentation only: offsets round the focus, walking in place along their own line, topping the real crowd up to the gate's 40)
+          const t = game.real, realPeds = life ? life.pedsNear(p.x, p.y, 200).filter(q => q.crowd && Math.abs(q.x - p.x) < 200 && Math.abs(q.y - p.y) < 170).length : 0;
+          for (const c of crowd.peds.slice(realPeds)) {
             const x = p.x + c.ox + Math.sin(t * .4 + c.ph) * 40, y = p.y + c.oy, vx = Math.cos(t * .4 + c.ph) * 16;
             stage.actor(x, y, 0, (g, sx, sy, v) => c.rig.draw(g, sx, sy, v), { shadow: 4, crowd: true, key: c.rig, pose: dt => c.rig.update(dt, { x, y, z: 0, vx, vy: 0, vz: 0, facing: vx >= 0 ? 0 : Math.PI, air: false }) });
           }

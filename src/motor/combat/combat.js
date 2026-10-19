@@ -170,7 +170,7 @@ export class Combat {
       this.fire.update(dt, w.wet || 0);
       if (this.fire.count && this.fire.count !== before && !this._told) { BUS.emit('fire', { x: 0, y: 0, r: 0, by: null }); this._told = true; }
       if (!this.fire.count) this._told = false;
-      for (const b of bodies) { const h = this.fire.heatAt(b.x, b.y); if (h > .5 && b.z < 8 && b.ignite) b.ignite(2.5); }
+      if (this.fire.count) for (const b of bodies) { const h = this.fire.heatAt(b.x, b.y); if (h > .5 && b.z < 8 && b.ignite) b.ignite(2.5); }
     }
     if (w.takers) this.pickups.update(dt, w.takers, w.take || null); else this.pickups.update(dt);
     for (const f of this.fx) f.t += dt; this.fx = this.fx.filter(f => f.t < .5);

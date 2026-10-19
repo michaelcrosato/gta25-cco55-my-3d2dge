@@ -24,7 +24,7 @@ import { E } from '../engine.js';
 const T = 16;
 /** lane layouts: offsets from the centre line to the right of travel (units; a negative one keeps left of the middle)
  *  and speed (u/s) */
-export const LANES = { street: { offs: [20], speed: 150 }, oneway: { offs: [-7], speed: 150 }, avenue: { offs: [22], speed: 210 }, alley: { offs: [8], speed: 80 },
+export const LANES = { street: { offs: [20], speed: 150 }, oneway: { offs: [-10], speed: 150 }, avenue: { offs: [22], speed: 210 }, alley: { offs: [8], speed: 80 },
   deck: { offs: [16], speed: 230 }, ramp: { offs: [16], speed: 160 }, stub: { offs: [14], speed: 200 } };   // (a deck's lanes keep in from its railings: the inside of a bend clears the inner one)
 export const TURN_SPEED = 70;
 /** a turn's radius (units): every road vehicle's turning circle fits it (the Cortez turns in about 59 at rest, the long

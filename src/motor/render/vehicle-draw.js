@@ -99,7 +99,7 @@ function beam(g, A, B, k) {
 function drawHeliExtras(stage, v, o) {
   const b = v.body, g0 = o.ground ? o.ground(b.x, b.y) : 0;
   stage.floor((g, P) => { const q = P.proj(b.x, b.y, g0); if (!q) return; const k = q[2], rx = Math.max(4, v.hl * .8 * k), ry = Math.max(2, v.hw * .9 * k); g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(q[0], q[1], rx, ry, 0, 0, Math.PI * 2); g.fill(); });
-  if (b.spot && !v.wrecked) {
+  if (b.spot && !v.wrecked && o.night) {   // (its searchlight: after dark only; by day the beam doesn't show)
     const [sx, sy] = b.spot; stage.light(sx, sy, 0, 64, 1.5);
     stage.glowLine([b.x, b.y, b.z - 2], [sx, sy, 0], (g, A, B, k) => { const op = g.globalCompositeOperation; g.globalCompositeOperation = 'lighter'; const gr = g.createLinearGradient(A[0], A[1], B[0], B[1]); gr.addColorStop(0, 'rgba(230,240,255,.22)'); gr.addColorStop(1, 'rgba(230,240,255,.05)'); g.fillStyle = gr; const dx = B[0] - A[0], dy = B[1] - A[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, w = Math.max(6, 22 * k); g.beginPath(); g.moveTo(A[0] + nx * 2, A[1] + ny * 2); g.lineTo(B[0] + nx * w, B[1] + ny * w); g.lineTo(B[0] - nx * w, B[1] - ny * w); g.lineTo(A[0] - nx * 2, A[1] - ny * 2); g.closePath(); g.fill(); g.globalCompositeOperation = op; });
   }
@@ -133,9 +133,10 @@ export class VehicleFX {
     // burning wrecks and fires: flickering light
     for (const v of F.vehicles) if (v.damage.burning && near(v.x, v.y)) stage.light(v.x, v.y, v.z + 10, 80 + Math.sin(now * 23 + v.x) * 8, 1.1);
     // the hydrants' spray: a fountain of drops while it lasts
-    for (const p of F.broken) if (p.broken && p.broken.spray > 0 && near(p.x, p.y) && P && Math.random() < .7) P.add({ x: p.x + (Math.random() - .5) * 3, y: p.y + (Math.random() - .5) * 3, z: 6, vx: (Math.random() - .5) * 30, vy: (Math.random() - .5) * 30, vz: 140 + Math.random() * 60, life: .9, max: .9, g: 380, kind: 'dust', color: '#d8ecff', size: 1.4 });
-    // the water cannon: a white jet arcing out
-    for (const j of F.jets) if (near(j.x, j.y) && P && j.t === 0) for (let i = 0; i < 3; i++) P.add({ x: j.x, y: j.y, z: j.z, vx: j.dx * (300 + i * 40), vy: j.dy * (300 + i * 40), vz: 40, life: .5, max: .5, g: 200, kind: 'dust', color: '#e8f6ff', size: 1.8 });
+    for (const p of F.broken) if (p.broken && p.broken.spray > 0 && near(p.x, p.y) && P && Math.random() < .7) P.add({ x: p.x + (Math.random() - .5) * 3, y: p.y + (Math.random() - .5) * 3, z: 6, vx: (Math.random() - .5) * 30, vy: (Math.random() - .5) * 30, vz: 140 + Math.random() * 60, max: .9, g: 380, kind: 'dust', color: '#d8ecff', size: 1.4 });
+    // the water cannon: a white jet arcing out, fanning a little as it goes
+    for (const j of F.jets) if (!this._done.has(j) && this._done.add(j) && near(j.x, j.y) && P) for (let i = 0; i < 7; i++) {   // (each jet once, when first drawn: the Fleet has aged it by then)
+      const a = Math.atan2(j.dy, j.dx) + (Math.random() - .5) * .12, s = 260 + Math.random() * 130; P.add({ x: j.x, y: j.y, z: j.z, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: 50 + Math.random() * 30, max: .55, g: 240, kind: 'dust', color: i % 3 ? '#e8f6ff' : '#bfe2ff', size: 2.4 }); }
     // the wake: a fading V of foam behind each boat under way
     for (const v of F.vehicles) {
       if (v.cls !== 'boat' || !v.body) continue;

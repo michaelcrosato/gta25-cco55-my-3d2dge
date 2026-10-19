@@ -10,7 +10,7 @@ import { TUNE, knob } from '../core/tune.js';
 knob('Combat', 'fireSpread', 'Fire spread', .9, 0, 5, .05, 'Chance a second that a hot cell lights a neighbour that burns well');
 knob('Combat', 'fireDps', 'Fire damage', 14, 0, 100, 1, 'Damage a second to a body in a fully burning cell');
 knob('Combat', 'rainDamp', 'Rain damping', 2.5, 0, 10, .1, 'How much faster fire dies in a downpour');
-knob('Combat', 'fireHop', 'Fire vigour per hop', .8, 0, 1, .02, 'The vigour a cell lit by a neighbour keeps (1: it spreads without end)');
+knob('Combat', 'fireHop', 'Fire vigour per hop', .62, 0, 1, .02, 'The vigour a cell lit by a neighbour keeps (1: it spreads without end)');
 /** how well each surface burns (0 never .. 1 well) and the seconds of its own fuel once lit */
 export const FLAMMABLE = { grass: [1, 7], park: [1, 7], dirt: [.25, 2], sand: [.05, 1], pier: [.9, 10], lot: [.3, 3], yard: [.3, 3], walk: [.12, 1.5], plaza: [.12, 1.5],
   road: [.08, 1.2], alley: [.2, 2], bridge: [.08, 1.2], quay: [.1, 1.5], rail: [.15, 2], curb: [.1, 1], water: [0, 0], deep: [0, 0] };

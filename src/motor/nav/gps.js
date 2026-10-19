@@ -3,7 +3,8 @@
 // kind of move) and then the next lane at its speed; the heuristic is the straight distance left at the network's top
 // speed, which never overestimates, so A* finds what Dijkstra finds (the unit suite checks 1,000 pairs).
 //   const gps = new GPS(graph);  gps.route(fromLane, toLane, { s, avoid }) -> { lanes, conns, cost } | null
-//   gps.routeTo(x, y, heading, tx, ty) (nearest lanes at both ends); gps.dijkstra(fromLane, toLane) (the reference)
+//   gps.routeTo(x, y, heading, tx, ty) (nearest lanes at both ends); gps.dijkstra(fromLane, toLane) (the reference);
+//   gps.costsTo(lane) (every lane's cost to it: where to start a drive from)
 import { TURN_SPEED } from './roadgraph.js';
 
 /** seconds a move costs on top of its time: turning, crossing back, changing lane */
@@ -37,6 +38,18 @@ export class GPS {
     if (S[to] !== st) return null;
     const lanes = [], conns = []; for (let i = to; i >= 0; i = P[i]) { lanes.push(i); if (V[i] >= 0) conns.push(V[i]); }
     return { lanes: lanes.reverse(), conns: conns.reverse(), cost: D[to] };
+  }
+  /** the cost from the start of every lane to lane `to` (a Dijkstra backwards over the connectors): a Float64Array,
+   *  Infinity where the goal can't be reached. One search answers "which of these places drives there quickest" */
+  costsTo(to) {
+    const G = this.g, L = G.lanes, D = new Float64Array(this.n).fill(Infinity);
+    if (!this._in) { this._in = L.map(() => []); for (const c of G.conns) this._in[c.to].push(c); }
+    const heap = new Heap(), done = new Uint8Array(this.n); D[to] = 0; heap.push(to, 0);
+    while (heap.size) {
+      const j = heap.pop(); if (done[j]) continue; done[j] = 1;
+      for (const c of this._in[j]) { const i = c.from, nd = D[j] + this.stepCost(c); if (nd < D[i] - 1e-12) { D[i] = nd; heap.push(i, nd); } }
+    }
+    return D;
   }
   /** a route between two world points (each snapped to its nearest lane; heading prefers lanes running that way) */
   routeTo(x, y, heading, tx, ty, o = {}) {

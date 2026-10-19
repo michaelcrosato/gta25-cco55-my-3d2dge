@@ -195,6 +195,8 @@ export class VehicleBody {
       }
     }
     if (map.solidsNear) for (const s of map.solidsNear(this.x, this.y, this.hl + 8)) {
+      const ex = Math.abs(s.c) * s.hx + Math.abs(s.s) * s.hy, ey = Math.abs(s.s) * s.hx + Math.abs(s.c) * s.hy;
+      if (s.x + ex < x0 || s.x - ex > x1 || s.y + ey < y0 || s.y - ey > y1) continue;   // (its box clear of ours: no test)
       // (on top of it, or wholly above it). A deck's tread is driven onto within a step, more by how far along the body it
       // lies: a long van on a ramp has its nose (climbing) or its tail (coming down) over treads a slope higher than its
       // wheels at its middle

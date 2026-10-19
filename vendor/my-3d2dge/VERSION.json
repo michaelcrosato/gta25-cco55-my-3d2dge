@@ -112,6 +112,10 @@
     "UPSTREAM-README.md": {
       "from": "README.md",
       "sha256": "b90ccc091d2fd14c5a4042ba3182ec047fbcf544b02890ceabc6b20cccab2681"
+    },
+    "mocap/sets/gtm.js": {
+      "from": "mocap/sets/quaternius.js + mocap/sets/mesh2motion.js (GTM's cut: tools/mocap-cut.mjs)",
+      "sha256": "43d22905f9d67c330567ab44633906284b287aa2659d79720e57623dd2f5e382"
     }
   }
 }

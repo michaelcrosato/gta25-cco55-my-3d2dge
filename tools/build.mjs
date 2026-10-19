@@ -1,5 +1,5 @@
 // Build GRAND THEFT MOTO into one self-contained page: dist/index.html = the template + the vendored engine (a classic
-// script that defines My3D2dge) + the game bundle (src/main.js and every content module under src/game, bundled by
+// script that defines My3D2dge, then its mocap player and GTM's cut of the clips) + the game bundle (src/main.js and every content module under src/game, bundled by
 // esbuild into one IIFE). A rebuild of an unchanged tree is byte-identical: no dates, no hashes, sorted inputs.
 //   node tools/build.mjs            write dist/index.html
 //   node tools/build.mjs --check    fail if dist/index.html is not what the sources build (CI, the test gate)
@@ -13,6 +13,8 @@ import vm from 'node:vm';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const ENGINE = join(ROOT, 'vendor/my-3d2dge/engine/my-3d2dge.js');
+/** the engine's mocap player and GTM's cut of its clips, each a classic script loaded after the engine (in this order) */
+export const MOCAP = ['mocap/readable.js', 'mocap/mocap.js', 'mocap/sets/gtm.js'].map(f => join(ROOT, 'vendor/my-3d2dge', f));
 const outArg = process.argv.indexOf('--out'), OUT = outArg > 0 ? resolve(process.argv[outArg + 1]) : join(ROOT, 'dist/index.html');
 
 /** every .js file under src/game, sorted by path: content registers itself when imported */
@@ -62,7 +64,7 @@ export async function page() {
     '{{VERSION}}': version, '{{BUILD}}': 'dev-build',
     '{{SOURCE_INFO}}': block(about.SOURCE_INFO), '{{ENGINE_SUMMARY}}': block(about.ENGINE_SUMMARY),
     '<!-- @boot -->': bootSplash(about.GAME.title),
-    '<!-- @engine -->': '<script>\n' + esc(readFileSync(ENGINE, 'utf8')) + '\n</script>',
+    '<!-- @engine -->': [ENGINE, ...MOCAP].map(f => '<script>\n' + esc(readFileSync(f, 'utf8')) + '\n</script>').join('\n'),
     '<!-- @bundle -->': '<script>\n' + esc(await bundle()) + '\n</script>',
   };
   let html = template;

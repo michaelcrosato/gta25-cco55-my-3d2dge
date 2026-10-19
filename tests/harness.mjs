@@ -3,17 +3,21 @@
 // pattern as the engine's handoff test (vendor/my-3d2dge/reference/handoff-test.mjs). Draw never runs headless.
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { bundle, ENGINE } from '../tools/build.mjs';
+import { bundle, ENGINE, MOCAP } from '../tools/build.mjs';
 
 let code = null;
 /** a fresh game: { E, game, gtm, input, snap() }. hash and query stand in for the page's #hash and ?query */
 export async function loadGame({ hash = '', query = {}, quiet = true, pads = null } = {}) {
   code ||= await bundle();
   const con = quiet ? { log() {}, info() {}, warn() {}, error: (...a) => console.error(...a) } : console;
-  const ctx = { console: con, __GTM_OPTIONS__: { hash, query } };
+  // an ordinary global object (DONT_CONTEXTIFY): a contextified sandbox answers every global lookup through an
+  // interceptor, and Math.floor in the game's hot loops then costs a hundred times what it costs in a browser
+  const ctx = vm.createContext(vm.constants.DONT_CONTEXTIFY);
+  ctx.console = con; ctx.__GTM_OPTIONS__ = { hash, query };
   if (pads) ctx.navigator = { getGamepads: () => pads };   // fake gamepads: tests change the array in place
-  vm.createContext(ctx);
   vm.runInContext(readFileSync(ENGINE, 'utf8'), ctx, { filename: 'my-3d2dge.js' });
+  // (the mocap scripts as the page loads them; a clip set writes window.MOCAP, which here is the context's global)
+  for (const f of MOCAP) { const src = readFileSync(f, 'utf8'); vm.runInContext(f.includes('/sets/') ? '(function (window) {\n' + src + '\n})(globalThis);' : src, ctx, { filename: f.split('/').pop() }); }
   vm.runInContext(code, ctx, { filename: 'game.js' });
   const E = ctx.My3D2dge, game = E.current;
   return { ctx, E, game, gtm: ctx.__gtm, input: game.input, snap: () => game.debug.snapshot() };

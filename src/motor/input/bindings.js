@@ -43,7 +43,20 @@ export class Bindings {
     this._down = new Set(); this._prev = new Set(); this._pressAt = {}; this._pending = []; this._taps = new Set(); this._chorded = new Set(); this.t = 0;
     this._combos = new Set(); this._released = new Set(); this._modded = new Set();   // this step's modifier taps and release taps; modifiers spent this hold
   }
-  _overlay(saved) { for (const [c, acts] of Object.entries(saved || {})) if (this.map[c]) for (const [a, codes] of Object.entries(acts)) if (Array.isArray(codes)) this.map[c][a] = codes.slice(); }
+  _overlay(saved) { for (const [c, acts] of Object.entries(saved || {})) if (this.map[c]) for (const [a, codes] of Object.entries(acts)) if (Array.isArray(codes)) this.map[c][a] = codes.slice(); this._ver = (this._ver || 0) + 1; }
+  // what update reads of the map, worked out again only when the map changes (rebind, reset, a saved overlay): every
+  // code a binding uses, its held-modifier combos [a, b, code] and chords [a, b, code], and the chords' halves
+  _derive() {
+    const D = this._dv; if (D && D.ver === this._ver && D.map === this.map) return D;
+    const codes = new Set(), combos = [], chords = [], half = new Set();
+    for (const c of Object.values(this.map)) for (const list of Object.values(c)) for (const code of list) {
+      for (const p of code.replace(/\^$/, '').split(/[+>]/)) codes.add(p);
+      if (code.includes('>')) { const [a, b] = code.split('>'); combos.push([a, b, code]); }
+      if (code.includes('+')) { const [a, b] = code.split('+'); chords.push([a, b, code]); half.add(a); half.add(b); }
+    }
+    const kinds = [...codes].map(c => [c, /^(Pad|LS|RS)/.test(c) ? 1 : 0]);   // (0: a key or mouse button, read as held or pressed)
+    return (this._dv = { ver: this._ver, map: this.map, codes: [...codes], kinds, combos, chords, half });
+  }
   /** the pad in use, raw ({ buttons, axes }) or null */
   pad() { const R = this.input.raw; return (R && (R.pads.find(p => p.index === R.active) || R.pads[0])) || null; }
   /** a stick [x, y] after the radial dead zone: 'LS' or 'RS' */
@@ -65,20 +78,19 @@ export class Bindings {
   }
   /** is a code held (a trigger past a third, a stick past halfway)? */
   codeDown(c) { const v = this.codeValue(c); return /^(LS|RS)/.test(c) ? v > STICK : c === 'Pad6' || c === 'Pad7' ? v > TRIGGER : v > 0; }
+  // a key or mouse button: held now, or pressed since the step before (codeValue's last line, without its parsing)
+  _keyDown(c) { const I = this.input, R = I.raw; return I.held.has(c) || (!!R && (R.keys.has(c) || (!!R.pressed && R.pressed.has(c)))); }
   /** which context's actions are live: 'onFoot' | 'vehicle' | 'menu' | 'wheel' | 'phone' | 'photo' (held buttons carry over) */
   setContext(c) { if (!this.map[c]) throw new Error('MOTOR: unknown input context ' + c); this.context = c; }
   /** read the devices: call once per step, before any controller reads an action */
   update(dt) {
     this.t += dt; const prev = this._prev; this._prev = this._down; this._down = prev; this._down.clear(); this._taps.clear();
-    const codes = new Set(); for (const c of Object.values(this.map)) for (const list of Object.values(c)) for (const code of list) for (const p of code.replace(/\^$/, '').split(/[+>]/)) codes.add(p);
-    for (const c of codes) if (this.codeDown(c)) this._down.add(c);
+    const D = this._derive();
+    for (const [c, kind] of D.kinds) if (kind === 0 ? this._keyDown(c) : this.codeDown(c)) this._down.add(c);
     for (const c of this._down) if (!this._prev.has(c)) this._pressAt[c] = this.t;
     // held modifiers: 'A>B' taps when B goes down while A is held (A is then spent: its release tap won't fire)
     this._combos.clear(); this._released.clear();
-    for (const ctx of Object.values(this.map)) for (const list of Object.values(ctx)) for (const code of list) if (code.includes('>')) {
-      const [a, b] = code.split('>');
-      if (this._down.has(a) && this._down.has(b) && !this._prev.has(b)) { this._combos.add(code); this._modded.add(a); }
-    }
+    for (const [a, b, code] of D.combos) if (this._down.has(a) && this._down.has(b) && !this._prev.has(b)) { this._combos.add(code); this._modded.add(a); }
     // release taps: let go within the release window, unless the button was spent as a modifier or a chord half
     for (const c of this._prev) if (!this._down.has(c)) {
       if (!this._modded.has(c) && !this._chorded.has(c) && this.t - (this._pressAt[c] ?? -9) <= this.releaseWindow + 1e-9) this._released.add(c);
@@ -86,8 +98,7 @@ export class Bindings {
     }
     // chords: both halves pressed within the window; a chord's halves don't also fire their own taps
     const fresh = c => this._down.has(c) && !this._prev.has(c);
-    for (const ctx of Object.values(this.map)) for (const list of Object.values(ctx)) for (const code of list) if (code.includes('+')) {
-      const [a, b] = code.split('+');
+    for (const [a, b, code] of D.chords) {
       if ((fresh(a) || fresh(b)) && this._down.has(a) && this._down.has(b) && Math.abs((this._pressAt[a] ?? -9) - (this._pressAt[b] ?? -9)) <= this.chordWindow) {
         this._taps.add(code); this._pending = this._pending.filter(p => p.code !== a && p.code !== b);
         this._chorded.add(a); this._chorded.add(b);   // the halves are spent until they are let go
@@ -95,8 +106,7 @@ export class Bindings {
     }
     for (const c of this._chorded) if (!this._down.has(c)) this._chorded.delete(c);
     // a chord half's own tap waits out the chord window, then fires if the chord didn't
-    const half = new Set(); for (const ctx of Object.values(this.map)) for (const list of Object.values(ctx)) for (const code of list) if (code.includes('+')) code.split('+').forEach(h => half.add(h));
-    for (const c of this._down) if (!this._prev.has(c) && !this._chorded.has(c)) { if (half.has(c)) this._pending.push({ code: c, at: this.t }); else this._taps.add(c); }
+    for (const c of this._down) if (!this._prev.has(c) && !this._chorded.has(c)) { if (D.half.has(c)) this._pending.push({ code: c, at: this.t }); else this._taps.add(c); }
     this._pending = this._pending.filter(p => { if (this.t - p.at >= this.chordWindow) { this._taps.add(p.code); return false; } return true; });
   }
   /** the codes bound to an action in the live context (or the one named) */
@@ -122,10 +132,10 @@ export class Bindings {
     const c = this.map[ctx]; if (!c || !c[action]) return { ok: false, reason: 'unknown' };
     for (const [a, list] of Object.entries(c)) if (a !== action && list.includes(code)) return { ok: false, reason: 'conflict', with: a };
     const list = c[action].slice(); if (slot === null || slot >= list.length) list.push(code); else list[slot] = code;
-    c[action] = list; return { ok: true };
+    c[action] = list; this._ver = (this._ver || 0) + 1; return { ok: true };
   }
   /** back to the defaults (one context, or all) */
-  reset(ctx = null) { const d = JSON.parse(JSON.stringify(DEFAULT_BINDINGS)); if (ctx) this.map[ctx] = d[ctx]; else this.map = d; }
+  reset(ctx = null) { const d = JSON.parse(JSON.stringify(DEFAULT_BINDINGS)); if (ctx) this.map[ctx] = d[ctx]; else this.map = d; this._ver = (this._ver || 0) + 1; }
   /** the player's changes, saved apart from the engine's bindings */
   save() { E.store.set(KEY, this.map); }
   static load(input) { return new Bindings(input, E.store.get(KEY, null)); }

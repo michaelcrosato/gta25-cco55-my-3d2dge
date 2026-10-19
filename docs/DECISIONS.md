@@ -292,3 +292,84 @@ and where it landed.
 - **Measured:** 30 cars for 10 minutes on Lowtown's lanes (`tools/traffic-probe.mjs`, physical and kinematic, seeds 7, 31,
   97): no cars inside each other, no unexplained stall longer than 1.7 s, mean speed about 50 u/s, no crash damage.
 - **Answered:** no. **Landed in:** M5.
+
+## D18 · 2026-10-19 · M5's city: gliding crowds, fills on arrival, units that get there, sirens that leave room
+- **Principle:** PLAN.md 7.11 (LOD and time-slicing to stay inside D10's budgets), 8.10's Accept, and fix a look or a
+  stall at its cause; reuse the engine where it serves (`E.sees`, `E.hears`, the mocap libraries, the engine's own
+  `tools/anim-set.mjs`).
+- **Calls:**
+  - **The sidewalks are a graph of lines** (`nav/sidewalks.js`): each walk band's middle line, cut at corners and at the
+    crosswalks (crossing edges tied to their junction's signal), with a clearance mask for every 16 u piece (where on it
+    a body fits past lamps, hydrants, benches and palms). A piece no body fits through drops its edge.
+  - **A calm ped glides** (`ai/pedbrain.js`): it moves along its line with no physics, on half the steps near the focus
+    and a quarter far; one that reacts (flees, fights, is hurt, floored or burning, stands off its line) runs on its
+    feet, on its physics. Its rig is posed only when it is drawn. Peds keep to their lines' free offsets and step round
+    the player.
+  - **The crowd keeps a disc of its own** (`crowdIn` 420, `crowdOut` 540), smaller than the traffic's 620-760: peds are
+    slow and only the near ones are seen. Spread over the traffic's disc, 140 peds put two to five on screen, and the
+    street at noon read empty; in their own disc at `crowdDensity` 2 peds per 100 u of sidewalk line (the same total,
+    about 140 by day; `crowdNight` and `crowdRain` .55 each, at most 200; by neighbourhood: Neon Mile 1.25, Palm Park
+    1, Brick .8, the harbour .7) there are 24-40 within 250 u. A new arrival fades in over .8 s, so one put down at a
+    corner of a zoomed-out view never pops. Foot cops patrol near the precinct; the gangs' hangouts come with M6's
+    gangs.
+  - **The disc fills when the focus arrives somewhere** (the scene starts, a teleport, a switch, the hospital: a jump
+    of more than half the annulus's inner radius). Nothing round it has been seen, so the crowd fills it (beyond 60 u)
+    and the traffic too (beyond 100 u); otherwise both come in only through the annulus. The play scene moves the
+    footprint to the focus before the city steps, so a jump never spawns round the old place. Traffic is put down short
+    of a stop line by 40 u, at a speed it can stop from, and never on a car put down the same step.
+  - **Witnesses** (`E.sees` in a 3.6 rad cone to 260 u, `E.hears` for shots and blasts): at most three phone in a
+    crime, each by its phone trait; a violent crime's witness stands back beyond 120 u (nearer, everyone runs, the
+    brave aside). The call goes through after 2-4 s unless the witness is hurt, scared or killed first; a `report`
+    sends the police.
+  - **Crossing on the signal:** on its walk light a ped steps off unless a car is on the crossing or a third of a second
+    from rolling onto it (the cars yield: the plan's "crosses at crosswalks on the signal"); at an unlit crossing it
+    waits for a gap. Measuring the approach from a crossing's middle had kept a dozen peds 54 s at the long crossing
+    over an avenue. A ped at a crossing's curb is never asked to stop and chat.
+  - **Emergency units** (`ai/emergency.js`) come from the annulus, picked by one reverse Dijkstra from the scene
+    (`GPS.costsTo`: a one-way street can make the nearest spawn the farthest), sirens on, by the GPS. A unit parks where
+    it stops while its crew is out (kinematic, passed like any stopped car); a crew held up near the scene for 3 s (by
+    another unit parked there, on a street with no way round) gets out and walks the rest, round vehicles by the
+    corners of their boxes. The Medic comes 6 s after a body; its paramedics kneel 4-6 s, and a non-story ped is
+    revived 6 times in 10. The Pumper comes 3 s after a fire and turns its cannon on what burns within its reach (150 u)
+    near the scene. The police search a report's scene for about 9 s.
+  - **Sirens:** a car with a siren coming up behind pulls over into a gap on its right wide enough to clear the siren's
+    way (the two half-widths and room), and waits there; with none (a street parked up on both sides) it drives on at
+    its own speed, and one that has stood 3 s with the siren stopped behind it leads it on instead. The draft's "ease
+    right and slow" pushed parked cars along at 3 u/s with the Medic crawling behind.
+  - **The one-way lane 10 u left of the middle** (D17's 7): the Medic and the Pumper pass a car parked at the curb.
+  - **The far LOD takes a car only near its line** (12 u): one pulled over or pushed further off stays physical until it
+    is back; putting it on its line had landed one on the car stopped beside it.
+  - **The Marching Mimes:** six in single file 18 u apart (13 read as a clump in ISO), spawned only with the whole file
+    in the annulus; hurt one and all six come for the attacker at once (a fellow's stray punch in the brawl doesn't
+    count); flatten all six with a vehicle and the BUS hears `encore` (the toast: ENCORE!).
+  - **Fire spreads a patch, not the park** (`fireHop` .8 to .62, as `sim/fire.js` says it should): a 4-second Molotov on
+    Palm Park's grass grew to about 700 cells at .8, to about 40 now. The Pumper's cannon douses from 12 u off its
+    nozzle (it began at 30 u, past a fire at the truck's feet).
+  - **Two M4 effects never showed:** the water cannon's jet and a burst hydrant's spray gave their particles `life`
+    equal to `max` (`life` is a particle's age), so each died on its first step. Fixed; the jet fans out wider. And
+    one showed when it shouldn't: the MPD Eye's searchlight beam at noon; it is drawn after dark only.
+  - **Mocap:** the clips GTM plays (the crowd's idles, the paramedics' kneel, the cower) are cut from the vendored
+    Quaternius and Mesh2Motion sets by the engine's own `tools/anim-set.mjs` into `vendor/my-3d2dge/mocap/sets/gtm.js`
+    (8 clips, 38 KB), its hash in `VERSION.json` (`tools/mocap-cut.mjs`): PLAN.md 6.2's "our cut clip set".
+  - **The AutoPlayer core** (`ai/autoplayer.js`) writes the same Intent a pad does: it walks the sidewalk graph, takes
+    the nearest car it can reach for a trip beyond 420 u (carjacking its driver, as a player would), and drives the GPS
+    route with a quicker DriverBrain that still stops for lights. `?auto=<poi>` sends the possessed protagonist there.
+  - **The headless harness runs the game in an ordinary global object** (`vm.constants.DONT_CONTEXTIFY`): a
+    contextified sandbox answers every global lookup through an interceptor, and `Math.floor` in the crowd's loops cost
+    a hundred times what it costs in a browser. The page and the harness then run the same city step for step
+    (compared frame by frame for 12 s).
+  - **Costs found on the way:** aim assist tests sight last and gives up after four candidates (with a crowd in the
+    cone it had cost 13 ms a step); Bindings caches its derived maps; map solids share one shape (V8 keeps the
+    collision loop monomorphic); the Fleet's ped and train passes test bounding boxes first.
+  - **Drawing the crowd** (PROGRESS.md has the measurements): an actor off the screen is skipped in every view (in ISO
+    its contact shadow had still been queued; TOP-DOWN and MODE 7 had drawn every crowd body in reach), and in MODE 7
+    a body drawn smaller than .7 has its kept image redrawn half as often (ISO's bodies draw at 1.41, TOP-DOWN's at
+    1.1: neither is touched). Against M4's build on one machine, interleaved, M5 draws the ISO gate 12-23% faster,
+    TOP-DOWN and MODE 7 the same; scaled to the gate's machine ISO and TOP-DOWN are inside their gates, and MODE 7
+    stays about M4's 14 ms, over its 12.7: M7's lever (D10). The update costs about 1 ms a step on a machine twice as
+    slow as the gate's (budget 1.5).
+  - **The soak's terms** (`tests/city-soak.mjs`): a red run is a calm driver onto a signalled connector red for half a
+    second (one committed on amber may reach its connector just after the change); a wait at a crossing up to one
+    signal cycle (30 s) is a wait, not stuck; the traffic's mean-speed band is 20-90 u/s (stops, queues and crossings
+    included; about 40 by day, 45 at night).
+- **Answered:** no. **Landed in:** M5.

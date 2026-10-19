@@ -9,8 +9,9 @@ import { engineGlobal } from '../harness.mjs';
 engineGlobal();
 const M = await import('../../src/motor/index.js');
 for (const f of ['styles', 'landmarks', 'district']) await import('../../src/game/districts/lowtown/' + f + '.js');
-const { RoadGraph, GPS, Junctions, signalAt, cycleLength, TUNE, TURN_R, LANES } = M;
+const { RoadGraph, GPS, Junctions, signalAt, cycleLength, TUNE, LANES } = M;
 const city = M.buildCity('lowtown'), G = new RoadGraph(city), gps = new GPS(G);
+const TURNING_CIRCLE = 60;   // every road vehicle turns inside this at full lock (DECISIONS D17): a turn's arc no tighter (D18: the one-way lanes 10 u left of the middle)
 const rand = (() => { let s = 12345; return () => ((s = Math.imul(s ^ (s >>> 15), 2246822519) + 7 >>> 0) / 4294967296); })();
 
 test('the lane graph: every lane can be driven to and on from, but the marked dead ends; only the edges\' stubs dropped', () => {
@@ -32,7 +33,7 @@ test('connectors leave and join their lanes where they say; turns are arcs a tur
     const a = G.lanes[c.from], b = G.lanes[c.to], pa = G.pointOn(a, c.fromS), pb = G.pointOn(b, c.toS);
     assert.ok(Math.hypot(c.p0[0] - pa[0], c.p0[1] - pa[1]) < .6 && Math.hypot(c.p2[0] - pb[0], c.p2[1] - pb[1]) < .6, `connector ${c.id} meets its lanes`);
     assert.ok(c.fromS > 0 && c.fromS <= a.len + .01 && c.toS >= 0 && c.toS < b.len, `connector ${c.id} leaves and joins within its lanes`);
-    if (c.kind === 'left' || c.kind === 'right') assert.ok(c.radius >= TURN_R * .85, `turn ${c.id} in ${c.region} is an arc of ${c.radius}`);
+    if (c.kind === 'left' || c.kind === 'right') assert.ok(c.radius >= TURNING_CIRCLE - 1e-6, `turn ${c.id} in ${c.region} is an arc of ${c.radius}`);
     if (c.kind === 'right') assert.equal(a.index, LANES[a.kind].offs.length - 1, 'a right turn leaves from the outer lane');
     if (c.kind === 'left') assert.equal(a.index, 0, 'a left turn leaves from the inner lane');
   }
