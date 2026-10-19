@@ -108,8 +108,9 @@ its last bullet), with every task it had started either finished or saved.
 - **Merge each result as it lands**, from the workflow's `journal.jsonl`, not all at the end. A2's results needed
   more MOTOR work than the content took to write.
 - **Workers never write** `dist/index.html`, `PROGRESS.md` or `DECISIONS.md`, and never commit or push.
-- **Parallelism:** a workflow runs at most CPUs - 2 agents at once (2 on this machine). A mission group takes a
-  worker one to two hours.
+- **Parallelism:** a workflow runs at most CPUs - 2 agents at once (2 on this machine). A finished group took its
+  worker two to three hours: the Rats and the Gnomes about 2, the heist's finale about 3. Most of that time went on
+  bot runs.
 - **The session's scratchpad is shared** by every worker. Give each worker its own subfolder, or their probes
   overwrite each other.
 - **Worktrees live in `.claude/worktrees/`**, which `.gitignore` and `eslint.config.js` both ignore. Never
