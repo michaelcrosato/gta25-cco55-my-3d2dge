@@ -39,6 +39,8 @@ export class Vehicle {
     this.locked = o.locked ?? d.locked; this.hasSiren = d.siren || SIREN_ROLES.has(d.role) && this.model.lights.siren.length > 0;
     this.siren = false; this.sirenT = 0; this.horn = false; this.radio = o.radio || d.radio;
     this.nitroT = 0; this.sinking = 0; this.sunk = false; this.ai = null; this.ctlNow = { throttle: 0, brake: 0, steer: 0, handbrake: true };
+    /** brain: the AI driving it (a DriverBrain: traffic, services, police); kinematic: moved along its lane by that brain
+     *  (far from the focus), its physics skipped */ this.brain = null; this.kinematic = false;
     /** lights this step: head (on at night or when told), brake, reverse */ this.lights = { head: false, brake: false, reverse: false };
     this.towing = null; this.towedBy = null; this.burnFx = 0; this.blownAt = null; this.chainT = -1; this.chainBy = null;
     /** asleep: at rest and untouched, so the Fleet skips its step (actors/fleet.js) */ this.asleep = false; this._still = 0;
@@ -108,7 +110,8 @@ export class Vehicle {
       this.sinking += dt; b.u *= Math.exp(-3 * dt); b.v *= Math.exp(-3 * dt); b.w *= Math.exp(-3 * dt); ctl = { throttle: 0, brake: 0, steer: 0, handbrake: false };
       if (this.sinking >= TUNE.sinkTime && !this.sunk) this.sunk = true;
     }
-    b.step(dt, ctl, w);
+    if (this.kinematic && live) { b.felt.hit = 0; b.felt.land = 0; }   // (a far traffic car: its brain moves it along its lane; no physics, PLAN.md 7.11)
+    else b.step(dt, ctl, w);
     // the crash: what the impulse cost, at the corner that took it
     if (b.felt.hit > 0 && !wreck) {
       const hurt = Damage.crash(b.felt.hit, b.h.mass); if (hurt > 0) { const [lx, ly] = this.toLocal(b.felt.hitX, b.felt.hitY); D.hit(hurt, lx, ly, this.hl, this.hw); this.lastCrash = hurt; }

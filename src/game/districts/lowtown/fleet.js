@@ -20,4 +20,6 @@ def('fleets', 'lowtown', {
   water: [{ def: 'bilgerat', at: [143.5, 115.4], heading: 'E' }],   // (in the slip, alongside the south pier, bow out to sea)
   rail: [{ deck: 'L', def: 'thel', trains: 2, gauge: 10 }],
   air: [{ def: 'eye', alt: 150, patrol: [[93, 70], [128, 30], [32, 30], [32, 118], [128, 118]] }],
+  // the traffic round the focus (PLAN.md 8.9): Neon Mile's streets busiest, the harbour's quietest
+  traffic: { hoods: { neon: 1.15, palm: 1, brick: .85, harbor: .75 }, roles: ['civilian'], classes: ['car', 'truck', 'bike'] },
 });

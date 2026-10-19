@@ -81,6 +81,7 @@ export class Fleet {
   spawn(defId, x, y, heading = 0, o = {}) { return this.add(new Vehicle(defId, { x, y, heading, ...o })); }
   remove(v) {
     const i = this.vehicles.indexOf(v); if (i >= 0) this.vehicles.splice(i, 1);
+    v.asleep = false;   // (out of the sleepers' grid at once)
     if (this.combat) { const j = this.combat.boxes.indexOf(v); if (j >= 0) this.combat.boxes.splice(j, 1); }
     for (const t of this.tows.filter(t => t.a === v.body || t.b === v.body)) this._untow(t);
     for (const p of v.seats) if (p) v.unseat(p);
@@ -88,19 +89,20 @@ export class Fleet {
   byId(id) { return this.vehicles.find(v => v.id === id) || null; }
   /** wake a sleeping vehicle (anything that touches it does) */
   wake(v) { v.asleep = false; v._still = 0; }
-  // the grid: every vehicle by the 128-unit cells its box reaches (rebuilt each step: a few hundred vehicles at most)
+  // the grid: every vehicle by the 128-unit cells its box reaches. The sleepers (a parked city: most of the fleet) are
+  // kept in a grid of their own, rebuilt only when who sleeps changes; the rest are put in afresh each step
   _regrid() {
+    let key = 0, n = 0; for (const v of this.vehicles) if (v.asleep && v.body) { key = (key * 31 + v.id) >>> 0; n++; }
+    if (key !== this._sleepKey || n !== this._sleepN) { this._sleepKey = key; this._sleepN = n; this.gridStatic = new Map(); for (const v of this.vehicles) if (v.asleep && v.body) gridPut(this.gridStatic, v); }
     const G = this.grid; G.clear();
-    for (const v of this.vehicles) {
-      if (!v.body) continue; const r = v.hl + 4, x0 = Math.floor((v.x - r) / GRID), x1 = Math.floor((v.x + r) / GRID), y0 = Math.floor((v.y - r) / GRID), y1 = Math.floor((v.y + r) / GRID);
-      for (let gy = y0; gy <= y1; gy++) for (let gx = x0; gx <= x1; gx++) { const k = gy * 4096 + gx; let a = G.get(k); if (!a) G.set(k, a = []); a.push(v); }
-    }
+    for (const v of this.vehicles) if (v.body && !v.asleep) gridPut(G, v);
   }
   /** the vehicles whose cells reach within r of (x, y) (each once, in fleet order) */
   around(x, y, r) {
-    const out = [], G = this.grid, st = ++this._stamp;
+    const out = [], st = ++this._stamp, S = this.gridStatic;
     for (let gy = Math.floor((y - r) / GRID); gy <= Math.floor((y + r) / GRID); gy++) for (let gx = Math.floor((x - r) / GRID); gx <= Math.floor((x + r) / GRID); gx++) {
-      const a = G.get(gy * 4096 + gx); if (a) for (const v of a) if (v._st !== st) { v._st = st; out.push(v); }
+      const k = gy * 4096 + gx, a = this.grid.get(k); if (a) for (const v of a) if (v._st !== st) { v._st = st; out.push(v); }
+      const b = S && S.get(k); if (b) for (const v of b) if (v._st !== st && v.asleep) { v._st = st; out.push(v); }
     }
     return out.length > 1 ? out.sort((p, q) => p._i - q._i) : out;
   }
@@ -162,7 +164,12 @@ export class Fleet {
         if (b === a || !b.body || b.cls === 'heli' || (!b.asleep && b._i < a._i)) continue;
         if ((a.cls === 'boat') !== (b.cls === 'boat')) continue;
         if (a.towing && a.towing.car === b || b.towing && b.towing.car === a) continue;
-        if (collideCars(a.body, b.body) > 0 && b.asleep) this.wake(b);
+        if (a.kinematic && b.kinematic) continue;   // (far traffic on its lanes: the brains keep it apart)
+        const imp = collideCars(a.body, b.body);
+        if (imp > 0) {   // (who hit whom, and how hard: a velocity change, u/s; traffic's drivers react to the player's)
+          if (b.asleep) this.wake(b);
+          a.bumpedBy = b; b.bumpedBy = a; a.bumpT = b.bumpT = this.t; a.bumpDv = imp / a.body.h.mass; b.bumpDv = imp / b.body.h.mass;
+        }
       }
     }
     this._riders(dt);
@@ -349,6 +356,10 @@ export class Fleet {
 }
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
 /** how far a point is from a vehicle's (or rail car's) box (0 inside) */
+function gridPut(G, v) {
+  const r = v.hl + 4, x0 = Math.floor((v.x - r) / GRID), x1 = Math.floor((v.x + r) / GRID), y0 = Math.floor((v.y - r) / GRID), y1 = Math.floor((v.y + r) / GRID);
+  for (let gy = y0; gy <= y1; gy++) for (let gx = x0; gx <= x1; gx++) { const k = gy * 4096 + gx; let a = G.get(k); if (!a) G.set(k, a = []); a.push(v); }
+}
 export function boxDistance(v, x, y) {
   const c = Math.cos(v.heading), s = Math.sin(v.heading), dx = x - v.x, dy = y - v.y, lx = dx * c + dy * s, ly = -dx * s + dy * c;
   const ox = Math.max(0, Math.abs(lx) - v.hl), oy = Math.max(0, Math.abs(ly) - v.hw); return Math.hypot(ox, oy);

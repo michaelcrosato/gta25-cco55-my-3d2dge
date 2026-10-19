@@ -23,6 +23,9 @@ function stream(seed, name) {
   return { next, int: (a, b) => a + Math.floor((b - a + 1) * next()), range: (a, b) => a + (b - a) * next(), pick: l => l[Math.floor(next() * l.length)], chance: p => next() < p };
 }
 
+/** a one-way street's direction along its axis: +1 the way its cells count up (south on a north-south road, east on an
+ *  east-west one), -1 the other way; 0 two-way. r.oneway: 'N' | 'S' | 'E' | 'W' */
+export function onewaySign(r) { const o = r.oneway; if (!o) return 0; return r.axis === 'y' ? (o === 'S' ? 1 : o === 'N' ? -1 : 0) : (o === 'E' ? 1 : o === 'W' ? -1 : 0); }
 /** build spec (a districts registry entry: { id, size: [w, h], seed, hoods, hoodMap, water, roads, decks, lots, styles,
  *  props, pois, zones }) into a CityMap */
 /** the prop kinds a vehicle knocks over instead of stopping at */
@@ -46,7 +49,7 @@ export function buildDistrict(spec, o = {}) {
     const k = ROAD_KINDS[r.kind] || ROAD_KINDS.street, half = (k.width - 1) / 2, ns = r.axis === 'y';
     const band = ns ? [r.at - half, r.from, r.at + half, r.to] : [r.from, r.at - half, r.to, r.at + half];
     const walks = k.walk ? (ns ? [[band[0] - k.walk, band[1], band[0] - 1, band[3]], [band[2] + 1, band[1], band[2] + k.walk, band[3]]] : [[band[0], band[1] - k.walk, band[2], band[1] - 1], [band[0], band[3] + 1, band[2], band[3] + k.walk]]) : [];
-    return { id: r.id || r.kind + n, kind: r.kind, axis: r.axis, at: r.at, from: r.from, to: r.to, band, walks, lanes: k.lanes, median: !!k.median, width: k.width, name: r.name || '' };
+    return { id: r.id || r.kind + n, kind: r.kind, axis: r.axis, at: r.at, from: r.from, to: r.to, band, walks, lanes: k.lanes, median: !!k.median, width: k.width, name: r.name || '', oneway: onewaySign(r) };
   });
   const water = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) water[i] = C.surface[i] === SURF.water || C.surface[i] === SURF.deep ? 1 : 0;
   const railings = [];
@@ -148,10 +151,21 @@ export function buildDistrict(spec, o = {}) {
   // 5. decks: the Loop, the L, stubs; pillars and railings; raised solids for peds
   const solids = [], props = [];
   for (const D of spec.decks || []) C.decks.push(buildDeck(D, C, solids, props));
+  // where two road decks meet at one height (the Loop and the gap's stub), neither's railing stands between them
+  for (let i = solids.length - 1; i >= 0; i--) {
+    const q = solids[i]; if (!q.railing) continue;
+    const [cx, cy, dx, dy] = q.edge, h = q.z;
+    const joins = C.decks.some(d => d.id !== q.railing && d.kind !== 'rail' && [[cx, cy], [cx + dx, cy + dy]].some(([x, y]) => { const c = d._cellMap().get(x + ',' + y); return c && Math.abs(Math.max(c.z0, c.z1) - h) < 2; }));
+    if (joins) solids.splice(i, 1);
+  }
 
   // 6. props by rule
   const rp = stream(seed, 'props'), P = spec.props || {};
-  const addProp = (kind, x, y, o = {}) => { props.push({ kind, x, y, z: o.z || 0, facing: o.facing || 0, ...o }); };
+  const addProp = (kind, x, y, o = {}) => {
+    const top = (o.z || 0) + (o.solid ? o.solid.top : 0) + 6;   // (nothing grows up through a deck: a palm under a ramp's low end)
+    if (!o.roof && C.decks.some(d => { const h = d.heightAt(x, y); return h !== null && h > (o.z || 0) && h < top; })) return;
+    props.push({ kind, x, y, z: o.z || 0, facing: o.facing || 0, ...o });
+  };
   // lamps along every sidewalk's outer edge (the curb side), every P.lampEvery tiles; hydrants near corners; benches,
   // bins and newsstands here and there
   for (const r of C.roads) for (const [wi, w] of r.walks.entries()) {
@@ -272,6 +286,19 @@ function buildDeck(D, C, solids, props) {
     }
     ramps.push({ at: R.at, dir: R.dir, length: L, foot: [rx + dx * (edge + L), ry + dy * (edge + L)] });
   }
+  // a road deck's square notches get an apron cell (where a ramp leaves a corner, a bend's inner corner): a turning car's
+  // body swings across them. The apron takes the slope of the ramp beside it, or the deck's height
+  if ((D.kind || 'road') !== 'rail') for (let pass = 0; pass < 3; pass++) {   // (three passes: a stepped chamfer three cells deep)
+    const notch = [];
+    for (const c of [...cells.values()]) for (const [dx, dy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const nx = c.cx + dx, ny = c.cy + dy, k = nx + ',' + ny; if (cells.has(k) || !C.inside(nx, ny) || gap(nx, ny)) continue;
+      const a = cells.get(nx + ',' + c.cy), b = cells.get(c.cx + ',' + ny);   // (the notch's two sides: beside it in x and in y)
+      if (!a || !b || Math.abs(Math.max(a.z0, a.z1) - Math.max(b.z0, b.z1)) > 8) continue;
+      const ramp = a.z0 !== a.z1 ? a : b.z0 !== b.z1 ? b : null;
+      notch.push([nx, ny, ramp ? ramp.z0 : z, ramp ? ramp.z1 : z, ramp ? ramp.axis : 'x']);
+    }
+    for (const [nx, ny, z0, z1, axis] of notch) put(nx, ny, z0, z1, axis);
+  }
   const deck = new Deck({ id: D.id, kind: D.kind || 'road', width: D.width, z, cells: [...cells.values()], ramps, thickness: thick, stations: D.stations || [], lanes: D.lanes || 2, gaps: D.gaps || [], path: D.path.slice(), closed: !!D.closed });
   // peds stand on it: the flat parts as one solid per cell row run (merged), ramps in 8-unit treads (the engine's step is 2)
   for (const c of deck.cells) {
@@ -283,8 +310,9 @@ function buildDeck(D, C, solids, props) {
   }
   // pillars every pillarEvery tiles along the centre line, under the median of an avenue or the kerb of a street
   const every = D.pillarEvery || 4;
+  const nearBox = (cx, cy) => { for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const x = cx + dx, y = cy + dy; if (C.inside(x, y) && C.busy[y * C.w + x] === 1) return true; } return false; };
   centre.forEach(([cx, cy, axis], n) => {
-    if (n % every || gap(cx, cy) || underOther(cx, cy) || (C.inside(cx, cy) && C.busy[cy * C.w + cx] === 1)) return;   // (never in a junction's box: the deck spans it)
+    if (n % every || gap(cx, cy) || underOther(cx, cy) || nearBox(cx, cy)) return;   // (never in a junction's box or at its mouth: the deck spans it, and turning traffic swings past)
     const below = C.roads.find(r => cx >= r.band[0] && cx <= r.band[2] && cy >= r.band[1] && cy <= r.band[3]);
     const spots = below && below.median ? [[cx, cy]] : below ? (axis === 'y' ? [[below.band[0] - 1, cy], [below.band[2] + 1, cy]] : [[cx, below.band[1] - 1], [cx, below.band[3] + 1]]) : [[cx, cy]];
     for (const [px, py] of spots) { if (underOther(px, py)) continue; const x = (px + .5) * T, y = (py + .5) * T; solids.push({ x, y, z: 0, top: z - thick, hx: 3, hy: 3, pillar: D.id }); props.push({ kind: 'pillar', x, y, z: 0, top: z - thick, deck: D.id }); }
@@ -295,7 +323,7 @@ function buildDeck(D, C, solids, props) {
     if (cells.has((c.cx + dx) + ',' + (c.cy + dy)) || feet.has(c.cx + ',' + c.cy + ',' + dx + ',' + dy)) continue;
     if (end && Math.abs(c.cx - end[0]) <= half && Math.abs(c.cy - end[1]) <= half && (D.path[0][0] === end[0] ? dy === Math.sign(end[1] - D.path[0][1]) : dx === Math.sign(end[0] - D.path[0][0]))) continue;
     const top = Math.max(c.z0, c.z1);
-    solids.push({ x: (c.cx + .5 + dx * .5) * T, y: (c.cy + .5 + dy * .5) * T, z: top, top: top + 8, hx: dx ? .8 : 8, hy: dy ? .8 : 8, railing: D.id });
+    solids.push({ x: (c.cx + .5 + dx * .5) * T, y: (c.cy + .5 + dy * .5) * T, z: top, top: top + 8, hx: dx ? .8 : 8, hy: dy ? .8 : 8, railing: D.id, edge: [c.cx, c.cy, dx, dy] });
   }
   return deck;
 }

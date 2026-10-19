@@ -251,3 +251,44 @@ and where it landed.
     - `docs/HANDOFF.md` says where the next session starts, and gives its `/goal` prompt.
     - `GOAL.md` and PLAN.md section 20 keep the original prompt unchanged: it is the contract's.
 - **Answered:** the handoff was the owner's request. **Landed in:** M4.
+
+## D17 · 2026-10-19 · M5's roads: one-way streets beside their parking, arcs a turning circle fits, the L raised
+- **Principle:** grow by content, not architecture (PLAN.md 7.4); PLAN.md 8.9's Accept (no deadlock, no cars inside
+  each other, zero signal violations by calm drivers); fix a look or a stall at its cause.
+- **What the M5 draft ran into:** M4's curb parking stands in the draft's street lanes (a parked car spans 12..38 u
+  from a street's centre line, the lane's car 7..33), so traffic drove into parked cars; every car's turning circle
+  (53-79 u) was wider than the junctions' corners (about 47 u), so turns swung into other lanes; and several pieces of
+  geometry trapped long vehicles.
+- **Calls:**
+  - **One-way streets, single moving lanes.** Lowtown's streets are one-way (`oneway` on a road: 'N' 'S' 'E' 'W'),
+    parked at their right-hand curb, the lane 7 u left of the middle. A clockwise ring (Terrace Road, Seawall Drive,
+    Brick Lane, Gnome Row) holds alternating streets inside it; Canal Street and Wharf Street run west, so the south
+    of the canal stays connected. The two avenues are two-way with one lane each way beside the median: their outer
+    lanes are the parking lanes, as painted. Decks and ramps have one lane each way, 16 u from the centre line (the
+    inside of a bend clears the inner railing). Less than a tenth of the road (stubs where one-way streets run off the
+    network) is unreachable and pruned. The painter draws one-way arrows and the parking lane's line.
+  - **Turns are arcs.** A turn connector is a circular arc of `TURN_R` 72 tangent to both lanes; where the box is too
+    tight, it leaves its lane before the box and joins the next one past it (`fromS`, `toS`), or takes the largest
+    radius a short lane leaves room for (63 at the least). Connectors are kept as point paths.
+  - **Every road vehicle turns inside 60 u at full lock.** The Cortez, Retiree, Fed Sedan, Brute and Cruiser get
+    .58 of lock; the Hauler, Medic, Rhino, Strongbox and Saint .62; the Pumper .66. The handling suite passes for all
+    19 definitions. A driver takes each turn at the speed its lock, fading with speed, still holds that arc.
+  - **Junction reservations** (`nav/junctions.js`) replace the draft's claims: connectors whose paths come within a
+    car's width conflict; a ready driver is granted its connector when no holder and no driver ready longer has a
+    conflicting one. All-way stops take turns; a left turn on a green gets its gap; a red queue or a full exit blocks
+    nobody.
+  - **The L at z 112** (the plan's 100): the Pumper (42 tall) and the vans clear it where it crosses the Loop (64).
+  - **Builder fixes:** no railing stands between two road decks at one height (the gap's stub had walled off the Loop's
+    lane); nothing is planted where a deck's slab would cut through it (palms under the west ramps); no pillar stands
+    within four cells of a junction's box; a road deck's square notches get a three-step apron (a turning van's body
+    swings across them); lanes avoid static solids.
+  - **Body fixes:** a deck's tread is driven onto within a step plus a slope's rise along the body, ahead or behind
+    (a long van could neither start up a ramp nor come down one); a body's second collision pass runs only after a push.
+  - **LOD and slicing (PLAN.md 7.11):** within `fpFull` of the focus a traffic car drives on its physics; beyond it, its
+    brain moves it along its lane, sensing every third step. The Fleet keeps sleeping vehicles in a grid of their own.
+  - **Traffic density:** `trafficCars` 34 at full density (the neighbourhood, night .6 and rain .8 scale it). The plan's
+    cap of 28 moving vehicles was for physics; most traffic is kinematic beyond 400 u, and 22 cars spread over the 760 u
+    disc put barely two in sight.
+- **Measured:** 30 cars for 10 minutes on Lowtown's lanes (`tools/traffic-probe.mjs`, physical and kinematic, seeds 7, 31,
+  97): no cars inside each other, no unexplained stall longer than 1.7 s, mean speed about 50 u/s, no crash damage.
+- **Answered:** no. **Landed in:** M5.

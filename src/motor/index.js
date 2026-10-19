@@ -33,7 +33,15 @@ export { drawPrompt, promptWidth, parsePrompt, codeFor } from './input/prompts.j
 export { HumanController } from './input/human.js';
 export { defMission, defActivity, missionStage, HINTS, checkHint } from './mission/dsl.js';
 export { CityMap, Deck, SURFACES, standInCity } from './world/citymap.js';
-export { buildDistrict, ROAD_KINDS, BREAKABLE } from './world/builder.js';
+export { buildDistrict, ROAD_KINDS, BREAKABLE, onewaySign } from './world/builder.js';
+export { RoadGraph, LANES, TURN_SPEED, TURN_R } from './nav/roadgraph.js';
+export { GPS, MOVE_PENALTY } from './nav/gps.js';
+export { signalAt, lightFor, cycleLength, amberLeft } from './nav/signals.js';
+export { Junctions } from './nav/junctions.js';
+export { DriverBrain, turnSpeed, turnCircle } from './ai/driver.js';
+export { Traffic } from './ai/traffic.js';
+export { CityLife, roadsOf } from './ai/city-life.js';
+export { pedLook, pickPed, pedFits, traitsOf, TRAITS } from './actors/peds.js';
 export { buildCity } from './world/district.js';
 export { spawnFleet, curbSpot, curbSpots, laneSpot, curbSides, blockedSpot, onRoad } from './world/fleet-spawn.js';
 export { validateCity } from './world/validator.js';

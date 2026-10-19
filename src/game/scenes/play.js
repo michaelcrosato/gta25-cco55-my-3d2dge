@@ -11,7 +11,7 @@
 // speed and ?perf=1 records each frame's times (tools/perf.mjs).
 import { E, def, get, all, expose, BUS, TUNE, knob, FloorChunks, buildCity, CityRenderer, WorldClock, Weather, Drawbridge, skyAt, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
-  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, boxDistance, stationLabel, modelOf, SpeedZoom, drawPrompt } from '../../motor/index.js';
+  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, boxDistance, stationLabel, modelOf, SpeedZoom, drawPrompt, CityLife } from '../../motor/index.js';
 import { VIGNETTE_PROPS } from '../characters/vignette-props.js';
 
 let cached = null;   // one Lowtown per seed: built once (about 80 ms), kept across scene changes
@@ -36,7 +36,7 @@ def('scenes', 'play', {
     const { game, views, human, footprint, links, stage, bindings: B } = app;
     let city, map, cityR, floor, clock, weather, bridges = [], hoodName = '', tour = null, rec = null, crowd = null;
     let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, wasted = 0, prevView = null, mouse0 = null;
-    let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null;
+    let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null, life = null;
     const lead = [0, 0];
     const idle = makeIntent(), TOUR_SPEED = 300;   // (the tour: a sports car's top speed, PLAN.md 7.6)
     const hero = () => crew.ped, chOf = id => get('characters', id);
@@ -51,6 +51,8 @@ def('scenes', 'play', {
       for (const s of city.pickupSpots) combat.pickups.place({ kind: s.kind, item: s.item, amount: s.amount, x: s.x, y: s.y, respawn: s.respawn });
       fleet = new Fleet({ city, combat, bridges, game });
       const fl = get('fleets', 'lowtown'); fleetCount = fl ? spawnFleet(fleet, city, fl, city.seed) : null;
+      if (life) life.dispose();
+      life = links.query.get('traffic') === '0' ? null : new CityLife({ city, fleet, combat, footprint, spec: fl || {} });   // (?traffic=0: an empty city)
     }
     // the vehicle the possessed one could get into now: the nearest in reach, by its nearest door (the driver's seat)
     function boardTarget(p) {
@@ -100,20 +102,21 @@ def('scenes', 'play', {
         crowd = links.query.get('crowd') === '1' ? standIns() : null;
         spawnCrew(data && data.route && data.route[1]);
         if (tour) hero().place(city.tour[0][0], city.tour[0][1]);
+        footprint.update(hero().x, hero().y);   // (the rings round the focus before the first step: traffic spawns round it)
         fx = new CombatFX(game); weaponWheel = new WeaponWheel(B); switchWheel = new Wheel({ title: 'CREW' });
         holdS = 0; toast = null; wasted = 0; prevView = null; stage.top.hold = null; zoom = new SpeedZoom(); vfx = new VehicleFX(game); lastRadio = null; board = null;
         game.cam.bounds = v => map.bounds(v);
         if (!game.headless) floor.warm(hero().x, hero().y, 420);
         expose('snapshot', () => { const p = hero(), v = p.seat && p.seat.vehicle; return { scene: 'play', view: views.active, hero: [p.x, p.y, p.z].map(v => Math.round(v)), hood: hoodName, time: clock.label(), weather: weather.state,
           crew: crew.active, health: Math.round(p.health), armor: Math.round(p.armor), weapon: p.inv.current, switching: crew.switching, fund: crew.fund,
-          vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake }; });
+          vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake, traffic: life ? life.traffic.count : 0 }; });
         expose('teleport', (x, y) => hero().place(x, y));
-        expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat); expose('fleet', fleet); expose('fleetCount', fleetCount);
+        expose('life', life); expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat); expose('fleet', fleet); expose('fleetCount', fleetCount);
         expose('perf', () => ({ ...rec, floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length, depth: stage.depth ? { ...stage.depth.stats } : null }));
         game.stateHash = () => [...crew.order.flatMap(id => { const p = crew.member(id).ped; return [Math.round(p.x * 8), Math.round(p.y * 8), Math.round(p.z * 8), Math.round(p.health * 10)]; }),
-          crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash(), fleet.hash()];
+          crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash(), fleet.hash(), ...(life ? life.hash() : [])];
       },
-      exit() { game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); },
+      exit() { game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (life) { life.dispose(); life = null; } },
       update(dt) {
         const real = dt / Math.max(.05, game.timeScale);
         const h0 = clock.hour; clock.update(dt); const hours = ((clock.hour - h0) + 24) % 24;
@@ -151,7 +154,8 @@ def('scenes', 'play', {
           p.mover.vx = dx / (d || 1) * TOUR_SPEED; p.mover.vy = dy / (d || 1) * TOUR_SPEED; p.mover.facing = Math.atan2(dy, dx); I = clearIntent(I);
         }
         const night = clock.hour >= 19 || clock.hour < 6.5;
-        fleet.update(dt, { intent: v => (v.driver === p ? I : clearIntent(idle)), peds: combat.bodies, night, wet: weather.wet });
+        if (life) life.update(dt, { night, wet: weather.wet, player: p.seat && p.seat.vehicle && p.seat.vehicle.driver === p ? p.seat.vehicle : null });
+        fleet.update(dt, { intent: v => (v.driver === p ? I : (life && life.intentFor(v)) || clearIntent(idle)), peds: combat.bodies, night, wet: weather.wet });
         const W = { map, city, combat, fleet, aim: aimCtx() };
         for (const id of crew.order) { const q = crew.member(id).ped; q.update(dt, q === p ? I : clearIntent(idle), W); }
         combat.update(dt, { wet: weather.wet, takers: [p], take });

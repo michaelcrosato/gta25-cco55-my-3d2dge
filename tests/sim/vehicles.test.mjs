@@ -178,7 +178,7 @@ test('Lowtown: the Loop gap\'s open end: a car driven off it flies, lands below 
 
 test('in play, through the real bindings: E at a parked car gets in, W drives it, E gets out; the city\'s cars sleep', async () => {
   const { loadGame, holdCode } = await import('../harness.mjs');
-  const { game, gtm, snap } = await loadGame({ hash: 'play', query: { time: 'day' } });
+  const { game, gtm, snap } = await loadGame({ hash: 'play', query: { time: 'day', traffic: '0' } });   // (the bindings and the parked cars under test: no traffic)
   game.advance(.2);
   const F = gtm.fleet, p = gtm.crew.ped, v = F.near(p.x, p.y, 3000).find(q => q.cls === 'car');
   assert.ok(F.vehicles.length > 30, 'Lowtown parks its cars: ' + F.vehicles.length);

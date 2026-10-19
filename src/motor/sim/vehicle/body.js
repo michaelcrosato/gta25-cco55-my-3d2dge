@@ -26,6 +26,7 @@ const CURB = 4;   // a wall cell this low (or lower) is climbed, not hit
 const PEAK = .12; // the slip angle (radians) where a tyre's grip peaks
 const MAX_STEP = 6;   // units a substep may travel
 const DECK_STEP = 10;   // a deck slab whose top is this close above the wheels is driven onto, not hit
+const RAMP_SLOPE = .33;  // and this much more per unit it lies ahead (the steepest ramp rises about .29 a unit)
 export const CAR_GRAVITY = 600;   // u/s²: an arcade fall (a storey of 24 in .28 s)
 
 /** the handling of a vehicle class: every number a TUNE-able default; a vehicle def overrides any of them */
@@ -183,15 +184,22 @@ export class VehicleBody {
     const T = map.T, cs = this.corners(); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     for (const [x, y] of cs) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
     const tall = (cx, cy) => this._blocked(map, cx, cy);
-    for (let it = 0; it < 2; it++) for (let cy = Math.floor(y0 / T); cy <= Math.floor(y1 / T); cy++) for (let cx = Math.floor(x0 / T); cx <= Math.floor(x1 / T); cx++) {
-      if (!tall(cx, cy)) continue;
-      // the faces this cell shows (a face against another tall cell is inside a wall: never pushed through)
-      const open = { '1,0': !tall(cx + 1, cy), '-1,0': !tall(cx - 1, cy), '0,1': !tall(cx, cy + 1), '0,-1': !tall(cx, cy - 1) };
-      const hit = obbVsBox(this, (cx + .5) * T, (cy + .5) * T, T / 2, T / 2, 1, 0, (nx, ny) => open[Math.round(nx) + ',' + Math.round(ny)] !== false);
-      if (hit) this._resolve(hit, null);
+    for (let it = 0, hits = 1; it < 2 && hits; it++) {   // (a second pass only after a push: on an open road it is skipped)
+      hits = 0;
+      for (let cy = Math.floor(y0 / T); cy <= Math.floor(y1 / T); cy++) for (let cx = Math.floor(x0 / T); cx <= Math.floor(x1 / T); cx++) {
+        if (!tall(cx, cy)) continue;
+        // the faces this cell shows (a face against another tall cell is inside a wall: never pushed through)
+        const oE = !tall(cx + 1, cy), oW = !tall(cx - 1, cy), oS = !tall(cx, cy + 1), oN = !tall(cx, cy - 1);
+        const hit = obbVsBox(this, (cx + .5) * T, (cy + .5) * T, T / 2, T / 2, 1, 0, (nx, ny) => { const ax = Math.round(nx), ay = Math.round(ny); return ax > 0 ? oE : ax < 0 ? oW : ay > 0 ? oS : ay < 0 ? oN : true; });
+        if (hit) { this._resolve(hit, null); hits++; }
+      }
     }
     if (map.solidsNear) for (const s of map.solidsNear(this.x, this.y, this.hl + 8)) {
-      if (s.top <= this.z + (s.deck ? DECK_STEP : CURB) || s.z >= this.z + this.h.height) continue;   // (on top of it, or wholly above)
+      // (on top of it, or wholly above it). A deck's tread is driven onto within a step, more by how far along the body it
+      // lies: a long van on a ramp has its nose (climbing) or its tail (coming down) over treads a slope higher than its
+      // wheels at its middle
+      const along = s.deck ? Math.abs((s.x - this.x) * Math.cos(this.heading) + (s.y - this.y) * Math.sin(this.heading)) : 0;
+      if (s.top <= this.z + (s.deck ? DECK_STEP + along * RAMP_SLOPE : CURB) || s.z >= this.z + this.h.height) continue;
       const hit = obbVsBox(this, s.x, s.y, s.hx, s.hy, s.c, s.s, null);
       if (hit && !(s.breakable && world.breaks && world.breaks(s, this))) this._resolve(hit, null);
     }

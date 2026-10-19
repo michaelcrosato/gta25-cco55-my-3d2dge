@@ -6,7 +6,7 @@ const DET = 'Determinism: take time from dt / game.time and randomness from MOTO
 const SIM = ['src/motor/{core,sim,nav,ai,play,mission,save,combat,actors}/**/*.js', 'src/game/**/*.js'];
 
 export default [
-  { ignores: ['vendor/**', 'dist/**', 'node_modules/**', 'check-output/**', '.cache/**', '.claude/**', 'docs/handoff/**'] },
+  { ignores: ['vendor/**', 'dist/**', 'node_modules/**', 'check-output/**', '.cache/**', '.claude/**', 'docs/handoff/**', 'tools/_*.mjs'] },   // (tools/_*.mjs: local probes, git-ignored)
   js.configs.recommended,
   { files: ['src/**/*.js'], languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.browser } } },
   { files: ['tools/**/*.mjs', 'tools/**/*.js', 'tests/**/*.mjs', 'eslint.config.js'], languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.node } } },

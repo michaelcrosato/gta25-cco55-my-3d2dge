@@ -83,7 +83,7 @@ def('vehicles', 'pumper', {
   name: 'Pumper', model: 'pumper', class: 'truck', role: 'fire', seats: 2, radio: 'off', health: 220, toughness: .8,
   siren: true, horn: 'truck', tool: 'cannon',
   palette: ['#ce2029', '#c2df2a'],
-  handling: { mass: 4200, top: 181, accel: 44, brake: 460, grip: 276, drift: .25, steer: .62, steerFade: .8, steerRate: 1.2, drive: 'awd',
+  handling: { mass: 4200, top: 181, accel: 44, brake: 460, grip: 276, drift: .25, steer: .66, steerFade: .8, steerRate: 1.2, drive: 'awd',
     wheelbase: 44.5, cg: .663, cgHeight: .35, rolling: 0 },   // (wheelbase and cg: the model's axles)
   spec: { t100: 2.8, top: 180, brake100: 17 },
   tags: ['fire', 'service', 'emergency'],

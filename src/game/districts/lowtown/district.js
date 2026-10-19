@@ -1,13 +1,13 @@
 // Lowtown, Motopolis (PLAN.md 9.1): 160 x 160 tiles. Palm Terraces (north-west) and Neon Mile (north-east) above the
 // Loop's avenue; Brickyard (west) and Harborfront (east) below it, down to the canal and across it to the sea. The L
-// runs down the central avenue at z 100; the Loop rings the middle at z 64, with a ramp off each corner and an
+// runs down the central avenue at z 112 (D17: clear of the tallest truck on the Loop); the Loop rings the middle at z 64, with a ramp off each corner and an
 // unfinished stub over the construction site (the Loop gap). Three bridges cross the canal; the eastern one draws up.
 // Landmarks are in landmarks.js; the neighbourhoods' looks in styles.js.
 import { def } from '../../../motor/index.js';
 import { STYLES, HOODS } from './styles.js';
 
-const NS = (at, from, to, kind = 'street', name = '') => ({ axis: 'y', at, from, to, kind, name });
-const EW = (at, from, to, kind = 'street', name = '') => ({ axis: 'x', at, from, to, kind, name });
+const NS = (at, from, to, kind = 'street', name = '', oneway) => ({ axis: 'y', at, from, to, kind, name, oneway });
+const EW = (at, from, to, kind = 'street', name = '', oneway) => ({ axis: 'x', at, from, to, kind, name, oneway });
 
 def('districts', 'lowtown', {
   name: 'Lowtown', size: [160, 160], seed: 1999, storey: 24,
@@ -18,20 +18,23 @@ def('districts', 'lowtown', {
     { rect: [140, 108, 153, 151], kind: 'harbour' }, { rect: [0, 124, 139, 131], kind: 'canal' },
   ],
   roads: [
-    // north to south
-    NS(6, 2, 122, 'street', 'Gnome Row'), NS(32, 2, 151, 'street', 'Chapel Street'), NS(56, 2, 122, 'street', 'Palm Walk'),
-    NS(80, 2, 151, 'avenue', 'Motor Avenue'), NS(104, 2, 122, 'street', 'Marquee Street'), NS(128, 2, 151, 'street', 'Dock Road'),
-    NS(149, 2, 104, 'street', 'Seawall Drive'),
+    // north to south. The streets are one-way (a car parks at the right-hand curb, the lane keeps left of it); the two
+    // avenues are two-way. Terrace Road, Seawall Drive, Brick Lane and Gnome Row make a clockwise ring; the streets
+    // inside it alternate, and south of the canal Dock Road comes down, Wharf Street runs west and Chapel Street goes
+    // back up, so every street can be driven to and away from (the stubs at the district's edges aside)
+    NS(6, 2, 122, 'street', 'Gnome Row', 'N'), NS(32, 2, 151, 'street', 'Chapel Street', 'N'), NS(56, 2, 122, 'street', 'Palm Walk', 'S'),
+    NS(80, 2, 151, 'avenue', 'Motor Avenue'), NS(104, 2, 122, 'street', 'Marquee Street', 'N'), NS(128, 2, 151, 'street', 'Dock Road', 'S'),
+    NS(149, 2, 104, 'street', 'Seawall Drive', 'S'),
     // west to east
-    EW(6, 2, 151, 'street', 'Terrace Road'), EW(30, 2, 151, 'street', 'Sunset Strip'), EW(54, 2, 151, 'street', 'Lantern Lane'),
-    EW(78, 2, 153, 'avenue', 'Loop Avenue'), EW(102, 2, 151, 'street', 'Brick Lane'), EW(118, 2, 137, 'street', 'Canal Street'),
-    EW(140, 2, 137, 'street', 'Wharf Street'),
+    EW(6, 2, 151, 'street', 'Terrace Road', 'E'), EW(30, 2, 151, 'street', 'Sunset Strip', 'W'), EW(54, 2, 151, 'street', 'Lantern Lane', 'E'),
+    EW(78, 2, 153, 'avenue', 'Loop Avenue'), EW(102, 2, 151, 'street', 'Brick Lane', 'W'), EW(118, 2, 137, 'street', 'Canal Street', 'W'),
+    EW(140, 2, 137, 'street', 'Wharf Street', 'W'),
   ],
   decks: [
     { id: 'loop', kind: 'road', z: 64, width: 6, lanes: 4, closed: true, path: [[32, 78], [128, 78], [128, 102], [32, 102]], pillarEvery: 4,
       ramps: [{ at: [32, 78], dir: 'W', length: 16 }, { at: [128, 78], dir: 'E', length: 14 }, { at: [32, 102], dir: 'W', length: 16 }, { at: [128, 102], dir: 'E', length: 14 }] },
     { id: 'loop-gap', kind: 'road', z: 64, width: 4, lanes: 2, path: [[29, 91], [16, 91]], pillarEvery: 4, openEnd: true },
-    { id: 'L', kind: 'rail', z: 100, width: 3, lanes: 2, path: [[80, 3], [80, 150]], pillarEvery: 4,
+    { id: 'L', kind: 'rail', z: 112, width: 3, lanes: 2, path: [[80, 3], [80, 150]], pillarEvery: 4,
       stations: [{ name: 'Palm', rect: [76, 12, 84, 23] }, { name: 'Neon Mile', rect: [76, 38, 84, 49] }, { name: 'Brickyard', rect: [76, 86, 84, 97] }, { name: 'Harbor', rect: [76, 136, 84, 147] }] },
   ],
   walls: [

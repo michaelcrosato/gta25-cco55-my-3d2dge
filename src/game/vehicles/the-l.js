@@ -1,5 +1,5 @@
 // The L (PLAN.md 9.6): one car of Lowtown's elevated train, AI only (it runs its loop on the deck down the central
-// avenue at z 100, stops at Palm, Neon Mile, Brickyard and Harbor, and kills what stands on its track). A train is two
+// avenue at z 112, stops at Palm, Neon Mile, Brickyard and Harbor, and kills what stands on its track). A train is two
 // of these cars. A long stainless box with a band of lit windows in a dark gasket strip (paired narrow windows at the
 // two doors each side, a darker panel under them), the line's stripe along its belt and round its ends, a dark roof with
 // three ventilators, the same face at both ends (cab windows, the lit door window, the route sign, an anticlimber and a

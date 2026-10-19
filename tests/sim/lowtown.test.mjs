@@ -50,12 +50,12 @@ test('the cut-away drops the building hiding the player in ISO (all of it), keep
   assert.ok(bankCells.every(([x, y]) => !C.map._isFront(x, y, E.VIEWS.overhead)));
 });
 
-test('the decks: the Loop is level at z 64, its ramps climb from the street, the L runs at z 100 over Motor Avenue', async () => {
+test('the decks: the Loop is level at z 64, its ramps climb from the street, the L runs at z 112 over Motor Avenue (D17)', async () => {
   const { M } = await motor();
   const C = M.buildCity('lowtown', 1999), T = C.T, at = (cx, cy) => [(cx + .5) * T, (cy + .5) * T];
   const loop = C.decks.find(d => d.id === 'loop'), L = C.decks.find(d => d.id === 'L');
   assert.equal(loop.heightAt(...at(56, 78)), 64, 'on the Loop over Loop Avenue');
-  assert.equal(L.heightAt(...at(80, 60)), 100, 'on the L');
+  assert.equal(L.heightAt(...at(80, 60)), 112, 'on the L');
   const ramp = loop.cells.filter(c => c.z0 !== c.z1);
   assert.ok(ramp.length >= 4 * 10, ramp.length + ' ramp cells');
   assert.ok(ramp.some(c => Math.min(c.z0, c.z1) === 0), 'a ramp reaches the street');

@@ -21,6 +21,13 @@ export function signalAt(region, t) {
   if (u < G + A + Cl) return { ns: phase(u), ew: 'red' };
   return { ns: 'red', ew: phase(u - (G + A + Cl)) };
 }
+/** seconds of amber left for one axis ('ns' | 'ew') at t (0 when it isn't amber) */
+export function amberLeft(region, t, axis) {
+  if (!region || region.signals !== 'signal') return 0;
+  const G = TUNE.signalGreen, A = TUNE.signalAmber, Cl = TUNE.signalClear, L = cycleLength(), u = ((t + signalOffset(region)) % L + L) % L;
+  const p = axis === 'ns' ? u : u - (G + A + Cl);
+  return p >= G && p < G + A ? G + A - p : 0;
+}
 /** the light a connector's driver sees at t (null: no junction; 'stop': a stop sign) */
 export function lightFor(conn, graph, t) {
   if (!conn.region || !conn.axis) return null;

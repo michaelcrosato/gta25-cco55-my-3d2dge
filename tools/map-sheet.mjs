@@ -9,13 +9,13 @@ import { pathToFileURL } from 'node:url';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
-const district = arg('district', 'lowtown'), out = arg('out', `docs/media/${district}-map-sheet.png`), scale = +arg('scale', .5), seed = arg('seed', null);
+const district = arg('district', 'lowtown'), lanes = process.argv.includes('--lanes'), out = arg('out', `docs/media/${district}-${lanes ? 'lanes' : 'map'}-sheet.png`), scale = +arg('scale', .5), seed = arg('seed', null);
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   await page.goto(pathToFileURL(resolve('dist/index.html')).href + '#title');
   await page.waitForFunction(() => window.__gtm && window.__gtm.ready, null, { timeout: 20000 });
-  const res = await page.evaluate(({ district, scale, seed }) => {
+  const res = await page.evaluate(({ district, scale, seed, lanes }) => {
     const M = window.__gtm.motor, E = M.E, C = M.buildCity(district, seed === null ? undefined : +seed), T = C.T, Wp = C.w * T, Hp = C.h * T;
     const full = E.mkCanvas(Wp, Hp), g = full.getContext('2d'); g.imageSmoothingEnabled = false;
     C.painter.paint(g, 0, 0, Wp, Hp);
@@ -57,9 +57,22 @@ try {
       const ns = r.axis === 'y', x = ((r.band[0] + r.band[2] + 1) / 2) * T, y = ((r.band[1] + r.band[3] + 1) / 2) * T;
       g.save(); g.translate(ns ? x : (r.from + 12) * T, ns ? (r.from + 12) * T : y); if (ns) g.rotate(Math.PI / 2); g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,.8)'; g.strokeText(r.name, 0, 8); g.fillText(r.name, 0, 8); g.restore();
     }
+    // --lanes: the lane graph over it all (lanes by kind with arrows, connectors, junction boxes by control, the pieces
+    // the prune dropped in red)
+    if (lanes) {
+      const G = new M.RoadGraph(C), col = { oneway: '#3aff6a', street: '#3aff6a', avenue: '#ffd23a', deck: '#5ad0ff', ramp: '#d08aff', stub: '#ff8a3a', alley: '#aaaaaa' };
+      for (const R of G.regions) { const [x0, y0, x1, y1] = R.box; g.lineWidth = 3; g.strokeStyle = R.signals === 'signal' ? '#ff4a4a' : R.signals === 'stop' ? '#ffffff' : '#5ad0ff'; g.strokeRect(x0, y0, x1 - x0, y1 - y0); }
+      for (const c of G.conns) { g.strokeStyle = c.kind === 'uturn' ? '#ff4aff' : 'rgba(255,255,255,.7)'; g.lineWidth = 2; g.beginPath(); c.pts.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.stroke(); }
+      for (const l of G.lanes) {
+        g.strokeStyle = col[l.kind] || '#fff'; g.lineWidth = 4; g.beginPath(); g.moveTo(l.a[0], l.a[1]); g.lineTo(l.b[0], l.b[1]); g.stroke();
+        for (let s = 40; s < l.len; s += 120) { const x = l.a[0] + l.dir[0] * s, y = l.a[1] + l.dir[1] * s, px = -l.dir[1], py = l.dir[0]; g.fillStyle = g.strokeStyle; g.beginPath(); g.moveTo(x + l.dir[0] * 14, y + l.dir[1] * 14); g.lineTo(x + px * 8, y + py * 8); g.lineTo(x - px * 8, y - py * 8); g.fill(); }
+        for (const [s0, s1] of l.cross || []) { g.strokeStyle = '#ffffff'; g.lineWidth = 8; g.beginPath(); g.moveTo(l.a[0] + l.dir[0] * s0, l.a[1] + l.dir[1] * s0); g.lineTo(l.a[0] + l.dir[0] * s1, l.a[1] + l.dir[1] * s1); g.stroke(); }
+      }
+      for (const d of G.droppedLanes) { g.strokeStyle = '#ff2020'; g.lineWidth = 4; g.setLineDash([10, 8]); g.beginPath(); g.moveTo(d.a[0], d.a[1]); g.lineTo(d.b[0], d.b[1]); g.stroke(); g.setLineDash([]); }
+    }
     const small = E.mkCanvas(Math.round(Wp * scale), Math.round(Hp * scale)), sg = small.getContext('2d'); sg.imageSmoothingEnabled = true; sg.drawImage(full, 0, 0, small.width, small.height);
     return { png: small.toDataURL('image/png'), lots: C.lots.length, pois: C.pois.length, size: [small.width, small.height] };
-  }, { district, scale, seed });
+  }, { district, scale, seed, lanes });
   mkdirSync(dirname(resolve(out)), { recursive: true });
   writeFileSync(out, Buffer.from(res.png.split(',')[1], 'base64'));
   console.log(`map sheet: ${out} (${res.size.join('x')}, ${res.lots} lots, ${res.pois} points of interest)`);

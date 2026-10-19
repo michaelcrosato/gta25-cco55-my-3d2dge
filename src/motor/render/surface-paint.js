@@ -78,6 +78,19 @@ export class SurfacePainter {
         }
       };
       if (r.median) { line(mid - 3, 2, false, P.yellow); line(mid + 3, 2, false, P.yellow); const lane = (across1 - across0) / 4; line(across0 + lane, 1.5, true, P.white); line(across1 - lane, 1.5, true, P.white); }
+      else if (r.oneway) {   // a one-way street: the parking lane's line on the right of the way it runs, arrows down the lane
+        const right = r.axis === 'y' ? -r.oneway : r.oneway, lane = mid - right * 7;   // (the lane keeps 7 u left of the middle)
+        line(mid + right * 11, 1, true, P.white);
+        g.fillStyle = P.white;
+        for (let k = a0 + 3; k <= a1 - 3; k += 7) {
+          if (k < (ns ? r0 : c0) - 1 || k > (ns ? r1 : c1) + 1 || busy(ns ? Math.floor(lane / T) : k, ns ? k : Math.floor(lane / T))) continue;
+          const c = (k + .5) * T, d = r.oneway;   // (the arrow points the way the street runs)
+          for (let t = -7; t <= 7; t++) {   // shaft 2 wide, then a head that narrows to the tip
+            const w = t > 2 ? Math.max(1, Math.round((7 - t) * .9)) : 1, along = c + t * d;
+            ns ? g.fillRect(lane - w, along, w * 2, 1) : g.fillRect(along, lane - w, 1, w * 2);
+          }
+        }
+      }
       else line(mid, 2, true, P.yellow);
     }
     // crosswalks: zebra bars across the crossing (bars run with the road), and a stop line before each
