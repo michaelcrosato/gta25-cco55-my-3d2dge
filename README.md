@@ -24,8 +24,10 @@ Under it sits **MOTOR**, an open-city engine layer on top of my-3D2dge, built to
 
 > **Status: implementation in progress (M7 of M13 done: the core and input, the three views' renderers, Lowtown,
 > on foot and combat, the vehicles, the roads with their traffic and crowds, the wanted level, the police and the
-> gangs, and the three views finished with the First Lowtown Bank to sneak into).** `PROGRESS.md` has each milestone's evidence. `PLAN.md` is the full plan, `GOAL.md` is the `/goal` prompt
-> that started the run, and `docs/HANDOFF.md` is where the current session picked it up (M5).
+> gangs, and the three views finished with the First Lowtown Bank to sneak into; M8, the missions and the economy,
+> is under way, with 8 of the 14 missions in).** `PROGRESS.md` has each milestone's evidence. `PLAN.md` is the full
+> plan, `GOAL.md` is the `/goal` prompt that started the run, and `docs/HANDOFF.md` is where the next session picks it
+> up (the middle of M8), with the `/goal` prompt that continues it.
 
 ## Source Information
 
