@@ -31,6 +31,7 @@ const OP = Symbol('op');
 export function op(step, o = {}) { return { [OP]: true, step, ...o }; }
 export const isOp = x => !!(x && x[OP]);
 const MEDALS = ['bronze', 'silver', 'gold'];
+const RAIL_HEADINGS = { north: 0, east: 90, south: 180, west: 270 };   // (m.view('side7', { heading }))
 
 export class MissionRuntime {
   /** o: { world() -> W (the scene's world: game, city, fleet, combat, crew, life, clock, weather, stage, roads,
@@ -174,7 +175,8 @@ export class MissionRuntime {
     BUS.clear(this.scope);
     const W = this.world(); if (W.endMission) W.endMission(this);
     if (this.wantedHeld) { const w = W.wanted ? W.wanted() : null; if (w) { w.floor(0); w.cap(5); } this.wantedHeld = false; }   // (a stage's cap or floor never outlives its job)
-    if (this.allyHeld) { const G = W.life && W.life.gangs; if (G) G.ally = null; this.allyHeld = false; }   // (nor its ally)
+    if (this.allyHeld) { const G = W.life && W.life.gangs; if (G) G.allies.clear(); this.allyHeld = false; }   // (nor its allies and truces)
+    if (W.stage && W.stage.pointRail) W.stage.pointRail(null);   // (nor a set piece's rail)
   }
   /** after a pass, back to idle (the card read) */
   done() { if (this.state === 'passed') this.state = 'idle'; }
@@ -216,7 +218,7 @@ export class MissionContext {
       set: n => { const w = wanted(); if (w) w.set(n); },
       floor: n => { const w = wanted(); if (w) { w.floor(n); R.wantedHeld = true; } },   // (held: lifted when the run ends, however it ends)
       cap: n => { const w = wanted(); if (w) { w.cap(n); R.wantedHeld = true; } },
-      clear: () => { const w = wanted(); if (w) { w.floor(0); w.cap(5); w.clear('mission'); } },
+      clear: () => { const w = wanted(); if (w) { w.clear('mission'); w.floor(0); w.cap(5); } },   // (the heat gone before the cap lifts: no star shows for a step)
       get stars() { const w = wanted(); return w ? w.stars : 0; },
     };
   }
@@ -258,9 +260,39 @@ export class MissionContext {
   tagged(tag) { return this.R.actors.tagged(tag); }
   /** the first living actor with a tag, or null */
   one(tag) { return this.tagged(tag).find(alive) || null; }
-  /** a gang on the player's side while the job runs (null: none): the player's strays on its members and cars rally
-   *  no one and cost no respect, and its members never go for the player on sight (lifted when the run ends) */
-  ally(gang) { const G = this.W.life && this.W.life.gangs; if (!G) return; G.ally = gang || null; this.R.allyHeld = true; }
+  /** a gang whose city members stay out of the job's fight (null: none): the player's strays on them and their cars
+   *  rally no one and cost no respect, and none go for the player on sight; lifted when the run ends. ally: a job
+   *  fought beside that gang (R3's Rats); truce: one fought against its own (G3's), the same thing */
+  ally(gang) { const G = this.W.life && this.W.life.gangs; if (!G) return; if (gang) G.allies.add(gang); else G.allies.clear(); this.R.allyHeld = true; }
+  truce(gang) { this.ally(gang); }
+  /** put a world vehicle on the job's list under a tag (a garaged car, one the player came in): the hints can name it;
+   *  the world's again when the run ends, and a retry never releases it */
+  adopt(v, tag) { if (!v) return null; const R = this.R; if (R.actors.entry(v)) return v; const was = v.owner; R.actors._add(v, 'vehicle', { tag, stage: -1 }); v.adopted = was || 'world'; return v; }
+  /** the hour on the clock (0..24) */
+  get hour() { return this.W.clock ? this.W.clock.hour : 12; }
+  /** the crew fund now; and money paid in (n > 0) or out (a bribe: n < 0), with what for */
+  get fund() { return this.crew ? this.crew.fund || 0 : 0; }
+  pay(n, why = 'mission') { if (this.W.cash) this.W.cash(n, why); }
+  /** the GPS's time by road (seconds at the streets' limits) from the player, or their vehicle, to a point; null with
+   *  no way there (a job's clock: a drop's fair time) */
+  eta(at) { const G = this.W.roads && this.W.roads.gps, P = this.mover, q = this.at(at); if (!G || !P) return null; const r = G.routeTo(P.x, P.y, P.heading ?? P.facing ?? 0, q[0], q[1], { z: P.z || 0, tz: q[2] }); return r ? r.cost : null; }
+  /** a body or a vehicle by its id (a BUS event's target or by: who it was, its gang, whose it is), or null */
+  byId(id) { const C = this.W.combat, F = this.W.fleet; return (C && C.bodies.find(b => b.id === id)) || (F && F.vehicles.find(v => v.id === id)) || null; }
+  /** a blast at a point, nobody's (a drum the fire set off): o { damage (80), splash (56), z (6), fire (false: no
+   *  blaze), source ('blast') } */
+  blast(at, o = {}) {
+    const C = this.W.combat, [x, y] = this.at(at); if (!C) return null;
+    const b = C.explosives.blast({ x, y, z: o.z ?? 6, damage: o.damage ?? 80, splash: o.splash ?? 56, by: null, source: o.source || 'blast' }); if (o.fire === false) b.fire = false; return b;
+  }
+  /** a passer-by sent running from the player (and its troupe with it): a crowd ped, by itself or its id (true: sent) */
+  shoo(ped) {
+    const C = this.W.life && this.W.life.crowd, P = this.player, id = ped && typeof ped === 'object' ? ped.id : ped; if (!C || !P) return false;
+    const q = C.members.find(c => c.ped.id === id); if (!q || q.ped.gang || q.ped.patrol || q.ped.dead) return false;
+    for (const c of C.members) if (c === q || (q.ped.troupe && c.ped.troupe === q.ped.troupe)) c.brain.react('flee', { x: P.x, y: P.y, t: 8, force: true });
+    return true;
+  }
+  /** the countdown on the HUD now ({ left, total, stop() }), or null */
+  get countdown() { return this.R.timer || null; }
   /** is any guard or enemy with a tag alerted (it saw the player, was hurt, or a mate called it) and still in it (not
    *  taken down, not dead)? A stealth stage's fail */
   alerted(tag) { return this.tagged(tag).some(a => { const e = this.R.actors.entry(a); return !!e && e.alerted && !e.down && !a.dead; }); }
@@ -288,8 +320,13 @@ export class MissionContext {
   /** a vehicle kept in the save's garage under an id (it stays in the world, the mission over), and the one kept so */
   stash(v, id, at = null) { if (!v || !this.W.stash) return; this.R.actors.adopt(v); this.W.stash(v, id, at); }
   garaged(id) { return this.W.garaged ? this.W.garaged(id) : null; }
-  /** a view for a set piece (ISO, TOP or MODE 7: presentation only, the simulation the same) */
-  view(id) { if (this.W.game && this.W.game.views && this.W.game.views.includes(id)) this.W.game.setView(id); }
+  /** a view for a set piece (ISO, TOP or MODE 7: presentation only, the simulation the same); o.heading: MODE 7's rail
+   *  held looking that way (0 or 'north', 90 'east', 180 'south', 270 'west') till the next view call or the job's end */
+  view(id, o = {}) {
+    const G = this.W.game, S = this.W.stage, h = typeof o.heading === 'string' ? RAIL_HEADINGS[o.heading] : o.heading;
+    if (G && G.views && G.views.includes(id)) G.setView(id);
+    if (S && S.pointRail) S.pointRail(id === 'side7' && h !== undefined ? h : null);
+  }
   /** play as a protagonist from now (a setup's: no switch camera) */
   as(id) { if (this.crew.active !== id && this.W.possess) this.W.possess(id); }
   /** the player's kit for the stage: { weapons, ammo, select, health, armor, only } (only: these weapons alone for
@@ -365,7 +402,7 @@ export class MissionContext {
       const there = Math.hypot(w.x - to[0], w.y - to[1]) < r && (!o.stopped || (w.speed || 0) < 10);
       return there ? { value: true } : undefined;
     }, { nav: m => { const w = m.one(o.what); return w && w.body && m.vehicle !== w ? w : to; },
-      start: m => { m.objective(text, { hint: { kind: 'deliver', what: o.what, to } }); m.marker(to, { color: '#7aff8a', r: Math.min(r, 28) }); } });
+      start: m => { m.objective(text, { hint: { kind: 'deliver', what: o.what, to, tow: o.tow } }); m.marker(to, { color: '#7aff8a', r: Math.min(r, 28) }); } });
   }
   /** keep within o.lose (400) of a tagged target until o.until(m) holds (or it gets to o.to); out of reach for o.grace
    *  (4 s) fails the stage */
@@ -397,10 +434,10 @@ export class MissionContext {
   }
   /** kill (or wreck) every actor with a tag; o.count: that many of them */
   kill(tag, o = {}) {
-    const need = m => (o.count ? Math.min(o.count, m.tagged(tag).length) : m.tagged(tag).length);
-    return op(m => (m.tagged(tag).filter(done).length >= need(m) ? { value: true } : undefined),
-      { nav: m => { const P = m.mover; let b = null, bd = 1e9; for (const a of m.tagged(tag)) if (!done(a)) { const d = Math.hypot(a.x - P.x, a.y - P.y); if (d < bd) { bd = d; b = a; } } return b; },
-        start: m => { m.objective(o.text || 'Take them out', { hint: { kind: 'kill', targets: tag } }); for (const a of m.tagged(tag)) if (alive(a) && o.mark !== false) m.marker(a, { color: '#ff5a4a', ring: false }); } });
+    const need = m => (o.count ? Math.min(o.count, m.tagged(tag).length) : m.tagged(tag).length), isDone = o.done ? a => done(a) || !!o.done(a) : done;
+    return op(m => (m.tagged(tag).filter(isDone).length >= need(m) ? { value: true } : undefined),
+      { nav: m => { const P = m.mover; let b = null, bd = 1e9; for (const a of m.tagged(tag)) if (!isDone(a)) { const d = Math.hypot(a.x - P.x, a.y - P.y); if (d < bd) { bd = d; b = a; } } return b; },
+        start: m => { m.objective(o.text || 'Take them out', { hint: { kind: 'kill', targets: tag, done: o.done || null } }); for (const a of m.tagged(tag)) if (alive(a) && o.mark !== false) m.marker(a, { color: '#ff5a4a', ring: false }); } });
   }
   /** pick up the mission pickups tagged tag (all of them, or o.count) */
   collect(tag, o = {}) {

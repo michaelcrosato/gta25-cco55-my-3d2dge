@@ -19,10 +19,7 @@ const parked = m => (m.data.parked ||= m.lane([960, 1234], WEST));
 const front = m => (m.data.front ||= m.lane([712, 1234], WEST));
 const diner = m => (m.data.diner ||= m.lane(DINER, EAST));
 // the night: bingo is at ten
-const night = m => { const h = m.W.clock ? m.W.clock.hour : 22; if (h > 5 && h < 20) m.time(22); };
-// a mission passenger's body kept in its seat as its vehicle goes (the mission's actors leave a seated one where it got
-// in): an op that never ends, run beside a stage's own
-const riding = (m, tag) => m.waitUntil(mm => { for (const p of mm.tagged(tag)) if (p.seat && !p.dead) p.ride(); return false; });
+const night = m => { if (m.hour > 5 && m.hour < 20) m.time(22); };
 const nanaIn = m => { const n = m.one('nana'), v = m.one('wagon'); return !!(n && v && n.seat && n.seat.vehicle === v); };
 const burning = m => { const v = m.one('wagon'); return !v || !!(v.damage && v.damage.burning); };
 // the wagon at a spot (a fresh one when the old is gone, wrecked or elsewhere: a retry starts the stage where it starts)
@@ -93,10 +90,10 @@ defMission('gnomes_bingo_night', {
         let safe = false;   // (Nana in the diner: what happens to the wagon now is the police's business)
         m.failIf(m => !safe && !m.one('nana'), 'Nana didn\'t make it');
         m.failIf(m => !safe && burning(m), 'Nana\'s wagon went up');
-        yield m.first([riding(m, 'nana'), m.parallel([
+        yield m.parallel([
           m.say(['That\'s the Eye! And they\'ll put up roadblocks.', 'The Greasy Spoke, dear: up Chapel Street, right on Lantern Lane.', 'The cook owes me. The walk-in fridge has room.'], NANA),
           m.reach(DINER, { vehicle: 'wagon', radius: 72, text: 'Get Nana up Chapel Street and onto Lantern Lane, to the Greasy Spoke' }),
-        ])]);
+        ]);
         const v = m.one('wagon'); m.data.wagon = v ? v.damage.share : 0; safe = true;
         m.remove(m.one('nana'));   // (in at the kitchen door, with the takings)
         // her girls phone the precinct about a fire at the bank: the Eye goes to look, the roadblocks with it

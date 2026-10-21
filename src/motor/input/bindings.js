@@ -70,7 +70,7 @@ export class Bindings {
   codeValue(c) {
     if (c.includes('+')) return c.split('+').every(p => this.codeValue(p) > 0) ? 1 : 0;
     const I = this.input;
-    if (c.startsWith('Pad')) { const n = +c.slice(3), b = this.pad()?.buttons[n]; const v = b ? Math.max(b.value, b.pressed ? 1 : 0) : 0; return Math.max(v, I.held.has(c) ? 1 : 0); }
+    if (c.startsWith('Pad')) { const n = +c.slice(3), b = this.pad()?.buttons[n]; const v = b ? (b.value > 0 ? b.value : b.pressed ? 1 : 0) : 0; return Math.max(v, I.held.has(c) ? 1 : 0); }   // (a trigger's travel as it is: browsers call it pressed from about an eighth of the way, and a pad that reports no value has its press)
     const m = /^(LS|RS)(Up|Down|Left|Right)$/.exec(c);
     if (m) { const [x, y] = this.stick(m[1]), v = { Up: -y, Down: y, Left: -x, Right: x }[m[2]]; return Math.max(0, v); }
     // held now, or pressed since the step before (a tap shorter than a step still counts once: GTM-PATCH(4) raw.pressed)

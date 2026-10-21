@@ -15,8 +15,8 @@ export class PadPilot {
     const d = Math.min(.8, Math.max(0, this.input.deadzone || 0)), want = Math.min(1, l), push = d + want * (1 - d);
     return [x / l * push, y / l * push];
   }
-  // a world direction as a screen one, through the active view
-  _screen(dx, dy) { const s = this.views.screenVec(dx, dy, 0), l = Math.hypot(s[0], s[1]); return l ? [s[0] / l, s[1] / l] : [0, 0]; }
+  // a world direction as the stick's, through the active view (the push the HumanController reads back as it)
+  _screen(dx, dy) { const s = this.views.groundDirToScreen(dx, dy), l = Math.hypot(s[0], s[1]); return l ? [s[0] / l, s[1] / l] : [0, 0]; }
   /** the pad for the next step, from the Intent wanted in a context, for the actor at the stick's centre */
   write(I, context, actor) {
     const P = this.pad; for (const b of P.buttons) { b.pressed = false; b.value = 0; } for (let i = 0; i < P.axes.length; i++) P.axes[i] = 0;

@@ -253,7 +253,7 @@ export class Police {
     this.units = this.units.filter(u => !u.gone);
   }
   _crewOut(u) {
-    const c = u.car, v = c.v; u.out = true; u.I = this.parked; c.duty.out = true;
+    const c = u.car, v = c.v; u.out = true; u.I = this.parked; c.duty.out = true; if (c.brain) c.brain.parked = true;   // (parked where it stopped: the traffic goes round it, never queues behind it)
     c.crew.forEach((ped, i) => {
       if (!ped || ped.dead || !ped.seat) return;
       const plan = exitFor(ped, v); if (plan) ped.leave(plan); else { v.unseat(ped); const [x, y] = v.toWorld(0, (i % 2 ? 1 : -1) * (v.hw + 8)); ped.place(x, y, v.z); }

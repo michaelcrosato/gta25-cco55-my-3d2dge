@@ -10666,6 +10666,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const v = this.game.view;
       return v && v.ax !== void 0 ? [v.ax * x + v.ay * y, v.bx * x + v.by * y + v.bz * z] : [x, y - z];
     }
+    /** the screen direction (a stick's push) the active view reads as the ground direction (x, y): screenDirToGround's
+     *  inverse (ISO's and TOP's are their screenVec; MODE 7's leaves out the squash its screenVec gives the depth) */
+    groundDirToScreen(x, y) {
+      const s = this.spec;
+      return s && s.groundDirToScreen ? s.groundDirToScreen(x, y) : this.screenVec(x, y, 0);
+    }
     /** the ground point under the mouse in the active view, or null */
     mouseGround() {
       const v = this.spec;
@@ -11237,6 +11243,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     screenVec(x, y, z = 0) {
       const a = RAIL[this.heading];
       return [x * a.r[0] + y * a.r[1], -(x * a.f[0] + y * a.f[1]) * 0.3 - z];
+    }
+    /** the stick's push screenDirToGround reads as the ground direction (x, y): its inverse (screenVec squashes the
+     *  depth for the lock-on's cone on screen; a stick pushed up is straight along the rail) */
+    groundDirToScreen(x, y) {
+      const a = RAIL[this.heading];
+      return [x * a.r[0] + y * a.r[1], -(x * a.f[0] + y * a.f[1])];
     }
     screenDirToGround(dx, dy) {
       if (!dx && !dy) return [0, 0];
@@ -11882,6 +11894,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.fade = new CrossFade();
       this.bx = null;
       this._dt = 0;
+      this.railHold = null;
       views.onChange((now, prev) => {
         if (now === prev) return;
         this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas);
@@ -11895,6 +11908,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         depth: v,
         screenDirToGround: (dx, dy) => v.screenDirToGround(dx, dy),
         screenVec: (x, y, z) => v.screenVec(x, y, z),
+        groundDirToScreen: v.groundDirToScreen ? (x, y) => v.groundDirToScreen(x, y) : null,
         mouseGround: () => {
           const m = game2.input.mouseScreen && game2.input.mouseScreen();
           return m && v.P ? v.toGround(m[0] - game2.screen.ix, m[1] - game2.screen.iy) : null;
@@ -12053,11 +12067,29 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     update(dt, o = {}) {
       const d = this.depth;
       if (d !== this.side7 || this.rig) return;
+      if (this.railHold !== null) {
+        if (d.heading !== this.railHold) this._railTo(this.railHold);
+        d.steadyT = 0;
+        return;
+      }
       const want = TUNE.autoRail && o.vehicle && o.vel ? d.autoRail(dt, o.vel[0], o.vel[1]) : (d.steadyT = 0, null);
       if (want === null) return;
       const f = this.focus;
       this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas);
       d.setHeading(want, f ? f[0] : d.x, f ? f[1] : d.y);
+    }
+    /** hold MODE 7's rail at a heading (0 north: the camera south of the focus, looking north; 90 east, 180 south, 270
+     *  west; null lets it go): a mission's set piece (m.view('side7', { heading })). Turned there through the crossfade
+     *  when MODE 7 is up, or as it comes up, and kept there (Auto-rail and the player's turns hold off) till let go.
+     *  Presentation only */
+    pointRail(deg) {
+      this.railHold = deg === null || deg === void 0 ? null : (Math.round(deg / 90) * 90 % 360 + 360) % 360;
+      if (this.railHold !== null && this.depth === this.side7 && this.side7.heading !== this.railHold) this._railTo(this.railHold);
+    }
+    _railTo(deg) {
+      const d = this.side7, f = this.focus;
+      if (!this.fade.active) this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas);
+      d.setHeading(deg, f ? f[0] : d.x, f ? f[1] : d.y);
     }
     /** the camera rig (photo mode, cut-scenes; PLAN.md 8.2, 8.22): { x, y, zoom, heading } holds every view's camera on
      *  that point (ISO's through the scene's focus: stage.rig), at that zoom, MODE 7's rail at that heading; null lets the
@@ -12070,6 +12102,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     turn(dir) {
       const d = this.depth, f = this.focus;
       if (d === this.side7) {
+        if (this.railHold !== null) return false;
         this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas);
         d.setHeading(d.heading + 90 * dir, f ? f[0] : d.x, f ? f[1] : d.y);
         return true;
@@ -14535,7 +14568,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const I = this.input;
       if (c.startsWith("Pad")) {
         const n = +c.slice(3), b = this.pad()?.buttons[n];
-        const v = b ? Math.max(b.value, b.pressed ? 1 : 0) : 0;
+        const v = b ? b.value > 0 ? b.value : b.pressed ? 1 : 0 : 0;
         return Math.max(v, I.held.has(c) ? 1 : 0);
       }
       const m = /^(LS|RS)(Up|Down|Left|Right)$/.exec(c);
@@ -14890,7 +14923,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     enterVehicle: ["vehicle"],
     // vehicle: a tag
     kill: ["targets"],
-    // targets: a tag
+    // targets: a tag; vehicle (a tag: rammed from that vehicle, never left for the job on foot)
     deliver: ["what", "to"],
     // what: a tag; to: [x, y]; tow (the tow truck's tag: what goes on its hook)
     evade: [],
@@ -15327,11 +15360,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const d = Math.hypot(at[0] - s.x, at[1] - s.y) || 1, slope = (at[2] - ((s.z || 0) + CHEST)) / d, l7 = Math.hypot(1, slope);
     return [dir[0] / l7, dir[1] / l7, slope / l7];
   }
-  function losClear(map, a, b) {
+  function losClear(map, a, b, decks = null) {
     const az = (a.z || 0) + CHEST, bz = (b.z || 0) + CHEST * 0.8, n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6);
     for (let i = 1; i < n; i++) {
-      const k = i / n;
-      if (map.heightAt(a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k) > az + (bz - az) * k) return false;
+      const k = i / n, x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k, z = az + (bz - az) * k;
+      if (map.heightAt(x, y) > z) return false;
+      if (decks) for (const d of decks) {
+        const top2 = d.heightAt(x, y);
+        if (top2 !== null && z <= top2 && z >= top2 - (d.thickness || 6)) return false;
+      }
     }
     return true;
   }
@@ -16488,6 +16525,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _arm(d, dt) {
       const inv = this.ped.inv;
       this.throwT -= dt;
+      if (this.thrown && this.ped.throwing) return this.thrown;
       if (this.thrown && inv.rounds(this.thrown) && inv.rounds(this.thrown).total > 0 && this.throwT <= 0 && d > THROW_MIN && d < THROW_MAX) return this.thrown;
       return this.gun || this.melee;
     }
@@ -16508,8 +16546,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (spec.projectile === "molotov" || spec.projectile === "grenade") {
         this._aimAt(I, tgt, false);
         I.aimPoint = [tgt.x, tgt.y, tgt.z || 0];
-        I.tap.attack = true;
-        this.throwT = THROW_EVERY * (0.8 + 0.4 * this._r());
+        if (p.throwing) this.throwT = THROW_EVERY * (0.8 + 0.4 * this._r());
+        else if (p.inv.current === w8 && p.inv.cool <= 0) {
+          I.tap.attack = true;
+          I.down.attack = true;
+        }
         return I;
       }
       const range = Math.max(40, spec.range * this._p("range")), line = this._lineTo(tgt);
@@ -16573,7 +16614,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // straight for a point (run or walk); stuck against something a moment, the sidewalk graph's way round instead
     _go(dt, I, tx, ty, run2, key) {
-      const p = this.ped;
+      const p = this.ped, far = Math.hypot(tx - p.x, ty - p.y);
       if (this.path && this.pathKey === key) {
         while (this.pi < this.path.length) {
           const n = this.S.nodes[this.path[this.pi]];
@@ -16594,8 +16635,26 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.last[0] = p.x;
       this.last[1] = p.y;
       this.stuck = moved < 0.15 ? this.stuck + dt : 0;
+      if (this.aside > 0) {
+        this.aside -= dt;
+        I.move[0] = -dy / l7 * this.asideK;
+        I.move[1] = dx / l7 * this.asideK;
+        I.down.sprint = false;
+        return I;
+      }
+      if (far < (this.stuckFar ?? 1e9) - 30) {
+        this.stuckN = 0;
+        this.stuckFar = far;
+      }
       if (this.stuck > 0.8 && this.S) {
         this.stuck = 0;
+        this.stuckN = (this.stuckN || 0) + 1;
+        this.stuckFar = far;
+        if (this.stuckN % 2 === 0) {
+          this.aside = 0.7;
+          this.asideK = this.stuckN % 4 === 0 ? -1 : 1;
+          return I;
+        }
         const a = this.S.nearestNode(p.x, p.y, 200), b = this.S.nearestNode(tx, ty, 300);
         this.path = a && b ? this.S.route(a.id, b.id) : null;
         this.pi = 0;
@@ -17748,7 +17807,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (this._seen.has(b)) continue;
         this._seen.add(b);
         for (const v of this.vehicles) {
-          if (v.wrecked || v.chainT >= 0 || !v.body) continue;
+          if (v.wrecked || v.chainT >= 0 || !v.body || Math.abs((v.z || 0) - (b.z || 0)) > 40) continue;
           const d = boxDistance(v, b.x, b.y);
           if (d <= b.splash) this.wake(v);
           if (d <= TUNE.carChain || v.damage.burning && d <= b.splash * 0.9) {
@@ -18082,6 +18141,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   knob("Traffic", "stopHalt", "Stop-sign halt", 0.5, 0, 3, 0.1, "Seconds a driver waits stopped at a stop sign before going");
   knob("Traffic", "passAfter", "Goes round after", 2.5, 0.5, 15, 0.25, "Seconds behind something stopped (not queueing) before a driver goes round it");
   knob("Traffic", "exitWait", "Takes another turn after", 5, 1, 30, 0.5, "Seconds a driver waits for a jammed exit before choosing another way");
+  knob("Traffic", "pedPatience", "Edges past peds after", 5, 1, 60, 0.5, "Seconds a calm driver waits for people about a crossing (a crowd at a corner) before it waits only for those in its way");
   var TURN_W = { straight: 0.58, right: 0.24, left: 0.18, uturn: 0, change: 0 };
   var SAMPLE2 = 6;
   var LANE_CLEAR = 18;
@@ -18429,13 +18489,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     // reckless one still brakes for a body right in its path
     _peds(w8, S) {
       if (!w8.pedsNear || !S.length) return null;
-      const v = this.v, hl5 = v.hl, mid = S[S.length >> 1].p, kind = this.p.calm && !(this.panic > 0);
+      const v = this.v, hl5 = v.hl, mid = S[S.length >> 1].p, kind = this.p.calm && !(this.panic > 0), patient = !(this.pedT > TUNE.pedPatience * this.p.patience);
       let best = null;
       for (const p of w8.pedsNear(mid[0], mid[1], S[S.length - 1].d / 2 + 30)) {
         if (p.dead || p.floored || p.seat || Math.abs((p.z || 0) - mid[2]) > 14) continue;
         for (const q of S) {
           if (q.d < hl5 - 2) continue;
-          const reach = v.hw + (!kind ? 3 : this._onCross(q) ? 14 : 5);
+          const reach = v.hw + (!kind ? 3 : patient && this._onCross(q) ? 14 : 5);
           if ((p.x - q.p[0]) ** 2 + (p.y - q.p[1]) ** 2 < reach * reach) {
             const gap = Math.max(0, q.d - hl5 - 6);
             if (best === null || gap < best) best = gap;
@@ -18753,6 +18813,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         lv = 0;
         this.cause = "ped";
       }
+      this.pedT = this.cause === "ped" && sp < 3 ? (this.pedT || 0) + dt : sp > 20 ? 0 : this.pedT || 0;
       if (goalGap !== null && goalGap + TUNE.idmMin < gap) {
         gap = goalGap + TUNE.idmMin;
         lv = 0;
@@ -19664,7 +19725,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** a vehicle of a definition at a point; o: { tag, heading, color, locked, mods, health (0..1 of its own), gang,
      *  driver (an archetype), passengers ([archetypes]), weapons (theirs), drive, stage } */
     vehicle(def2, at, o = {}) {
-      const [x, y] = this._at(at), h = o.heading ?? (at && typeof at.heading === "number" ? at.heading : 0), v = this.W.fleet.spawn(def2, x, y, h, { owner: "mission", color: o.color, locked: o.locked, mods: o.mods });
+      const q = this._at(at), [x, y] = q, h = o.heading ?? (at && typeof at.heading === "number" ? at.heading : 0), v = this.W.fleet.spawn(def2, x, y, h, { owner: "mission", color: o.color, locked: o.locked, mods: o.mods });
+      const z = o.z ?? q[2];
+      if (v.body && typeof z === "number") v.body.z = z;
       if (o.health !== void 0 && v.damage) v.damage.health = v.damage.max * o.health;
       if (o.gang) v.gang = o.gang;
       const e = this._add(v, "vehicle", o);
@@ -19815,7 +19878,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
         if (e.kind !== "ped") continue;
         const p = e.a;
-        if (p.seat || p === P17) continue;
+        if (p === P17) continue;
+        if (p.seat) {
+          if (!p.dead) p.ride();
+          continue;
+        }
         if (e.down && !p.held) p.vitals.down = Math.max(p.vitals.down, 1e6);
         p.update(dt, p.dead || e.down ? clearIntent(this.idle) : this._think(dt, e, P17), PW);
       }
@@ -19881,19 +19948,25 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _drive(dt, e, P17) {
       const v = e.a, D = e.drive;
       e.I = null;
-      if (!D || v.wrecked || !v.driver || v.driver.dead || v.driver === P17) return;
+      if (v.wrecked || !v.driver || v.driver.dead || v.driver === P17) return;
+      if (!D) {
+        const I = clearIntent(e.Ib || (e.Ib = makeIntent()));
+        I.down.handbrake = true;
+        e.I = I;
+        return;
+      }
       const W20 = this.W, roads = W20.roads;
       if (!roads) return;
       let goal = null;
-      if (D.chase === "player" && P17) {
-        const t = P17.seat && P17.seat.vehicle ? P17.seat.vehicle : P17;
-        goal = [t.x, t.y];
+      if (D.chase && P17) {
+        const T15 = D.chase === "player" ? P17 : this.tagged(D.chase).find((a) => !a.dead && !a.wrecked), t = T15 && T15.seat && T15.seat.vehicle ? T15.seat.vehicle : T15;
+        if (t) goal = [t.x, t.y, t.z || 0];
       } else if (D.flee === "player" && P17) {
         if (!D.dest || Math.hypot(D.dest[0] - v.x, D.dest[1] - v.y) < 80) D.dest = this._away(v, P17);
         goal = D.dest;
       } else if (D.race) {
         const line = D.race.map((q) => this._at(q)), c = line[D.cp % line.length];
-        if (Math.hypot(c[0] - v.x, c[1] - v.y) < 48) {
+        if (within(c, v.x, v.y, v.z, 48)) {
           D.cp++;
           if (D.cp >= line.length * (D.laps || 1) && D.finishedAt === null) {
             D.finishedAt = this.R.t;
@@ -19903,7 +19976,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         goal = D.done ? null : line[D.cp % line.length];
       } else if (D.route) {
         const pts2 = D.route.map((q) => this._at(q)), c = pts2[D.cp];
-        if (c && Math.hypot(c[0] - v.x, c[1] - v.y) < 40) {
+        if (c && within(c, v.x, v.y, v.z, 40)) {
           D.cp++;
           if (D.cp >= pts2.length) {
             if (D.loop) D.cp = 0;
@@ -19925,7 +19998,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           return;
         }
         const I = clearIntent(e.Ib || (e.Ib = makeIntent()));
-        I.brake = 1;
+        if (v.speed > 2) I.brake = 1;
+        else I.down.handbrake = true;
         e.I = I;
         return;
       }
@@ -19933,7 +20007,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const key = Math.round(goal[0]) + "," + Math.round(goal[1]);
       if (!e.brain || D.replan <= 0 || !D.chase && e.brainGoal !== key) {
         if (!e.brain) e.brain = new DriverBrain(v, roads.graph, { junctions: W20.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? "race" : "fast")] || STYLES.fast });
-        const r7 = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z });
+        const r7 = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z, tz: goal[2] ?? (v.z > 10 ? v.z : 0) });
         if (r7) e.brain.setRoute(r7.lanes, { lane: r7.to.lane.id, s: r7.to.s });
         else if (D.flee) D.dest = null;
         e.brainGoal = key;
@@ -19983,6 +20057,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (e.kind === "vehicle") {
           const v = e.a;
           if (e.brain && e.brain.dispose) e.brain.dispose();
+          if (v.adopted) {
+            v.owner = v.adopted;
+            v.adopted = null;
+            continue;
+          }
           if (P17 && P17.seat && P17.seat.vehicle === v && o.evict) {
             v.unseat(P17);
             P17.boarding = null;
@@ -20074,6 +20153,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
   var isOp = (x) => !!(x && x[OP]);
   var MEDALS = ["bronze", "silver", "gold"];
+  var RAIL_HEADINGS = { north: 0, east: 90, south: 180, west: 270 };
   var MissionRuntime = class {
     /** o: { world() -> W (the scene's world: game, city, fleet, combat, crew, life, clock, weather, stage, roads,
      *  junctions, wanted(), cash(n, why), respect(gang, delta, why), possess(id), switchTo(id), enter(interior, door),
@@ -20369,9 +20449,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       if (this.allyHeld) {
         const G2 = W20.life && W20.life.gangs;
-        if (G2) G2.ally = null;
+        if (G2) G2.allies.clear();
         this.allyHeld = false;
       }
+      if (W20.stage && W20.stage.pointRail) W20.stage.pointRail(null);
     }
     /** after a pass, back to idle (the card read) */
     done() {
@@ -20464,11 +20545,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         clear: () => {
           const w8 = wanted();
           if (w8) {
+            w8.clear("mission");
             w8.floor(0);
             w8.cap(5);
-            w8.clear("mission");
           }
         },
+        // (the heat gone before the cap lifts: no star shows for a step)
         get stars() {
           const w8 = wanted();
           return w8 ? w8.stars : 0;
@@ -20553,13 +20635,75 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     one(tag) {
       return this.tagged(tag).find(alive) || null;
     }
-    /** a gang on the player's side while the job runs (null: none): the player's strays on its members and cars rally
-     *  no one and cost no respect, and its members never go for the player on sight (lifted when the run ends) */
+    /** a gang whose city members stay out of the job's fight (null: none): the player's strays on them and their cars
+     *  rally no one and cost no respect, and none go for the player on sight; lifted when the run ends. ally: a job
+     *  fought beside that gang (R3's Rats); truce: one fought against its own (G3's), the same thing */
     ally(gang) {
       const G2 = this.W.life && this.W.life.gangs;
       if (!G2) return;
-      G2.ally = gang || null;
+      if (gang) G2.allies.add(gang);
+      else G2.allies.clear();
       this.R.allyHeld = true;
+    }
+    truce(gang) {
+      this.ally(gang);
+    }
+    /** put a world vehicle on the job's list under a tag (a garaged car, one the player came in): the hints can name it;
+     *  the world's again when the run ends, and a retry never releases it */
+    adopt(v, tag) {
+      if (!v) return null;
+      const R2 = this.R;
+      if (R2.actors.entry(v)) return v;
+      const was = v.owner;
+      R2.actors._add(v, "vehicle", { tag, stage: -1 });
+      v.adopted = was || "world";
+      return v;
+    }
+    /** the hour on the clock (0..24) */
+    get hour() {
+      return this.W.clock ? this.W.clock.hour : 12;
+    }
+    /** the crew fund now; and money paid in (n > 0) or out (a bribe: n < 0), with what for */
+    get fund() {
+      return this.crew ? this.crew.fund || 0 : 0;
+    }
+    pay(n, why = "mission") {
+      if (this.W.cash) this.W.cash(n, why);
+    }
+    /** the GPS's time by road (seconds at the streets' limits) from the player, or their vehicle, to a point; null with
+     *  no way there (a job's clock: a drop's fair time) */
+    eta(at) {
+      const G2 = this.W.roads && this.W.roads.gps, P17 = this.mover, q = this.at(at);
+      if (!G2 || !P17) return null;
+      const r7 = G2.routeTo(P17.x, P17.y, P17.heading ?? P17.facing ?? 0, q[0], q[1], { z: P17.z || 0, tz: q[2] });
+      return r7 ? r7.cost : null;
+    }
+    /** a body or a vehicle by its id (a BUS event's target or by: who it was, its gang, whose it is), or null */
+    byId(id) {
+      const C4 = this.W.combat, F = this.W.fleet;
+      return C4 && C4.bodies.find((b) => b.id === id) || F && F.vehicles.find((v) => v.id === id) || null;
+    }
+    /** a blast at a point, nobody's (a drum the fire set off): o { damage (80), splash (56), z (6), fire (false: no
+     *  blaze), source ('blast') } */
+    blast(at, o = {}) {
+      const C4 = this.W.combat, [x, y] = this.at(at);
+      if (!C4) return null;
+      const b = C4.explosives.blast({ x, y, z: o.z ?? 6, damage: o.damage ?? 80, splash: o.splash ?? 56, by: null, source: o.source || "blast" });
+      if (o.fire === false) b.fire = false;
+      return b;
+    }
+    /** a passer-by sent running from the player (and its troupe with it): a crowd ped, by itself or its id (true: sent) */
+    shoo(ped) {
+      const C4 = this.W.life && this.W.life.crowd, P17 = this.player, id = ped && typeof ped === "object" ? ped.id : ped;
+      if (!C4 || !P17) return false;
+      const q = C4.members.find((c) => c.ped.id === id);
+      if (!q || q.ped.gang || q.ped.patrol || q.ped.dead) return false;
+      for (const c of C4.members) if (c === q || q.ped.troupe && c.ped.troupe === q.ped.troupe) c.brain.react("flee", { x: P17.x, y: P17.y, t: 8, force: true });
+      return true;
+    }
+    /** the countdown on the HUD now ({ left, total, stop() }), or null */
+    get countdown() {
+      return this.R.timer || null;
     }
     /** is any guard or enemy with a tag alerted (it saw the player, was hurt, or a mate called it) and still in it (not
      *  taken down, not dead)? A stealth stage's fail */
@@ -20621,9 +20765,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     garaged(id) {
       return this.W.garaged ? this.W.garaged(id) : null;
     }
-    /** a view for a set piece (ISO, TOP or MODE 7: presentation only, the simulation the same) */
-    view(id) {
-      if (this.W.game && this.W.game.views && this.W.game.views.includes(id)) this.W.game.setView(id);
+    /** a view for a set piece (ISO, TOP or MODE 7: presentation only, the simulation the same); o.heading: MODE 7's rail
+     *  held looking that way (0 or 'north', 90 'east', 180 'south', 270 'west') till the next view call or the job's end */
+    view(id, o = {}) {
+      const G2 = this.W.game, S = this.W.stage, h = typeof o.heading === "string" ? RAIL_HEADINGS[o.heading] : o.heading;
+      if (G2 && G2.views && G2.views.includes(id)) G2.setView(id);
+      if (S && S.pointRail) S.pointRail(id === "side7" && h !== void 0 ? h : null);
     }
     /** play as a protagonist from now (a setup's: no switch camera) */
     as(id) {
@@ -20770,7 +20917,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           return w8 && w8.body && m.vehicle !== w8 ? w8 : to;
         },
         start: (m) => {
-          m.objective(text, { hint: { kind: "deliver", what: o.what, to } });
+          m.objective(text, { hint: { kind: "deliver", what: o.what, to, tow: o.tow } });
           m.marker(to, { color: "#7aff8a", r: Math.min(r7, 28) });
         }
       });
@@ -20835,14 +20982,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     /** kill (or wreck) every actor with a tag; o.count: that many of them */
     kill(tag, o = {}) {
-      const need = (m) => o.count ? Math.min(o.count, m.tagged(tag).length) : m.tagged(tag).length;
+      const need = (m) => o.count ? Math.min(o.count, m.tagged(tag).length) : m.tagged(tag).length, isDone = o.done ? (a) => done(a) || !!o.done(a) : done;
       return op(
-        (m) => m.tagged(tag).filter(done).length >= need(m) ? { value: true } : void 0,
+        (m) => m.tagged(tag).filter(isDone).length >= need(m) ? { value: true } : void 0,
         {
           nav: (m) => {
             const P17 = m.mover;
             let b = null, bd = 1e9;
-            for (const a of m.tagged(tag)) if (!done(a)) {
+            for (const a of m.tagged(tag)) if (!isDone(a)) {
               const d = Math.hypot(a.x - P17.x, a.y - P17.y);
               if (d < bd) {
                 bd = d;
@@ -20852,7 +20999,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             return b;
           },
           start: (m) => {
-            m.objective(o.text || "Take them out", { hint: { kind: "kill", targets: tag } });
+            m.objective(o.text || "Take them out", { hint: { kind: "kill", targets: tag, done: o.done || null } });
             for (const a of m.tagged(tag)) if (alive(a) && o.mark !== false) m.marker(a, { color: "#ff5a4a", ring: false });
           }
         }
@@ -21706,6 +21853,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         C4.lot[i] = lot.index;
         if (lot.surface) C4.surface[i] = SURF[lot.surface];
         if (lot.kind === "building") taken[i] = 3;
+        else if (overWater && taken[i] === 1) taken[i] = 0;
       });
       return lot;
     };
@@ -25247,7 +25395,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return I2;
       }
       if (this.round) return this._round(dt, v);
-      const L16 = b.leader, held = L16 && L16.gap < 14 && L16.speed < 2 || b.cause === "ped";
+      const L16 = b.leader, waits = L16 && L16.v && L16.v.brain && !L16.v.brain.parked && ["signal", "queue", "yield"].includes(L16.v.brain.cause), held = L16 && L16.gap < 14 && L16.speed < 2 && !waits || b.cause === "ped";
       this.boxT = held && v.speed < 3 && !b.pass && b.cause !== "signal" && b.cause !== "arrived" ? (this.boxT || 0) + dt : 0;
       if (this.boxT > (b.cause === "ped" ? 8 : 5)) {
         this.boxT = 0;
@@ -25589,6 +25737,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // a vehicle to drive: the nearest one that would do (the AutoPlayer's pick), boarded
     _car(dt, p, w8) {
+      if (this.car && this.car === this._carFor && (this._carT = (this._carT || 0) + dt) > 12 && !(p.seat && p.seat.vehicle === this.car)) {
+        this.auto.tried.add(this.car.id);
+        this.car = null;
+      }
+      if (this.car !== this._carFor) {
+        this._carFor = this.car;
+        this._carT = 0;
+      }
       if (!this.car || this.car.wrecked || this.auto.tried.has(this.car.id) || Math.hypot(this.car.x - p.x, this.car.y - p.y) > CAR_NEAR * 1.5 || this.car.driver && this.car.driver !== p && this.car.driver.owner === "mission") this.car = this.auto._pickCar(p) || this._anyCar(p);
       return this.car ? this._board(dt, p, this.car, w8) : null;
     }
@@ -25616,8 +25772,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           const I = clearIntent(this.I), a = Math.atan2(sp[1] - P17.y, sp[0] - P17.x);
           I.aim = [Math.cos(a), Math.sin(a)];
           I.aimPoint = [sp[0], sp[1], 0];
+          const ws = !p.seat && p.inv.spec(), auto = !ws || ws.rate >= 6;
           I.down.fire = true;
-          I.down.attack = true;
+          I.down.attack = auto || (this.t * 4 | 0) % 2 === 0;
+          I.tap.attack = !auto && I.down.attack;
           I.down.aim = !p.seat;
           if (p.seat && P17.speed > 6) I.brake = 1;
           if (p.seat) {
@@ -25664,7 +25822,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       if (car.towedBy === truck) {
         this.tow = null;
-        return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: "careful", radius: 50 }, w8);
+        return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: "careful", radius: 50, z: h.to[2] }, w8);
       }
       const T15 = this.tow && this.tow.car === car ? this.tow : this.tow = { car, phase: "stage", end: this._towEnd(car, truck), t: 0, n: 0, best: 1e9 };
       const e = T15.end, dir = [Math.cos(e.h), Math.sin(e.h)], E2 = car.toWorld(e.k * car.hl, 0), off2 = truck.hl + 60, S = [E2[0] + dir[0] * off2, E2[1] + dir[1] * off2];
@@ -25684,7 +25842,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           T15.phase = Math.abs(ah) < 0.35 ? "back" : "align";
           T15.t = 0;
           T15.best = dH;
-        } else return this._go(dt, p, S[0], S[1], { stay: true, radius: 16, slack: 10 }, w8);
+        } else return this._go(dt, p, S[0], S[1], { stay: true, radius: 16, slack: 10, z: car.z }, w8);
       }
       if (T15.phase === "align") {
         T15.t += dt;
@@ -25738,7 +25896,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return ends.find(room) || ends[0];
     }
     _kill(dt, p, R2, h, w8) {
-      const v = p.seat && p.seat.vehicle, live = (a) => alive2(a) && !(a.damage && a.damage.burning);
+      if (h.vehicle) {
+        const hv = R2.actors.tagged(h.vehicle).find(alive2);
+        if (hv && (!p.seat || p.seat.vehicle !== hv)) return this._board(dt, p, hv, w8);
+      }
+      const v = p.seat && p.seat.vehicle, live = (a) => alive2(a) && !(a.damage && a.damage.burning) && !(h.done && h.done(a));
       let t = null, td = 1e9;
       for (const a of R2.actors.tagged(h.targets)) if (live(a)) {
         const d = Math.hypot(a.x - p.x, a.y - p.y);
@@ -25775,8 +25937,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             S.share = Math.min(S.share, share);
             S.at = this.t;
           }
-          if (this.t - S.at > 20 && !(w8.wanted && w8.wanted.stars > 1)) return this._out(v);
-          return this._ram(dt, p, v, t, td, w8);
+          if (this.t - S.at > 20 && !(w8.wanted && w8.wanted.stars > 1) && !h.vehicle) return this._out(v);
+          return this._ram(dt, p, v, t, td, w8, !!h.vehicle);
         }
         if (td > 260) return this._go(dt, p, t.x, t.y, { stay: true, slack: 60 }, w8);
         return this._out(v);
@@ -25806,14 +25968,32 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return I;
     }
     // a vehicle rammed: at it flat out; pressed against it at a crawl (a push does no harm), backed off for another run
-    _ram(dt, p, v, t, d, w8) {
-      if (d > 140) return this._go(dt, p, t.x, t.y, { stay: true, style: "race", slack: 50 }, w8);
-      const I = clearIntent(this.I), S = this.ramS || (this.ramS = { back: 0, slow: 0 });
+    _ram(dt, p, v, t, d, w8, hold2 = false) {
+      if (d > 140) return this._go(dt, p, t.x, t.y, { stay: true, style: "race", slack: 50, hold: hold2 }, w8);
+      const I = clearIntent(this.I), S = this.ramS || (this.ramS = { back: 0, slow: 0, held: 0, round: 0, side: 1 });
       let da = Math.atan2(t.y - v.y, t.x - v.x) - v.heading;
       da = Math.atan2(Math.sin(da), Math.cos(da));
       if (S.back > 0) {
         S.back -= dt;
         I.brake = 1;
+        return I;
+      }
+      if (S.round > 0) {
+        S.round -= dt;
+        if (S.round > 1.4) {
+          I.brake = 0.8;
+          I.steer = -S.side * 0.6;
+        } else {
+          I.throttle = 0.75;
+          I.steer = S.side * 0.7;
+        }
+        return I;
+      }
+      S.held = v.speed < 5 && d > v.hl + t.hl + 30 ? S.held + dt : 0;
+      if (S.held > 2.5) {
+        S.held = 0;
+        S.side = -S.side;
+        S.round = 2.4;
         return I;
       }
       const shove = (t.speed || 0) > 15;
@@ -25846,6 +26026,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         const melee = !F.gun || p.inv.spec(F.gun).projectile === "melee";
         if (melee) {
           const bd = boxDistance(t, p.x, p.y);
+          if (bd > 40) {
+            F.path = null;
+            return this._go(dt, p, t.x, t.y, { foot: true, stay: true, radius: 8 }, w8);
+          }
           if (bd > 10) return F._go(dt, I, t.x, t.y, true, "car" + t.id);
           if (p.inv.current !== F.melee) return this._step(I, p, F.melee);
           const d = Math.hypot(t.x - p.x, t.y - p.y);
@@ -25972,7 +26156,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         I.down.attack = true;
         return I;
       }
-      if (run2 && run2.guards && run2.guards.some((g) => g.mind && g.mind.state !== "calm" && g.mind.state !== "down" && !g.down)) return I;
+      if (run2 && run2.guards && run2.guards.some((g) => g.mind && g.mind.state !== "calm" && g.mind.state !== "down" && !g.down && !g.ped.dead)) return I;
       const foe = !run2 && R2.actors.list.find((e) => e.role === "guard" && e.alerted && !e.a.dead && !e.down && !e.a.out && Math.hypot(e.a.x - p.x, e.a.y - p.y) < 320);
       if (foe) return this._fight(dt, p, foe.a, w8);
       while (this.si < path.length - 1 && Math.hypot(path[this.si][0] - p.x, path[this.si][1] - p.y) < 10) this.si++;
@@ -26005,9 +26189,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const d = Math.min(0.8, Math.max(0, this.input.deadzone || 0)), want = Math.min(1, l7), push3 = d + want * (1 - d);
       return [x / l7 * push3, y / l7 * push3];
     }
-    // a world direction as a screen one, through the active view
+    // a world direction as the stick's, through the active view (the push the HumanController reads back as it)
     _screen(dx, dy) {
-      const s = this.views.screenVec(dx, dy, 0), l7 = Math.hypot(s[0], s[1]);
+      const s = this.views.groundDirToScreen(dx, dy), l7 = Math.hypot(s[0], s[1]);
       return l7 ? [s[0] / l7, s[1] / l7] : [0, 0];
     }
     /** the pad for the next step, from the Intent wanted in a context, for the actor at the stick's centre */
@@ -26875,6 +27059,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       u.out = true;
       u.I = this.parked;
       c.duty.out = true;
+      if (c.brain) c.brain.parked = true;
       c.crew.forEach((ped, i) => {
         if (!ped || ped.dead || !ped.seat) return;
         const plan2 = exitFor(ped, v);
@@ -27281,7 +27466,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.lastWar = /* @__PURE__ */ new Map();
       this.carHits = /* @__PURE__ */ new Map();
       this.small = /* @__PURE__ */ new Map();
-      this.ally = null;
+      this.allies = /* @__PURE__ */ new Set();
       this.t = 0;
       this._senseT = 0;
       this._keepT = 0;
@@ -27337,7 +27522,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _kill(e) {
       if (!this.isPlayer(e.by) || !this.combat) return;
       const t = this.combat.bodies.find((b) => b.id === e.target);
-      if (!t || !t.gang || t.gang === this.ally) return;
+      if (!t || !t.gang || this.allies.has(t.gang)) return;
       this.add(t.gang, TUNE.respectKill, "kill");
       for (const g of all("gangs")) if (g.rival === t.gang) this.add(g.id, TUNE.respectRival, "rival");
     }
@@ -27347,13 +27532,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const by = this.combat && this.combat.bodies.find((b) => b.id === e.by), player = this.isPlayer(e.by);
       const v = this.fleet.byId(e.target);
       if (v) {
-        if (player && v.gang && v.gang !== this.ally) this._carHit(v);
+        if (player && v.gang && !this.allies.has(v.gang)) this._carHit(v);
         return;
       }
       const t = this.combat && this.combat.bodies.find((b) => b.id === e.target);
       if (!t || !by || by === t) return;
       if (t.gang && !t.dead) {
-        if (by.gang === t.gang || player && t.gang === this.ally) return;
+        if (by.gang === t.gang || player && this.allies.has(t.gang)) return;
         if (player && this.stance(t.gang) === "friendly" && e.kind === "melee" && !(this.small.get(t.id) > this.t)) {
           this.small.set(t.id, this.t + SMALL2);
           return;
@@ -27487,7 +27672,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       for (const m of members) {
         const p = m.ped, g = p.gang;
         if (p.seat) continue;
-        if (P17 && !P17.dead && g !== this.ally && this.stance(g) === "hostile" && this.turfAt(p.x, p.y) === g && sameLevel(p, P17) && E.sees(p, P17, { map, range: TUNE.gangSight, fov: 3.2, facing: p.mover.facing }).seen) {
+        if (P17 && !P17.dead && !this.allies.has(g) && this.stance(g) === "hostile" && this.turfAt(p.x, p.y) === g && sameLevel(p, P17) && E.sees(p, P17, { map, range: TUNE.gangSight, fov: 3.2, facing: p.mover.facing }).seen) {
           this._rally({ gang: g, x: p.x, y: p.y }, P17);
           continue;
         }
@@ -29092,6 +29277,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.combat.add(ped);
         return new Guard(ped, { map: this.map, rng: this.rng, route: g.route.map(([x, y]) => [(x + 0.5) * T4, (y + 0.5) * T4]) });
       });
+      this.looped = false;
       this.cameras = this.spec.cameras.map((c) => ({ x: (c.at[0] + 0.5) * T4, y: (c.at[1] + 0.5) * T4, z: c.z, base: c.facing, sweep: c.sweep, period: c.period, range: c.range, fov: c.fov, facing: c.facing, mind: new E.Suspicion({ rise: 2.4, decay: 0.4 }), sees: false }));
       this.alarm = null;
       this.t = 0;
@@ -29141,7 +29327,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const P17 = ctx.player || this.player, minds = P17 && !P17.dead && this._minds(P17, ctx.wanted || 0);
       for (const c of this.cameras) {
         c.facing = c.base + c.sweep * Math.sin(this.t * Math.PI * 2 / c.period);
-        const seen = minds ? E.sees({ x: c.x, y: c.y, z: 0, facing: c.facing }, P17, { map: this.map, range: c.range, fov: c.fov, facing: c.facing, eye: c.z }) : 0;
+        const seen = minds && !this.looped ? E.sees({ x: c.x, y: c.y, z: 0, facing: c.facing }, P17, { map: this.map, range: c.range, fov: c.fov, facing: c.facing, eye: c.z }) : 0;
         c.sees = !!(seen && seen.seen);
         c.mind.update(dt, seen, P17);
         if (c.mind.state === "alert" && !this.alarm) this.raise("camera", P17);
@@ -29166,6 +29352,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       if (P17 && P17.mover && P17.mover.sprinting && Math.hypot(P17.mover.vx, P17.mover.vy) > 60) this._noise(P17.x, P17.y, P17.z || 0, TUNE.stepHeard, P17.id);
       this.combat.update(dt, { takers: [], take: () => false });
+    }
+    /** the CCTV on a loop (a crew's hacker, on: the cameras sweep and see nothing) or back (off) */
+    loopCameras(on = true) {
+      this.looped = !!on;
     }
     // a noise at (x, y, z) loud far: the guards who hear it go to look (a shot of their own colleagues' aside)
     _noise(x, y, z, loud, by) {
@@ -31290,7 +31480,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   L2(
     "boathouse",
     "Harbor Rats Boathouse",
-    [{ rect: [142, 134, 151, 145], kind: "pier", surface: "pier" }, { rect: [144, 136, 150, 142], kind: "building", storeys: 2, look: shed("#8a6a4a", "#5a4a3a", { face: "plank" }), sign: { text: "BOATHOUSE", color: "#ffd23a" } }, { rect: [138, 138, 141, 139], kind: "pier", surface: "pier" }],
+    [{ rect: [142, 134, 151, 145], kind: "pier", surface: "pier" }, { rect: [146, 136, 150, 142], kind: "building", storeys: 2, look: shed("#8a6a4a", "#5a4a3a", { face: "plank" }), sign: { text: "BOATHOUSE", color: "#ffd23a" } }, { rect: [138, 138, 141, 139], kind: "pier", surface: "pier" }],
     [{ id: "rats-hq", kind: "gang", gang: "rats", at: [147, 143], label: "Harbor Rats Boathouse" }, { id: "phone-rats", kind: "payphone", gang: "rats", at: [134, 139] }]
   );
   L2(
@@ -32012,18 +32202,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             }
           });
           m.on("hit", (e) => {
-            const P17 = m.player, C4 = m.W.life && m.W.life.crowd;
-            if (!P17 || !C4 || e.target !== P17.id) return;
-            const q = C4.members.find((c) => c.ped.id === e.by);
-            if (!q || q.ped.gang || q.ped.patrol || q.ped.dead) return;
-            for (const c of C4.members) if (c === q || q.ped.troupe && c.ped.troupe === q.ped.troupe) c.brain.react("flee", { x: P17.x, y: P17.y, t: 8, force: true });
+            if (m.player && e.target === m.player.id) m.shoo(e.by);
           });
           yield m.first([switchboard(m), smashing(m), m.parallel([
             m.say(["Eight of them. Two minutes.", "Chrome dents lovely."], NANA),
             m.kill("saints", { count: N2, text: aim(N2) })
           ])]);
           m.objective("");
-          const T15 = m.R.timer;
+          const T15 = m.countdown;
           m.data.spare = T15 ? T15.left : 0;
           if (T15) T15.stop();
           if (m.tagged("saints").some((v) => v.wrecked || v.damage && v.damage.burning)) m.data.burnt = true;
@@ -32043,11 +32229,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             yield m.first([oneCall(m), m.parallel([
               m.say(["That's eight. Lovely work, dear.", "The girls let a call through to the precinct now.", "Lose the fuzz, or come back to the lanes and we'll hide you."], NANA),
               m.first([m.evade({ text }), m.sequence([m.reach(DOOR, { radius: HIDE, text }), m.waitUntil((mm) => {
-                mm.wanted.set(0);
                 mm.wanted.clear();
                 return true;
               })])])
-              // (the heat gone before the cap lifts: no star shows)
             ])]);
           } else {
             m.wanted.cap(5);
@@ -32072,13 +32256,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var front = (m) => m.data.front ||= m.lane([712, 1234], WEST);
   var diner = (m) => m.data.diner ||= m.lane(DINER, EAST);
   var night = (m) => {
-    const h = m.W.clock ? m.W.clock.hour : 22;
-    if (h > 5 && h < 20) m.time(22);
+    if (m.hour > 5 && m.hour < 20) m.time(22);
   };
-  var riding = (m, tag) => m.waitUntil((mm) => {
-    for (const p of mm.tagged(tag)) if (p.seat && !p.dead) p.ride();
-    return false;
-  });
   var nanaIn = (m) => {
     const n = m.one("nana"), v = m.one("wagon");
     return !!(n && v && n.seat && n.seat.vehicle === v);
@@ -32164,10 +32343,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           let safe2 = false;
           m.failIf((m2) => !safe2 && !m2.one("nana"), "Nana didn't make it");
           m.failIf((m2) => !safe2 && burning(m2), "Nana's wagon went up");
-          yield m.first([riding(m, "nana"), m.parallel([
+          yield m.parallel([
             m.say(["That's the Eye! And they'll put up roadblocks.", "The Greasy Spoke, dear: up Chapel Street, right on Lantern Lane.", "The cook owes me. The walk-in fridge has room."], NANA2),
             m.reach(DINER, { vehicle: "wagon", radius: 72, text: "Get Nana up Chapel Street and onto Lantern Lane, to the Greasy Spoke" })
-          ])]);
+          ]);
           const v = m.one("wagon");
           m.data.wagon = v ? v.damage.share : 0;
           safe2 = true;
@@ -32236,18 +32415,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       m.spawn.prop("barrel", [x + 9, y + 3], { tag: "stack" });
       m.spawn.prop("barrel", [x + 3, y + 10], { tag: "stack" });
     });
-    for (const [x, y, k] of [[2348, 2168, "crate"], [2380, 2196, "pallet"], [2340, 2260, "crate"], [2392, 2288, "pallet"], [2410, 2240, "crate"]]) m.spawn.prop(k, [x, y], { tag: "dock" });
+    for (const [x, y, k] of [[2348, 2168, "crate"], [2380, 2160, "pallet"], [2322, 2262, "crate"], [2392, 2288, "pallet"], [2424, 2240, "crate"]]) m.spawn.prop(k, [x, y], { tag: "dock" });
   }
   var standing2 = (q) => !q.blown;
   function fuse(m) {
-    const C4 = m.W.combat;
     for (const q of m.tagged("fuel")) {
       if (q.blown) continue;
       if (q.lit === void 0 && m.heat([q.x, q.y], 24) > LIT) q.lit = m.stageTime;
       if (q.lit !== void 0 && m.stageTime - q.lit >= FUSE) {
         q.blown = true;
         q.dead = true;
-        if (C4) C4.explosives.blast({ x: q.x, y: q.y, z: 6, damage: 80, splash: 56, by: null, source: "drum" });
+        m.blast([q.x, q.y], { source: "drum" });
         m.fire([q.x, q.y], 40, 30);
         for (const s of m.tagged("stack")) if (Math.hypot(s.x - q.x, s.y - q.y) < 20) s.dead = true;
       }
@@ -32271,7 +32449,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
   var war = (m, f = () => {
   }) => {
-    let last = m.stageTime, un = null;
+    let last = m.stageTime;
     return Object.assign(m.waitUntil((mm) => {
       const t = mm.stageTime;
       f(mm, Math.max(0, t - last));
@@ -32280,18 +32458,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }), {
       start: (mm) => {
         mm.wanted.cap(0);
-        const G2 = mm.W.life && mm.W.life.gangs;
-        if (G2) un = mm.on("respect", (e) => {
-          if (e.gang === "rats" && e.delta < 0 && (e.why === "kill" || e.why === "car")) G2.add("rats", -e.delta, "war");
-        });
+        mm.truce("rats");
       },
       end: (mm) => {
-        mm.wanted.set(0);
         mm.wanted.clear();
-        if (un) un();
-        un = null;
       }
-      // (the heat gone before the cap lifts: no star shows)
     });
   };
   var atFoot = (m, far = 300) => {
@@ -32509,12 +32680,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     put(m, v, at, { z: DECK, heading: Math.PI });
     v.siren = true;
     for (const s of [1, 2]) m.place(m.spawn.ped("swat", [v.x, v.y], { tag: "trooper" }), { in: v, seat: s });
-    troopers(m, v);
     return v;
   }
-  var troopers = (m, v) => {
-    for (const p of m.tagged("trooper")) if (!p.dead && p.seat) p.place(v.x, v.y, v.z + 6);
-  };
   var DISABLED = 0.4;
   function inTheWay(m, van) {
     const P17 = m.player, own = m.vehicle, L16 = Math.hypot(van.x - P17.x, van.y - P17.y) || 1;
@@ -32573,7 +32740,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       yield m.say(["There she goes: the Strongbox, on its Thursday run. Hit it, Gus. Hit it till it stops."], VIV);
       const box2 = () => m.one("strongbox");
       m.marker(box2(), { color: "#ff5a4a", ring: false });
-      m.objective("Ram the Strongbox: 0/3", { hint: { kind: "kill", targets: "strongbox" } });
+      m.objective("Ram the Strongbox: 0/3", { hint: { kind: "kill", targets: "strongbox", vehicle: "ram" } });
       m.failIf((mm) => !mm.vehicle || mm.vehicle !== mm.one("ram"), "Gus left the Hookline");
       yield m.waitUntil((mm) => {
         const b2 = box2(), t = mm.one("ram");
@@ -32582,7 +32749,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (near2 && !mm.data.contact && t.speed + b2.speed > 25) {
           mm.data.contact = true;
           mm.data.hits++;
-          mm.objective(`Ram the Strongbox: ${mm.data.hits}/3`, { hint: { kind: "kill", targets: "strongbox" } });
+          mm.objective(`Ram the Strongbox: ${mm.data.hits}/3`, { hint: { kind: "kill", targets: "strongbox", vehicle: "ram" } });
         } else if (!near2 && Math.hypot(b2.x - t.x, b2.y - t.y) > b2.hl + t.hl + 24) mm.data.contact = false;
         return mm.data.hits >= 3;
       });
@@ -32679,7 +32846,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       m.objective("Down the sewer grate", { hint: { kind: "goto", at: grate, radius: 16, foot: true, interact: true } });
       m.marker(grate, { color: "#ffe066", r: 12 });
       yield m.waitUntil((mm) => !!mm.inside);
-      for (const c of m.inside.run.cameras) c.range = 0;
+      m.inside.run.loopCameras(true);
       m.objective("Along the sewer to the hatch", { hint: { kind: "stealth", path: SEWER_IN } });
       yield m.parallel([
         m.say([m.data.helper === "saints" ? "Saints' jammer is on. Cameras are blind." : "Bilge's boy is in. Cameras are looping.", "Go."], VIV),
@@ -32739,7 +32906,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const hint = { kind: "goto", at: STOP, radius: 30, vehicle: null };
       m.objective("West along the Loop", { hint });
       m.marker(STOP, { color: "#ffe066" });
-      let still = null, iso = false;
+      let still = null, back = false;
       yield m.waitUntil((mm) => {
         const v = mm.vehicle;
         if (!mm.one("block") && (laneClear(mm) || v && v.x < 1560)) {
@@ -32749,9 +32916,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         const held = !!v && v === car && v.z > DECK - 12 && v.x < 1460 && v.x > BLOCK[0] && v.speed < 8 && !!mm.one("block");
         still = held ? still ?? mm.stageTime : null;
         if (held && !mm.one("swat")) {
-          if (!iso) {
-            mm.view("iso");
-            iso = true;
+          if (!back) {
+            mm.view("side7", { heading: "east" });
+            back = true;
           }
           swatVan(mm, car, mm.stageTime - still > 6);
         }
@@ -32765,7 +32932,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     id: "window",
     setup(m) {
       const car = standoff(m);
-      m.view("iso");
+      m.view("side7", { heading: "east" });
       if (!m.one("swat")) swatVan(m, car, true);
     },
     *run(m) {
@@ -32773,7 +32940,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       m.failIf(() => !carOk(car), "the getaway car is wrecked");
       yield m.say(["Roadblock. And company behind us."], DEX);
       yield m.switchTo("viv");
-      m.view("iso");
+      m.view("side7", { heading: "east" });
       m.loadout({ weapons: ["snub38"], ammo: { snub38: 120 }, select: "snub38", only: true });
       yield m.say(["SWAT. Keep your head down, Dex."], VIV);
       const hint = { kind: "kill", targets: "swat" };
@@ -32782,7 +32949,6 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       yield m.waitUntil((mm) => {
         const c = mm.one("swat");
         if (!c || c.damage.share < DISABLED) return true;
-        troopers(mm, c);
         hint.targets = inTheWay(mm, c) ? "swat-hold" : "swat";
         return false;
       });
@@ -32798,7 +32964,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     },
     *run(m) {
       yield m.switchTo("gus");
-      m.view("side7");
+      m.view("side7", { heading: "east" });
       yield m.say(["Morning, officer. You're parked in a tow-away zone."], GUS);
       const to = m.at(TOW_TO), block = () => m.one("block");
       m.marker(to, { color: "#7aff8a", r: 28 });
@@ -32806,8 +32972,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       m.objective("Hook the cruiser and drag it off the Loop", { hint: { kind: "deliver", what: "block", to, tow: "hookline" } });
       m.failIf((mm) => !mm.one("block"), "the cruiser is a wreck: no way through");
       m.failIf((mm) => !mm.one("hookline"), "the Hookline is wrecked");
+      let hooked = false;
       yield m.waitUntil((mm) => {
         const b = block();
+        if (b && b.towedBy && !hooked) {
+          hooked = true;
+          mm.view("side7");
+        }
         return !!b && b.z < 20 && Math.hypot(b.x - to[0], b.y - to[1]) < 160;
       });
       m.data.towed = true;
@@ -33127,6 +33298,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       start: (mm) => {
         mm.wanted.cap(0);
         mm.ally("rats");
+        mm.truce("saints");
       },
       end: (mm) => {
         mm.wanted.clear();
@@ -35390,7 +35562,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         BUS.emit("respray", { vehicle: v.id, color: v.color });
         toast = { text: "RESPRAYED  -$" + TUNE.resprayFee, t: 2.5 };
       }
-      const aimCtx = () => ({ candidates: combat.bodies.filter((b) => b.aimable && !b.dead), toScreen: (x, y, z) => views.screenVec(x, y, z), los: (s, c) => losClear(map, s, c), level: "standard" });
+      const aimCtx = () => ({ candidates: combat.bodies.filter((b) => b.aimable && !b.dead), toScreen: (x, y, z) => views.screenVec(x, y, z), los: (s, c) => losClear(map, s, c, city.decks), level: "standard" });
       function switchItems() {
         const ANG = { dex: Math.PI, viv: -Math.PI / 2, gus: 0 };
         const items = crew.order.map((id) => {

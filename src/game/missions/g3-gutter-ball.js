@@ -46,19 +46,18 @@ function drums(m) {
     m.spawn.prop('barrel', [x, y], { tag: 'fuel' });
     m.spawn.prop('barrel', [x + 9, y + 3], { tag: 'stack' }); m.spawn.prop('barrel', [x + 3, y + 10], { tag: 'stack' });   // (the rest of the stack: dressing)
   });
-  for (const [x, y, k] of [[2348, 2168, 'crate'], [2380, 2196, 'pallet'], [2340, 2260, 'crate'], [2392, 2288, 'pallet'], [2410, 2240, 'crate']]) m.spawn.prop(k, [x, y], { tag: 'dock' });
+  for (const [x, y, k] of [[2348, 2168, 'crate'], [2380, 2160, 'pallet'], [2322, 2262, 'crate'], [2392, 2288, 'pallet'], [2424, 2240, 'crate']]) m.spawn.prop(k, [x, y], { tag: 'dock' });   // (on the planks round the boathouse)
 }
 const standing = q => !q.blown;
 // each step: a drum with fire at its foot is lit; FUSE s later it goes up (a blast, and the planks round it ablaze). The
 // blast is nobody's (the fire did it): no crime of the player's, no respect lost to the Rats burned on their own pier
 function fuse(m) {
-  const C = m.W.combat;
   for (const q of m.tagged('fuel')) {
     if (q.blown) continue;
     if (q.lit === undefined && m.heat([q.x, q.y], 24) > LIT) q.lit = m.stageTime;
     if (q.lit !== undefined && m.stageTime - q.lit >= FUSE) {
       q.blown = true; q.dead = true;
-      if (C) C.explosives.blast({ x: q.x, y: q.y, z: 6, damage: 80, splash: 56, by: null, source: 'drum' });
+      m.blast([q.x, q.y], { source: 'drum' });
       m.fire([q.x, q.y], 40, 30);
       for (const s of m.tagged('stack')) if (Math.hypot(s.x - q.x, s.y - q.y) < 20) s.dead = true;
     }
@@ -79,18 +78,14 @@ function torching(m) {
 }
 // an op that never ends, doing f(m, dt) each step, run beside a stage's own in m.first. While it runs the precinct is
 // busy with bingo night's paperwork (no stars: the explosions and the gunfire on the pier earn no heat, and the officers
-// who come with the fire brigade have other things to do), and a Rat of the city's that the player kills costs no
-// respect beyond the job's own. However it ends (the stage won, the stage failed, the job quit) the heat is forgotten
-// and the cap lifted
+// who come with the fire brigade have other things to do), and the city's own Rats keep out of it (a truce for the job:
+// one the player hits rallies none, and costs no respect beyond the job's own). However it ends (the stage won, the
+// stage failed, the job quit) the heat is forgotten and the cap lifted
 const war = (m, f = () => {}) => {
-  let last = m.stageTime, un = null;
+  let last = m.stageTime;
   return Object.assign(m.waitUntil(mm => { const t = mm.stageTime; f(mm, Math.max(0, t - last)); last = t; return false; }), {
-    start: mm => {
-      mm.wanted.cap(0);
-      const G = mm.W.life && mm.W.life.gangs;
-      if (G) un = mm.on('respect', e => { if (e.gang === 'rats' && e.delta < 0 && (e.why === 'kill' || e.why === 'car')) G.add('rats', -e.delta, 'war'); });
-    },
-    end: mm => { mm.wanted.set(0); mm.wanted.clear(); if (un) un(); un = null; },   // (the heat gone before the cap lifts: no star shows)
+    start: mm => { mm.wanted.cap(0); mm.truce('rats'); },
+    end: mm => { mm.wanted.clear(); },
   });
 };
 // the player at the pier's foot (a deep link, a retry: there, on foot)

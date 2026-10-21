@@ -44,6 +44,9 @@ export class ViewManager {
     const s = this.spec; if (s && s.screenVec) return s.screenVec(x, y, z);
     const v = this.game.view; return v && v.ax !== undefined ? [v.ax * x + v.ay * y, v.bx * x + v.by * y + v.bz * z] : [x, y - z];
   }
+  /** the screen direction (a stick's push) the active view reads as the ground direction (x, y): screenDirToGround's
+   *  inverse (ISO's and TOP's are their screenVec; MODE 7's leaves out the squash its screenVec gives the depth) */
+  groundDirToScreen(x, y) { const s = this.spec; return s && s.groundDirToScreen ? s.groundDirToScreen(x, y) : this.screenVec(x, y, 0); }
   /** the ground point under the mouse in the active view, or null */
   mouseGround() { const v = this.spec; return v && v.mouseGround ? v.mouseGround() : this.game.mouseGround(); }
   /** the player's switch (R3 / V): the next view in game.views, remembered for where they are (on foot, in a vehicle) */

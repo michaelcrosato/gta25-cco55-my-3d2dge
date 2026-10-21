@@ -88,9 +88,12 @@ export function shotFrom(s, dir, at) {
 
 /** clear sight from a's chest to b's through the map's walls (heights: a roof's edge hides the street below it, a low
  *  wall does not), sampled every 6 units */
-export function losClear(map, a, b) {
+export function losClear(map, a, b, decks = null) {
   const az = (a.z || 0) + CHEST, bz = (b.z || 0) + CHEST * .8, n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6);
-  for (let i = 1; i < n; i++) { const k = i / n; if (map.heightAt(a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k) > az + (bz - az) * k) return false; }
+  for (let i = 1; i < n; i++) {
+    const k = i / n, x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k, z = az + (bz - az) * k; if (map.heightAt(x, y) > z) return false;
+    if (decks) for (const d of decks) { const top = d.heightAt(x, y); if (top !== null && z <= top && z >= top - (d.thickness || 6)) return false; }   // (a deck's slab between: a shooter up there and a ped on the street)
+  }
   return true;
 }
 /** one shooter's aim over time: lock-on while the aim button is held, flicks to switch, assist otherwise */

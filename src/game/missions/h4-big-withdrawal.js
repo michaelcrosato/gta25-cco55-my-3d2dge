@@ -145,13 +145,8 @@ function swatVan(m, car, far = false) {
   const v = m.spawn.vehicle('rhino', at, { tag: 'swat', heading: Math.PI });
   put(m, v, at, { z: DECK, heading: Math.PI }); v.siren = true;
   for (const s of [1, 2]) m.place(m.spawn.ped('swat', [v.x, v.y], { tag: 'trooper' }), { in: v, seat: s });
-  troopers(m, v);
   return v;
 }
-// the troopers kept at the van's middle, at a seated rider's height (a mission's seated peds stay where they were put;
-// the aim assist finds them by their chest: level with Viv's, dead on the van, or it pulls her aim to whoever stands
-// on the street below the deck, and the shots into the deck: motorRequests)
-const troopers = (m, v) => { for (const p of m.tagged('trooper')) if (!p.dead && p.seat) p.place(v.x, v.y, v.z + 6); };
 const DISABLED = .4;   // (a vehicle's share of its health with its engine shot out: smoking, not burning)
 // is a vehicle (but the van and Viv's own car) in the line of fire from Viv to the van: on the deck, its box (and a
 // little) across the line?
@@ -215,12 +210,12 @@ const loudRam = {
     yield m.say(['There she goes: the Strongbox, on its Thursday run. Hit it, Gus. Hit it till it stops.'], VIV);
     const box = () => m.one('strongbox');
     m.marker(box(), { color: '#ff5a4a', ring: false });
-    m.objective('Ram the Strongbox: 0/3', { hint: { kind: 'kill', targets: 'strongbox' } });
+    m.objective('Ram the Strongbox: 0/3', { hint: { kind: 'kill', targets: 'strongbox', vehicle: 'ram' } });
     m.failIf(mm => !mm.vehicle || mm.vehicle !== mm.one('ram'), 'Gus left the Hookline');
     yield m.waitUntil(mm => {
       const b = box(), t = mm.one('ram'); if (!b || !t) return true;
       const near = Math.hypot(b.x - t.x, b.y - t.y) < b.hl + t.hl + 6;
-      if (near && !mm.data.contact && t.speed + b.speed > 25) { mm.data.contact = true; mm.data.hits++; mm.objective(`Ram the Strongbox: ${mm.data.hits}/3`, { hint: { kind: 'kill', targets: 'strongbox' } }); }
+      if (near && !mm.data.contact && t.speed + b.speed > 25) { mm.data.contact = true; mm.data.hits++; mm.objective(`Ram the Strongbox: ${mm.data.hits}/3`, { hint: { kind: 'kill', targets: 'strongbox', vehicle: 'ram' } }); }
       else if (!near && Math.hypot(b.x - t.x, b.y - t.y) > b.hl + t.hl + 24) mm.data.contact = false;
       return mm.data.hits >= 3;
     });
@@ -308,7 +303,7 @@ const quietVault = {
     m.marker(grate, { color: '#ffe066', r: 12 });
     yield m.waitUntil(mm => !!mm.inside);
     // the hacker (or the jammer) loops the CCTV: the cameras see nothing while the job lasts
-    for (const c of m.inside.run.cameras) c.range = 0;
+    m.inside.run.loopCameras(true);
     m.objective('Along the sewer to the hatch', { hint: { kind: 'stealth', path: SEWER_IN } });
     yield m.parallel([m.say([m.data.helper === 'saints' ? 'Saints\' jammer is on. Cameras are blind.' : 'Bilge\'s boy is in. Cameras are looping.', 'Go.'], VIV),
       m.waitUntil(mm => Math.hypot(mm.player.x - VAULT[0], mm.player.y - VAULT[1]) < 14)]);
@@ -356,16 +351,16 @@ const getawayStage = {
     m.view('side7');
     // west along the deck to the roadblock (put across the lane once the stretch round it is clear of traffic, or as
     // Dex comes near): stopped behind it, or behind whoever is held up at it; the SWAT van on his tail as he stops (the
-    // standoff in ISO, the van behind them in view: SIDE7's rail looks the way Dex drove)
+    // rail turned to look back east along the deck: the van pulling up behind them in view)
     const hint = { kind: 'goto', at: STOP, radius: 30, vehicle: null };
     m.objective('West along the Loop', { hint }); m.marker(STOP, { color: '#ffe066' });
-    let still = null, iso = false;
+    let still = null, back = false;
     yield m.waitUntil(mm => {
       const v = mm.vehicle;
       if (!mm.one('block') && (laneClear(mm) || (v && v.x < 1560))) { roadblock(mm); gusTruck(mm); }
       const held = !!v && v === car && v.z > DECK - 12 && v.x < 1460 && v.x > BLOCK[0] && v.speed < 8 && !!mm.one('block');
       still = held ? (still ?? mm.stageTime) : null;
-      if (held && !mm.one('swat')) { if (!iso) { mm.view('iso'); iso = true; } swatVan(mm, car, mm.stageTime - still > 6); }
+      if (held && !mm.one('swat')) { if (!back) { mm.view('side7', { heading: 'east' }); back = true; } swatVan(mm, car, mm.stageTime - still > 6); }
       return held && !!mm.one('swat') && mm.stageTime - still > .8;
     });
     m.data.at = [car.x, car.y]; m.data.carHealth = car.damage.share;
@@ -377,7 +372,7 @@ const windowStage = {
   id: 'window',
   setup(m) {
     const car = standoff(m);
-    m.view('iso');
+    m.view('side7', { heading: 'east' });   // (MODE 7 looking back along the deck: the car, and the van on its tail)
     if (!m.one('swat')) swatVan(m, car, true);
   },
   *run(m) {
@@ -385,14 +380,14 @@ const windowStage = {
     m.failIf(() => !carOk(car), 'the getaway car is wrecked');
     yield m.say(['Roadblock. And company behind us.'], DEX);
     yield m.switchTo('viv');
-    m.view('iso');
+    m.view('side7', { heading: 'east' });
     m.loadout({ weapons: ['snub38'], ammo: { snub38: 120 }, select: 'snub38', only: true });   // (the snub: every round where it's aimed, none in the traffic)
     yield m.say(['SWAT. Keep your head down, Dex.'], VIV);
     const hint = { kind: 'kill', targets: 'swat' };
     m.objective('Shoot out the SWAT van\'s engine', { hint });
     m.marker(m.one('swat'), { color: '#ff5a4a', ring: false });
     // (a car in the line of fire: the bot's trigger off till it's by, as a player's would be)
-    yield m.waitUntil(mm => { const c = mm.one('swat'); if (!c || c.damage.share < DISABLED) return true; troopers(mm, c); hint.targets = inTheWay(mm, c) ? 'swat-hold' : 'swat'; return false; });
+    yield m.waitUntil(mm => { const c = mm.one('swat'); if (!c || c.damage.share < DISABLED) return true; hint.targets = inTheWay(mm, c) ? 'swat-hold' : 'swat'; return false; });
     m.loadout({ select: 'fists' });   // (the gun away at once: more would set it burning on their tail)
     m.objective('The SWAT van is going nowhere', {});
     yield m.say(['That van\'s going nowhere.'], VIV);
@@ -406,14 +401,15 @@ const towStage = {
   },
   *run(m) {
     yield m.switchTo('gus');
-    m.view('side7');
+    m.view('side7', { heading: 'east' });   // (Gus's truck facing the camera, its hook toward the roadblock; let go once it's hooked, the rail turns with the drag)
     yield m.say(['Morning, officer. You\'re parked in a tow-away zone.'], GUS);
     const to = m.at(TOW_TO), block = () => m.one('block');
     m.marker(to, { color: '#7aff8a', r: 28 }); m.marker(block(), { color: '#ff5a4a' });
     m.objective('Hook the cruiser and drag it off the Loop', { hint: { kind: 'deliver', what: 'block', to, tow: 'hookline' } });
     m.failIf(mm => !mm.one('block'), 'the cruiser is a wreck: no way through');
     m.failIf(mm => !mm.one('hookline'), 'the Hookline is wrecked');
-    yield m.waitUntil(mm => { const b = block(); return !!b && b.z < 20 && Math.hypot(b.x - to[0], b.y - to[1]) < 160; });
+    let hooked = false;
+    yield m.waitUntil(mm => { const b = block(); if (b && b.towedBy && !hooked) { hooked = true; mm.view('side7'); } return !!b && b.z < 20 && Math.hypot(b.x - to[0], b.y - to[1]) < 160; });
     m.data.towed = true;
     yield m.say(['Lane\'s open. Go, Dex.'], GUS);
   },

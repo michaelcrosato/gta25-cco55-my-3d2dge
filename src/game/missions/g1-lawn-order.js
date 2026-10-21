@@ -91,17 +91,13 @@ defMission('gnomes_lawn_order', {
         });
         // and a passer-by who swings back (a skater the bat caught, his mates with him) gets shooed off by the girls
         // before a brawl eats the two minutes: it runs, and its troupe with it
-        m.on('hit', e => {
-          const P = m.player, C = m.W.life && m.W.life.crowd; if (!P || !C || e.target !== P.id) return;
-          const q = C.members.find(c => c.ped.id === e.by); if (!q || q.ped.gang || q.ped.patrol || q.ped.dead) return;
-          for (const c of C.members) if (c === q || (q.ped.troupe && c.ped.troupe === q.ped.troupe)) c.brain.react('flee', { x: P.x, y: P.y, t: 8, force: true });
-        });
+        m.on('hit', e => { if (m.player && e.target === m.player.id) m.shoo(e.by); });
         yield m.first([switchboard(m), smashing(m), m.parallel([
           m.say(['Eight of them. Two minutes.', 'Chrome dents lovely.'], NANA),
           m.kill('saints', { count: N, text: aim(N) }),
         ])]);
         m.objective('');   // (the count's objective is the smashing's own: done with it)
-        const T = m.R.timer; m.data.spare = T ? T.left : 0; if (T) T.stop();
+        const T = m.countdown; m.data.spare = T ? T.left : 0; if (T) T.stop();
         if (m.tagged('saints').some(v => v.wrecked || (v.damage && v.damage.burning))) m.data.burnt = true;
       },
     },
@@ -116,7 +112,7 @@ defMission('gnomes_lawn_order', {
           m.allowWanted();   // (the way back is made with the star on)
           yield m.first([oneCall(m), m.parallel([
             m.say(['That\'s eight. Lovely work, dear.', 'The girls let a call through to the precinct now.', 'Lose the fuzz, or come back to the lanes and we\'ll hide you.'], NANA),
-            m.first([m.evade({ text }), m.sequence([m.reach(DOOR, { radius: HIDE, text }), m.waitUntil(mm => { mm.wanted.set(0); mm.wanted.clear(); return true; })])]),   // (the heat gone before the cap lifts: no star shows)
+            m.first([m.evade({ text }), m.sequence([m.reach(DOOR, { radius: HIDE, text }), m.waitUntil(mm => { mm.wanted.clear(); return true; })])]),
           ])]);
         } else { m.wanted.cap(5); yield m.say(['That\'s eight. Lovely work, dear.'], NANA); }
         yield m.say(['Lead Farm will sell you a Pineapple now.', 'Tell them Nana sent you.'], NANA);

@@ -198,7 +198,7 @@ export class Fleet {
     if (this.combat) for (const b of this.combat.explosives.blasts) {
       if (this._seen.has(b)) continue; this._seen.add(b);
       for (const v of this.vehicles) {
-        if (v.wrecked || v.chainT >= 0 || !v.body) continue;
+        if (v.wrecked || v.chainT >= 0 || !v.body || Math.abs((v.z || 0) - (b.z || 0)) > 40) continue;   // (a street's blast never the deck's cars over it)
         const d = boxDistance(v, b.x, b.y);
         if (d <= b.splash) this.wake(v);
         if (d <= TUNE.carChain || (v.damage.burning && d <= b.splash * .9)) { v.chainT = TUNE.chainDelay + .1 * (this._n++ % 3); v.chainBy = b.by; }

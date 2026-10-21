@@ -690,3 +690,69 @@ and where it landed.
     ways) would not fit before the limit. Four are left for a call: H13 (MODE 7's heading), G5 (fighting back a
     passer-by), G7 (three stars) and G9 (a pier's walls, which changes the harbour's map). Nothing is cut: the next
     session finishes M8 from `docs/HANDOFF.md`.
+
+## D22 · 2026-10-21 · M8's close: the backlog validated, the four open requests settled, the rest of A2
+- **Principle:** PLAN.md 8.15 (every mission through the bot on seeds 1-3) and M8's Accept (and through a pad); D21's
+  rule that a MOTOR change re-runs every merged mission both ways; a worker's request is fixed in MOTOR with a test.
+- **Calls:**
+  - **The prepared patch applied** (`docs/handoff/m8-a2/motor-patch.py`: H2-H12, G1-G4, G6, G8, G10, G11) and checked
+    as D21 said: `npm test`, then every merged mission through the bot on seeds 1-3 and through the pad, and the bot
+    gym. Each fix has its test (`tests/sim/mission-motor.test.mjs`). The content's workarounds moved onto the new
+    pieces: G1's passer-by (`m.shoo`) and its clock (`m.countdown`), G2's night (`m.hour`) and its rider (the runtime's
+    own now), G3's drums (`m.blast`) and its truce (`m.truce('rats')`), H4's cameras (`loopCameras`) and its troopers
+    (riding in their seats); with the heat dropped before the cap lifts (G8) a stage clears its stars in one call.
+  - **H13, MODE 7's heading from a mission: done.** `m.view('side7', { heading })` holds the rail looking that way
+    (Auto-rail and the player's quarter turns held off) till the next `m.view` or the job's end (`Stage.pointRail`).
+    H4's standoff, Viv's window and the start of Gus's tow are now MODE 7 looking back east along the deck, the van
+    and the roadblock in view (PLAN.md 9.4's set piece is MODE 7 throughout; the worker had put Viv's part in ISO).
+  - **What H13 turned up: the pad pilot aimed off in MODE 7.** It turned a world direction into a stick with
+    `screenVec`, whose depth is squashed (the lock-on's cone on screen), while the HumanController reads a stick back
+    with `screenDirToGround`, which isn't: a target a little off the rail's axis was aimed at far off it. Views now
+    give `groundDirToScreen`, the exact inverse (a unit test round-trips it in every view and on every rail). Nothing
+    had aimed through the pad in MODE 7 before.
+  - **And a pressed trigger read as a full one.** The bindings took a pad button's value as `max(value, pressed ? 1 :
+    0)`; browsers call an analog trigger pressed from about an eighth of its travel (Chromium's 30/255), so on a real
+    DualSense R2 would have been on or off (PLAN.md 8.1's analog throttle), and through the pad pilot a throttle over a
+    half was a full one (the bot gym's follow lost its mark that way). Now a trigger's travel is its value; a press
+    that reports none is a full one.
+  - **A calm driver's patience with people about a crossing** (`TUNE.pedPatience`, 5 s by a calm driver's patience;
+    the bot's own styles sooner): a crowd round a body at a corner kept crossing in front of a calm driver through
+    every green, and held a mission's car (the bot gym's followed Saint) and the bot behind it for a minute and more.
+    Out of patience, a driver gives up a crossing's wide berth (14 u) and keeps only a body's width (5 u): it edges
+    past the people about the zebra, and still stops for one in its way. Every merged mission ran again on it, both
+    ways, and the gym.
+  - **A fighter stuck on its way steps aside** (`ai/fighter.js`): stuck, it routed by the sidewalks from the node
+    nearest it, and when that node lay past a parked car it walked into the same car again every 0.8 s, for good (the
+    bot gym's kill through the pad stood 190 s against a Brute; gang and police fighters use the same walk). Stuck a
+    second time, it now takes a step to one side, then the other the time after (the AutoPlayer's remedy).
+  - **What those two fixes moved:** with the city's fighters no longer stuck behind parked cars, two runs that had
+    passed failed on seed 3, and each showed a gap rather than bad luck. R3: the city's own Saints, hostile, now
+    reached the container yard's fight and shredded the bot (a third of its damage); the job's Saints are Fender's
+    crew and no more, so R3 holds a truce with the city's Saints (`m.truce('saints')`), and a job may now hold several
+    gangs out of its fight (the gangs' `allies` is a set). H4: the bot gave up the Hookline when it hadn't got nearer
+    a Strongbox looping the bank's block for 45 s, and the stage fails when Gus leaves it; a `kill` hint can now name
+    the vehicle the job is done from (`vehicle`: boarded first, held through any jam, never left on foot), and H4's ram
+    names it.
+  - **A police car left in the lane by its crew was never parked to the traffic** (`police.js` `_crewOut`; the
+    emergency services' own already was): it kept the cause it last stopped for, so every driver behind took it for a
+    queue and waited, and with the junctions round it the bank's block locked solid for minutes (H4's Strongbox, on its
+    round, and the Hookline after it, seed 2). Its brain is parked now while the crew is out, and the traffic goes
+    round it; and the bot's ram, held at a crawl short of its target behind a queue, backs off and slants past it.
+  - **G5, fighting back a passer-by: left in content.** The bot is a player's proxy that keeps out of trouble: a
+    civilian who swings back is sent running (`m.shoo`); it never starts a brawl with the street (the heat it earns
+    would be the content's problem). CONTENT-GUIDE.md says so.
+  - **G7, three stars: content never asks the bot to shake them.** The Eye sees 520 u except under the decks and the
+    roadblocks sit on the routes: a player hides under the Loop and resprays (M6's tests prove both), but the bot's
+    evade can't plan that. A stage the bot must get through stays below three stars, or drives its three through to
+    a point where the story drops them (G2's diner). CONTENT-GUIDE.md says so; the workers' brief too.
+  - **G9, a pier's buildings: done.** A pier's (or quay's) planks are ground a building lot can stand on
+    (`world/builder.js`): the Harbor Rats' Boathouse and the Lighthouse stand on their piers, walls and roofs (they
+    were bare planks with a sign). The Boathouse sits two cells back from its pier's landward end, so G3's fuel drums
+    stand on open planks by the footbridge; its dressing moved off the building. R1-R3 and G3 re-run with the rest.
+  - **J1, a checkpoint's height: done** (the jobs worker's trial): a racer's or a route's checkpoint with a height
+    counts only up there (`within`), as the player's own already did.
+  - **For the rest of A2, four small pieces of m** so content never reaches into the world (the WIP had used `m.W`):
+    `m.fund` and `m.pay(n, why)` (H2's bribe), `m.eta(at)` (a job's fair clock by road), `m.byId(id)` (a BUS event's
+    body or vehicle: MAYHEM's count); and a mission driver chases a tagged actor as well as the player (`drive: {
+    chase: tag }`: S2's ambush on Fender's car).
+- **Answered:** no. **Landed in:** M8.

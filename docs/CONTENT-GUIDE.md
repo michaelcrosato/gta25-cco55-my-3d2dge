@@ -43,7 +43,7 @@ already under way (or twice) it changes nothing. The tools for that:
 
 **Spawning** (all of it the mission's: `owner: 'mission'`, released when it ends; a retry releases what the stage
 spawned and its setup makes it again): `m.spawn.vehicle(def, at, { tag, heading, color, locked, health, gang, driver,
-passengers, weapons, drive })` (a `drive` of `{ to } | { route, loop } | { race, laps } | { chase: 'player' } |
+passengers, weapons, drive })` (a `drive` of `{ to } | { route, loop } | { race, laps } | { chase: 'player' | tag } |
 { flee: 'player' }` and a `style` of `calm | fast | race` puts a driver on the GPS), `m.spawn.ped(arch, at, { tag,
 role, facing, weapons, health, armor, attack, alert, route, follow })` (roles: `enemy` fights once alerted, `guard`
 watches a post or walks a round, `ally` follows and fights the alerted, `flee`, `idle`), `m.spawn.pickup(kind, at, {
@@ -56,35 +56,49 @@ city: a stray hit on one rallies its members and a kill costs respect, so leave 
 
 **Ops** (yield them; each sets the objective line and the bot's hint itself, and its markers go when it ends):
 `m.reach(at, { text, radius, foot, inVehicle, vehicle, stopped })`, `m.enter(tag)`, `m.deliver({ what, to, radius,
-stopped, health })`, `m.follow(tag, { dist, lose, near, to, until })`, `m.chase(tag)`, `m.kill(tag, { count })`,
+stopped, health, tow })` (`tow`: the tow truck's tag, for a car brought on its hook), `m.follow(tag, { dist, lose,
+near, to, until })`, `m.chase(tag)`, `m.kill(tag, { count, done })` (`done(actor)`: when a target counts before it is
+dead or wrecked, a car once it smokes),
 `m.protect(tag, { until })`, `m.collect(tag)`, `m.photo(tag | [x, y], { from, range })`, `m.evade()`,
 `m.race(course, { racers })` (its value: the place), `m.say(lines, { name, color })`, `m.cutscene(shots)`,
 `m.wait(s)`, `m.waitUntil(pred, { timeout })`, `m.choice(options, { title, bot })` (its value: the option's id),
 `m.parallel([...])`, `m.first([...])`, `m.sequence([...])`, `m.switchTo(id)`, `m.reward()`. Immediate:
 `m.objective(text, { hint })` (a hint of `HINTS`' kinds, with its data: `stealth` needs a `path` of waypoints),
-`m.marker(at | actor)`, `m.route(to)`, `m.timer(secs, { reason })`, `m.failIf(pred, reason)`, `m.wanted.set / floor /
+`m.marker(at | actor)`, `m.route(to)`, `m.timer(secs, { reason })` (and `m.countdown`, the one running: `{ left, total,
+stop() }`), `m.failIf(pred, reason)`, `m.wanted.set / floor /
 cap / clear` (a floor or a cap is lifted when the job ends, however it ends), `m.alerted(tag)` (a guard or enemy of the
 tag has seen the player, been hurt or been called, and is still in it: a stealth stage's fail), `m.ally(gang)` (that
-gang's members on the player's side till the job ends: strays on them rally no one and cost no respect), `m.time(h)`, `m.weather(state)`, `m.as(id)` (play as a protagonist from now), `m.interior(id, door)`,
+gang's members on the player's side till the job ends: strays on them rally no one and cost no respect; `m.truce(gang)`
+the same for a job fought against that gang's own), `m.shoo(ped)` (a passer-by, and its troupe, sent running from the
+player: one a swing caught that would swing back), `m.blast(at, { damage, splash, fire })` (an explosion nobody set
+off: a drum the fire reached), `m.adopt(vehicle, tag)` (a world vehicle on the job's list under a tag, so a hint can
+name it: a garaged car; the world's again when the job ends), `m.fund` and `m.pay(n, why)` (the crew fund, and money
+paid in or out: a bribe), `m.eta(at)` (the road's time from the player to a point: a job's fair clock), `m.byId(id)`
+(a BUS event's body or vehicle: its gang, whose it is), `m.time(h)` and `m.hour`, `m.weather(state)`, `m.as(id)` (play as a protagonist from now), `m.interior(id, door)`,
 `m.outside()`, `m.loadout({ weapons, ammo, select, health, armor })`, `m.data` (kept across the stages and retries),
 `m.save` (the save, to read: respect, missions done), `m.allowWanted()` (the stage goes on with stars: on the way
 somewhere the bot loses any stars first otherwise, unless a timer runs),
 `m.on(event, fn)` (a BUS listener for the stage), `m.fire(at, r, fuel)` and `m.heat(at, r)` (a fire on the grid, and
 how hot it is now), `m.crewPed(id)` (a protagonist's body: seat Dex at a getaway car's wheel while Viv shoots), `m.stash(vehicle, id)` and
-`m.garaged(id)` (a car kept in the save's garage, back where it was left in later missions), `m.view(id)` (a set
-piece's view: presentation only).
+`m.garaged(id)` (a car kept in the save's garage, back where it was left in later missions), `m.view(id, { heading })` (a set
+piece's view: presentation only; `heading`, MODE 7's rail held looking that way, `'north'`, `'east'`, `'south'`,
+`'west'`, till the next `m.view` or the job's end). A mission's seated ped rides in its seat wherever the vehicle goes;
+`m.inside.run.loopCameras(true)` puts an interior's CCTV on a loop (a crew's hacker).
 
 **The bot's hints** (what `tools/bot.mjs` plays from): `goto` (`at`, `radius`; `foot`; `vehicle`: a tag to be in;
 `interact`: press △ there, a door's or the safehouse's; `spray`: [x, y] to aim at with the fire button held, from
 within `reach`: the Pumper's cannon, a gun), `enterVehicle` (`vehicle`), `deliver` (`what`, `to`; `tow`:
 the tow truck's tag, for a car on its hook), `kill` (`targets`: rammed from the wheel, shot or beaten on foot, out of
-the window from a passenger seat), `evade` (away from the police), `follow` (`target`, `dist`), `race` (`line`),
+the window from a passenger seat; `vehicle`: a tag, rammed from that vehicle and never left for the job on foot), `evade` (away from the police), `follow` (`target`, `dist`), `race` (`line`),
 `photo` (`target`: a tag or [x, y], `from`), `stealth` (`path`: waypoints walked crouched, waiting while a guard is
 uneasy; a guard outdoors that has seen it fought; a guard close with its back turned taken down). The ops above set
 their own. The bot does not swim, fly or sail: a stage it must finish is reachable by road or on foot. It fights with
 the best gun it carries that has rounds (so give a stage's loadout the gun you mean), drives as a player does (round a
 stalled queue, through a junction that stays shut, off the road out of a jam), and never takes a police car, an
-ambulance or a fire engine unless the stage hands it one.
+ambulance or a fire engine unless the stage hands it one. Two things it can't do, so content doesn't ask them: shake
+three stars or more (the Eye sees it everywhere but under the decks: keep a stage it must get through below three, or
+drive the three through to a point where the story drops them), and fight back a passer-by who hits it (`m.shoo`
+them).
 
 **Failing**: a `failIf`, the timer, an op's own (the escort dead, the delivery lost or wrecked) and the player
 WRECKED or NABBED stop the stage on JOB BLOWN (retry the stage, or quit). Give every fail a reason a player reads.

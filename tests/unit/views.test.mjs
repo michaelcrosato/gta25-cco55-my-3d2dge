@@ -50,3 +50,19 @@ test('a switch is seen through the crossfade: the old frame is gone within 0.35 
   assert.ok(t >= TUNE.viewFade * .8, `but a dissolve, not a cut: ${t.toFixed(3)} s`);
   const was = TUNE.viewFade; TUNE.viewFade = 0; X.start(src); assert.ok(!X.active, 'viewFade 0: a cut'); TUNE.viewFade = was;
 });
+
+test('a stick pushed the way groundDirToScreen says is read back as that ground direction, in every view and on every rail (the pad pass aims true)', async () => {
+  const { Side7View } = await import('../../src/motor/render/depth/side7.js');
+  const { TopView } = await import('../../src/motor/render/depth/top.js');
+  const views = [];
+  for (const h of [0, 90, 180, 270]) { const v = new Side7View({}); v.setHeading(h); views.push(['side7 ' + h, v]); }
+  views.push(['top', new TopView({})]);
+  for (const [name, v] of views) {
+    const V = { spec: { groundDirToScreen: v.groundDirToScreen ? (x, y) => v.groundDirToScreen(x, y) : null }, screenVec: (x, y, z) => v.screenVec(x, y, z) };
+    for (let k = 0; k < 16; k++) {
+      const a = k / 16 * Math.PI * 2 + .1, w = [Math.cos(a), Math.sin(a)];
+      const s = ViewManager.prototype.groundDirToScreen.call(V, w[0], w[1]), back = v.screenDirToGround(s[0], s[1]), l = Math.hypot(back[0], back[1]);
+      assert.ok(Math.abs(back[0] / l - w[0]) < 1e-9 && Math.abs(back[1] / l - w[1]) < 1e-9, `${name}: ${a.toFixed(2)} rad comes back as ${Math.atan2(back[1], back[0]).toFixed(2)}`);
+    }
+  }
+});

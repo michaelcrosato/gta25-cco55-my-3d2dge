@@ -25,14 +25,17 @@ its last bullet), with every task it had started either finished or saved.
   - **part 1b:** the career's screens read at 10 feet (`docs/media/m8/`);
   - **part 1c:** the bot campaign (`tools/bot-campaign.mjs`), and `tools/bot.mjs --par`;
   - **part 2a:** the Harbor Rats chain (R1-R3) from FAN-OUT A2, and the 14 MOTOR bugs that it and its re-runs found;
-  - **part 2b:** the heist finale (H4) and the Lawn Gnomes chain (G1-G3), merged as written; the handoff.
+  - **part 2b:** the heist finale (H4) and the Lawn Gnomes chain (G1-G3), merged as written; the handoff;
+  - **part 3a** (2026-10-21, D22): the H4 and Gnomes workers' MOTOR backlog applied and validated, H13, G9 and J1
+    done, G5 and G7 settled in content; what the validation turned up fixed with tests (the pad's aim in MODE 7, a
+    pressed trigger's travel, a calm driver's patience with a crowd, a fighter stuck on a parked car, a police car
+    abandoned in the lane, the bot's ram round a queue); four small m pieces for the rest of A2.
 
   **8 of the 14 missions are in:** S1, R1-R3, H4 and G1-G3. Each passes through the bot on seeds 1-3 and through
   the pad.
 - **Next: finish M8.** `docs/handoff/m8-a2/README.md` is the plan, in five steps:
-  1. the MOTOR backlog from the H4 and Gnomes workers: `docs/handoff/m8-a2/motor-requests.md`, and the prepared
-     patch `motor-patch.py`, which still has to be validated;
-  2. the groups still to do: `heist-setups` (H1-H3) and `jobs` (3 jobs, 2 races, the MAYHEMs) from their saved
+  1. ~~the MOTOR backlog from the H4 and Gnomes workers~~ (done in part 3a: `motor-patch.py` applied, D22);
+  2. the groups still to do (part 3b, a workflow of five workers): `heist-setups` (H1-H3) and `jobs` (3 jobs, 2 races, the MAYHEMs) from their saved
      work in progress, then `saints` (S2, S3), `prologue` (P0) and `extras` (tokens, stunts, 4 random events, their
      test), none of them started;
   3. every merged mission re-run after each MOTOR change;
@@ -124,15 +127,14 @@ its last bullet), with every task it had started either finished or saved.
 
 ## Known limits
 
-- **What the bot can't do yet:**
+- **What the bot can't do** (D22: content never asks it):
   - lose three stars (the Eye sees 520 u except under the decks, and roadblocks sit on its routes): content keeps a
-    stage's stars below three or drives them through (G7 in the backlog);
+    stage's stars below three or drives them through to where the story drops them;
   - always keep a delivery free of police stars: S1's long Brute is busted now and then, and wins on a retry;
   - always turn a long truck at a tight corner: a failing turn is kept off its next route, but it costs time;
-  - fight back a passer-by who hits it (G5): content sends them running instead (`m.shoo`, in the patch).
-- **The map by the harbour:** a building lot on a pier over water gets no walls (G9: the Rats' Boathouse, the
-  Lighthouse). The one-line fix in `world/builder.js` changes the map there, so it is its own step, with R1-R3 and G3
-  run again.
+  - fight back a passer-by who hits it: content sends them running instead (`m.shoo`).
+- **The bot gym through the pad is the touchiest probe:** `follow` (a calm car tailed across town) and `kill` pass,
+  but often on a retry; every MOTOR change moves them first.
 - **Night glows** (the head, tail and siren lights' halos) ignore occlusion. From some angles a far tail lamp's glow
   shows over a roof at night.
 - **Performance margin:** see D20, and measure each milestone interleaved with the last

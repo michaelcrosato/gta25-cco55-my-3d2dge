@@ -9,7 +9,8 @@
 //   - 'flee': runs from the player once it comes within 160;
 //   - 'idle' (by default): stands where it was put, facing o.facing.
 // A vehicle with o.driver (a ped archetype) at the wheel drives by o.drive: { to (a point or poi), route ([points],
-// loop), race ([checkpoints], laps), chase: 'player', flee: 'player', style ('calm' | 'fast' | 'race'), then: 'stop' |
+// loop), race ([checkpoints], laps), chase: 'player' or a tag (its first living actor: an escort's car to ambush),
+// flee: 'player', style ('calm' | 'fast' | 'race'), then: 'stop' |
 // 'flee' } with a DriverBrain on the GPS, as traffic does (its Intent through intentFor(v): the scene's fleet step asks).
 // Deterministic: the RNG stream 'mission:<id>:actors'; only the simulation is read.
 import { E } from '../engine.js';
@@ -80,7 +81,8 @@ export class MissionActors {
   /** a vehicle of a definition at a point; o: { tag, heading, color, locked, mods, health (0..1 of its own), gang,
    *  driver (an archetype), passengers ([archetypes]), weapons (theirs), drive, stage } */
   vehicle(def, at, o = {}) {
-    const [x, y] = this._at(at), h = o.heading ?? (at && typeof at.heading === 'number' ? at.heading : 0), v = this.W.fleet.spawn(def, x, y, h, { owner: 'mission', color: o.color, locked: o.locked, mods: o.mods });
+    const q = this._at(at), [x, y] = q, h = o.heading ?? (at && typeof at.heading === 'number' ? at.heading : 0), v = this.W.fleet.spawn(def, x, y, h, { owner: 'mission', color: o.color, locked: o.locked, mods: o.mods });
+    const z = o.z ?? q[2]; if (v.body && typeof z === 'number') v.body.z = z;   // (a deck's point: up there, not on the street under it)
     if (o.health !== undefined && v.damage) v.damage.health = v.damage.max * o.health;
     if (o.gang) v.gang = o.gang;
     const e = this._add(v, 'vehicle', o);
@@ -163,7 +165,8 @@ export class MissionActors {
     for (const e of this.list) {
       if (e.kind === 'vehicle') { this._drive(dt, e, P); continue; }
       if (e.kind !== 'ped') continue;
-      const p = e.a; if (p.seat || p === P) continue;
+      const p = e.a; if (p === P) continue;
+      if (p.seat) { if (!p.dead) p.ride(); continue; }   // (a rider in its seat, wherever the vehicle goes: hits and draws find it there)
       if (e.down && !p.held) p.vitals.down = Math.max(p.vitals.down, 1e6);   // (taken down: out of it for good)
       p.update(dt, p.dead || e.down ? clearIntent(this.idle) : this._think(dt, e, P), PW);
     }
@@ -203,29 +206,30 @@ export class MissionActors {
   }
   // a mission vehicle's driver: a DriverBrain on the GPS to its drive's next point (re-planned for a chase or a flight)
   _drive(dt, e, P) {
-    const v = e.a, D = e.drive; e.I = null; if (!D || v.wrecked || !v.driver || v.driver.dead || v.driver === P) return;   // (anyone but the player at its wheel: a mission's driver, a protagonist not played)
+    const v = e.a, D = e.drive; e.I = null; if (v.wrecked || !v.driver || v.driver.dead || v.driver === P) return;   // (anyone but the player at its wheel: a mission's driver, a protagonist not played)
+    if (!D) { const I = clearIntent(e.Ib || (e.Ib = makeIntent())); I.down.handbrake = true; e.I = I; return; }   // (a crew with no orders: parked, the handbrake on, not nudged along by traffic)
     const W = this.W, roads = W.roads; if (!roads) return;
     let goal = null;
-    if (D.chase === 'player' && P) { const t = P.seat && P.seat.vehicle ? P.seat.vehicle : P; goal = [t.x, t.y]; }
+    if (D.chase && P) { const T = D.chase === 'player' ? P : this.tagged(D.chase).find(a => !a.dead && !a.wrecked), t = T && T.seat && T.seat.vehicle ? T.seat.vehicle : T; if (t) goal = [t.x, t.y, t.z || 0]; }
     else if (D.flee === 'player' && P) { if (!D.dest || Math.hypot(D.dest[0] - v.x, D.dest[1] - v.y) < 80) D.dest = this._away(v, P); goal = D.dest; }
     else if (D.race) {
       const line = D.race.map(q => this._at(q)), c = line[D.cp % line.length];
-      if (Math.hypot(c[0] - v.x, c[1] - v.y) < 48) { D.cp++; if (D.cp >= line.length * (D.laps || 1) && D.finishedAt === null) { D.finishedAt = this.R.t; D.done = true; } }
+      if (within(c, v.x, v.y, v.z, 48)) { D.cp++; if (D.cp >= line.length * (D.laps || 1) && D.finishedAt === null) { D.finishedAt = this.R.t; D.done = true; } }
       goal = D.done ? null : line[D.cp % line.length];
     } else if (D.route) {
       const pts = D.route.map(q => this._at(q)), c = pts[D.cp];
-      if (c && Math.hypot(c[0] - v.x, c[1] - v.y) < 40) { D.cp++; if (D.cp >= pts.length) { if (D.loop) D.cp = 0; else D.done = true; } }
+      if (c && within(c, v.x, v.y, v.z, 40)) { D.cp++; if (D.cp >= pts.length) { if (D.loop) D.cp = 0; else D.done = true; } }
       goal = D.done ? null : pts[D.cp];
     } else if (D.to && !D.done) { goal = this._at(D.to); if (Math.hypot(goal[0] - v.x, goal[1] - v.y) < 40 && v.speed < 30) { D.done = true; goal = null; } }
     if (!goal) {
       if (D.then === 'flee' && P) { D.flee = 'player'; D.dest = null; return; }
-      const I = clearIntent(e.Ib || (e.Ib = makeIntent())); I.brake = 1; e.I = I; return;   // (there: it stops)
+      const I = clearIntent(e.Ib || (e.Ib = makeIntent())); if (v.speed > 2) I.brake = 1; else I.down.handbrake = true; e.I = I; return;   // (there: it stops; stopped, the handbrake: a brake held at a stop backs it up)
     }
     D.replan -= dt;
     const key = Math.round(goal[0]) + ',' + Math.round(goal[1]);
     if (!e.brain || D.replan <= 0 || (!D.chase && e.brainGoal !== key)) {
       if (!e.brain) e.brain = new DriverBrain(v, roads.graph, { junctions: W.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? 'race' : 'fast')] || STYLES.fast });
-      const r = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z }); if (r) e.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); else if (D.flee) D.dest = null;   // (no way there: somewhere else to run to)
+      const r = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z, tz: goal[2] ?? (v.z > 10 ? v.z : 0) }); if (r) e.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); else if (D.flee) D.dest = null;   // (a goal up on a deck: routed up there; no way there: somewhere else to run to)
       e.brainGoal = key; D.replan = D.chase || D.flee ? REPLAN : 1e9;
     }
     const L = W.life;
@@ -255,6 +259,7 @@ export class MissionActors {
       if (!pred(e)) continue; e.gone = true;
       if (e.kind === 'vehicle') {
         const v = e.a; if (e.brain && e.brain.dispose) e.brain.dispose();
+        if (v.adopted) { v.owner = v.adopted; v.adopted = null; continue; }   // (the world's own, lent to the job: back to the world)
         if (P && P.seat && P.seat.vehicle === v && o.evict) { v.unseat(P); P.boarding = null; P.place(v.x + Math.cos(v.heading + Math.PI / 2) * (v.hw + 10), v.y + Math.sin(v.heading + Math.PI / 2) * (v.hw + 10), 0); }
         if (P && P.seat && P.seat.vehicle === v) { v.owner = 'world'; for (const q of [...v.seats]) if (q && q !== P) { v.unseat(q); if (W.combat) W.combat.remove(q); } continue; }
         for (const q of [...v.seats]) if (q) { v.unseat(q); if (q.owner === 'mission' && W.combat) W.combat.remove(q); else if (q !== P) q.place(v.x + v.hw + 12, v.y); }

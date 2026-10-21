@@ -139,7 +139,7 @@ test('what the gang chains needed: a vehicle put back; a fleeing car\'s run on t
   assert.ok(b1.dead && b2.dead, 'blown, and the chain');
   // the ally: a Rat killed in the crossfire costs no respect while the job runs
   const G = life.gangs, rat = combat.add(new M.Ped({ x: P().x + 400, y: P().y, look: {} })); rat.gang = 'rats';
-  const r0 = G.get('rats'); G._kill({ target: rat.id, by: P().id }); assert.equal(G.get('rats'), r0, 'no respect lost'); assert.equal(G.ally, 'rats');
+  const r0 = G.get('rats'); G._kill({ target: rat.id, by: P().id }); assert.equal(G.get('rats'), r0, 'no respect lost'); assert.ok(G.allies.has('rats'));
   combat.remove(rat);
   // m.alerted: the guard sees the player in front of it; taken down, no longer
   P().place(R.actors.tagged('g')[0].x, R.actors.tagged('g')[0].y + 90); g.run(2, () => ctx.alerted('g'));
@@ -147,5 +147,5 @@ test('what the gang chains needed: a vehicle put back; a fleeing car\'s run on t
   assert.equal(life.wanted.capStars, 0);
   R.quit();
   assert.ok(!combat.boxes.includes(b1) && !combat.explosive.includes(b2), 'the barrels gone with the job');
-  assert.equal(life.wanted.capStars, 5, 'the cap lifted when the job ended'); assert.equal(G.ally, null, 'the ally too');
+  assert.equal(life.wanted.capStars, 5, 'the cap lifted when the job ended'); assert.equal(G.allies.size, 0, 'the ally too');
 });

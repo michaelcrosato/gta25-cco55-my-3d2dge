@@ -85,14 +85,14 @@ function hold(m) {
 }
 // ---- the fight's ops
 // an op that never ends, doing f(m, dt) each step, run beside a stage's own in m.first. While it runs the precinct looks
-// the other way (the stars held at none) and the city's Rats count the player one of theirs (m.ally: a stray hit on one
+// the other way (the stars held at none), the city's Rats count the player one of theirs (m.ally: a stray hit on one
 // of them rallies no one, and one killed in the crossfire, or a car of theirs shot up, costs the player no respect
-// tonight). However it ends (the wave won, the stage failed, the job quit) the cap is lifted and the heat the gunfire
+// tonight), and the city's own Saints stay out of it (m.truce: the assault is the crew Fender sent, no more). However it ends (the wave won, the stage failed, the job quit) the cap is lifted and the heat the gunfire
 // earned forgotten; the runtime lifts the ally when the job ends
 const each = (m, f) => {
   let last = m.stageTime;
   return Object.assign(m.waitUntil(mm => { const t = mm.stageTime; f(mm, Math.max(0, t - last)); last = t; return false; }), {
-    start: mm => { mm.wanted.cap(0); mm.ally('rats'); },
+    start: mm => { mm.wanted.cap(0); mm.ally('rats'); mm.truce('saints'); },
     end: mm => { mm.wanted.clear(); },
   });
 };

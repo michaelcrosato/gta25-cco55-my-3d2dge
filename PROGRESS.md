@@ -1,19 +1,20 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M8 is under way, **paused at the weekly usage limit** (DECISIONS D21's last bullet). These parts are in:
+Now: M8 is under way again (resumed 2026-10-21 from `docs/HANDOFF.md`). These parts are in:
 - the staged runtime and its ops, the mission bot and the pad pass, the economy, the activity frameworks, and the
   career's cards and saves (part 1);
 - the career's screens (1b) and the bot campaign (1c);
 - 8 of the 14 missions: S1, the Harbor Rats' R1-R3 (2a), the heist's finale H4 and the Lawn Gnomes' G1-G3 (2b).
-  Each passes through the bot on seeds 1-3 and through a pad.
+  Each passes through the bot on seeds 1-3 and through a pad;
+- the H4 and Gnomes workers' MOTOR requests, validated, and the four open ones settled (3a, D22).
 
 Next:
-- the H4 and Gnomes workers' MOTOR requests (prepared as a patch, not yet validated);
-- the rest of FAN-OUT A2: H1-H3 and the jobs from their saved work in progress; S2-S3, P0 and the side content,
-  which are not started;
+- the rest of FAN-OUT A2 (part 3b): H1-H3 and the jobs from their saved work in progress; S2-S3, P0 and the side
+  content;
 - the bot campaign to 100%, then M8's acceptance.
 
-`docs/handoff/m8-a2/README.md` says how. Blockers: none. The run started inside the planning session (DECISIONS D5).
+`docs/handoff/m8-a2/README.md` says how. Blockers: none (pushing to GitHub is refused with a 403 since the session
+resumed: the commits wait locally until the owner restores the Claude GitHub App's access). The run started inside the planning session (DECISIONS D5).
 At M4's close it was handed off (D16), and the next session carried it from M5 on the branch
 `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new session picks it up from `docs/HANDOFF.md`'s `/goal`.
 
@@ -821,3 +822,30 @@ At M4's close it was handed off (D16), and the next session carried it from M5 o
 - **M8 · the gate (part 2b):** `npm test` passes every step: lint, boundary, vendor, goal-sync, dist current,
   243 unit and sim tests with 1 skipped until the content, the e2e smoke, replay and self-tests, and the engine
   checker on the city and on `#interior/bank`.
+- **M8 · the MOTOR backlog validated, the open requests settled (part 3a, DECISIONS D22):** `motor-patch.py` applied
+  (H2-H12, G1-G4, G6, G8, G10, G11), and H13 (MODE 7's heading from a mission), G9 (the Boathouse and the Lighthouse
+  stand on their piers) and J1 (a checkpoint's height) done; G5 and G7 settled in content. The content moved onto
+  the new pieces (G1-G3, H4: no content reaches into `m.W` now). What the validation itself turned up, each fixed
+  with a test: the pad pilot aimed off in MODE 7 (`groundDirToScreen`), a pressed trigger read as a full one (a real
+  DualSense's R2 would have been on or off), a calm driver held for a minute by a crowd about a crossing (patience),
+  and a fighter walking into the same parked car for good (a step aside). New tests:
+  `tests/sim/mission-motor.test.mjs` (11), the stick's round trip in every view (`tests/unit/views.test.mjs`), a
+  pressed trigger's travel (`tests/unit/input.test.mjs`).
+  - **The runs** (`node tools/bot.mjs --all`, on this MOTOR): all 24 pass on seeds 1-3 and all 8 through the pad.
+
+    | Mission | Seeds 1-3 | Through the pad (seed 1) |
+    |---|---|---|
+    | S1 | gold, silver, silver (363, 391, 261 s; seed 3 retried once: busted) | silver (344 s) |
+    | R1 | silver on all three (110, 60, 75 s) | silver (100 s) |
+    | R2 | gold on all three (99, 108, 120 s) | gold (90 s) |
+    | R3 | silver on all three (127, 131, 120 s; seed 3 retried once: wrecked) | silver (108 s) |
+    | G1 | gold, silver, gold (118, 119, 113 s) | silver (127 s; one retry: busted) |
+    | G2 | gold on all three (65, 75, 55 s) | gold (79 s) |
+    | G3 | silver on all three (88, 84, 87 s) | silver (101 s; one retry: wrecked) |
+    | H4 | gold on all three (220, 665, 618 s: the ram's chase round the bank's block is long on seeds 2-3) | gold (220 s) |
+  - **The bot gym** (`tools/_botgym.mjs`): 13/13 with the bot and 13/13 through the pad (`kill`, `ram` and `follow`
+    through the pad on a retry).
+  - **The gate:** `npm test` passes every step, 255 unit and sim tests with 1 skipped until the content (a city-life
+    test's ped at a curb is deaf to the street now: on the moved city a crime nearby had sent it off before its wait was
+    up).
+  - Verdict: the eight merged missions play both ways on the fixed MOTOR; the rest of A2 starts from here.

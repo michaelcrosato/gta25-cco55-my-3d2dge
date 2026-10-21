@@ -42,6 +42,7 @@ export class Fighter {
   _arm(d, dt) {
     const inv = this.ped.inv;
     this.throwT -= dt;
+    if (this.thrown && this.ped.throwing) return this.thrown;   // (mid-throw: the bottle in hand till it's gone)
     if (this.thrown && inv.rounds(this.thrown) && inv.rounds(this.thrown).total > 0 && this.throwT <= 0 && d > THROW_MIN && d < THROW_MAX) return this.thrown;
     return this.gun || this.melee;
   }
@@ -54,7 +55,9 @@ export class Fighter {
       p.mover.facing = Math.atan2(tgt.y - p.y, tgt.x - p.x); if (this._r() < .3) I.tap.attack = true; return I;
     }
     if (spec.projectile === 'molotov' || spec.projectile === 'grenade') {   // (one thrown at its feet, then back to the gun)
-      this._aimAt(I, tgt, false); I.aimPoint = [tgt.x, tgt.y, tgt.z || 0]; I.tap.attack = true; this.throwT = THROW_EVERY * (.8 + .4 * this._r());
+      this._aimAt(I, tgt, false); I.aimPoint = [tgt.x, tgt.y, tgt.z || 0];
+      if (p.throwing) this.throwT = THROW_EVERY * (.8 + .4 * this._r());   // (it's away: the next one a while off)
+      else if (p.inv.current === w && p.inv.cool <= 0) { I.tap.attack = true; I.down.attack = true; }   // (pressed once the switch to it has settled)
       return I;
     }
     const range = Math.max(40, spec.range * this._p('range')), line = this._lineTo(tgt);
@@ -91,7 +94,7 @@ export class Fighter {
   _holster() { const p = this.ped; if (p.inv.current !== 'fists') p.inv.select('fists'); }
   // straight for a point (run or walk); stuck against something a moment, the sidewalk graph's way round instead
   _go(dt, I, tx, ty, run, key) {
-    const p = this.ped;
+    const p = this.ped, far = Math.hypot(tx - p.x, ty - p.y);
     if (this.path && this.pathKey === key) {
       while (this.pi < this.path.length) { const n = this.S.nodes[this.path[this.pi]]; if (Math.hypot(n.x - p.x, n.y - p.y) < NODE_NEAR) this.pi++; else break; }
       if (this.pi < this.path.length) { const n = this.S.nodes[this.path[this.pi]]; tx = n.x; ty = n.y; } else this.path = null;
@@ -100,8 +103,12 @@ export class Fighter {
     I.move[0] = dx / l * k; I.move[1] = dy / l * k; I.down.sprint = run && l > 60;
     const moved = Math.hypot(p.x - this.last[0], p.y - this.last[1]); this.last[0] = p.x; this.last[1] = p.y;
     this.stuck = moved < .15 ? this.stuck + dt : 0;
-    if (this.stuck > .8 && this.S) {   // (round by the sidewalks: from the node nearest us to the one nearest the goal)
-      this.stuck = 0; const a = this.S.nearestNode(p.x, p.y, 200), b = this.S.nearestNode(tx, ty, 300);
+    if (this.aside > 0) { this.aside -= dt; I.move[0] = -dy / l * this.asideK; I.move[1] = dx / l * this.asideK; I.down.sprint = false; return I; }   // (a step to one side: round a parked car, a post)
+    if (far < (this.stuckFar ?? 1e9) - 30) { this.stuckN = 0; this.stuckFar = far; }   // (getting there: not stuck)
+    if (this.stuck > .8 && this.S) {   // (round by the sidewalks: from the node nearest us to the one nearest the goal; stuck again, a step aside, one way then the other)
+      this.stuck = 0; this.stuckN = (this.stuckN || 0) + 1; this.stuckFar = far;
+      if (this.stuckN % 2 === 0) { this.aside = .7; this.asideK = this.stuckN % 4 === 0 ? -1 : 1; return I; }
+      const a = this.S.nearestNode(p.x, p.y, 200), b = this.S.nearestNode(tx, ty, 300);
       this.path = a && b ? this.S.route(a.id, b.id) : null; this.pi = 0; this.pathKey = key;
       if (!this.path) { I.tap.jump = true; I.down.jump = true; }
     }

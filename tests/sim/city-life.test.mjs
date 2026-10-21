@@ -129,6 +129,7 @@ test('a unit at its call stands with a car\'s room behind it, clear of the junct
   const car = F.spawn('cortez', (A.x + B.x) / 2, (A.y + B.y) / 2, Math.atan2(B.x - A.x, -(B.y - A.y)));   // (across the zebra's middle, along the road)
   const m = nearest(C, P, 1, q => !q.brain.follow && !q.ped.gang && q.ped.faction !== 'police')[0], b = m.brain;
   m.ped.place(A.x, A.y, 0); b.state = 'walk'; b.place(e, 0, 0, 1);
+  b.react = () => false;   // (deaf to the street for this check: a crime seen nearby would send it off on its own)
   let waited = 0; for (; waited < 30 && b.edge === e && b.a <= 4; waited += .25) game.advance(.25);
   assert.ok(b.edge !== e, `it goes another way (still at the curb after ${waited} s)`);
   assert.ok(waited >= 19, `after waiting for the car to move (${waited} s)`);

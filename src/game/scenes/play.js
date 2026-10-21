@@ -137,7 +137,7 @@ const PLAY = {
       v.flats = 0; if (v.body) v.body.flat = 0;
       W.clear('respray'); BUS.emit('respray', { vehicle: v.id, color: v.color }); toast = { text: 'RESPRAYED  -$' + TUNE.resprayFee, t: 2.5 };
     }
-    const aimCtx = () => ({ candidates: combat.bodies.filter(b => b.aimable && !b.dead), toScreen: (x, y, z) => views.screenVec(x, y, z), los: (s, c) => losClear(map, s, c), level: 'standard' });
+    const aimCtx = () => ({ candidates: combat.bodies.filter(b => b.aimable && !b.dead), toScreen: (x, y, z) => views.screenVec(x, y, z), los: (s, c) => losClear(map, s, c, city.decks), level: 'standard' });
     function switchItems() {
       const ANG = { dex: Math.PI, viv: -Math.PI / 2, gus: 0 };
       const items = crew.order.map(id => {

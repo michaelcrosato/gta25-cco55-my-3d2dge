@@ -39,6 +39,7 @@ knob('Traffic', 'honkAfter', 'Honks after', 2, .5, 10, .25, 'Seconds blocked bef
 knob('Traffic', 'stopHalt', 'Stop-sign halt', .5, 0, 3, .1, 'Seconds a driver waits stopped at a stop sign before going');
 knob('Traffic', 'passAfter', 'Goes round after', 2.5, .5, 15, .25, 'Seconds behind something stopped (not queueing) before a driver goes round it');
 knob('Traffic', 'exitWait', 'Takes another turn after', 5, 1, 30, .5, 'Seconds a driver waits for a jammed exit before choosing another way');
+knob('Traffic', 'pedPatience', 'Edges past peds after', 5, 1, 60, .5, 'Seconds a calm driver waits for people about a crossing (a crowd at a corner) before it waits only for those in its way');
 const TURN_W = { straight: .58, right: .24, left: .18, uturn: 0, change: 0 };
 const SAMPLE = 6;   // units between the samples along the path ahead
 const LANE_CLEAR = 18;   // a parked vehicle this far from every lane's line is out of everyone's way (the widest half-width, and room)
@@ -220,12 +221,12 @@ export class DriverBrain {
   // reckless one still brakes for a body right in its path
   _peds(w, S) {
     if (!w.pedsNear || !S.length) return null;
-    const v = this.v, hl = v.hl, mid = S[S.length >> 1].p, kind = this.p.calm && !(this.panic > 0); let best = null;
+    const v = this.v, hl = v.hl, mid = S[S.length >> 1].p, kind = this.p.calm && !(this.panic > 0), patient = !(this.pedT > TUNE.pedPatience * this.p.patience); let best = null;   // (out of patience: a crossing's wide berth given up, a body's width kept)
     for (const p of w.pedsNear(mid[0], mid[1], S[S.length - 1].d / 2 + 30)) {
       if (p.dead || p.floored || p.seat || Math.abs((p.z || 0) - mid[2]) > 14) continue;
       for (const q of S) {
         if (q.d < hl - 2) continue;
-        const reach = v.hw + (!kind ? 3 : this._onCross(q) ? 14 : 5);
+        const reach = v.hw + (!kind ? 3 : patient && this._onCross(q) ? 14 : 5);
         if ((p.x - q.p[0]) ** 2 + (p.y - q.p[1]) ** 2 < reach * reach) { const gap = Math.max(0, q.d - hl - 6); if (best === null || gap < best) best = gap; break; }
       }
     }
@@ -412,6 +413,7 @@ export class DriverBrain {
     if (L) { gap = L.gap; lv = L.speed; if (L.gap < 34 && L.speed < 3 && this._queued(L.v)) this.cause = 'queue'; }
     const stop = this._junction(dt, w, sp, S); if (stop !== null && stop < gap) { gap = stop; lv = 0; }
     const pg = this._peds(w, S); if (pg !== null && pg < gap) { gap = pg; lv = 0; this.cause = 'ped'; }
+    this.pedT = this.cause === 'ped' && sp < 3 ? (this.pedT || 0) + dt : sp > 20 ? 0 : this.pedT || 0;   // (how long held by people near its way; patience back once it is moving)
     if (goalGap !== null && goalGap + TUNE.idmMin < gap) { gap = goalGap + TUNE.idmMin; lv = 0; if (this.arrived) this.cause = 'arrived'; }
     // a siren coming up behind in our lane: over to the right into a gap that clears its way, and wait there; with no gap
     // (parked up on both sides), on ahead of it at our own speed. Back into the lane a moment after it has gone by, when

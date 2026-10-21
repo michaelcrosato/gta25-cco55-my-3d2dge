@@ -132,6 +132,8 @@ export class MissionBot {
   }
   // a vehicle to drive: the nearest one that would do (the AutoPlayer's pick), boarded
   _car(dt, p, w) {
+    if (this.car && this.car === this._carFor && (this._carT = (this._carT || 0) + dt) > 12 && !(p.seat && p.seat.vehicle === this.car)) { this.auto.tried.add(this.car.id); this.car = null; }   // (not in it in 12 s: another)
+    if (this.car !== this._carFor) { this._carFor = this.car; this._carT = 0; }
     if (!this.car || this.car.wrecked || this.auto.tried.has(this.car.id) || Math.hypot(this.car.x - p.x, this.car.y - p.y) > CAR_NEAR * 1.5 || (this.car.driver && this.car.driver !== p && this.car.driver.owner === 'mission')) this.car = this.auto._pickCar(p) || this._anyCar(p);
     return this.car ? this._board(dt, p, this.car, w) : null;
   }
@@ -141,7 +143,7 @@ export class MissionBot {
     if (h.vehicle) { const t = R.actors.tagged(h.vehicle).find(alive); if (t && (!p.seat || p.seat.vehicle !== t)) return this._board(dt, p, t, w); }
     if (h.spray) {   // (a fire to put out, a point to shoot at: within reach, stopped, aimed, the fire button held)
       const sp = h.spray, P = p.seat ? p.seat.vehicle : p, d = Math.hypot(sp[0] - P.x, sp[1] - P.y);
-      if (d < (h.reach || 110)) { const I = clearIntent(this.I), a = Math.atan2(sp[1] - P.y, sp[0] - P.x); I.aim = [Math.cos(a), Math.sin(a)]; I.aimPoint = [sp[0], sp[1], 0]; I.down.fire = true; I.down.attack = true; I.down.aim = !p.seat; if (p.seat && P.speed > 6) I.brake = 1; if (p.seat) { let da = a - P.heading; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) > .9 && P.speed < 20) { I.throttle = .3; I.steer = Math.sign(da); } } return I; }
+      if (d < (h.reach || 110)) { const I = clearIntent(this.I), a = Math.atan2(sp[1] - P.y, sp[0] - P.x); I.aim = [Math.cos(a), Math.sin(a)]; I.aimPoint = [sp[0], sp[1], 0]; const ws = !p.seat && p.inv.spec(), auto = !ws || ws.rate >= 6; I.down.fire = true; I.down.attack = auto || (this.t * 4 | 0) % 2 === 0; I.tap.attack = !auto && I.down.attack; I.down.aim = !p.seat; if (p.seat && P.speed > 6) I.brake = 1; if (p.seat) { let da = a - P.heading; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) > .9 && P.speed < 20) { I.throttle = .3; I.steer = Math.sign(da); } } return I; }
       return this._go(dt, p, sp[0], sp[1], { stay: true, radius: (h.reach || 110) * 1.2, slack: 30 }, w);
     }
     if (h.interact && !p.seat && Math.hypot(at[0] - p.x, at[1] - p.y) < Math.min(16, h.radius || 16)) { const I = clearIntent(this.I); if ((this.t * 4 | 0) % 2 === 0) { I.tap.interact = true; I.down.interact = true; } return I; }   // (there: △, a door's or a prompt's)
@@ -161,7 +163,7 @@ export class MissionBot {
     const truck = R.actors.tagged(h.tow).find(alive) || (p.seat && p.seat.vehicle && p.seat.vehicle.def.tool === 'hook' ? p.seat.vehicle : null), v = p.seat && p.seat.vehicle;
     if (!truck) return clearIntent(this.I);
     if (v !== truck) { this.tow = null; return this._board(dt, p, truck, w); }
-    if (car.towedBy === truck) { this.tow = null; return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: 'careful', radius: 50 }, w); }
+    if (car.towedBy === truck) { this.tow = null; return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: 'careful', radius: 50, z: h.to[2] }, w); }
     const T = this.tow && this.tow.car === car ? this.tow : (this.tow = { car, phase: 'stage', end: this._towEnd(car, truck), t: 0, n: 0, best: 1e9 });
     const e = T.end, dir = [Math.cos(e.h), Math.sin(e.h)], E = car.toWorld(e.k * car.hl, 0), off = truck.hl + 60, S = [E[0] + dir[0] * off, E[1] + dir[1] * off];
     const hook = truck.model.hook || [-truck.hl - 4, 0], H = truck.toWorld(hook[0], hook[1]), dH = Math.hypot(H[0] - E[0], H[1] - E[1]), I = clearIntent(this.I);
@@ -169,7 +171,7 @@ export class MissionBot {
     if (dH < 18 && truck.speed < 12) { if ((this.t * 4 | 0) % 2 === 0) { I.tap.fire = true; I.down.fire = true; } I.brake = 1; return I; }   // (the hook)
     if (T.phase === 'stage') {   // to the staging point (the road, then straight at it)
       if (Math.hypot(truck.x - S[0], truck.y - S[1]) < 30 && truck.speed < 10) { T.phase = Math.abs(ah) < .35 ? 'back' : 'align'; T.t = 0; T.best = dH; }
-      else return this._go(dt, p, S[0], S[1], { stay: true, radius: 16, slack: 10 }, w);
+      else return this._go(dt, p, S[0], S[1], { stay: true, radius: 16, slack: 10, z: car.z }, w);   // (on a deck: the staging point up there)
     }
     if (T.phase === 'align') {   // on along the axis, away from the car, until the truck faces its way
       T.t += dt; const A = [S[0] + dir[0] * 140, S[1] + dir[1] * 140]; let da = Math.atan2(A[1] - truck.y, A[0] - truck.x) - truck.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
@@ -198,7 +200,8 @@ export class MissionBot {
     return ends.find(room) || ends[0];
   }
   _kill(dt, p, R, h, w) {
-    const v = p.seat && p.seat.vehicle, live = a => alive(a) && !(a.damage && a.damage.burning); let t = null, td = 1e9;
+    if (h.vehicle) { const hv = R.actors.tagged(h.vehicle).find(alive); if (hv && (!p.seat || p.seat.vehicle !== hv)) return this._board(dt, p, hv, w); }   // (the job's to be done from that one)
+    const v = p.seat && p.seat.vehicle, live = a => alive(a) && !(a.damage && a.damage.burning) && !(h.done && h.done(a)); let t = null, td = 1e9;   // (h.done: when the job counts one: a car once it smokes)
     for (const a of R.actors.tagged(h.targets)) if (live(a)) { const d = Math.hypot(a.x - p.x, a.y - p.y); if (d < td) { td = d; t = a; } }
     // on foot, the nearest the gun has a clear line to (one in cover waits: a player shoots the one in the open, not
     // the one behind a pillar), chosen again every half a second; none in the open, the nearest
@@ -219,8 +222,8 @@ export class MissionBot {
       if (t.body) {   // (a vehicle: rammed; rams that do it no harm a while, pushed where the car can't get at it, and out to finish it on foot)
         const share = t.damage ? t.damage.share : 1, S = this.ramW && this.ramW.t === t ? this.ramW : (this.ramW = { t, share, at: this.t });
         if (share < S.share - .02 || td > 200) { S.share = Math.min(S.share, share); S.at = this.t; }
-        if (this.t - S.at > 20 && !(w.wanted && w.wanted.stars > 1)) return this._out(v);   // (not into the police's guns on foot)
-        return this._ram(dt, p, v, t, td, w);
+        if (this.t - S.at > 20 && !(w.wanted && w.wanted.stars > 1) && !h.vehicle) return this._out(v);   // (not into the police's guns on foot; never out of the hint's own vehicle)
+        return this._ram(dt, p, v, t, td, w, !!h.vehicle);
       }
       if (td > 260) return this._go(dt, p, t.x, t.y, { stay: true, slack: 60 }, w);
       return this._out(v);
@@ -238,10 +241,15 @@ export class MissionBot {
     return I;
   }
   // a vehicle rammed: at it flat out; pressed against it at a crawl (a push does no harm), backed off for another run
-  _ram(dt, p, v, t, d, w) {
-    if (d > 140) return this._go(dt, p, t.x, t.y, { stay: true, style: 'race', slack: 50 }, w);
-    const I = clearIntent(this.I), S = this.ramS || (this.ramS = { back: 0, slow: 0 }); let da = Math.atan2(t.y - v.y, t.x - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
+  _ram(dt, p, v, t, d, w, hold = false) {
+    if (d > 140) return this._go(dt, p, t.x, t.y, { stay: true, style: 'race', slack: 50, hold }, w);   // (hold: the hint's own vehicle, never given up in a jam)
+    const I = clearIntent(this.I), S = this.ramS || (this.ramS = { back: 0, slow: 0, held: 0, round: 0, side: 1 }); let da = Math.atan2(t.y - v.y, t.x - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
     if (S.back > 0) { S.back -= dt; I.brake = 1; return I; }
+    // held at a crawl short of it (a queue between: the car ahead, not the target): backed off, then past at a slant,
+    // one side and the next time the other
+    if (S.round > 0) { S.round -= dt; if (S.round > 1.4) { I.brake = .8; I.steer = -S.side * .6; } else { I.throttle = .75; I.steer = S.side * .7; } return I; }
+    S.held = v.speed < 5 && d > v.hl + t.hl + 30 ? S.held + dt : 0;
+    if (S.held > 2.5) { S.held = 0; S.side = -S.side; S.round = 2.4; return I; }
     // pressed against it at a crawl, or shoving it along the road (both moving: no blow lands), a run up again
     const shove = (t.speed || 0) > 15; S.slow = d < v.hl + t.hl + 24 && (v.speed < 12 || shove) ? S.slow + dt : 0;
     if (S.slow > .8) { S.slow = 0; S.back = shove ? 2.4 : 1.6; I.brake = 1; return I; }   // (a longer run at one that gives way)
@@ -257,7 +265,9 @@ export class MissionBot {
     if (t.body) {   // a vehicle: right up to its side for a swing; a gun from where the fighter stands
       const melee = !F.gun || p.inv.spec(F.gun).projectile === 'melee';
       if (melee) {
-        const bd = boxDistance(t, p.x, p.y); if (bd > 10) return F._go(dt, I, t.x, t.y, true, 'car' + t.id);
+        const bd = boxDistance(t, p.x, p.y);
+        if (bd > 40) { F.path = null; return this._go(dt, p, t.x, t.y, { foot: true, stay: true, radius: 8 }, w); }   // (a way off: the AutoPlayer's walk; the fighter's path re-plans to one node a post can block)
+        if (bd > 10) return F._go(dt, I, t.x, t.y, true, 'car' + t.id);
         if (p.inv.current !== F.melee) return this._step(I, p, F.melee);
         const d = Math.hypot(t.x - p.x, t.y - p.y); I.aim = [(t.x - p.x) / d, (t.y - p.y) / d]; I.tap.attack = (this.t * 4 | 0) % 2 === 0; I.down.attack = I.tap.attack; return I;
       }
@@ -321,7 +331,7 @@ export class MissionBot {
     if ((run && run.takedownFor && run.takedownFor(p)) || (!run && R.actors.takedownFor(p))) { I.tap.attack = true; I.down.attack = true; return I; }
     // indoors, a guard uneasy (noticing, searching): wait where it stands (at cover). Outdoors a guard that has seen us
     // fights (it has no unease): fought back
-    if (run && run.guards && run.guards.some(g => g.mind && g.mind.state !== 'calm' && g.mind.state !== 'down' && !g.down)) return I;
+    if (run && run.guards && run.guards.some(g => g.mind && g.mind.state !== 'calm' && g.mind.state !== 'down' && !g.down && !g.ped.dead)) return I;   // (a dead guard's unease is stale)
     const foe = !run && R.actors.list.find(e => e.role === 'guard' && e.alerted && !e.a.dead && !e.down && !e.a.out && Math.hypot(e.a.x - p.x, e.a.y - p.y) < 320);
     if (foe) return this._fight(dt, p, foe.a, w);
     while (this.si < path.length - 1 && Math.hypot(path[this.si][0] - p.x, path[this.si][1] - p.y) < 10) this.si++;

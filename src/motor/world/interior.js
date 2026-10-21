@@ -87,6 +87,7 @@ export class InteriorRun {
       ped.archetype = arch.id; ped.guard = i; this.combat.add(ped);
       return new Guard(ped, { map: this.map, rng: this.rng, route: g.route.map(([x, y]) => [(x + .5) * T, (y + .5) * T]) });
     });
+    this.looped = false;
     this.cameras = this.spec.cameras.map(c => ({ x: (c.at[0] + .5) * T, y: (c.at[1] + .5) * T, z: c.z, base: c.facing, sweep: c.sweep, period: c.period, range: c.range, fov: c.fov, facing: c.facing, mind: new E.Suspicion({ rise: 2.4, decay: .4 }), sees: false }));
     this.alarm = null; this.t = 0; this.player = null; this.lastShot = 0; this.downs = 0;
     this.lobby = (this.spec.rooms.find(r => r.public) || { rect: [0, 0, -1, -1] }).rect;   // (where the public may be)
@@ -120,7 +121,7 @@ export class InteriorRun {
     // the cameras sweep, and look
     for (const c of this.cameras) {
       c.facing = c.base + c.sweep * Math.sin(this.t * Math.PI * 2 / c.period);
-      const seen = minds ? E.sees({ x: c.x, y: c.y, z: 0, facing: c.facing }, P, { map: this.map, range: c.range, fov: c.fov, facing: c.facing, eye: c.z }) : 0;
+      const seen = minds && !this.looped ? E.sees({ x: c.x, y: c.y, z: 0, facing: c.facing }, P, { map: this.map, range: c.range, fov: c.fov, facing: c.facing, eye: c.z }) : 0;   // (looped: they show yesterday's tape)
       c.sees = !!(seen && seen.seen); c.mind.update(dt, seen, P);
       if (c.mind.state === 'alert' && !this.alarm) this.raise('camera', P);
     }
@@ -139,6 +140,8 @@ export class InteriorRun {
     if (P && P.mover && P.mover.sprinting && Math.hypot(P.mover.vx, P.mover.vy) > 60) this._noise(P.x, P.y, P.z || 0, TUNE.stepHeard, P.id);
     this.combat.update(dt, { takers: [], take: () => false });
   }
+  /** the CCTV on a loop (a crew's hacker, on: the cameras sweep and see nothing) or back (off) */
+  loopCameras(on = true) { this.looped = !!on; }
   // a noise at (x, y, z) loud far: the guards who hear it go to look (a shot of their own colleagues' aside)
   _noise(x, y, z, loud, by) {
     if (!this.player || (by != null && !this.isPlayer(by))) return;

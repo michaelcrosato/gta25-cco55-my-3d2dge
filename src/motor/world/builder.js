@@ -93,6 +93,7 @@ export function buildDistrict(spec, o = {}) {
       if (taken[i] === 2 || (taken[i] === 1 && !overWater && !lot.onWater)) return;   // never over a road; over water only a pier or quay
       used[i] = 1; C.lot[i] = lot.index; if (lot.surface) C.surface[i] = SURF[lot.surface];
       if (lot.kind === 'building') taken[i] = 3;
+      else if (overWater && taken[i] === 1) taken[i] = 0;   // (a pier's planks: ground a building can stand on, the boathouse's, the lighthouse's)
     });
     return lot;
   };

@@ -56,11 +56,11 @@ export class Stage {
     this.game = game; this.views = views; this.items = []; this.world = null; this.last = 0; this.fx = null; this.zx = null;
     this.lamps = []; this.glows = []; this.floorFx = []; this.marks = []; this.backdrops = new Map(); this.skyNow = null; this._maxH = null; this.wfx = new WeatherFX();
     this.frameNo = 0; this._kept = new WeakMap();   // (crowd bodies' kept images in the depth views, by their key)
-    this.fade = new CrossFade(); this.bx = null; this._dt = 0;
+    this.fade = new CrossFade(); this.bx = null; this._dt = 0; this.railHold = null;
     views.onChange((now, prev) => { if (now === prev) return; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); this.bx = !views.spec || !views.spec.depth ? { t: 0 } : null; });
     this.side7 = new Side7View({}); this.top = new TopView({});
     for (const v of [this.top, this.side7]) views.addView({ id: v.id, label: v.label, depth: v,
-      screenDirToGround: (dx, dy) => v.screenDirToGround(dx, dy), screenVec: (x, y, z) => v.screenVec(x, y, z),
+      screenDirToGround: (dx, dy) => v.screenDirToGround(dx, dy), screenVec: (x, y, z) => v.screenVec(x, y, z), groundDirToScreen: v.groundDirToScreen ? (x, y) => v.groundDirToScreen(x, y) : null,
       mouseGround: () => { const m = game.input.mouseScreen && game.input.mouseScreen(); return m && v.P ? v.toGround(m[0] - game.screen.ix, m[1] - game.screen.iy) : null; } });
     // the engine's lighting pass and particles draw in its own views only (the stress test does the same, 634-642)
     if (game.lights && game.lights.render) { const render = game.lights.render.bind(game.lights); game.lights.render = r => { if (!this.depthActive) render(r); }; }
@@ -137,10 +137,20 @@ export class Stage {
    *  the fade starts from the last one drawn). Presentation only: the simulation never reads it */
   update(dt, o = {}) {
     const d = this.depth; if (d !== this.side7 || this.rig) return;
+    if (this.railHold !== null) { if (d.heading !== this.railHold) this._railTo(this.railHold); d.steadyT = 0; return; }   // (a set piece holds it: m.view('side7', { heading }))
     const want = TUNE.autoRail && o.vehicle && o.vel ? d.autoRail(dt, o.vel[0], o.vel[1]) : (d.steadyT = 0, null);
     if (want === null) return;
     const f = this.focus; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); d.setHeading(want, f ? f[0] : d.x, f ? f[1] : d.y);
   }
+  /** hold MODE 7's rail at a heading (0 north: the camera south of the focus, looking north; 90 east, 180 south, 270
+   *  west; null lets it go): a mission's set piece (m.view('side7', { heading })). Turned there through the crossfade
+   *  when MODE 7 is up, or as it comes up, and kept there (Auto-rail and the player's turns hold off) till let go.
+   *  Presentation only */
+  pointRail(deg) {
+    this.railHold = deg === null || deg === undefined ? null : ((Math.round(deg / 90) * 90) % 360 + 360) % 360;
+    if (this.railHold !== null && this.depth === this.side7 && this.side7.heading !== this.railHold) this._railTo(this.railHold);
+  }
+  _railTo(deg) { const d = this.side7, f = this.focus; if (!this.fade.active) this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); d.setHeading(deg, f ? f[0] : d.x, f ? f[1] : d.y); }
   /** the camera rig (photo mode, cut-scenes; PLAN.md 8.2, 8.22): { x, y, zoom, heading } holds every view's camera on
    *  that point (ISO's through the scene's focus: stage.rig), at that zoom, MODE 7's rail at that heading; null lets the
    *  views follow the focus again. Presentation only */
@@ -149,7 +159,7 @@ export class Stage {
    *  TOP-DOWN stays north-up. Returns true if it turns */
   turn(dir) {
     const d = this.depth, f = this.focus;
-    if (d === this.side7) { this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); d.setHeading(d.heading + 90 * dir, f ? f[0] : d.x, f ? f[1] : d.y); return true; }
+    if (d === this.side7) { if (this.railHold !== null) return false; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); d.setHeading(d.heading + 90 * dir, f ? f[0] : d.x, f ? f[1] : d.y); return true; }   // (a set piece's rail stays put)
     if (d || !dir) return false;
     if (this.fx || this.zx) { (this.fx || this.zx).queued = dir; return true; }   // (one more turn waits for this one, or for a zoom step)
     const g = this.game, b = g.baseView || g.view, from = g.yaw || 0, to = ((from + 90 * dir) % 360 + 360) % 360;

@@ -68,7 +68,7 @@ L('kwik-lux-harbor', 'Kwik-Lux (Harbor)', [{ rect: [94, 107, 99, 113], kind: 'bu
   [{ id: 'kwik-lux-harbor', kind: 'shop', shop: 'kwiklux', holdup: true, at: [96, 114], label: 'Kwik-Lux' }]);
 L('marina', 'The Marina', [{ rect: [133, 107, 139, 123], kind: 'yard', surface: 'quay' }, { rect: [140, 111, 148, 112], kind: 'pier', surface: 'pier' }, { rect: [140, 117, 148, 118], kind: 'pier', surface: 'pier' }],
   [{ id: 'marina', kind: 'marina', at: [137, 115], label: 'The Marina' }]);
-L('boathouse', 'Harbor Rats Boathouse', [{ rect: [142, 134, 151, 145], kind: 'pier', surface: 'pier' }, { rect: [144, 136, 150, 142], kind: 'building', storeys: 2, look: shed('#8a6a4a', '#5a4a3a', { face: 'plank' }), sign: { text: 'BOATHOUSE', color: '#ffd23a' } }, { rect: [138, 138, 141, 139], kind: 'pier', surface: 'pier' }],
+L('boathouse', 'Harbor Rats Boathouse', [{ rect: [142, 134, 151, 145], kind: 'pier', surface: 'pier' }, { rect: [146, 136, 150, 142], kind: 'building', storeys: 2, look: shed('#8a6a4a', '#5a4a3a', { face: 'plank' }), sign: { text: 'BOATHOUSE', color: '#ffd23a' } }, { rect: [138, 138, 141, 139], kind: 'pier', surface: 'pier' }],
   [{ id: 'rats-hq', kind: 'gang', gang: 'rats', at: [147, 143], label: 'Harbor Rats Boathouse' }, { id: 'phone-rats', kind: 'payphone', gang: 'rats', at: [134, 139] }]);
 L('lighthouse', 'The Lighthouse', [{ rect: [148, 146, 153, 151], kind: 'pier', surface: 'quay' }, { rect: [149, 147, 152, 150], kind: 'building', storeys: 6, look: { side: '#e8e8ec', top: '#c8423a', face: 'plaster', roof: 'tiles', windows: { lit: .3, w: 4 } } }],
   [{ id: 'lighthouse', kind: 'landmark', at: [148, 146], label: 'The Lighthouse' }]);

@@ -210,7 +210,7 @@ export class AutoPlayer {
     // boxed in (a dead or abandoned car in the lane, no pass the brain can plan; a ped standing in the road): backed off, then round it on one side,
     // then the other; three times boxed in, out on foot (another car, or the rest of the way walking)
     if (this.round) return this._round(dt, v);
-    const L = b.leader, held = (L && L.gap < 14 && L.speed < 2) || b.cause === 'ped';
+    const L = b.leader, waits = L && L.v && L.v.brain && !L.v.brain.parked && ['signal', 'queue', 'yield'].includes(L.v.brain.cause), held = (L && L.gap < 14 && L.speed < 2 && !waits) || b.cause === 'ped';   // (a leader waiting at a light, in a queue: traffic, not a box)
     this.boxT = held && v.speed < 3 && !b.pass && b.cause !== 'signal' && b.cause !== 'arrived' ? (this.boxT || 0) + dt : 0;
     if (this.boxT > (b.cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
     const I = b.update(dt, { fleet: this.fleet, t: w.t || this.t, pedsNear: w.pedsNear || null, wet: w.wet || 0, sirens: null });
