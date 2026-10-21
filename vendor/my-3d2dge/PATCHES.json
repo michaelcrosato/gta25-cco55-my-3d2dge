@@ -22,6 +22,11 @@
       "title": "Input raw state: every key, every pad (analog values), the active pad, an activity clock"
     },
     {
+      "n": 5,
+      "file": "engine/my-3d2dge.js",
+      "title": "Audio: audio.bus(name), the gain node of the sfx, music or master bus, for a game's own voices"
+    },
+    {
       "n": 7,
       "file": "engine/my-3d2dge.js",
       "title": "Lighting: a reduced-resolution light field (lights.res) and the tint curve from a table"
@@ -34,7 +39,7 @@
   ],
   "files": {
     "engine/my-3d2dge.js": {
-      "sha256": "c729cf0e0ff77246c8a98f167f4caad1e8d50691784a4df4300c6ca64dc8afee"
+      "sha256": "b7a568ed9d2d6d5012d5f9b051621caa3a3353bd29ceb3544dfcff7ce9316ff0"
     }
   }
 }

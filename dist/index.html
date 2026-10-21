@@ -6224,6 +6224,11 @@ class ChipAudio {
   }
   /** true once the browser lets the game make sound */
   get ready() { return !!this.ctx && this.ctx.state === 'running'; }
+  // GTM-PATCH(5): a game's own voices (a sequencer, continuous sounds) play through the engine's buses, so the master
+  // volume, the effects and music levels, mute and the ducking all hold for them
+  /** the gain node a bus plays through: 'sfx' (the effects), 'music' or 'master'; made with the context (the first
+   *  sound); null where there is no Web Audio */
+  bus(name) { if (!this._init()) return null; return name === 'music' ? this._musBus : name === 'sfx' ? this._sfxBus : name === 'master' ? this._master : null; }
   _levels() { if (!this.ctx) return; this._master.gain.value = this.muted ? 0 : this.volume; this._sfxBus.gain.value = this.sfxVolume; this._musBus.gain.value = this.musicVolume * (this._ducked || this.ducked ? .35 : 1); }
   /** set the master volume, 0..1 */
   setVolume(v) { this.volume = clamp(v, 0, 1); this._levels(); }
@@ -9930,6 +9935,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     Actor: () => Actor,
     Aimer: () => Aimer,
     AmbientEvents: () => AmbientEvents,
+    AudioDirector: () => AudioDirector,
+    AudioX: () => AudioX,
     AutoPlayer: () => AutoPlayer,
     BACKDROPS: () => BACKDROPS,
     BENCH_RANGE: () => BENCH_RANGE,
@@ -9959,6 +9966,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     DEFAULT_BINDINGS: () => DEFAULT_BINDINGS,
     DIFFICULTY: () => DIFFICULTY,
     DRIFT: () => DRIFT,
+    DRUMS: () => DRUMS,
     Damage: () => Damage,
     Deck: () => Deck,
     Drawbridge: () => Drawbridge,
@@ -9975,6 +9983,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     Fleet: () => Fleet,
     FloorChunks: () => FloorChunks,
     Footprint: () => Footprint,
+    GENRES: () => GENRES,
     GPS: () => GPS,
     Gangs: () => Gangs,
     HANDLING: () => HANDLING,
@@ -10019,16 +10028,21 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     ROAD_KINDS: () => ROAD_KINDS,
     ROW: () => ROW,
     Radar: () => Radar,
+    Radio: () => Radio,
     RailLine: () => RailLine,
     RoadGraph: () => RoadGraph,
     SAFE: () => SAFE,
+    SCORES: () => SCORES,
     SETTING_TABS: () => SETTING_TABS,
     SLOTS: () => SLOTS,
+    SOUNDS: () => SOUNDS,
     STAT_NAMES: () => STAT_NAMES,
     SURFACES: () => SURFACES,
     SURFACE_GRIP: () => SURFACE_GRIP,
     SaveStore: () => SaveStore,
     Screens: () => Screens,
+    Sequencer: () => Sequencer,
+    SfxMap: () => SfxMap,
     Shots: () => Shots,
     Sidewalks: () => Sidewalks,
     Spans: () => Spans,
@@ -10091,6 +10105,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     collideCars: () => collideCars,
     collidePairs: () => collidePairs,
     completion: () => completion,
+    compose: () => compose,
     confirmScreen: () => confirmScreen,
     countOf: () => countOf,
     createApp: () => createApp,
@@ -10154,6 +10169,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     losClear: () => losClear,
     makeBody: () => makeBody,
     makeIntent: () => makeIntent,
+    makeNoise: () => makeNoise,
     mapPage: () => mapPage,
     markerColor: () => markerColor,
     measureDps: () => measureDps,
@@ -10163,11 +10179,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     modelOf: () => modelOf,
     modelWithKit: () => modelWithKit,
     nextStation: () => nextStation,
+    noteFreq: () => noteFreq,
     onRoad: () => onRoad,
     onewaySign: () => onewaySign,
     op: () => op,
     paintTileMapFloor: () => paintTileMapFloor,
     parsePrompt: () => parsePrompt,
+    parseSong: () => parseSong,
+    parseTrack: () => parseTrack,
     pedFits: () => pedFits,
     pedLook: () => pedLook,
     pickLock: () => pickLock,
@@ -10193,6 +10212,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     spawnFleet: () => spawnFleet,
     standInCity: () => standInCity,
     stationLabel: () => stationLabel,
+    stationTimeline: () => stationTimeline,
     sustainedDps: () => sustainedDps,
     tabbedScreen: () => tabbedScreen,
     tapButton: () => tapButton,
@@ -20537,6 +20557,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.lines = null;
       this.fails = [];
       this.choosing = null;
+      this.music = null;
       BUS.clear(this.scope);
       const W20 = this.world();
       if (W20.endMission) W20.endMission(this);
@@ -20885,6 +20906,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** the stage goes on with the stars (the bot doesn't stop to lose them first): a getaway, a tow at two stars */
     allowWanted(on = true) {
       this.R.allowWanted = on;
+    }
+    /** the score under the job (presentation): 'chase', 'tension', or null for none; the radio ducks under it, and the
+     *  job's end lets it go */
+    music(cue = null) {
+      this.R.music = cue;
     }
     /** fail the stage when pred(m) holds */
     failIf(pred, reason) {
@@ -30054,13 +30080,824 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     dj: { type: "string", def: "" },
     genre: { type: "string", def: "" },
     color: { type: "string", def: "#ffe066" },
-    about: { type: "string", def: "" }
+    about: { type: "string", def: "" },
+    seed: { type: "number", def: 1 },
+    // (the composer's: the same songs every game)
+    songs: { type: "array", def: [] },
+    // ([{ title, artist }]: a song each, composed in the station's genre)
+    djLines: { type: "array", def: [] },
+    ads: { type: "array", def: [] },
+    jingle: { type: "string", def: "" },
+    talk: { type: "array", def: [] }
+    // (a talk station's segments: [[lines]], callers and host, over a bed)
   }));
+  declare("radioAds", shape({ name: { type: "string", req: true }, lines: { type: "array", req: true } }));
   function stationLabel(id) {
     if (!id || id === "off") return "RADIO OFF";
     const s = get("stations", id);
     return s ? s.freq ? `${s.name}  ${s.freq}` : s.name : id.toUpperCase();
   }
+
+  // src/motor/audio/notes.js
+  var NOTE = /^([A-Ga-g])([#b]?)(-?\d)$/;
+  var SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  var DRUMS = ["k", "s", "h", "o", "c", "t"];
+  function noteFreq(tok) {
+    const m = NOTE.exec(tok);
+    if (!m) return null;
+    const n = SEMI[m[1].toUpperCase()] + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0) + (+m[3] + 1) * 12;
+    return 440 * Math.pow(2, (n - 69) / 12);
+  }
+  function parseTrack(notes, drums2 = false) {
+    const toks = String(notes || "").replace(/\|/g, " ").trim().split(/\s+/).filter(Boolean), ev = [];
+    let last = null;
+    toks.forEach((t, i) => {
+      if (t === "-") {
+        if (last) last.len++;
+        return;
+      }
+      last = null;
+      if (t === ".") return;
+      if (drums2) {
+        for (const d of t) if (DRUMS.includes(d)) ev.push({ step: i, len: 1, drum: d });
+        return;
+      }
+      const f = noteFreq(t);
+      if (f) {
+        last = { step: i, len: 1, freq: f };
+        ev.push(last);
+      }
+    });
+    return { len: toks.length, events: ev };
+  }
+  function parseSong(song) {
+    const bpm = song.bpm || 120, steps = song.steps || 4, stepDur = 60 / bpm / steps;
+    const tracks = (song.tracks || []).map((t) => {
+      const p = parseTrack(t.notes, t.wave === "drums");
+      return { wave: t.wave || "square", vol: t.vol === void 0 ? 0.15 : t.vol, len: p.len, events: p.events, release: t.release };
+    }).filter((t) => t.len);
+    const len = Math.max(0, ...tracks.map((t) => t.len));
+    return { bpm, steps, stepDur, tracks, lenSteps: len, length: len * stepDur };
+  }
+
+  // src/motor/audio/sequencer.js
+  var DRUM = {
+    // (each drum: its voice, by code)
+    k: { kind: "osc", wave: "sine", f: 150, to: 42, dur: 0.14, vol: 0.9 },
+    t: { kind: "osc", wave: "sine", f: 140, to: 85, dur: 0.16, vol: 0.6 },
+    s: { kind: "noise", filter: "bandpass", f: 1900, q: 0.8, dur: 0.13, vol: 0.55, body: { wave: "triangle", f: 190, to: 140, dur: 0.07, vol: 0.3 } },
+    h: { kind: "noise", filter: "highpass", f: 7200, q: 0.7, dur: 0.04, vol: 0.28 },
+    o: { kind: "noise", filter: "highpass", f: 6200, q: 0.7, dur: 0.22, vol: 0.24 },
+    c: { kind: "noise", filter: "highpass", f: 4800, q: 0.5, dur: 0.7, vol: 0.26 }
+  };
+  function makeNoise(ctx, seed = 24301) {
+    const b = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = b.getChannelData(0);
+    let x = seed >>> 0;
+    for (let i = 0; i < d.length; i++) {
+      x = Math.imul(x, 1664525) + 1013904223 >>> 0;
+      d[i] = x / 2147483648 - 1;
+    }
+    return b;
+  }
+  var Sequencer = class {
+    /** ctx: an AudioContext or OfflineAudioContext; dest: the node it plays into (the engine's music bus); o: { lookahead
+     *  (s), maxVoices } */
+    constructor(ctx, dest, o = {}) {
+      this.ctx = ctx;
+      this.dest = dest;
+      this.lookahead = o.lookahead || 0.3;
+      this.maxVoices = o.maxVoices || 64;
+      this.seqs = /* @__PURE__ */ new Set();
+      this.noise = makeNoise(ctx);
+      this.ends = [];
+      this.dropped = 0;
+      this._pulse = {};
+    }
+    /** start a parsed song: o { t0 (its timeline's start: now by default), loop (true), gain (1), dest } */
+    play(song, o = {}) {
+      const c = this.ctx, g = c.createGain();
+      g.gain.value = o.gain === void 0 ? 1 : o.gain;
+      g.connect(o.dest || this.dest);
+      const s = { song, t0: o.t0 === void 0 ? c.currentTime : o.t0, loop: o.loop !== false, out: g, done: -Infinity, stopped: false };
+      s.stop = (at = c.currentTime) => {
+        if (s.stopped) return;
+        s.stopped = true;
+        this.seqs.delete(s);
+        try {
+          g.gain.setValueAtTime(g.gain.value, at);
+          g.gain.linearRampToValueAtTime(0, at + 0.05);
+        } catch (e) {
+        }
+        setTimeout(() => {
+          try {
+            g.disconnect();
+          } catch (e) {
+          }
+        }, 400);
+      };
+      this.seqs.add(s);
+      return s;
+    }
+    /** each frame (realtime): schedule what falls in the next lookahead seconds */
+    tick() {
+      const now = this.ctx.currentTime;
+      this.schedule(now, now + this.lookahead);
+    }
+    /** schedule every sequence's notes in [from, to) not scheduled yet */
+    schedule(from, to) {
+      for (const s of this.seqs) {
+        const a = Math.max(from, s.done);
+        if (to <= a) continue;
+        if (!s.loop && a - s.t0 >= s.song.length) {
+          this.seqs.delete(s);
+          continue;
+        }
+        this._window(s, a, to);
+        s.done = to;
+      }
+      const now = this.ctx.currentTime;
+      this.ends = this.ends.filter((t) => t > now);
+    }
+    _window(s, a, b) {
+      const P17 = s.song, sd = P17.stepDur;
+      for (const T15 of P17.tracks) {
+        const L16 = T15.len * sd, r0 = Math.max(0, a - s.t0), r1 = b - s.t0;
+        if (r1 <= 0 || L16 <= 0) continue;
+        const k0 = Math.floor(r0 / L16), k1 = s.loop ? Math.floor((r1 - 1e-9) / L16) : 0;
+        for (let k = k0; k <= k1; k++) for (const e of T15.events) {
+          const t = s.t0 + k * L16 + e.step * sd;
+          if (t < a || t >= b) continue;
+          if (this.ends.length >= this.maxVoices) {
+            this.dropped++;
+            continue;
+          }
+          const end2 = e.drum ? this._drum(e.drum, t, T15.vol, s.out) : this._note(T15, e, t, sd, s.out);
+          this.ends.push(end2);
+        }
+      }
+    }
+    _osc(wave2) {
+      const o = this.ctx.createOscillator();
+      if (wave2 === "pulse") {
+        o.setPeriodicWave(this._wave(0.25));
+      } else o.type = wave2 === "saw" ? "sawtooth" : ["square", "triangle", "sine", "sawtooth"].includes(wave2) ? wave2 : "square";
+      return o;
+    }
+    _wave(duty) {
+      if (this._pulse[duty]) return this._pulse[duty];
+      const N4 = 32, re = new Float32Array(N4), im = new Float32Array(N4);
+      for (let n = 1; n < N4; n++) {
+        const a = 2 / (n * Math.PI) * Math.sin(n * Math.PI * duty);
+        re[n] = a * Math.cos(n * Math.PI * duty);
+        im[n] = a * Math.sin(n * Math.PI * duty);
+      }
+      return this._pulse[duty] = this.ctx.createPeriodicWave(re, im);
+    }
+    // a pitched note: attack, held for its steps, a short release
+    _note(T15, e, t, sd, out) {
+      const c = this.ctx, dur = Math.max(0.03, e.len * sd * 0.92), rel = T15.release || 0.05, g = c.createGain(), o = this._osc(T15.wave);
+      o.frequency.setValueAtTime(e.freq, t);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(T15.vol, t + 6e-3);
+      g.gain.setValueAtTime(T15.vol, t + dur);
+      g.gain.linearRampToValueAtTime(0, t + dur + rel);
+      o.connect(g);
+      g.connect(out);
+      o.start(t);
+      o.stop(t + dur + rel + 0.02);
+      return t + dur + rel;
+    }
+    _drum(d, t, vol, out) {
+      const c = this.ctx, D = DRUM[d], g = c.createGain(), v = D.vol * vol / 0.15 * 0.5;
+      g.gain.setValueAtTime(v, t);
+      g.gain.exponentialRampToValueAtTime(5e-4, t + D.dur);
+      g.connect(out);
+      if (D.kind === "osc") {
+        const o = c.createOscillator();
+        o.type = D.wave;
+        o.frequency.setValueAtTime(D.f, t);
+        o.frequency.exponentialRampToValueAtTime(D.to, t + D.dur);
+        o.connect(g);
+        o.start(t);
+        o.stop(t + D.dur + 0.02);
+      } else {
+        const n = c.createBufferSource(), f = c.createBiquadFilter();
+        n.buffer = this.noise;
+        n.loop = true;
+        f.type = D.filter;
+        f.frequency.value = D.f;
+        f.Q.value = D.q;
+        n.connect(f);
+        f.connect(g);
+        n.start(t, t * 7.31 % 0.9);
+        n.stop(t + D.dur + 0.02);
+        if (D.body) {
+          const o = c.createOscillator(), bg = c.createGain();
+          o.type = D.body.wave;
+          o.frequency.setValueAtTime(D.body.f, t);
+          o.frequency.exponentialRampToValueAtTime(D.body.to, t + D.body.dur);
+          bg.gain.setValueAtTime(D.body.vol * v, t);
+          bg.gain.exponentialRampToValueAtTime(5e-4, t + D.body.dur);
+          o.connect(bg);
+          bg.connect(out);
+          o.start(t);
+          o.stop(t + D.body.dur + 0.02);
+        }
+      }
+      return t + D.dur;
+    }
+    /** what is live: sequences, voices sounding, notes dropped by the cap */
+    stats() {
+      return { seqs: this.seqs.size, voices: this.ends.length, dropped: this.dropped };
+    }
+  };
+
+  // src/motor/audio/composer.js
+  var SCALE = { minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10], major: [0, 2, 4, 5, 7, 9, 11], mixo: [0, 2, 4, 5, 7, 9, 10] };
+  var NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  var nameOf = (midi) => NAMES[(midi % 12 + 12) % 12] + (Math.floor(midi / 12) - 1);
+  var ROOTS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  var GENRES = {
+    "synth-punk": {
+      bpm: [164, 178],
+      scale: "minor",
+      roots: ["E", "A", "D", "B"],
+      progs: [[0, 5, 2, 6], [0, 3, 4, 4], [0, 6, 5, 4]],
+      bass: { wave: "triangle", rhythm: "x.x.x.x.x.x.x.x.", vol: 0.2 },
+      drums: { intro: "k...h...s...h...", verse: "k.h.s.h.k.k.s.h.", chorus: "k.o.s.o.k.okskso", bridge: "k...s...k.k.s..." },
+      lead: { wave: "square", lo: 64, hi: 81, rhythm: ["x.x.x.xx", "x..x..x.", "xx.x.x.x"], leap: 3, vol: 0.1 },
+      keys: { wave: "pulse", kind: "stab", vol: 0.06 },
+      form: [["intro", 2], ["verse", 8], ["chorus", 8], ["verse", 8], ["chorus", 8], ["bridge", 4], ["chorus", 8], ["outro", 2]]
+    },
+    "boom-bap": {
+      bpm: [84, 94],
+      scale: "dorian",
+      roots: ["D", "G", "C", "F"],
+      progs: [[0, 3, 0, 4], [0, 5, 3, 4], [1, 4, 0, 0]],
+      bass: { wave: "triangle", rhythm: "x.....x...x.....", vol: 0.3, low: true },
+      drums: { intro: "k.......s.......", verse: "k..k..k.s....k..", chorus: "k.hk.hk.s.h..kh.", bridge: "k.......s..k...." },
+      lead: { wave: "triangle", lo: 67, hi: 79, rhythm: ["x...x.x.", "..x...x.", "x.x....."], leap: 2, vol: 0.12 },
+      keys: { wave: "square", kind: "chord", vol: 0.045 },
+      swing: true,
+      form: [["intro", 2], ["verse", 8], ["chorus", 4], ["verse", 8], ["chorus", 4], ["bridge", 4], ["chorus", 4], ["outro", 2]]
+    },
+    synthwave: {
+      bpm: [100, 114],
+      scale: "minor",
+      roots: ["A", "F", "C", "G"],
+      progs: [[0, 5, 2, 6], [0, 3, 5, 4], [5, 3, 0, 4]],
+      bass: { wave: "saw", rhythm: "x.x.x.x.x.x.x.x.", vol: 0.14, oct: true },
+      drums: { intro: "k.......s.......", verse: "k...s...k...s...", chorus: "k.h.s.h.k.h.s.hh", bridge: "k.......k......." },
+      lead: { wave: "saw", lo: 69, hi: 84, rhythm: ["x...x...", "x.x.x...", "x..x..x."], leap: 4, vol: 0.08 },
+      keys: { wave: "pulse", kind: "arp", vol: 0.06 },
+      form: [["intro", 4], ["verse", 8], ["chorus", 8], ["verse", 8], ["chorus", 8], ["bridge", 4], ["chorus", 8], ["outro", 4]]
+    },
+    talk: {
+      bpm: [92, 96],
+      scale: "major",
+      roots: ["F", "C"],
+      progs: [[0, 3, 4, 3]],
+      bass: { wave: "triangle", rhythm: "x.......x.......", vol: 0.16 },
+      drums: { intro: "k.......h.......", verse: "k...h...k...h...", chorus: "k...h...k...h...", bridge: "k...h...k...h..." },
+      lead: null,
+      keys: { wave: "sine", kind: "chord", vol: 0.05 },
+      form: [["intro", 2], ["verse", 8], ["outro", 2]]
+    }
+  };
+  var SCORES = {
+    chase: {
+      bpm: [150, 150],
+      scale: "minor",
+      roots: ["D"],
+      progs: [[0, 0, 5, 6]],
+      bass: { wave: "saw", rhythm: "x.xxx.xxx.xxx.xx", vol: 0.16 },
+      drums: { intro: "k.h.s.h.k.h.s.hh", verse: "k.hks.h.k.hks.hs", chorus: "k.hks.h.k.hks.hs", bridge: "k.hks.h.k.hks.hs" },
+      lead: { wave: "pulse", lo: 62, hi: 74, rhythm: ["x.x.x.x."], leap: 1, vol: 0.07 },
+      keys: { wave: "square", kind: "stab", vol: 0.04 },
+      form: [["verse", 4], ["chorus", 4]]
+    },
+    tension: {
+      bpm: [92, 92],
+      scale: "minor",
+      roots: ["A"],
+      progs: [[0, 0, 1, 0]],
+      bass: { wave: "triangle", rhythm: "x.......x.......", vol: 0.2 },
+      drums: { intro: "k...............", verse: "k.......h.......", chorus: "k.......h.......", bridge: "k.......h......." },
+      lead: null,
+      keys: { wave: "sine", kind: "chord", vol: 0.05 },
+      form: [["verse", 8]]
+    }
+  };
+  function compose(genre, seed = 1, title = "") {
+    const G2 = GENRES[genre] || SCORES[genre];
+    if (!G2) throw new Error("MOTOR: no genre " + genre);
+    let x = seed * 2654435761 >>> 0 || 1;
+    const rnd = () => {
+      x ^= x << 13;
+      x >>>= 0;
+      x ^= x >>> 17;
+      x ^= x << 5;
+      x >>>= 0;
+      return x / 4294967296;
+    }, pick = (l7) => l7[Math.floor(rnd() * l7.length)];
+    const bpm = Math.round(G2.bpm[0] + rnd() * (G2.bpm[1] - G2.bpm[0])), root = 48 + ROOTS[pick(G2.roots)], sc = SCALE[G2.scale], prog = pick(G2.progs), chorusProg = pick(G2.progs);
+    const deg = (d, oct = 0) => {
+      const n = sc.length, k = (d % n + n) % n;
+      return root + sc[k] + 12 * (Math.floor(d / n) + oct);
+    };
+    const bars = G2.form.reduce((a, f) => a + f[1], 0), tracks = { lead: [], bass: [], keys: [], drums: [] };
+    let leadDeg = 7, bar = 0;
+    for (const [part2, n] of G2.form) {
+      const P17 = part2 === "chorus" ? chorusProg : prog, motif = pick(G2.lead ? G2.lead.rhythm : ["x......."]), drums2 = G2.drums[part2] || G2.drums.verse;
+      for (let b = 0; b < n; b++, bar++) {
+        const ch = P17[b % P17.length], fill = b === n - 1 && part2 !== "outro";
+        const dr = (fill ? drums2.slice(0, 8) + "k.s.ssss" : drums2).split("").map((c) => c === "." ? "." : c);
+        if (b === 0 && part2 !== "intro") dr[0] = dr[0] === "k" ? "kc" : "c";
+        if (part2 === "outro") dr.fill(".", 4);
+        tracks.drums.push(...dr);
+        for (let s = 0; s < 16; s++) tracks.bass.push(G2.bass.rhythm[s] === "x" && part2 !== "intro" ? nameOf(deg(ch, G2.bass.low ? -1 : 0) - 12 + (G2.bass.oct && s % 4 === 2 ? 12 : 0)) : ".");
+        const chord = [deg(ch), deg(ch + 2), deg(ch + 4)];
+        for (let s = 0; s < 16; s++) {
+          if (G2.keys.kind === "arp") tracks.keys.push(nameOf(chord[s % 3] + 12 + (s % 6 >= 3 ? 12 : 0)));
+          else if (G2.keys.kind === "stab") tracks.keys.push(s % 4 === 0 && part2 !== "intro" ? nameOf(chord[s / 4 % 3] + 12) : ".");
+          else tracks.keys.push(s === 0 ? nameOf(chord[0] + 12) : s < 14 ? "-" : ".");
+        }
+        if (G2.lead) for (let s = 0; s < 16; s++) {
+          const on = motif[s % motif.length] === "x" && (part2 === "verse" || part2 === "chorus");
+          if (!on) {
+            tracks.lead.push(s && tracks.lead[tracks.lead.length - 1] !== "." && rnd() < 0.3 ? "-" : ".");
+            continue;
+          }
+          leadDeg += rnd() < 0.25 ? rnd() < 0.5 ? -G2.lead.leap : G2.lead.leap : rnd() < 0.5 ? -1 : 1;
+          let m = deg(leadDeg, 1);
+          while (m > G2.lead.hi) {
+            leadDeg -= sc.length;
+            m = deg(leadDeg, 1);
+          }
+          while (m < G2.lead.lo) {
+            leadDeg += sc.length;
+            m = deg(leadDeg, 1);
+          }
+          if (s % 4 === 0 && rnd() < 0.5) m = chord[Math.floor(rnd() * 3)] + 12 * Math.round((G2.lead.lo + G2.lead.hi) / 24 - chord[0] / 12);
+          tracks.lead.push(nameOf(m));
+        }
+      }
+    }
+    const out = [{ wave: G2.bass.wave, vol: G2.bass.vol, notes: tracks.bass.join(" ") }, { wave: G2.keys.wave, vol: G2.keys.vol, notes: tracks.keys.join(" ") }, { wave: "drums", vol: 0.15, notes: tracks.drums.join(" ") }];
+    if (G2.lead) out.unshift({ wave: G2.lead.wave, vol: G2.lead.vol, notes: tracks.lead.join(" ") });
+    return { title, genre, bpm, steps: 4, bars, tracks: out };
+  }
+
+  // src/motor/audio/radio.js
+  var DJ_TIME = 7;
+  var AD_TIME = 13;
+  var TALK_TIME = 16;
+  var JINGLE_BARS = 2;
+  function stationTimeline(st, seed = 1) {
+    const base3 = (st.seed || 1) * 7919 + seed * 104729, segs = [], add = (s) => {
+      s.t0 = segs.reduce((a, q) => a + q.dur, 0);
+      segs.push(s);
+    };
+    const jingle = parseSong(compose(st.genre === "talk" ? "talk" : st.genre, base3 + 99, "jingle")), jdur = Math.min(jingle.length, jingle.stepDur * 16 * JINGLE_BARS);
+    const songs = (st.songs || []).map((q, i) => ({ ...q, song: parseSong(compose(st.genre, base3 + i * 31, q.title)) }));
+    const bed = parseSong(compose("talk", base3 + 7, "bed"));
+    const ads = st.ads || [], dj = st.djLines || [];
+    if (st.genre === "talk") {
+      (st.talk || []).forEach((lines, i) => {
+        add({ kind: "talk", dur: TALK_TIME + lines.length * 2, song: bed, lines });
+        if (ads[i % Math.max(1, ads.length)] && i % 2 === 1) add({ kind: "ad", dur: AD_TIME, song: bed, ad: ads[i % ads.length] });
+      });
+      add({ kind: "jingle", dur: jdur, song: jingle, lines: [st.jingle || st.name] });
+    } else {
+      songs.forEach((q, i) => {
+        add({ kind: "song", dur: q.song.length, song: q.song, title: q.title, artist: q.artist });
+        if (i % 2 === 0 && dj.length) add({ kind: "dj", dur: DJ_TIME, song: bed, lines: [dj[i % dj.length]] });
+        else if (ads.length) add({ kind: "ad", dur: AD_TIME, song: bed, ad: ads[(i >> 1) % ads.length] });
+        if (i === songs.length - 1) add({ kind: "jingle", dur: jdur, song: jingle, lines: [st.jingle || st.name] });
+      });
+    }
+    return { id: st.id, name: st.name, dj: st.dj, color: st.color, segs, length: segs.reduce((a, q) => a + q.dur, 0) };
+  }
+  var Radio = class {
+    /** o: { stations: [spec], seed, ads: { id: { name, lines } } } */
+    constructor(o = {}) {
+      this.seed = o.seed || 1;
+      this.ads = o.ads || {};
+      this.timelines = new Map((o.stations || []).map((s) => [s.id, stationTimeline(s, this.seed)]));
+    }
+    /** where a station is at radio time t: its segment and how far into it */
+    at(id, t) {
+      const T15 = this.timelines.get(id);
+      if (!T15 || !T15.length) return null;
+      const p = (t % T15.length + T15.length) % T15.length;
+      let seg = T15.segs[0];
+      for (const s of T15.segs) if (s.t0 <= p) seg = s;
+      else break;
+      return { seg, offset: p - seg.t0, cycle: Math.floor(t / T15.length) };
+    }
+    /** the words showing at time t on a station: { name (who says it: the DJ, the ad's sponsor, a caller), text, kind,
+     *  key }, or null (a song plays) */
+    line(id, t) {
+      const a = this.at(id, t);
+      if (!a) return null;
+      const s = a.seg, T15 = this.timelines.get(id);
+      const ad = s.kind === "ad" ? this.ads[s.ad] : null, lines = ad ? ad.lines : s.lines || null;
+      if (!lines || !lines.length) return null;
+      const per = s.dur / lines.length, i = Math.min(lines.length - 1, Math.floor(a.offset / per)), raw = String(lines[i]);
+      const m = /^([A-Z][A-Z .']{1,20}):\s*(.*)$/.exec(raw);
+      return { name: ad ? ad.name : m ? m[1] : s.kind === "dj" ? T15.dj : T15.name, text: m && !ad ? m[2] : raw, kind: s.kind, key: s.t0 + ":" + i };
+    }
+  };
+
+  // src/motor/audio/audiox.js
+  var MAX_ENGINES = 4;
+  var MAX_SIRENS = 3;
+  var FAR = 700;
+  var Voice = class {
+    constructor(ctx, out, make) {
+      this.ctx = ctx;
+      this.g = ctx.createGain();
+      this.g.gain.value = 0;
+      this.p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      if (this.p) {
+        this.g.connect(this.p);
+        this.p.connect(out);
+      } else this.g.connect(out);
+      this.parts = make(ctx, this.g);
+      this.live = true;
+    }
+    set(vol, pan = 0, k = 0.08) {
+      const t = this.ctx.currentTime;
+      this.g.gain.setTargetAtTime(Math.max(0, vol), t, k);
+      if (this.p) this.p.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, k);
+    }
+    stop() {
+      if (!this.live) return;
+      this.live = false;
+      const t = this.ctx.currentTime;
+      this.g.gain.setTargetAtTime(0, t, 0.05);
+      for (const n of this.parts.nodes || []) if (n.stop) try {
+        n.stop(t + 0.3);
+      } catch (e) {
+      }
+      setTimeout(() => {
+        try {
+          this.g.disconnect();
+          if (this.p) this.p.disconnect();
+        } catch (e) {
+        }
+      }, 500);
+    }
+  };
+  var AudioX = class {
+    /** audio: the engine's game.audio (its context and its buses) */
+    constructor(audio, o = {}) {
+      this.audio = audio;
+      this.engines = /* @__PURE__ */ new Map();
+      this.sirens = /* @__PURE__ */ new Map();
+      this.beds = {};
+      this.noise = null;
+      this.maxEngines = o.maxEngines || MAX_ENGINES;
+      this.maxSirens = o.maxSirens || MAX_SIRENS;
+    }
+    get ready() {
+      const A = this.audio;
+      return !!(A && A.ctx && A.ctx.state === "running" && A.bus && A.bus("sfx"));
+    }
+    _noise() {
+      if (this.noise) return this.noise;
+      const c = this.audio.ctx, b = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = b.getChannelData(0);
+      let x = 19088743;
+      for (let i = 0; i < d.length; i++) {
+        x = Math.imul(x, 1664525) + 1013904223 >>> 0;
+        d[i] = x / 2147483648 - 1;
+      }
+      return this.noise = b;
+    }
+    _src(ctx, out, kind, f, q = 1) {
+      const n = ctx.createBufferSource();
+      n.buffer = this._noise();
+      n.loop = true;
+      const fl = ctx.createBiquadFilter();
+      fl.type = kind;
+      fl.frequency.value = f;
+      fl.Q.value = q;
+      n.connect(fl);
+      fl.connect(out);
+      n.start();
+      return { n, fl };
+    }
+    // ---- the voices
+    _engine() {
+      return new Voice(this.audio.ctx, this.audio.bus("sfx"), (c, out) => {
+        const a = c.createOscillator(), b = c.createOscillator(), ga = c.createGain(), gb = c.createGain(), lp = c.createBiquadFilter();
+        a.type = "sawtooth";
+        b.type = "square";
+        ga.gain.value = 0.5;
+        gb.gain.value = 0.25;
+        lp.type = "lowpass";
+        lp.frequency.value = 600;
+        a.connect(ga);
+        b.connect(gb);
+        ga.connect(lp);
+        gb.connect(lp);
+        lp.connect(out);
+        a.start();
+        b.start();
+        const rumble = this._src(c, out, "lowpass", 180, 0.7);
+        return { a, b, lp, rumble, nodes: [a, b, rumble.n] };
+      });
+    }
+    _siren() {
+      return new Voice(this.audio.ctx, this.audio.bus("sfx"), (c, out) => {
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = "square";
+        g.gain.value = 0.35;
+        o.connect(g);
+        g.connect(out);
+        o.start();
+        return { o, nodes: [o] };
+      });
+    }
+    _bed(kind) {
+      const c = this.audio.ctx, out = this.audio.bus("sfx");
+      return new Voice(c, out, (cx5, o) => {
+        if (kind === "rain") {
+          const s2 = this._src(cx5, o, "highpass", 2600, 0.4);
+          return { nodes: [s2.n] };
+        }
+        if (kind === "wind") {
+          const s2 = this._src(cx5, o, "bandpass", 420, 0.6);
+          return { s: s2, nodes: [s2.n] };
+        }
+        if (kind === "crowd") {
+          const s2 = this._src(cx5, o, "bandpass", 900, 1.4);
+          return { nodes: [s2.n] };
+        }
+        const s = this._src(cx5, o, "lowpass", 140, 0.5);
+        return { nodes: [s.n] };
+      });
+    }
+    /** each frame: o { listener: { x, y, heading } (the camera's focus), vehicles: [{ id, x, y, speed, rpm (0..1), slip,
+     *  mine }], sirens: [{ id, x, y, vx, vy, kind: 'wail' | 'two' }], weather: { rain, wind } (0..1), zone: { crowd, city }
+     *  (0..1), paused, t (s) } */
+    update(dt, o) {
+      if (!this.ready) return;
+      const L16 = o.listener, t = o.t || 0, pan = (x, y) => {
+        const dx = x - L16.x, dy = y - L16.y, d = Math.hypot(dx, dy) || 1;
+        return { d, pan: Math.max(-1, Math.min(1, dx / Math.max(160, d))) };
+      };
+      const fall = (d) => Math.max(0, 1 - d / FAR) ** 2, hush = o.paused ? 0 : 1;
+      const cars = (o.vehicles || []).map((v) => ({ v, ...pan(v.x, v.y) })).filter((q) => q.d < FAR || q.v.mine).sort((a, b) => (b.v.mine ? 1 : 0) - (a.v.mine ? 1 : 0) || a.d - b.d).slice(0, this.maxEngines);
+      const keep = new Set(cars.map((q) => q.v.id));
+      for (const [id, vo] of this.engines) if (!keep.has(id)) {
+        vo.stop();
+        this.engines.delete(id);
+      }
+      for (const q of cars) {
+        let vo = this.engines.get(q.v.id);
+        if (!vo) {
+          vo = this._engine();
+          this.engines.set(q.v.id, vo);
+        }
+        const rpm = q.v.rpm ?? Math.min(1, q.v.speed / 300), f = 38 + 110 * rpm, now = this.audio.ctx.currentTime, P17 = vo.parts;
+        P17.a.frequency.setTargetAtTime(f, now, 0.05);
+        P17.b.frequency.setTargetAtTime(f * 2.01, now, 0.05);
+        P17.lp.frequency.setTargetAtTime(300 + 1400 * rpm, now, 0.08);
+        vo.set(hush * (q.v.mine ? 0.32 : 0.2 * fall(q.d)) * (0.35 + 0.65 * rpm) + hush * (q.v.slip || 0) * 0.1, q.v.mine ? 0 : q.pan);
+      }
+      const sir = (o.sirens || []).map((s) => ({ s, ...pan(s.x, s.y) })).filter((q) => q.d < FAR * 1.4).sort((a, b) => a.d - b.d).slice(0, this.maxSirens), sk = new Set(sir.map((q) => q.s.id));
+      for (const [id, vo] of this.sirens) if (!sk.has(id)) {
+        vo.stop();
+        this.sirens.delete(id);
+      }
+      for (const q of sir) {
+        let vo = this.sirens.get(q.s.id);
+        if (!vo) {
+          vo = this._siren();
+          this.sirens.set(q.s.id, vo);
+        }
+        const close = -((q.s.x - L16.x) * (q.s.vx || 0) + (q.s.y - L16.y) * (q.s.vy || 0)) / q.d, dop = 343 * 8 / (343 * 8 - close);
+        const base3 = q.s.kind === "two" ? Math.floor(t * 2) % 2 ? 960 : 720 : 700 + 450 * (0.5 + 0.5 * Math.sin(t * Math.PI * 0.8));
+        vo.parts.o.frequency.setTargetAtTime(base3 * dop, this.audio.ctx.currentTime, 0.02);
+        vo.set(hush * 0.14 * fall(q.d * 0.7), q.pan);
+      }
+      const want = { rain: o.weather && o.weather.rain || 0, wind: o.weather && o.weather.wind || 0, crowd: o.zone && o.zone.crowd || 0, city: o.zone && o.zone.city || 0.4 };
+      for (const [k, v] of Object.entries(want)) {
+        let vo = this.beds[k];
+        if (!vo && v > 0.01) vo = this.beds[k] = this._bed(k);
+        if (vo) vo.set(hush * v * { rain: 0.16, wind: 0.1, crowd: 0.06, city: 0.05 }[k], 0, 0.5);
+      }
+    }
+    /** the live voices: what the soak test counts */
+    stats() {
+      return { engines: this.engines.size, sirens: this.sirens.size, beds: Object.keys(this.beds).length };
+    }
+    dispose() {
+      for (const v of this.engines.values()) v.stop();
+      for (const v of this.sirens.values()) v.stop();
+      for (const v of Object.values(this.beds)) v.stop();
+      this.engines.clear();
+      this.sirens.clear();
+      this.beds = {};
+    }
+  };
+
+  // src/motor/audio/director.js
+  var AudioDirector = class {
+    /** game: the E.Game; o.radio: the Radio (its stations' timelines) */
+    constructor(game2, o = {}) {
+      this.game = game2;
+      this.radio = o.radio || null;
+      this.seq = null;
+      this.x = null;
+      this.playing = null;
+      this.score = null;
+      this.scoreWant = null;
+      this.cues = {};
+    }
+    /** can the game make sound now? */
+    get ready() {
+      const A = this.game.audio;
+      return !this.game.headless && !!A && !!A.ready && !!A.bus;
+    }
+    _setup() {
+      if (this.seq) return true;
+      const A0 = this.game.audio;
+      if (!this.game.headless && A0 && A0.bus && !A0.ctx && !A0.failed) A0.bus("sfx");
+      if (!this.ready) return false;
+      const A = this.game.audio, c = A.ctx, music = A.bus("music");
+      this.radioGain = c.createGain();
+      this.radioGain.connect(music);
+      this.scoreGain = c.createGain();
+      this.scoreGain.connect(music);
+      this.seq = new Sequencer(c, this.radioGain);
+      this.x = new AudioX(A);
+      return true;
+    }
+    /** each frame: o { station ('off', null or an id), t (the radio clock, s), volume (the radio's, 0..1), score ('chase' |
+     *  'tension' | null), x (AudioX's: { listener, vehicles, sirens, weather, zone }), dt } */
+    frame(o) {
+      if (!this._setup()) return;
+      const now = this.game.audio.ctx.currentTime;
+      const at = o.station && o.station !== "off" && this.radio ? this.radio.at(o.station, o.t) : null, key = at ? `${o.station}@${at.cycle}:${at.seg.t0}` : null;
+      if (key !== (this.playing ? this.playing.key : null)) {
+        if (this.playing) this.playing.q.stop();
+        this.playing = at ? { key, q: this.seq.play(at.seg.song, { t0: now - at.offset, loop: at.seg.kind !== "song", dest: this.radioGain }) } : null;
+      }
+      if ((o.score || null) !== this.scoreWant) {
+        this.scoreWant = o.score || null;
+        if (this.score) this.score.stop();
+        this.score = this.scoreWant ? this.seq.play(this._cue(this.scoreWant), { dest: this.scoreGain }) : null;
+      }
+      this.radioGain.gain.setTargetAtTime((o.volume ?? 0.8) * (this.score ? 0.35 : 1), now, 0.1);
+      this.seq.tick();
+      if (o.x) this.x.update(o.dt || 0, o.x);
+    }
+    _cue(id) {
+      return this.cues[id] || (this.cues[id] = parseSong(compose(id === "chase" ? "chase" : "tension", 7)));
+    }
+    /** what is live (the soak counts it) */
+    stats() {
+      return this.seq ? { ...this.seq.stats(), ...this.x.stats(), radio: this.playing ? this.playing.key : null, score: this.scoreWant } : null;
+    }
+    dispose() {
+      if (this.playing) this.playing.q.stop();
+      if (this.score) this.score.stop();
+      if (this.x) this.x.dispose();
+      this.playing = null;
+      this.score = null;
+      this.scoreWant = null;
+    }
+  };
+
+  // src/motor/audio/sfxmap.js
+  var SOUNDS = {
+    glass: [{ wave: "noise", freq: 5200, to: 2600, dur: 0.22, vol: 0.3, filter: "highpass", q: 1.2 }, { wave: "triangle", freq: 2400, to: 1800, dur: 0.08, vol: 0.1, delay: 0.02 }],
+    crunch: [{ wave: "noise", freq: 420, to: 120, dur: 0.3, vol: 0.45, filter: "lowpass" }, { wave: "square", freq: 90, to: 50, dur: 0.18, vol: 0.18 }],
+    doorShut: [{ wave: "noise", freq: 900, to: 400, dur: 0.09, vol: 0.22 }, { wave: "square", freq: 120, dur: 0.06, vol: 0.1, delay: 0.07 }],
+    cash: [{ wave: "square", freq: 1320, dur: 0.05, vol: 0.14 }, { wave: "square", freq: 1760, dur: 0.09, vol: 0.14, delay: 0.05 }],
+    spray: { wave: "noise", freq: 3e3, dur: 0.9, vol: 0.16, filter: "highpass", hold: true },
+    stepHard: { wave: "noise", freq: 1600, dur: 0.03, vol: 0.05 },
+    stepSoft: { wave: "noise", freq: 500, dur: 0.05, vol: 0.045, filter: "lowpass" },
+    stepWet: { wave: "noise", freq: 2400, dur: 0.06, vol: 0.06, filter: "highpass" },
+    stepMetal: [{ wave: "noise", freq: 2e3, dur: 0.03, vol: 0.05 }, { wave: "triangle", freq: 640, dur: 0.05, vol: 0.04 }],
+    hornCar: { wave: "square", freq: 392, dur: 0.32, vol: 0.18, hold: true },
+    hornTruck: [{ wave: "saw", freq: 220, dur: 0.5, vol: 0.18, hold: true }, { wave: "saw", freq: 277, dur: 0.5, vol: 0.12, hold: true }],
+    hornBike: { wave: "pulse", freq: 880, dur: 0.16, vol: 0.14, hold: true },
+    hornBoat: { wave: "saw", freq: 150, dur: 0.8, vol: 0.2, hold: true },
+    ringSaints: { wave: "triangle", freq: 1320, arp: [0, 4, 7, 12], step: 0.07, dur: 0.6, vol: 0.16, loop: true },
+    ringRats: { wave: "square", freq: 660, arp: [0, 0, 5, 5], step: 0.1, dur: 0.7, vol: 0.12, loop: true },
+    ringGnomes: { wave: "sine", freq: 990, arp: [0, 7, 0, 7], step: 0.09, dur: 0.7, vol: 0.18, loop: true },
+    ringCrew: { wave: "pulse", freq: 1046, arp: [0, 3], step: 0.12, dur: 0.6, vol: 0.12, loop: true }
+  };
+  var NEAR2 = 520;
+  var HORNS = { car: "hornCar", truck: "hornTruck", bike: "hornBike", boat: "hornBoat" };
+  var STEPS = { road: "stepHard", walk: "stepHard", curb: "stepHard", plaza: "stepHard", alley: "stepHard", lot: "stepHard", quay: "stepHard", bridge: "stepMetal", pier: "stepMetal", rail: "stepMetal", grass: "stepSoft", park: "stepSoft", dirt: "stepSoft", sand: "stepSoft", yard: "stepSoft" };
+  var SfxMap = class {
+    /** game: the E.Game; listener(): [x, y] (the camera's focus); o.isPlayer(id): the player's doing (a door slammed by
+     *  everyone in the city would be a din); o.where(vehicleId): a vehicle's [x, y] (events that name one) */
+    constructor(game2, listener, o = {}) {
+      this.game = game2;
+      this.listener = listener;
+      this.isPlayer = o.isPlayer || (() => true);
+      this.where = o.where || (() => null);
+      this.unsub = [];
+      this.stepT = 0;
+      this.hornT = {};
+      this.ringT = 0;
+      this.defined = false;
+    }
+    _define() {
+      const A = this.game.audio;
+      if (this.defined || !A || !A.define) return;
+      for (const [k, v] of Object.entries(SOUNDS)) A.define(k, v);
+      this.defined = true;
+    }
+    /** play a sound; at [x, y]: only near the listener, quieter with distance */
+    play(name, at = null, o = {}) {
+      const A = this.game.audio;
+      if (this.game.headless || !A || !A.ready) return false;
+      this._define();
+      let vol = o.vol ?? 1;
+      if (at) {
+        const L16 = this.listener(), d = L16 ? Math.hypot(at[0] - L16[0], at[1] - L16[1]) : 0;
+        if (d > NEAR2) return false;
+        vol *= (1 - d / NEAR2) ** 1.5;
+      }
+      A.sfx(name, { vol, pitch: o.pitch });
+      return true;
+    }
+    /** listen to the game's events (the scene's scope: gone with the scene) */
+    attach() {
+      const on = (ev, fn) => this.unsub.push(BUS.on(ev, fn, "scene")), P17 = (e) => e && Number.isFinite(e.x) ? [e.x, e.y] : null;
+      on("explode", (e) => this.play("explode", P17(e), { vol: Math.min(1, 0.5 + (e.power || 50) / 200) }));
+      on("vehicleDestroyed", (e) => this.play("explode", P17(e) || this.where(e.vehicle), { vol: 1, pitch: 0.8 }));
+      on("vehicleDamage", (e) => {
+        if ((e.amount || e.damage || 0) > 4) this.play(e.glass ? "glass" : "crunch", P17(e), { vol: Math.min(1, 0.3 + (e.amount || e.damage || 0) / 40) });
+      });
+      on("hit", (e) => this.play("hit", P17(e), { vol: 0.5 }));
+      on("carjack", (e) => {
+        if (this.isPlayer(e.by)) this.play("doorShut");
+      });
+      on("vehicleEnter", (e) => {
+        if (this.isPlayer(e.actor)) this.play("doorShut", null, { vol: 0.7 });
+      });
+      on("vehicleExit", (e) => {
+        if (this.isPlayer(e.actor)) this.play("doorShut", null, { vol: 0.6 });
+      });
+      on("pickup", () => this.play("pickup", null, { vol: 0.7 }));
+      on("collectible", () => this.play("coin"));
+      on("cash", (e) => {
+        if ((e.amount || 0) > 0 && e.reason !== "pickup") this.play("cash", null, { vol: 0.8 });
+      });
+      on("respray", () => this.play("spray"));
+      on("stunt", () => this.play("powerup", null, { vol: 0.8 }));
+      on("missionPass", () => this.play("oneup"));
+      on("stageFail", () => this.play("hurt", null, { vol: 0.6 }));
+      on("wrecked", () => this.play("die"));
+      on("busted", () => this.play("die", null, { pitch: 0.8 }));
+      on("takedown", (e) => {
+        if (this.isPlayer(e.by)) this.play("punch");
+      });
+      on("switch", () => this.play("warp", null, { vol: 0.6 }));
+      on("wanted", (e) => {
+        if (e && e.stars > (e.prev || 0)) this.play("blip", null, { vol: 0.5 });
+      });
+      on("save", () => this.play("confirm"));
+      return this;
+    }
+    /** each frame: o { steps: { x, y, speed, surface, wet } (the possessed one on foot), horns: [{ x, y, kind }] (held),
+     *  rings: [{ x, y, gang }] (a payphone with a job on offer) } */
+    frame(dt, o = {}) {
+      if (this.game.headless) return;
+      const s = o.steps;
+      if (s && s.speed > 25) {
+        this.stepT -= dt;
+        if (this.stepT <= 0) {
+          this.stepT = s.speed > 110 ? 0.24 : 0.34;
+          this.play(s.wet && STEPS[s.surface] !== "stepMetal" ? "stepWet" : STEPS[s.surface] || "stepHard", null, { vol: 0.8 });
+        }
+      } else this.stepT = 0;
+      for (const h of o.horns || []) {
+        const k = h.id || "h";
+        this.hornT[k] = (this.hornT[k] || 0) - dt;
+        if (this.hornT[k] <= 0) {
+          this.hornT[k] = 0.3;
+          this.play(HORNS[h.kind] || "hornCar", [h.x, h.y]);
+        }
+      }
+      this.ringT -= dt;
+      if (this.ringT <= 0) {
+        this.ringT = 2.6;
+        for (const r7 of o.rings || []) this.play("ring" + (r7.gang ? r7.gang[0].toUpperCase() + r7.gang.slice(1) : "Crew"), [r7.x, r7.y], { vol: 0.8 });
+      }
+    }
+    dispose() {
+      for (const u of this.unsub) u();
+      this.unsub = [];
+    }
+  };
 
   // src/motor/render/vehicle-draw.js
   var SKID_LIFE = 40;
@@ -34038,7 +34875,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (m.stars < 2 && (m.data.hot ?? 2) > 0) m.wanted.set(2);
         },
         *run(m) {
-          if (m.stars > 0) yield m.evade({ text: "Lose the police" });
+          if (m.stars > 0) {
+            m.music("chase");
+            yield m.evade({ text: "Lose the police" });
+            m.music(null);
+          }
           yield m.say(["B-I-N-G-O, dear! The takings are safe and so are you."], NANA2);
         }
       }
@@ -34049,7 +34890,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var NANA3 = { name: "Nana Petunia Gnorr", color: "#ff8ac8" };
   var GIRL = { name: "Gnome", color: "#8affc8" };
   var FOOT = [2196, 2224];
-  var DRUMS = [[2304, 2216], [2290, 2252], [2290, 2164]];
+  var DRUMS2 = [[2304, 2216], [2290, 2252], [2290, 2164]];
   var BLAZE = [[2300, 2180], [2330, 2230], [2360, 2180], [2360, 2280], [2400, 2220], [2320, 2300]];
   var REACH = 112;
   var LIT = 0.5;
@@ -34078,7 +34919,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   };
   function drums(m) {
     if (m.tagged("fuel").length) return;
-    DRUMS.forEach(([x, y]) => {
+    DRUMS2.forEach(([x, y]) => {
       m.spawn.prop("barrel", [x, y], { tag: "fuel" });
       m.spawn.prop("barrel", [x + 9, y + 3], { tag: "stack" });
       m.spawn.prop("barrel", [x + 3, y + 10], { tag: "stack" });
@@ -34515,6 +35356,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       m.marker(grate, { color: "#ffe066", r: 12 });
       yield m.waitUntil((mm) => !!mm.inside);
       m.inside.run.loopCameras(true);
+      m.music("tension");
       m.objective("Along the sewer to the hatch", { hint: { kind: "stealth", path: SEWER_IN } });
       yield m.parallel([
         m.say([m.data.helper === "saints" ? "Saints' jammer is on. Cameras are blind." : "Bilge's boy is in. Cameras are looping.", "Go."], VIV),
@@ -34602,6 +35444,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const car = standoff(m);
       m.view("side7", { heading: "east" });
       if (!m.one("swat")) swatVan(m, car, true);
+      m.music("chase");
     },
     *run(m) {
       const car = m.data.kept ? m.garaged("getaway") : m.one("getaway");
@@ -34738,6 +35581,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var atDrop = (m) => Math.hypot(m.mover.x - DROP[0], m.mover.y - DROP[1]) < DROP_R && (m.mover.speed || 0) < 20;
   var stakeout = (m) => {
     if (m.stars < 2) m.wanted.set(2);
+    m.music("chase");
   };
   defMission("rats_rat_run", {
     title: "Rat Run",
@@ -34880,6 +35724,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         },
         *run(m) {
           m.failIf(made2, "they made you");
+          m.music("tension");
           m.marker(SPOT, { color: "#c88aff", r: 10 });
           m.objective("Sneak in round the back: down the club's east side and along its front wall to the bench. Stay behind them", { hint: { kind: "stealth", path: IN } });
           yield m.waitUntil((m2) => near(m2, SPOT, 12));
@@ -36200,10 +37045,70 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   });
 
   // src/game/radio/stations.js
-  def("stations", "crash", { name: "CRASH FM", freq: "101.1", dj: "Captain Static", genre: "synth-punk", color: "#ff5a3a" });
-  def("stations", "wheelz", { name: "WHEELZ", freq: "88.8", dj: "MC Lugnut", genre: "boom-bap chip beats", color: "#ffd23a" });
-  def("stations", "neon", { name: "NEON DRIVE", freq: "85.0", dj: "Nova", genre: "synthwave", color: "#ff6ad8" });
-  def("stations", "lowdown", { name: "LOWDOWN TALK", freq: "1210 AM", dj: "Phil Buster", genre: "talk radio", color: "#8ad0ff" });
+  var ADS = {
+    kwiklux: { name: "KWIK-LUX", lines: ["Kwik-Lux. Open twenty-five hours a day.", "That extra hour? We don't ask what you do in it.", "Kwik-Lux: the till is always full. Please don't check."] },
+    boombox: { name: "BOOM BOX GARAGE", lines: ["Boom Box Garage! Armour, nitro, a roof-mounted machine gun!", "Is it legal? Is your car? See you at Boom Box!"] },
+    chapel: { name: "SAINT MOTO'S CHAPEL", lines: ["Saint Moto's Chapel of the Open Road.", "We save. You donate.", "Blessings by the mile. Chrome optional, faith encouraged."] },
+    gutterball: { name: "GUTTERBALL LANES", lines: ["Gutterball Lanes: forty lanes, thirty-nine working.", "Rent the shoes. Keep the shoes. We stopped counting."] },
+    general: { name: "LOWTOWN GENERAL", lines: ["Lowtown General Hospital. Now with fewer waits!", "Fewer waits. Not fewer waiting. Bring a snack."] },
+    leadfarm: { name: "LEAD FARM", lines: ["Lead Farm: Lowtown's family-owned arms dealer since last Tuesday.", "Ask about our layaway plan. Don't ask about anything else."] }
+  };
+  for (const [id, ad] of Object.entries(ADS)) def("radioAds", id, ad);
+  def("stations", "crash", {
+    name: "CRASH FM",
+    freq: "101.1",
+    dj: "Captain Static",
+    genre: "synth-punk",
+    color: "#ff5a3a",
+    seed: 101,
+    songs: [{ title: "Ignition Riot", artist: "The Spark Plugs" }, { title: "Redline Heart", artist: "Nitro Nuns" }, { title: "Sirens in Stereo", artist: "Brake Fail" }],
+    djLines: ["Captain Static on CRASH FM. If your speakers aren't smoking, turn it up.", "That was loud. This next one is louder. Static out.", "Traffic report: there's traffic. Drive through it.", "CRASH FM: music to total your car to."],
+    ads: ["boombox", "leadfarm"],
+    jingle: "CRASH FM! One-oh-one point one!"
+  });
+  def("stations", "wheelz", {
+    name: "WHEELZ",
+    freq: "88.8",
+    dj: "MC Lugnut",
+    genre: "boom-bap",
+    color: "#ffd23a",
+    seed: 888,
+    songs: [{ title: "Hubcap Hustle", artist: "Lil Torque" }, { title: "Four Wheel Flow", artist: "Axle Grease" }, { title: "Low and Slow", artist: "DJ Differential" }],
+    djLines: ["MC Lugnut on WHEELZ, eighty-eight point eight. Keep it rolling.", "Shout out to everybody stuck on the Loop. Lean back.", "WHEELZ: we bring the bass, you bring the trunk.", "That beat came out of a tyre shop. True story."],
+    ads: ["gutterball", "kwiklux"],
+    jingle: "Eighty-eight point eight. WHEELZ."
+  });
+  def("stations", "neon", {
+    name: "NEON DRIVE",
+    freq: "85.0",
+    dj: "Nova",
+    genre: "synthwave",
+    color: "#ff6ad8",
+    seed: 850,
+    songs: [{ title: "Midnight on Neon Mile", artist: "Vector Rose" }, { title: "Chrome Horizon", artist: "Palm Static" }, { title: "Overpass Lovers", artist: "The Night Shift" }],
+    djLines: ["Nova here, on NEON DRIVE. The city glows. So do you.", "Somewhere a palm tree is lit up purple. That's us.", "Windows down. Volume up. Nowhere to be.", "NEON DRIVE: the long way home."],
+    ads: ["chapel", "general"],
+    jingle: "NEON DRIVE. Eighty-five point oh."
+  });
+  def("stations", "lowdown", {
+    name: "LOWDOWN TALK",
+    freq: "1210 AM",
+    dj: "Phil Buster",
+    genre: "talk",
+    color: "#8ad0ff",
+    seed: 1210,
+    talk: [
+      ["PHIL: You're on LOWDOWN TALK. Go ahead, caller.", "CALLER: The Lawn Gnomes moved my mailbox. Again.", "PHIL: Did you move it back?", "CALLER: It moved back by itself. Phil, I'm scared."],
+      ["PHIL: Today's topic: are the Chrome Saints a gang or a car club?", "CALLER: They blessed my hubcaps, Phil.", "PHIL: Then they're a church. Next caller."],
+      ["CALLER: Why does the drawbridge go up every three hours?", "PHIL: So the boats feel included. Next."],
+      ["PHIL: A listener asks: is the bank safe? Folks, it's a bank. Nothing is safe.", "CALLER: My cousin works there. He says the vault hums.", "PHIL: Your cousin should see a doctor."],
+      ["CALLER: There's a man in a mime suit on Dock Road.", "PHIL: Is he doing anything?", "CALLER: He's doing everything, Phil. Silently."],
+      ["PHIL: The Harbor Rats say the docks are theirs. The docks say nothing. Docks never do.", "PHIL: Stay low, Lowtown. Back after this."]
+    ],
+    djLines: ["Phil Buster, LOWDOWN TALK, twelve-ten AM. The lines are open, unfortunately."],
+    ads: ["general", "chapel", "kwiklux"],
+    jingle: "LOWDOWN TALK. Twelve-ten AM."
+  });
 
   // src/game/save.js
   var GAME_ID = "GrandTheftMoto-5S";
@@ -37316,6 +38221,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       let switchLatch = false;
       const tips = new Onboarding(game2, TIPS2);
       let playT = 0, wheelT = 0;
+      let radio = null, sound = null, sfx = null, crowdNear = 0, crowdT = 0, lastF = 0;
       let pilot = null;
       const saves = makeSaves();
       const lead = [0, 0];
@@ -37679,6 +38585,33 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         gps = { goal, t, pts: r7 ? [[v.x, v.y], ...r7.lanes.map((i) => R2.graph.lanes[i].b), goal] : null };
         return gps.pts;
       }
+      function feedSound(p, pv, fx0, fy0) {
+        if (!sound || game2.headless) return;
+        const t = game2.real, dt = Math.min(0.1, Math.max(0, t - lastF));
+        lastF = t;
+        if (!inside && life && (crowdT -= dt) <= 0) {
+          crowdT = 0.5;
+          crowdNear = Math.min(1, life.pedsNear(fx0, fy0, 180).length / 15);
+        }
+        const near2 = inside ? [] : fleet.vehicles.filter((v) => Math.abs(v.x - fx0) < 700 && Math.abs(v.y - fy0) < 700 && !v.wrecked && v.cls !== "rail");
+        const mine = pv && pv.driver === p ? pv : null;
+        sound.frame({ station: mine ? mine.radio : "off", t: save.playtime, volume: setting(game2, "radio", 0.8), score: career.R.active ? career.R.music : null, dt, x: {
+          listener: { x: fx0, y: fy0 },
+          weather: inside ? null : { rain: weather.rain, wind: weather.state === "storm" ? 1 : weather.cloud * 0.3 },
+          zone: inside ? { crowd: 0, city: 0.1 } : { crowd: crowdNear, city: 0.4 },
+          vehicles: near2.filter((v) => v.speed > 5 || v === mine).map((v) => ({ id: v.id, x: v.x, y: v.y, speed: v.speed, slip: v.body && v.body.felt ? Math.abs(v.body.felt.slip) * (v.speed > 60 ? 1 : 0) : 0, mine: v === mine })),
+          sirens: near2.filter((v) => v.siren).map((v) => ({ id: v.id, x: v.x, y: v.y, vx: v.body ? v.body.vx : 0, vy: v.body ? v.body.vy : 0, kind: v.def.role === "police" ? "two" : "wail" }))
+        } });
+        const T15 = city.T, sp = Math.hypot(p.mover.vx, p.mover.vy);
+        sfx.frame(dt, {
+          steps: !pv && !p.dead && !inside ? { speed: sp, surface: city.surfaceAt(Math.floor(p.x / T15), Math.floor(p.y / T15)), wet: weather.wet > 0.3 } : !pv && inside ? { speed: sp, surface: "plaza" } : null,
+          horns: near2.filter((v) => v.horn).map((v) => ({ id: v.id, x: v.x, y: v.y, kind: v.def.horn })),
+          rings: inside || career.R.active ? [] : career.available().filter((m) => m.giver && m.giver.phone).map((m) => {
+            const at = career.giverOf(m);
+            return at && Math.hypot(at[0] - fx0, at[1] - fy0) < 320 ? { x: at[0], y: at[1], gang: m.giver.phone } : null;
+          }).filter(Boolean)
+        });
+      }
       const U = app2.ui.screens;
       const pauseView = {
         get city() {
@@ -37783,11 +38716,24 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (into) goInside(city.poi(into.doors[0].from));
           if (career) career.dispose();
           career = new Career({ app: app2, world: world2, save, saves, bot: links2.query.get("bot") === "pad" ? "pad" : links2.query.get("bot") === "1" });
+          radio ||= new Radio({ stations: all("stations"), ads: Object.fromEntries(all("radioAds").map((a) => [a.id, a])), seed: app2.seed });
+          if (sound) sound.dispose();
+          sound = new AudioDirector(game2, { radio });
+          if (sfx) sfx.dispose();
+          sfx = new SfxMap(game2, () => {
+            const q = hero(), v = q.seat && q.seat.vehicle;
+            return v ? [v.x, v.y] : [q.x, q.y];
+          }, { isPlayer: (id) => !!crew.ped && crew.ped.id === id, where: (id) => {
+            const v = fleet.vehicles.find((q) => q.id === id);
+            return v ? [v.x, v.y] : null;
+          } }).attach();
           career.start({ loaded: !!loaded, newGame: !!(data && data.newGame), mission: route2[0] === "mission" ? route2[1] : null, stage: route2[0] === "mission" ? route2[2] : void 0, level: +links2.query.get("level") || void 0 });
           expose("career", career);
           expose("pilot", (f) => {
             pilot = f || null;
           });
+          expose("sound", sound);
+          expose("radio", radio);
           expose("snapshot", () => {
             const p = hero(), v = p.seat && p.seat.vehicle;
             return {
@@ -37855,6 +38801,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           ];
         },
         exit() {
+          if (sound) {
+            sound.dispose();
+            sound = null;
+          }
+          if (sfx) {
+            sfx.dispose();
+            sfx = null;
+          }
           if (career) {
             career.dispose();
             career = null;
@@ -38120,6 +39074,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             if (!crew.switching) drawAimMarks(stage, p, game2.real);
             stage.end();
           }
+          feedSound(p, pv, fx0, fy0);
         },
         // the HUD on the UI layer (PLAN.md 8.18), inside the safe area: where and when at the top left, the weapon, the
         // stars and a job's timer at the top right, the radar (with the GPS line in a vehicle) and the bars at the bottom
@@ -38145,6 +39100,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           weaponWheel.draw(P17);
           switchWheel.draw(P17);
           if (vg && vg.line && vg.who === crew.active) subtitle(P17, chOf(vg.who).short, chOf(vg.who).color, vg.line, L16.sy1 - 46);
+          else if (pv && pv.driver === p && pv.radio && pv.radio !== "off" && radio && setting(game2, "djChatter", true) && !(career.R.lines || career.events.R.lines)) {
+            const ln = radio.line(pv.radio, save.playtime), st = ln && get("stations", pv.radio);
+            if (ln) subtitle(P17, ln.name, st ? st.color : "#ffe066", ln.text, L16.sy1 - 46);
+          }
           if (crew.switching) P17.text(chOf(crew.seq.to).name.toUpperCase(), cx5, L16.sy1 - 30, chOf(crew.seq.to).color, { align: "center", scale: 2 });
           if (toast) P17.text(toast.text, cx5, L16.sy0 + 38, "#ffe066", { align: "center" });
           if (down && down.t > 0.6) {
@@ -38240,6 +39199,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
 
   // src/game/scenes/title.js
   var FLY = 70;
+  var THEME = null;
   function logo(P17) {
     const y = P17.safe[1] + 4, moto = P17.H >= 260 ? 5 : 4, motoY = y + 22, tagY = motoY + 7 * moto + 12;
     return { y, moto, motoY, tagY, menu: tagY + 18 };
@@ -38298,7 +39258,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           game2.cam.snap = true;
           U.closeAll();
           menu = U.open(titleMenu());
+          if (!game2.headless && game2.audio && game2.audio.music) game2.audio.music(THEME ||= compose("synthwave", 1999, "title"));
           expose("snapshot", () => ({ scene: "title", t: +t.toFixed(2), idle: +activity.idle().toFixed(2), screen: U.top ? U.top.id : null, item: U.top && U.top.list ? U.top.list.current && U.top.list.current.label : null }));
+        },
+        exit() {
+          if (game2.audio && game2.audio.music) game2.audio.music(null);
         },
         update(dt) {
           t += dt;

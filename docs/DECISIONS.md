@@ -809,3 +809,35 @@ and where it landed.
 - **Why:** the engine's HTML menus are not TV-scaled (PLAN 8.18, rule 1); a pause handled in a draw would leave a
   headless replay stuck paused; the cards' model is what the bot plays.
 - **Answered:** no. **Landed in:** M9.
+
+## D24 · 2026-10-21 · M10's sound: MOTOR's own sequencer on the engine's buses, radio timelines on the play clock
+- **Principle:** PLAN.md 8.17 (the engine's `music()` not reused for the radio; its note syntax kept; everything through
+  the engine's buses); 7.3 (sound is presentation: no simulation reads it); section 12 (patch only to reach private
+  state).
+- **Calls:**
+  - **GTM-PATCH 5:** `audio.bus('sfx' | 'music' | 'master')`, the gain nodes the engine's own sounds and music play
+    through, so MOTOR's voices follow the master volume, the effects and music levels, mute and the ducking.
+  - **The sequencer** (`audio/sequencer.js`) schedules ahead on any context (the realtime one in play, an offline one
+    in the tests), many sequences at once, each on its own timeline (a song started at t0 is heard (now - t0) in), with
+    its own seeded noise and a voice cap that drops notes rather than grow the graph.
+  - **The composer** (`audio/composer.js`) makes songs in the engine's note syntax from a genre's template and a seed:
+    synth-punk (CRASH FM), boom-bap chip beats (WHEELZ), synthwave (NEON DRIVE), a talk bed (LOWDOWN TALK), and two
+    score cues (chase, tension). The same seed makes the same song.
+  - **The radio** (`audio/radio.js`): each station a timeline (song, the DJ's line, song, an ad, ... the jingle;
+    LOWDOWN TALK's six call-ins and three ads over its bed), built from its spec and the game's seed. Its clock is the
+    save's play time, so tuning in finds a station where it has got to, and a loaded game picks the radio up where it
+    was. The DJs', the ads' and the callers' words show as subtitles with the speaker's name (Settings, Audio: DJ
+    chatter); the radio has its own volume, under the music level.
+  - **A job's score:** `m.music('chase' | 'tension' | null)`; the radio ducks to 35% under it, and the job's end lets
+    it go. Cued in R1's stakeout, R2's sneak, G2's evade, H4's sewer and its deck chase.
+  - **AudioX** (`audio/audiox.js`): the four nearest engines (the player's own first; the pitch from the speed, a
+    squeal by the tyres' slip), up to three sirens (two-tone for the police, a wail for the rest) with a Doppler shift,
+    rain and wind by the weather, the crowd's murmur by the people near and the city's hum; panned and falling off with
+    distance, on the effects bus.
+  - **The SFX map** (`audio/sfxmap.js`): the BUS's events (explosions, crashes, hits, pickups, cash, stunts, a respray,
+    a job passed or failed, WRECKED, NABBED, a star gained, a save) heard near the listener and quieter farther off;
+    doors and takedowns the player's own only; footsteps by the surface; horns held, by class; each gang's payphone
+    ringing near a job on offer. The guns and swings stay combat's; the menus' sounds, the screens'.
+  - **The title's tune** is the engine's `music()` (the one thing PLAN leaves it), a composed synthwave loop.
+  - **Headless there is no sound** (the director never starts), and nothing in the simulation reads any of it.
+- **Answered:** no. **Landed in:** M10.

@@ -16,11 +16,13 @@ const STEPS = [
   ['e2e smoke', 'node', ['tests/e2e/smoke.mjs']],
   ['e2e replay', 'node', ['tests/e2e/replay.mjs']],
   ['e2e selftests', 'node', ['tests/e2e/selftest.mjs']],
+  ['e2e audio', 'node', ['tests/e2e/audio.mjs']],
   ['engine check', 'node', ['vendor/my-3d2dge/tools/check.mjs', 'dist/index.html', '--seconds', '3', '--out', 'check-output']],
   ['engine check (bank)', 'node', ['vendor/my-3d2dge/tools/check.mjs', 'dist/index.html#interior/bank', '--seconds', '3', '--out', 'check-output/bank']],
 ];
 const FULL = [   // heavy suites join here milestone by milestone (PLAN.md 6.3)
   ['city soak (10 min)', 'node', ['tests/full/city-soak.mjs', '--secs', '600']],
+  ['audio soak (10 min)', 'node', ['tests/e2e/audio.mjs', '--secs', '600']],
   ['gang sim (5 min)', 'node', ['tests/full/gang-soak.mjs', '--secs', '300']],
   ['mission bot (seeds 1-3)', 'node', ['tools/bot.mjs', '--all', '--seeds', '1,2,3', '--par', '3']],   // (PLAN.md 8.15: every mission and activity level through the bot)
   ['mission bot through a pad', 'node', ['tools/bot.mjs', '--all', '--pad', '--seeds', '1', '--par', '3']],   // (the scripted human-style pass)

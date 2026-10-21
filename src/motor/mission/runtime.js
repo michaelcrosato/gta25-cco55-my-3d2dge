@@ -171,7 +171,7 @@ export class MissionRuntime {
     this._endOp();
     if (this.actors) { this.actors.restoreKit(); this.actors.release(() => true); }
     for (const mk of this.markers) mk.gone = true; this.markers = [];
-    this.gen = null; this.objective = null; this.timer = null; this.lines = null; this.fails = []; this.choosing = null;
+    this.gen = null; this.objective = null; this.timer = null; this.lines = null; this.fails = []; this.choosing = null; this.music = null;
     BUS.clear(this.scope);
     const W = this.world(); if (W.endMission) W.endMission(this);
     if (this.wantedHeld) { const w = W.wanted ? W.wanted() : null; if (w) { w.floor(0); w.cap(5); } this.wantedHeld = false; }   // (a stage's cap or floor never outlives its job)
@@ -334,6 +334,9 @@ export class MissionContext {
   loadout(o) { this.R.actors.loadout(this.player, o); }
   /** the stage goes on with the stars (the bot doesn't stop to lose them first): a getaway, a tow at two stars */
   allowWanted(on = true) { this.R.allowWanted = on; }
+  /** the score under the job (presentation): 'chase', 'tension', or null for none; the radio ducks under it, and the
+   *  job's end lets it go */
+  music(cue = null) { this.R.music = cue; }
   /** fail the stage when pred(m) holds */
   failIf(pred, reason) { this.R.fails.push({ pred, reason }); }
   /** the clock to an hour; the weather to a state */

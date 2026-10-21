@@ -113,7 +113,7 @@ defMission('gnomes_bingo_night', {
         if (m.stars < 2 && (m.data.hot ?? 2) > 0) m.wanted.set(2);
       },
       *run(m) {
-        if (m.stars > 0) yield m.evade({ text: 'Lose the police' });
+        if (m.stars > 0) { m.music('chase'); yield m.evade({ text: 'Lose the police' }); m.music(null); }
         yield m.say(['B-I-N-G-O, dear! The takings are safe and so are you.'], NANA);
       },
     },

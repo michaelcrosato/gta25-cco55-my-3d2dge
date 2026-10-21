@@ -2,7 +2,7 @@
 // scene's own city, built once a seed, the camera riding the district's tour at a stroll), and the menu: CONTINUE (the
 // newest save), NEW GAME (the prologue), LOAD (the slots), SETTINGS, EXTRAS (the Proving Ground, Credits & About, the
 // field guide). The attract mode follows TUNE.attractIdle seconds without input from any device.
-import { E, def, expose, TUNE, FloorChunks, WorldClock, Weather, skyAt, List, UI, settingsScreen, slotsScreen, guideScreen } from '../../motor/index.js';
+import { E, def, expose, TUNE, FloorChunks, WorldClock, Weather, skyAt, List, UI, settingsScreen, slotsScreen, guideScreen, compose } from '../../motor/index.js';
 import { makeSaves } from '../save.js';
 import { lowtown, citySeed } from './lowtown.js';
 import { creditsScreen } from '../ui/credits.js';
@@ -10,6 +10,7 @@ import { GUIDE } from '../ui/guide.js';
 import { GAME } from '../../about.js';
 
 const FLY = 70;   // (the fly-over's speed, u/s: a stroll down the avenues)
+let THEME = null;   // (the title's tune: the engine's music(), the one thing it still serves, PLAN.md 8.17; NEON DRIVE's genre)
 // the logo from the safe area's top down (MOTO a size smaller on a short screen), the line under it, and where the
 // menu starts below them
 function logo(P) {
@@ -56,8 +57,10 @@ def('scenes', 'title', {
         const tour = city.tour.length ? city.tour : [[map.w * map.T / 2, map.h * map.T / 2]];
         fly = { tour, leg: 0, at: [...tour[0]] }; game.focus(fly.at[0], fly.at[1], 16); game.cam.snap = true;
         U.closeAll(); menu = U.open(titleMenu());
+        if (!game.headless && game.audio && game.audio.music) game.audio.music(THEME ||= compose('synthwave', 1999, 'title'));   // (heard after the first key or tap: the browser's rule)
         expose('snapshot', () => ({ scene: 'title', t: +t.toFixed(2), idle: +activity.idle().toFixed(2), screen: U.top ? U.top.id : null, item: U.top && U.top.list ? U.top.list.current && U.top.list.current.label : null }));
       },
+      exit() { if (game.audio && game.audio.music) game.audio.music(null); },
       update(dt) {
         t += dt;
         if (activity.idle() >= TUNE.attractIdle) { game.go('attract'); return; }

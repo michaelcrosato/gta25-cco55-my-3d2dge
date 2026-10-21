@@ -14,7 +14,8 @@ Every recipe below names the test to run. From M12 on, `tests/recipes/*.test.js`
 | A small test map | `def('maps', id, { build() { return new E.TileMap({...}) } })` | `npm test` |
 | A vehicle model | `def('vehicleModels', id, { name, class, length, width, height, ...carParts({...}), kits })` in `src/game/vehicles/` | `node --test tests/unit/handling.test.mjs` (the model's data) |
 | A vehicle (or a variant of a model) | `def('vehicles', id, { name, model, kit, role, handling, spec, palette, ... })` in `src/game/vehicles/` | `GTM_VEHICLES=<id> node --test tests/unit/handling.test.mjs`; the look: `tools/model-sheet.mjs --only <id>` |
-| A radio station (M4's stub) | `def('stations', id, { name, freq, dj, genre, color })` in `src/game/radio/` | `npm test` |
+| A radio station | `def('stations', id, { name, freq, dj, genre ('synth-punk' \| 'boom-bap' \| 'synthwave' \| 'talk'), color, seed, songs: [{ title, artist }], djLines, ads: [radioAd ids], jingle, talk: [[lines]] })` in `src/game/radio/` (the music is the composer's: no notes to write) | `node --test tests/unit/audio.test.mjs`; `node tests/e2e/audio.mjs` (its first 10 s not silent) |
+| A radio ad | `def('radioAds', id, { name, lines })` | the same |
 | An interior | `def('interiors', id, { name, blocks, legend, types, floor, rooms, doors, guards, cameras, lights, music })` in `src/game/interiors/`, and a city door: a `{ kind: 'door', interior: id }` point of interest beside the building | `validateInterior(buildInterior(id))` has no errors (`tests/sim/interior.test.mjs` for the bank); `node vendor/my-3d2dge/tools/check.mjs 'dist/index.html#interior/<id>'` |
 
 | A mission | `defMission(id, { title, giver, gang, tier, requires, plays, brief, rewards, bonus, stages })` in a file of its own under `src/game/missions/` (`s1-holy-rollers.js` is the template) | `node tools/bot.mjs --mission <id>` (the bot, seeds 1-3) and `--pad` (through a gamepad); `node --test tests/sim/mission-links.test.mjs` |
@@ -43,6 +44,8 @@ rules the audit (`tools/ui-audit.mjs`) checks on every screen:
   the HUD's own parts sit.
 - **Subtitles** come from `m.say(lines, { name, color })`: the speaker's name in their colour, the line after it;
   the player may turn them off (Settings, Display).
+- **A job's score:** `m.music('chase' | 'tension')` under a chase or a sneak, `m.music(null)` after it (the job's end
+  clears it too); the radio ducks under it. Presentation only: the bot and the tests never hear it.
 - A career card (`career._open({ id, title, body, items })`) is a screen of the kit: `items` are `{ label, sub, right,
   disabled, act }`, ✕ acts, ○ backs out (`back()`), and the bot answers a card's `auto()`.
 

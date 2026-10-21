@@ -303,7 +303,7 @@ const quietVault = {
     m.marker(grate, { color: '#ffe066', r: 12 });
     yield m.waitUntil(mm => !!mm.inside);
     // the hacker (or the jammer) loops the CCTV: the cameras see nothing while the job lasts
-    m.inside.run.loopCameras(true);
+    m.inside.run.loopCameras(true); m.music('tension');
     m.objective('Along the sewer to the hatch', { hint: { kind: 'stealth', path: SEWER_IN } });
     yield m.parallel([m.say([m.data.helper === 'saints' ? 'Saints\' jammer is on. Cameras are blind.' : 'Bilge\'s boy is in. Cameras are looping.', 'Go.'], VIV),
       m.waitUntil(mm => Math.hypot(mm.player.x - VAULT[0], mm.player.y - VAULT[1]) < 14)]);
@@ -373,7 +373,7 @@ const windowStage = {
   setup(m) {
     const car = standoff(m);
     m.view('side7', { heading: 'east' });   // (MODE 7 looking back along the deck: the car, and the van on its tail)
-    if (!m.one('swat')) swatVan(m, car, true);
+    if (!m.one('swat')) swatVan(m, car, true); m.music('chase');
   },
   *run(m) {
     const car = m.data.kept ? m.garaged('getaway') : m.one('getaway');

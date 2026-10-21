@@ -19,7 +19,7 @@ const DROP = [464, 1400], DROP_R = 60, BUYER = [392, 1384];   // (Lefty in the l
 const vanSpot = m => (m.data.vanAt ||= m.curb(HOME));
 const atDrop = m => Math.hypot(m.mover.x - DROP[0], m.mover.y - DROP[1]) < DROP_R && (m.mover.speed || 0) < 20;
 // the stakeout's two stars (never fewer: more stay)
-const stakeout = m => { if (m.stars < 2) m.wanted.set(2); };
+const stakeout = m => { if (m.stars < 2) m.wanted.set(2); m.music('chase'); };
 
 defMission('rats_rat_run', {
   title: 'Rat Run', giver: { phone: 'rats' }, gang: 'rats', tier: 1, requires: ['prologue'], plays: 'any',
