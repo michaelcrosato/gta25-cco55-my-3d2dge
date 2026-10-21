@@ -69,8 +69,10 @@ already under way (or twice) it changes nothing. The tools for that:
 spawned and its setup makes it again): `m.spawn.vehicle(def, at, { tag, heading, color, locked, health, gang, driver,
 passengers, weapons, drive })` (a `drive` of `{ to } | { route, loop } | { race, laps } | { chase: 'player' | tag } |
 { flee: 'player' }` and a `style` of `calm | fast | race` puts a driver on the GPS), `m.spawn.ped(arch, at, { tag,
-role, facing, weapons, health, armor, attack, alert, route, follow })` (roles: `enemy` fights once alerted, `guard`
-watches a post or walks a round, `ally` follows and fights the alerted, `flee`, `idle`), `m.spawn.pickup(kind, at, {
+role, facing, weapons, health, armor, attack, alert, leash, route, follow })` (roles: `enemy` fights once alerted, `guard`
+watches a post or walks a round, `ally` follows and fights the alerted, `flee`, `idle`; an `enemy` or `guard` with a
+`leash` (u) gives up past that far from where it was put and walks back: a showroom's bouncers never chase a car
+across town), `m.spawn.pickup(kind, at, {
 item, tag })` (kind `item`: a mission's package), `m.spawn.prop(kind, at, { tag, model, explosive })` (one of the city's
 prop models, or a model of its own; `explosive: { hp, damage, splash, fire }` makes it a red barrel: shot, blasted or
 stood in fire a moment it blows, and sets the next one off). A mission ped or car given a `gang` is that gang's to the
@@ -107,7 +109,11 @@ how hot it is now), `m.crewPed(id)` (a protagonist's body: seat Dex at a getaway
 `m.garaged(id)` (a car kept in the save's garage, back where it was left in later missions), `m.view(id, { heading })` (a set
 piece's view: presentation only; `heading`, MODE 7's rail held looking that way, `'north'`, `'east'`, `'south'`,
 `'west'`, till the next `m.view` or the job's end). A mission's seated ped rides in its seat wherever the vehicle goes;
-`m.inside.run.loopCameras(true)` puts an interior's CCTV on a loop (a crew's hacker).
+`m.inside.run.loopCameras(true)` puts an interior's CCTV on a loop (a crew's hacker); `m.inside.run.pass(true)` is a
+staff pass (a bribed janitor's mop: nobody minds the player past the counter, though a gun out, a wanted face or the
+alarm still count); `m.inside.run.watch()` is what a mission may read of a running interior, a copy: `{ t, alarm,
+looped, staff, guards: [{ at, x, y, cx, cy, facing, down, state, sees }], cameras: [{ phase, period, facing, state,
+sees }] }` (H2's radio man calls each moment from the guards' rounds and the CCTV's sweep).
 
 **The bot's hints** (what `tools/bot.mjs` plays from): `goto` (`at`, `radius`; `foot`; `vehicle`: a tag to be in;
 `interact`: press △ there, a door's or the safehouse's; `spray`: [x, y] to aim at with the fire button held, from

@@ -755,6 +755,35 @@ and where it landed.
     `m.fund` and `m.pay(n, why)` (H2's bribe), `m.eta(at)` (a job's fair clock by road), `m.byId(id)` (a BUS event's
     body or vehicle: MAYHEM's count); and a mission driver chases a tagged actor as well as the player (`drive: {
     chase: tag }`: S2's ambush on Fender's car).
+  - **Part 3b, the heist setups merged (H1-H3)** with the heist-setups worker's seven requests (H14-H20 in
+    `docs/handoff/m8-a2/motor-requests.md`), each settled in MOTOR with its test:
+    - **The bot never holds the brake on a car rolling back** (H14, H15): `body.js` reads a brake held at u < -.5, or
+      at a stop for .2 s, as reverse drive, so the bot's idle stop (a line said, no objective) ran H3's tow truck 200 u
+      backwards down a one-way street, and an AutoPlayer at its stop backed off its drop. Now the throttle stops one
+      rolling back and a stopped one sits on its handbrake. **A hooked tow is the job's own** (H16): held through a
+      jam, never abandoned, and the end to hook is chosen by the parked cars round it, not the traffic going by.
+    - **A running interior has a read interface** (H17): `m.inside.run.watch()`, a copy (each guard's round corner,
+      cell, facing, mind and sight; each camera's sweep phase and mind; the alarm, the loop, the pass). H2's radio
+      man times every leg from it and H4 counts the guards still up from it; nothing in content reads the run's
+      insides any more.
+    - **A staff pass** (H19): `m.inside.run.pass(on)`: nobody minds the player past the counter, though a gun out,
+      a wanted face or the alarm still count. PLAN.md 9.4's H2 is "stealth past guards and cameras to photograph the
+      plans, or bribe the janitor": the worker's bribe only looped the CCTV and left the guards to slip, which made it
+      the stealth way with $500 less. With the pass, the bribe is the janitor's mop: in, through and out with no
+      takedown and no waiting (silver by design: the $500 is the bonus lost), 62-64 s on seeds 1-3 against the quiet
+      way's 130-137 s gold.
+    - **A leash** (H18): `leash` (u) on `m.spawn.ped` for an enemy or a guard: past it from where it was put, it gives
+      up and walks back, and only a fresh hurt turns it on the way (H1's showroom bouncers chased Dex 2,000 u; H1
+      keeps its `m.remove` once the star is lost, which the bot runs prove).
+    - **The stealth bot backs off when seen** (H20): it stood still whenever any guard indoors was uneasy, even in
+      that guard's sight, so the suspicion climbed to the alarm. Seen by one that wonders, it now backs off the way it
+      came; unseen, it waits at cover as before.
+    - **H4 adopts H1's garaged Zephyr** (`m.adopt`): played after H1 the getaway car is the job's own and stays put.
+      The worker also found H4's ram stage failing after another mission in the same game (Gus's Hookline never
+      catching the Strongbox in the traffic an earlier job leaves): left for the bot campaign (M8.4), which plays the
+      missions in sequence.
+    - Every merged mission ran again on all of it: 33 runs on seeds 1-3, 11 through the pad, the gym 13/13 both
+      ways, and H2's bribe branch on seeds 1-3.
 - **Answered:** no. **Landed in:** M8.
 
 ## D23 · 2026-10-21 · M9's 10-foot UI: our own layer and our own pause, cards on the kit, settings that reach play

@@ -134,3 +134,32 @@ test('the bank: switching views mid-run and turning the camera inside leave the 
   assert.deepEqual(a.h, b.h);
   assert.deepEqual([...seen].sort(), ['iso', 'side7', 'top'], 'every view was switched to');
 });
+
+test('the bank: a mission\'s hold on it: watch() reads the rounds and the sweeps (a copy); pass() lets the new cleaner past the counter', async () => {
+  const { game, R, at } = await bank();
+  game.advance(1);
+  const w = R.watch();
+  assert.equal(w.guards.length, 3); assert.equal(w.cameras.length, 4); assert.equal(w.alarm, null);
+  assert.ok(w.guards.every(g => g.state === 'calm' && !g.down && Math.abs(g.cx * T - g.x) < 1e-9), 'the guards, where they are in cells');
+  assert.ok(w.cameras.every(c => c.phase >= 0 && c.phase < 1 && c.period > 0), 'the sweeps');
+  w.guards[0].x = -999; w.cameras[0].state = 'alert'; assert.ok(R.guards[0].ped.x > 0 && R.cameras[0].mind.state === 'calm', 'a copy: nothing written back');
+  R.pass(true);
+  const g = R.guards[2], ahead = () => at(Math.floor(g.ped.x / T) + 6, Math.floor(g.ped.y / T), Math.PI);   // (in the staff corridor, ahead of the guard walking it)
+  ahead(); until(game, () => !!R.alarm, 6);
+  assert.equal(R.alarm, null, 'staff: nobody minds'); assert.ok(R.watch().guards.every(q => q.state === 'calm'), 'every guard calm');
+  R.pass(false); ahead(); until(game, () => !!R.alarm, 8);
+  assert.ok(R.alarm, 'no pass: the alarm'); assert.equal(R.watch().alarm, 'guard');
+});
+
+test('the stealth bot indoors: an uneasy guard blind to it, it waits at cover; one that sees it, it backs off the way it came (D22)', async () => {
+  const { gtm, R, P } = await bank({ bot: '1' });
+  const B = gtm.career.bot, path = [[424, 400], [424, 330], [424, 260]], h = { path }, w = { inside: gtm.interior() };
+  B.si = 2; P.crouching = true; P.place(424, 300, 0);   // (between its last waypoint and its next)
+  const g = R.guards[0]; g.mind.state = 'notice'; g.sees = false;
+  let I = B._stealth(1 / 60, P, gtm.career.R, h, w);
+  assert.deepEqual([I.move[0], I.move[1]], [0, 0], 'unseen: it waits');
+  g.sees = true; I = B._stealth(1 / 60, P, gtm.career.R, h, w);
+  assert.ok(I.move[1] > .5, 'seen: back the way it came (' + I.move.map(v => v.toFixed(2)) + ')');
+  g.mind.state = 'calm'; g.sees = false; I = B._stealth(1 / 60, P, gtm.career.R, h, w);
+  assert.ok(I.move[1] < -.5, 'calm again: on along its way');
+});

@@ -4,7 +4,8 @@
 //   - 'enemy': a fighter (ai/fighter.js) that goes for the player once alerted: from the start (o.attack), within its
 //     alert radius (o.alert, 260), hurt, or a mate within 200 alerted; unalerted, it walks its o.route or stands;
 //   - 'guard': stands its post facing o.facing (or walks o.route), alerted by seeing the player (E.sees: 220 u, a 2 rad
-//     cone), a hurt, or a mate's alert;
+//     cone), a hurt, or a mate's alert; either, with o.leash (u), gives up past that far from where it was put and walks
+//     back (a showroom's bouncers never chase a car across town); only a fresh hurt turns it again on the way;
 //   - 'ally': walks after the player (or o.follow, a tag) and fights the mission's alerted enemies within 220 of it;
 //   - 'flee': runs from the player once it comes within 160;
 //   - 'idle' (by default): stands where it was put, facing o.facing.
@@ -92,9 +93,9 @@ export class MissionActors {
     return v;
   }
   /** a ped of an archetype at a point; o: { tag, role, facing, weapons, ammo, health, armor, faction, gang, look, name,
-   *  attack, alert, follow (an ally's tag to follow), route ([points]: a patrol), profile (the fighter's), stage } */
+   *  attack, alert, leash, follow (an ally's tag to follow), route ([points]: a patrol), profile (the fighter's), stage } */
   ped(arch, at, o = {}) {
-    const [x, y] = this._at(at), p = this._newPed(arch, x, y, o), e = this._add(p, 'ped', o);
+    const [x, y] = this._at(at), p = this._newPed(arch, x, y, o), e = this._add(p, 'ped', o); e.home = [x, y];
     if (e.role !== 'idle') e.brain = new Fighter(p, { walks: this.W.life ? this.W.life.walks : null, map: this.W.city.map, fleet: this.W.fleet, rng: this.rng, profile: o.profile });
     if (e.role === 'enemy' || e.role === 'guard') p.hostile = true;
     return p;
@@ -177,8 +178,14 @@ export class MissionActors {
     if (!e.brain || !P) { if (o.facing !== undefined && !p.mover.action) p.mover.facing = o.facing; return clearIntent(this.idle); }
     const I = clearIntent(e.brain.I), tgt = P.seat && P.seat.vehicle ? P.seat.vehicle : P, d = Math.hypot(tgt.x - p.x, tgt.y - p.y);
     if (e.role === 'enemy' || e.role === 'guard') {
+      if (e.alerted && o.leash && Math.hypot(p.x - e.home[0], p.y - e.home[1]) > o.leash) { e.alerted = false; e.homing = true; e.calmHp = p.vitals.health; }   // (leashed: it gives up)
+      if (e.homing) {   // (on its way back to its post: only a fresh hurt turns it)
+        if (p.vitals.health < e.calmHp) e.homing = false;
+        else if (Math.hypot(p.x - e.home[0], p.y - e.home[1]) > 16) return e.brain._go(dt, I, e.home[0], e.home[1], false, 'home');
+        else { e.homing = false; if (o.facing !== undefined) p.mover.facing = o.facing; }
+      }
       if (!e.alerted) {
-        const hurt = p.vitals.health < p.vitals.maxHealth;
+        const hurt = p.vitals.health < (e.calmHp ?? p.vitals.maxHealth);
         if (e.role === 'enemy') e.alerted = hurt || d < (o.alert || ALERT);
         else { const s = d < GUARD_SIGHT && E.sees({ x: p.x, y: p.y, z: p.z, facing: p.mover.facing }, P, { map: this.W.city.map, range: GUARD_SIGHT, fov: 2, facing: p.mover.facing }); e.alerted = hurt || !!(s && (s.seen || s === true)); }
         if (e.alerted) for (const q of this.list) if (q !== e && q.kind === 'ped' && (q.role === 'enemy' || q.role === 'guard') && Math.hypot(q.a.x - p.x, q.a.y - p.y) < MATES) q.alerted = true;

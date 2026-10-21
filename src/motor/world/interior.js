@@ -16,6 +16,7 @@
 // the view is never read.
 //   const R = new InteriorRun({ id, game, isPlayer, crime });  R.enter(ped, 'front')  R.update(dt, { player, wanted })
 //   R.takedownFor(player)  R.takedown(player, guard)  R.doorAt(player)  R.leave(ped)  R.lights(fn)  R.draw(stage)  R.hash()
+//   A mission's hold on it (m.inside.run): R.loopCameras(on)  R.pass(on)  R.watch() (what it may read: a copy)
 import { E } from '../engine.js';
 import { BUS } from '../core/bus.js';
 import { TUNE, knob } from '../core/tune.js';
@@ -87,7 +88,7 @@ export class InteriorRun {
       ped.archetype = arch.id; ped.guard = i; this.combat.add(ped);
       return new Guard(ped, { map: this.map, rng: this.rng, route: g.route.map(([x, y]) => [(x + .5) * T, (y + .5) * T]) });
     });
-    this.looped = false;
+    this.looped = false; this.staff = false;
     this.cameras = this.spec.cameras.map(c => ({ x: (c.at[0] + .5) * T, y: (c.at[1] + .5) * T, z: c.z, base: c.facing, sweep: c.sweep, period: c.period, range: c.range, fov: c.fov, facing: c.facing, mind: new E.Suspicion({ rise: 2.4, decay: .4 }), sees: false }));
     this.alarm = null; this.t = 0; this.player = null; this.lastShot = 0; this.downs = 0;
     this.lobby = (this.spec.rooms.find(r => r.public) || { rect: [0, 0, -1, -1] }).rect;   // (where the public may be)
@@ -113,7 +114,7 @@ export class InteriorRun {
   _minds(P, wanted) {
     const cx = Math.floor(P.x / T), cy = Math.floor(P.y / T), L = this.lobby, inLobby = cx >= L[0] && cx <= L[2] && cy >= L[1] && cy <= L[3];
     const spec = P.inv && P.inv.spec(P.inv.current), gun = spec && spec.projectile !== 'melee' && P.inv.current !== 'fists';
-    return !inLobby || gun || P.aiming || wanted > 0 || !!this.alarm;
+    return (!inLobby && !this.staff) || gun || P.aiming || wanted > 0 || !!this.alarm;
   }
   /** one step: ctx { player (the possessed Ped), wanted (its stars) } */
   update(dt, ctx = {}) {
@@ -142,6 +143,18 @@ export class InteriorRun {
   }
   /** the CCTV on a loop (a crew's hacker, on: the cameras sweep and see nothing) or back (off) */
   loopCameras(on = true) { this.looped = !!on; }
+  /** a staff pass (a bribed janitor's word, a borrowed uniform): on, nobody minds the player past the counter; a gun
+   *  out, a wanted face or the alarm still do */
+  pass(on = true) { this.staff = !!on; }
+  /** what a mission may read of it (a copy: nothing written back): t (s since it was built), alarm (what raised it, or
+   *  null), looped, staff; each guard's { at (the corner of its round it walks to), x, y, cx, cy (in cells), facing,
+   *  down (taken down or dead), state (its mind), sees }; each camera's { phase (0..1 through its sweep), period,
+   *  facing, state, sees } */
+  watch() {
+    return { t: this.t, alarm: this.alarm ? this.alarm.by : null, looped: this.looped, staff: this.staff,
+      guards: this.guards.map(g => { const p = g.ped; return { at: g.at, x: p.x, y: p.y, cx: p.x / T, cy: p.y / T, facing: p.mover.facing, down: !!(g.down || p.dead), state: g.mind.state, sees: g.sees }; }),
+      cameras: this.cameras.map(c => ({ phase: ((this.t / c.period) % 1 + 1) % 1, period: c.period, facing: c.facing, state: c.mind.state, sees: c.sees })) };
+  }
   // a noise at (x, y, z) loud far: the guards who hear it go to look (a shot of their own colleagues' aside)
   _noise(x, y, z, loud, by) {
     if (!this.player || (by != null && !this.isPlayer(by))) return;

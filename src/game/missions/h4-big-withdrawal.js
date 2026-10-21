@@ -70,6 +70,7 @@ const stand = (m, id, at, within = 40) => { const p = m.crewPed(id); if (p) m.pl
 // the getaway car: the Zephyr H1 stashed (the save's garage), or a fresh one; at the job (o.at), its crew in it
 function getaway(m, at, o = {}) {
   const kept = m.garaged('getaway');
+  if (kept) m.adopt(kept, 'getaway');   // (the job's own: held where it is put, not left to roll about)
   const v = kept || m.ensure.vehicle('getaway', 'zephyr', at, { color: '#1e1e24', mods: { armor: true } });   // (Lefty's plates on a fresh one)
   m.data.kept = !!kept;
   if (o.place !== false) put(m, v, at, { z: o.z, heading: at.heading ?? o.heading, within: o.within ?? 60 });
@@ -163,7 +164,7 @@ function inTheWay(m, van) {
   return false;
 }
 // the bank's guards, alive and standing (the interior's own)
-const guardsUp = m => (m.inside && m.inside.run.guards ? m.inside.run.guards.filter(g => !g.ped.dead && !g.down) : []);
+const guardsUp = m => (m.inside ? m.inside.run.watch().guards.filter(g => !g.down) : []);   // (the interior's own: a copy)
 
 // ---- the stages
 const plan = {
@@ -247,7 +248,7 @@ const loudLobby = {
     m.objective('Take out the guards', { hint });
     yield m.parallel([m.say(['Everybody down! This is a withdrawal!'], VIV), m.waitUntil(mm => {
       const up = guardsUp(mm); if (!up.length) return true;
-      const P = mm.player; let g = up[0].ped, gd = 1e9; for (const q of up) { const d = Math.hypot(q.ped.x - P.x, q.ped.y - P.y); if (d < gd) { gd = d; g = q.ped; } }
+      const P = mm.player; let g = up[0], gd = 1e9; for (const q of up) { const d = Math.hypot(q.x - P.x, q.y - P.y); if (d < gd) { gd = d; g = q; } }
       hint.spray[0] = g.x; hint.spray[1] = g.y; hint.at[0] = P.x; hint.at[1] = P.y;
       return false;
     })]);

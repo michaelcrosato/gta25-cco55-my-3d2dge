@@ -29,15 +29,23 @@ its last bullet), with every task it had started either finished or saved.
   - **part 3a** (2026-10-21, D22): the H4 and Gnomes workers' MOTOR backlog applied and validated, H13, G9 and J1
     done, G5 and G7 settled in content; what the validation turned up fixed with tests (the pad's aim in MODE 7, a
     pressed trigger's travel, a calm driver's patience with a crowd, a fighter stuck on a parked car, a police car
-    abandoned in the lane, the bot's ram round a queue); four small m pieces for the rest of A2.
+    abandoned in the lane, the bot's ram round a queue); four small m pieces for the rest of A2;
+  - **part 3b** (in progress, a workflow of five workers, `wf_acf7fd8f-bae`; its results land in the scratchpad's
+    `a2b/out/<key>/`): the heist setups H1-H3 merged with the worker's seven requests settled (H14-H20, D22: the bot's
+    brake on a car rolling back, a hooked tow held, `m.inside.run.watch()` and `pass()`, a leash, the stealth bot
+    backing off when seen; H2's bribe is the janitor's staff pass). `jobs` and `extras` are working, `saints` and
+    `prologue` queued behind them (at most two at a time).
+  - **M9 and M10 are done on side branches** (`m9-ui` b1ff7bb, `m10-audio` b2ea884, in the worktree `/home/user/gtm-m9`
+    while A2's workers ran) and M11 is under way there (`m11-attract`); each merges into this branch after M8 closes,
+    with every merged mission re-run.
 
-  **8 of the 14 missions are in:** S1, R1-R3, H4 and G1-G3. Each passes through the bot on seeds 1-3 and through
+  **11 of the 14 missions are in:** S1, R1-R3, H1-H4 and G1-G3. Each passes through the bot on seeds 1-3 and through
   the pad.
 - **Next: finish M8.** `docs/handoff/m8-a2/README.md` is the plan, in five steps:
   1. ~~the MOTOR backlog from the H4 and Gnomes workers~~ (done in part 3a: `motor-patch.py` applied, D22);
-  2. the groups still to do (part 3b, a workflow of five workers): `heist-setups` (H1-H3) and `jobs` (3 jobs, 2 races, the MAYHEMs) from their saved
+  2. the groups still to do (part 3b, a workflow of five workers): ~~`heist-setups` (H1-H3)~~ (merged) and `jobs` (3 jobs, 2 races, the MAYHEMs) from their saved
      work in progress, then `saints` (S2, S3), `prologue` (P0) and `extras` (tokens, stunts, 4 random events, their
-     test), none of them started;
+     test);
   3. every merged mission re-run after each MOTOR change;
   4. the bot campaign brought to 100%;
   5. M8's acceptance and evidence.

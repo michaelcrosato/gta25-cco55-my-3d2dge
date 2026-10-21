@@ -1,4 +1,4 @@
-# The MOTOR backlog from FAN-OUT A2 (after part 2b; all settled in part 3a, D22)
+# The MOTOR backlog from FAN-OUT A2 (after part 2b, settled in part 3a; the rest of A2's in part 3b; D22)
 
 The `rats` worker's ten requests are done (part 2a, D21). These are the `heist-finale` (H) and `gnomes` (G) workers'
 (their full text with each patch: `notes/heist-finale.result.json`, `notes/gnomes.result.json`). Each was checked
@@ -22,6 +22,13 @@ passing (26 tests); it has not been through the whole gate or the bot. All four 
 | H11 | no `m.adopt(v, tag)` for a world vehicle (a garaged car can't be named by a hint) | mission/runtime.js | done (part 3a, D22): an adopted car goes back to the world at the end |
 | H12 | no CCTV control for a crew's hacker | world/interior.js `loopCameras(on)` | done (part 3a, D22) |
 | H13 | `m.view('side7', { heading })` | the views | done (part 3a, D22): `m.view('side7', { heading })`; H4's window is MODE 7 now |
+| H14 | the bot's idle stop holds the brake on a car rolling back, which drives it on backwards (body.js) | ai/missionbot.js `_idle()` | done (part 3b, D22): the throttle stops one rolling back; a stopped one sits on its handbrake |
+| H15 | the same held brake at an AutoPlayer's stop backs the car off its drop | ai/autoplayer.js `_drive()` | done (part 3b, D22) |
+| H16 | a jammed tow is abandoned ('exit'); the end to hook is chosen with the passing traffic counted | ai/missionbot.js `_towTo()`, `_towEnd()` | done (part 3b, D22): the hooked tow is held through a jam; only parked cars count |
+| H17 | no read interface for a running interior (H2 read its guards and cameras directly) | world/interior.js | done (part 3b, D22): `m.inside.run.watch()`, a copy; H2 and H4 read it |
+| H18 | no leash for a mission's alerted guards and enemies (H1's bouncers chased Dex 2,000 u) | mission/actors.js | done (part 3b, D22): `leash` (u) on `m.spawn.ped`; H1 still removes its bouncers once the star is lost |
+| H19 | no staff pass for a bribe (the WIP wrote the lobby's rect over the whole map) | world/interior.js | done (part 3b, D22): `m.inside.run.pass(on)`; H2's bribe is the janitor's mop now, no takedown and no waiting |
+| H20 | the stealth bot stands still while an uneasy guard sees it, and its suspicion climbs to an alarm | ai/missionbot.js `_stealth()` | done (part 3b, D22): seen, it backs off the way it came; unseen, it waits at cover as before |
 | G2 | fighters never throw (the switch's cooldown eats the one press, and the gun comes back) | ai/fighter.js | done (part 3a, D22) |
 | G3 | a spray hint holds the button: no throw, no swing for a weapon that isn't automatic | ai/missionbot.js `_goto()` | done (part 3a, D22) |
 | G4 | the bat's walk to a far car re-plans to one blocked sidewalk node (a lamp post) | ai/missionbot.js `_fight()` | done (part 3a, D22) |
