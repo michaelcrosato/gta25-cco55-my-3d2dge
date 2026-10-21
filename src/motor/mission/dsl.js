@@ -20,6 +20,7 @@ export const HINTS = {
   race: ['line'],              // line: [[x, y], ...] checkpoints
   photo: ['target'],           // target: a tag; from: [x, y]
   stealth: ['path'],           // path: [[x, y], ...] waypoints; cover: [[x, y], ...]
+  drive: ['heading'],          // heading: radians, held at full throttle (a stunt's run-up); nitro
 };
 /** the problems with a hint ({ kind, ...data }), as strings */
 export function checkHint(h) {
@@ -63,6 +64,15 @@ const activityShape = shape({ title: { type: 'string', req: true }, start: { typ
   kind: { type: 'string', def: 'other', oneOf: ['job', 'race', 'mayhem', 'event', 'other'] }, brief: { type: 'array', def: [] } });
 declare('activities', (spec, id) => [...activityShape(spec, id), ...checkStages(spec.stages)]);
 
+// (M11) a reel of the attract mode (PLAN.md 9.11): staged as a mission and played by the mission bot from its hints,
+// in a fresh world; each stage may name its view (the director's camera plan) and a caption. It pays nothing and is
+// never recorded
+const reelShape = shape({ title: { type: 'string', req: true }, shows: { type: 'string', def: '' }, views: { type: 'array', def: [] },
+  time: { type: 'number', def: 90, min: 10 }, stages: { type: 'array', req: true } });
+declare('reels', (spec, id) => [...reelShape(spec, id), ...checkStages(spec.stages), ...spec.stages.filter(s => s && s.view && !['iso', 'top', 'side7'].includes(s.view)).map(s => `stage "${s.id}": view "${s.view}" (iso, top or side7)`)]);
+/** register a reel: defReel(id, { title, shows, views, time (s: the most it may run), stages: [{ id, view, caption,
+ *  setup(m), *run(m) }] }) */
+export const defReel = (id, spec) => def('reels', id, spec);
 /** register a mission: defMission(id, { title, giver, gang, tier, requires, brief, rewards, bonus, stages }) */
 export const defMission = (id, spec) => def('missions', id, spec);
 /** register a repeatable activity in the same staged form: defActivity(id, { title, kind, start, levels, stages,

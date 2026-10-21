@@ -26,6 +26,8 @@ export function createApp({ game, links }) {
   // the player's settings (the engine's store with MOTOR's own); took: a screen had the step's input (the scene's
   // controls read nothing of it)
   defineSettings(game);
+  // no touch controls (PLAN.md 8.20): the engine's floating stick off (no scene asks for its touch buttons either)
+  if (game.input) { game.input.touchEnabled = false; game.input.touchFilter = () => false; }
   const layer = new UILayer(game, { base: () => (app.stage.sharp ? app.stage.baseS : null) });
   app.ui = { layer, screens: new Screens({ app, layer }), took: false, held: false, record: () => layer.rec.snapshot() };
   for (const [k, v] of Object.entries(app)) expose(k, v);

@@ -105,8 +105,16 @@ export class MissionBot {
       case 'race': return this._race(dt, p, R, w);
       case 'photo': return this._photo(dt, p, R, h, w);
       case 'stealth': return this._stealth(dt, p, R, h, w);
+      case 'drive': return this._floor(p, h);
       default: return this._idle(I, v);
     }
+  }
+  // full throttle along a heading (radians), the wheel held on it, nitro if asked (a stunt's run-up: off a deck's open
+  // end, up a ramp)
+  _floor(p, h) {
+    const v = p.seat && p.seat.vehicle, I = clearIntent(this.I); if (!v || v.driver !== p) return I;
+    let da = h.heading - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
+    I.steer = Math.max(-1, Math.min(1, da * 2)); I.throttle = 1; I.down.nitro = !!h.nitro; return I;
   }
   _idle(I, v) {
     if (!v) return I;

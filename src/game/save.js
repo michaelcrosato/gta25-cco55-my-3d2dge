@@ -49,4 +49,4 @@ export const MIGRATIONS = {
   },
 };
 /** the game's save store (o.backend: storage for tests) */
-export function makeSaves(o = {}) { return new SaveStore({ game: GAME_ID, schema: SCHEMA, blank: blankSave, normalize: normalizeSave, migrations: MIGRATIONS, summary: d => ({ completion: Number.isFinite(d.completion) ? d.completion : 0, day: Number.isFinite(d.gameDay) ? d.gameDay : 0 }), ...o }); }
+export function makeSaves(o = {}) { return new SaveStore({ game: GAME_ID, schema: SCHEMA, blank: blankSave, normalize: normalizeSave, migrations: MIGRATIONS, summary: d => ({ completion: Number.isFinite(d.completion) ? d.completion : 0, day: Number.isFinite(d.gameDay) ? d.gameDay : 0, cash: Number.isFinite(d.crewFund) ? d.crewFund : 0 }), ...o }); }

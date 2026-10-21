@@ -4,7 +4,8 @@
 // that 320 x 180 UI pixels no longer fit. Text drawn on it is whole-pixel crisp at any of them, and the 5 x 7 font at
 // scale 1 is 7 S device pixels tall: 28 at 1080p. What a frame drew is recorded (ui/record.js) for tools/ui-audit.mjs.
 // Headless there is no page: the layer keeps a null canvas, so menus still lay out, take input and record in Node.
-//   const L = new UILayer(game);  each frame: const g = L.frame();  each step: const p = L.poll() -> { x, y, click, wheel }
+//   const L = new UILayer(game);  each frame: const g = L.frame();  each step: const p = L.poll() -> { x, y, click, wheel,
+//   tap } (a finger's tap is a click where it landed: the menus answer a phone's taps)
 import { E } from '../engine.js';
 import { UIRecord } from './record.js';
 
@@ -18,11 +19,12 @@ export class UILayer {
    *  now (Sharp MODE 7 draws the world at the screen's resolution: the UI keeps the game's scale) */
   constructor(game, o = {}) {
     this.game = game; this.rec = new UIRecord(); this.k = 4; this.W = 480; this.H = 270; this.t = 0; this.base = o.base || null;
-    this.wheel = 0; this._down = false; this._clicked = false; this.cv = null; this.page = false;
+    this.wheel = 0; this._down = false; this._clicked = false; this.cv = null; this.page = false; this._tap = null;
     if (!game.headless && typeof document !== 'undefined') {
       this.cv = document.getElementById(o.id || 'ui'); this.page = !!this.cv;
       const el = game.screen && game.screen.canvas;
       if (el && el.addEventListener) el.addEventListener('wheel', e => { this.wheel += e.deltaY > 0 ? 1 : e.deltaY < 0 ? -1 : 0; }, { passive: true });
+      if (this.page) window.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') this._tap = this._at(e.clientX, e.clientY); }, { passive: true });   // (a finger's tap: a click on the menus, PLAN.md 8.20)
     }
     if (!this.cv) this.cv = E.mkCanvas(this.W, this.H);
     this.g = this.cv.getContext('2d');
@@ -63,6 +65,8 @@ export class UILayer {
    *  press), the left button held (down) and let go (up), and the wheel's notches since the last poll (down positive);
    *  call once a step */
   poll() {
+    const tap = this._tap; this._tap = null;
+    if (tap) { const wheel = this.wheel; this.wheel = 0; this._last = tap; return { x: tap.x, y: tap.y, moved: true, click: true, down: false, up: true, wheel, tap: true }; }   // (a tap: a click where it landed)
     const I = this.game.input, down = !!(I && I.held && I.held.has('Mouse0'));
     const click = down && !this._down, up = !down && this._down; this._down = down;
     const wheel = this.wheel, p = this.pointer(), last = this._last; this.wheel = 0;
@@ -71,8 +75,15 @@ export class UILayer {
   }
   /** the mouse's position in UI pixels, or null */
   pointer() {
-    const I = this.game.input, m = I && I.mouse; if (!m || !m.active || !this.page || !this.cv.getBoundingClientRect) return null;
+    const I = this.game.input, m = I && I.mouse; if (!m || !m.active || !this.page) return null;
+    return this._at(m.cx, m.cy);
+  }
+  /** a tap at (x, y) in UI pixels, as a finger's would be (the tests') */
+  tapAt(x, y) { this._tap = { x, y }; }
+  // a point on the page in UI pixels, or null
+  _at(cx, cy) {
+    if (!this.cv.getBoundingClientRect) return null;
     const r = this.cv.getBoundingClientRect(); if (!r.width || !r.height) return null;
-    return { x: (m.cx - r.left) * this.W / r.width, y: (m.cy - r.top) * this.H / r.height };
+    return { x: (cx - r.left) * this.W / r.width, y: (cy - r.top) * this.H / r.height };
   }
 }

@@ -249,10 +249,10 @@ export class Stage {
     const seen = new Set(), cut = this.cutaway ? this.cutaway.cut : null;
     for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
       const id = map.cell(cx, cy); if (id <= 0) continue;
-      const t = types[id], lot = C ? C.lot[cy * C.w + cx] : -1;
-      if (lot >= 0) {
+      const t = types[id], lot = C ? C.lot[cy * C.w + cx] : -1, L = lot >= 0 && C.lots ? C.lots[lot] : null;   // (an interior's wall cells are lots of their own with no record: a cell each)
+      if (L) {
         if (seen.has(lot)) continue; seen.add(lot);
-        const L = C.lots[lot], [a, b, c, d] = L.rect, h = cut && cut.has(lot) ? (t.cutH || 6) : t.h, top = h < t.h && t.cutTop ? t.cutTop : t.top;
+        const [a, b, c, d] = L.rect, h = cut && cut.has(lot) ? (t.cutH || 6) : t.h, top = h < t.h && t.cutTop ? t.cutTop : t.top;
         r.queue((a + c + 1) / 2 * T, (b + d + 1) / 2 * T, 0, g => r.box(g, a * T, b * T, 0, (c + 1) * T, (d + 1) * T, h, top, t.side), { occluder: true });
       } else r.queue((cx + .5) * T, (cy + .5) * T, 0, g => r.box(g, cx * T, cy * T, 0, cx * T + T, cy * T + T, t.h, t.top, t.side), { occluder: true });
     }

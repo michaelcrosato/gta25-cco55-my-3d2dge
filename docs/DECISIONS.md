@@ -870,3 +870,48 @@ and where it landed.
   - **The title's tune** is the engine's `music()` (the one thing PLAN leaves it), a composed synthwave loop.
   - **Headless there is no sound** (the director never starts), and nothing in the simulation reads any of it.
 - **Answered:** no. **Landed in:** M10.
+
+## D25 · 2026-10-21 · M11's show: reels the bot plays, a director with a watchdog, the play scene as its stage, taps that stay
+- **Principle:** PLAN.md 8.20 (into and out of the attract mode, the AutoPlayer, the director, kiosk and mobile, its
+  Accept), 9.11 (the five reels) and M11; D21 (the bot plays any objective from its hint); the simulation deterministic
+  and the views presentation only.
+- **Calls:**
+  - **Reels are content staged as missions** (`defReel`, `src/game/reels/`): the MissionRuntime plays one as kind
+    `reel` (it pays nothing, is never recorded, and says each stage as an `attractBeat`), the mission bot plays it from
+    its hints, and each stage names its view (the camera plan) and a caption. "The AutoPlayer's full behaviours" are the
+    mission bot's (which drives through the AutoPlayer): drive, carjack, shoot and throw, take down, evade, follow hints.
+  - **The play scene is the demo's stage** (`PLAY.make(app, demo)`): each reel in a fresh world (`RNG.seed(attract seed
+    + the reels so far)`, its own state objects, the city's layout the game's own), a blank save never written, and the
+    career's demo mode: no offers, random events, hold-ups or cards, never a write. No pause, no phone; the views are
+    the director's; the HUD's place-and-time line gives way to the logo's bug and DEMO badge; a job's objective, timer and
+    checkpoints are not shown (the captions say what is happening). The rumble is off; the streams are handed back as
+    a boot leaves them (`RNG.seed(app.seed)`) when the demo ends, so it never shapes a game.
+  - **MOTOR's Director** (`ai/director.js`): the reels in an order its seed shuffles each time round (never the same
+    one twice running), a card after two reels, then after three (the title card, HOW TO PLAY with a DualSense drawn
+    and every button's job read from the bindings, LOWTOWN'S MOST WANTED from the save slots and the city's legends),
+    and the watchdog: a cut when the camera's focus has not moved and no op has begun for TUNE.attractStall (6 s), a
+    reel past its time, or one failed. It counts what the show has shown for the soak (reels run, ended and cut; the
+    views; the bank; the most stars; explosions; switches made by the switch camera, not a mission's possess).
+  - **Any input leaves within one step:** MOTOR's `wokeBy` reads GTM-PATCH(4)'s raw state (a key bound or not, a pad's
+    button, stick or trigger, a pad newly connected, the mouse, a touch); the pads are counted at the demo's first step
+    (the engine fills them in its tick, so a pad there at boot is no new connection).
+  - **The kiosk** (`?kiosk=1`, or a coarse pointer and no fine one): a tap stays in the demo; the MENU button (top right,
+    in the margin over the HUD) opens sound, volume, the view (the show's, or one throughout) and About; a tap anywhere
+    else says BEST WITH A CONTROLLER at most every 30 s; a key or a controller opens the title. A finger's tap is a
+    click on the UI layer, so every M9 menu answers taps. `createApp` turns the engine's touch stick off everywhere.
+  - **The title's menus count as the title** for the idle timer, except while a rebind waits for its button (it gives
+    up after 8 s of its own).
+  - **Where the bot needed a hand, the reels say so in their scripting:** Hot Pursuit's three stars run down Motor
+    Avenue ahead of the roadblock 3★ brings, then cut to Spray & Pray's apron, because the shop's door is out of a car's
+    reach from Canal Street (the bot's evade could never respray there: carried to M13 as a map fix); Joyride climbs
+    the north-west ramp because the Loop's west leg runs south; Turf War's Gus leads with his Molotov (a fighter with
+    no gun now throws first), backs off the fire and fights alone (his spray found his own ally); Heist Tease starts
+    Viv at the counter's gate as the lobby guard's round comes by; Switch! plays the vignettes (`m.switchTo(id, {
+    vignette: true })`).
+  - **Small MOTOR pieces for it:** `m.slowmo(k)` (a job's slow motion, undone at its end), `m.weather` held till the
+    job ends (`Weather.set`/`release`: the m API's call had nothing to call), the `drive` hint (full throttle on a
+    heading), a `switch` event's `camera`.
+  - **The soak** (`tools/attract-soak.mjs`): 30 virtual minutes on seeds 1-3 headless and 5 drawn in Chromium, judged
+    as PLAN.md 8.20 asks (errors, counts, heap, every reel, the views, the bank, three stars, an explosion, a switch);
+    `tools/record-attract.mjs` captures the show to MP4 and GIF with ffmpeg.
+- **Answered:** no. **Landed in:** M11.

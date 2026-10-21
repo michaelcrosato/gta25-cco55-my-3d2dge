@@ -13,6 +13,19 @@ export class Activity {
   since(t) { return (this.input.raw ? this.input.raw.activity : -1) > t; }
 }
 
+/** what woke a scene since the input clock read t (null: nothing): 'key' (any key, bound or not), 'pad' (a button, a
+ *  stick, a trigger, or a pad newly connected: pads, the count the scene saw), 'mouse' (a click, a move, the wheel) or
+ *  'touch'. The kiosk tells a tap from a player who wants to play (PLAN.md 8.20) */
+export function wokeBy(input, t, pads = null) {
+  const R = input.raw; if (!R) return null;
+  for (const c of R.pressed) { if (c.startsWith('Pad')) return 'pad'; if (!c.startsWith('Mouse')) return 'key'; }
+  if (R.keys.size) return 'key';
+  if (pads !== null && R.pads.length > pads) return 'pad';
+  if (R.pads.some(q => q.buttons.some(b => b.pressed || b.value > .1) || q.axes.some(v => Math.abs(v) > input.deadzone))) return 'pad';
+  if (!(R.activity > t)) return null;
+  return input.lastDevice === 'touch' ? 'touch' : 'mouse';
+}
+
 /** kiosk mode (PLAN.md 8.20): ?kiosk=1, or a touch-first device (a coarse pointer and no fine one) */
 export function kioskWanted(links) {
   if (links && links.query && links.query.get('kiosk') === '1') return true;

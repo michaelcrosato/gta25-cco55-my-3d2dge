@@ -47,17 +47,18 @@ export class MissionRuntime {
   }
   get active() { return this.state === 'running' || this.state === 'failed'; }
   get stage() { return (this.spec && this.spec.stages[this.stageIdx]) || null; }
-  /** start mission (or activity, o.activity) id at o.stage (an id or an index: a deep link), o.level (an activity's),
-   *  o.data (m.data's start: a random event's spot) */
+  /** start mission (or activity, o.activity; or the attract mode's reel, o.reel) id at o.stage (an id or an index: a
+   *  deep link), o.level (an activity's), o.data (m.data's start: a random event's spot) */
   start(id, o = {}) {
     if (this.active) this.quit('replaced');
-    const spec = get(o.activity ? 'activities' : 'missions', id); if (!spec) throw new Error('MOTOR: no ' + (o.activity ? 'activity' : 'mission') + ' "' + id + '"');
+    const kind = o.reel ? 'reel' : o.activity ? 'activity' : 'mission';
+    const spec = get(kind === 'reel' ? 'reels' : kind === 'activity' ? 'activities' : 'missions', id); if (!spec) throw new Error('MOTOR: no ' + kind + ' "' + id + '"');
     const k = typeof o.stage === 'number' ? o.stage : o.stage ? spec.stages.findIndex(s => s.id === o.stage) : 0;
     if (k < 0 || k >= spec.stages.length) throw new Error('MOTOR: ' + id + ' has no stage "' + o.stage + '"');
-    this.id = id; this.spec = spec; this.kind = o.activity ? 'activity' : 'mission'; this.level = Math.max(1, Math.min(spec.levels || 1, o.level || 1));
+    this.id = id; this.spec = spec; this.kind = kind; this.level = Math.max(1, Math.min(spec.levels || 1, o.level || 1));
     this.rng = RNG.stream('mission:' + id); this.t = 0; this.retries = 0; this.result = null; this.failure = null; this.data = { ...(o.data || {}) }; this.startedAt = k;
     this.actors = new MissionActors(this.world(), this);
-    BUS.emit(this.kind === 'activity' ? 'activityStart' : 'missionStart', this.kind === 'activity' ? { id, level: this.level } : { id });
+    if (kind !== 'reel') BUS.emit(kind === 'activity' ? 'activityStart' : 'missionStart', kind === 'activity' ? { id, level: this.level } : { id });
     this.state = 'running'; this._stage(k);
     return this;
   }
@@ -73,6 +74,7 @@ export class MissionRuntime {
     const s = this.stage;
     if (!this._guard(() => { s.setup(this.m); this.gen = s.run(this.m); })) return;
     BUS.emit('stageStart', { mission: this.id, stage: s.id });
+    if (this.kind === 'reel') BUS.emit('attractBeat', { reel: this.id, beat: s.id });
     this._guard(() => this._next(undefined));
   }
   // content's code run safely: a throw fails the job (reason 'error'), logged and kept in errors, never the game
@@ -146,7 +148,8 @@ export class MissionRuntime {
     if (!this.active) return;
     const id = this.id, reason = this.failure || why;
     this.state = 'idle'; this._end();
-    BUS.emit(this.kind === 'activity' ? 'activityEnd' : 'missionFail', this.kind === 'activity' ? { id, level: this.level, result: 'quit' } : { id, reason });
+    if (this.kind === 'reel') BUS.emit('attractBeat', { reel: id, beat: 'cut' });
+    else BUS.emit(this.kind === 'activity' ? 'activityEnd' : 'missionFail', this.kind === 'activity' ? { id, level: this.level, result: 'quit' } : { id, reason });
     this.result = { id, kind: this.kind, level: this.level, passed: false, reason };
     if (this.onEnd) this.onEnd(this.result);
   }
@@ -154,16 +157,17 @@ export class MissionRuntime {
   pass() {
     if (this.state !== 'running') return;
     const S = this.spec, bonus = (S.bonus || []).map(b => ({ id: b.id, text: b.text, ok: !!safe(() => b.check(this.m)) })), medal = grade(bonus, this.retries);
-    const W = this.world(), rw = (this.kind === 'activity' && S.rewardsFor ? S.rewardsFor(this.level, this.m) : S.rewards) || {};
+    const W = this.world(), rw = this.kind === 'reel' ? {} : (this.kind === 'activity' && S.rewardsFor ? S.rewardsFor(this.level, this.m) : S.rewards) || {};   // (a reel pays nothing)
     if (rw.cash && W.cash) W.cash(rw.cash, this.kind + ':' + this.id);
     for (const [g, d] of Object.entries(rw.respect || {})) if (W.respect) W.respect(g, d, this.kind + ':' + this.id);
     this.result = { id: this.id, kind: this.kind, level: this.level, passed: true, medal, bonus, elapsed: this.t, retries: this.retries, rewards: rw, title: S.title };
-    if (this.save) {
+    if (this.save && this.kind !== 'reel') {   // (nor is it recorded)
       if (this.kind === 'mission') { const M = this.save.missions; if (!M.done.includes(this.id)) M.done.push(this.id); if (!M.medals[this.id] || MEDALS.indexOf(medal) > MEDALS.indexOf(M.medals[this.id])) M.medals[this.id] = medal; }
       else if (S.record !== false && S.kind !== 'event') { const A = this.save.activities; A[this.id] = Math.max(A[this.id] || 0, this.level); }
     }
     this.state = 'passed'; this._end();
     if (this.kind === 'activity') BUS.emit('activityEnd', { id: this.id, level: this.level, result: 'pass' });
+    else if (this.kind === 'reel') BUS.emit('attractBeat', { reel: this.id, beat: 'end' });
     else BUS.emit('missionPass', { id: this.id, medal, elapsed: Math.round(this.t * 10) / 10 });
     if (this.onEnd) this.onEnd(this.result);
   }
@@ -177,6 +181,8 @@ export class MissionRuntime {
     if (this.wantedHeld) { const w = W.wanted ? W.wanted() : null; if (w) { w.floor(0); w.cap(5); } this.wantedHeld = false; }   // (a stage's cap or floor never outlives its job)
     if (this.allyHeld) { const G = W.life && W.life.gangs; if (G) G.allies.clear(); this.allyHeld = false; }   // (nor its allies and truces)
     if (W.stage && W.stage.pointRail) W.stage.pointRail(null);   // (nor a set piece's rail)
+    if (W.slowmo) W.slowmo(1);   // (nor its slow motion)
+    if (this.weatherHeld) { if (W.weather) W.weather.release(); this.weatherHeld = false; }   // (nor its weather)
   }
   /** after a pass, back to idle (the card read) */
   done() { if (this.state === 'passed') this.state = 'idle'; }
@@ -341,7 +347,9 @@ export class MissionContext {
   failIf(pred, reason) { this.R.fails.push({ pred, reason }); }
   /** the clock to an hour; the weather to a state */
   time(h) { if (this.W.clock) this.W.clock.set(h); }
-  weather(state) { if (this.W.weather) this.W.weather.set(state); }
+  /** slow motion (a stunt's flight, a reel's moment): the game's speed k (0.1..1; 1 back to normal); gone when the job ends */
+  slowmo(k = 1) { if (this.W.slowmo) this.W.slowmo(k); }
+  weather(state) { if (this.W.weather) { this.W.weather.set(state); this.R.weatherHeld = true; } }   // (held till the job ends)
   /** into an interior by one of its doors (a setup's), and back out */
   interior(id, door) { if (this.W.enter) this.W.enter(id, door); }
   outside() { if (this.W.leave) this.W.leave(); }
@@ -496,9 +504,10 @@ export class MissionContext {
   }
   /** ops one after another, as one op (for parallel and first) */
   sequence(ops) { return chain(this, ops); }
-  /** switch to a protagonist (the crew's switch camera, forced: the mission's) */
-  switchTo(id) {
-    return op(m => (m.crew.active === id && !m.crew.switching ? { value: true } : undefined), { start: m => { if (m.crew.active !== id && m.W.switchTo) m.W.switchTo(id); } });
+  /** switch to a protagonist (the crew's switch camera, forced: the mission's); o.vignette: as a player's switch, the
+   *  vignette played where the camera finds them (a reel's) */
+  switchTo(id, o = {}) {
+    return op(m => (m.crew.active === id && !m.crew.switching ? { value: true } : undefined), { start: m => { if (m.crew.active !== id && m.W.switchTo) m.W.switchTo(id, o); } });
   }
   /** the mission passed now (the last stage's end does it too) */
   reward() { return op(m => { m.R.pass(); return { value: true }; }); }

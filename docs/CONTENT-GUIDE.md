@@ -27,8 +27,25 @@ Every recipe below names the test to run. From M12 on, `tests/recipes/*.test.js`
 | A screen (M9) | a plain object for `app.ui.screens.open(screen)`: `{ id, title, list: new List({ items }), tabs, cards, info, body, legend, pause, back() }` drawn by the 10-foot kit (`src/motor/ui/`); MOTOR's own: `confirmScreen`, `settingsScreen`, `slotsScreen`, `guideScreen`, `docScreen`, `tabbedScreen`, `mapPage` | `node tools/ui-audit.mjs` (add the screen to its walk) |
 | A first-time hint (M9) | `{ id, text, when(ctx) }` in `src/game/ui/tips.js` (glyph tokens name their context: `{onFoot:interact}`) | `node --test tests/sim/ui.test.mjs` |
 | A help page (M9) | `{ title, lines }` in `src/game/ui/guide.js` | the audit's help stops |
+| An attract reel (M11) | `defReel(id, { title, shows, views, time, stages: [{ id, view, caption, setup(m), *run(m) }] })` in `src/game/reels/` (a mission's stages: see "Attract reels" below) | `#attract/<id>` plays it over and over; `node --expose-gc tools/attract-soak.mjs --mins 6` |
 
-More recipes are added as each system lands: vehicle, variant, weapon, ped, outfit, gang, station, song, reel, district.
+More recipes are added as each system lands: vehicle, variant, weapon, ped, outfit, gang, station, song, district.
+
+## Attract reels
+
+The attract mode (PLAN.md 8.20, D25) plays the reels in `src/game/reels/`, each in a fresh Lowtown, with a card between
+every two or three. A reel is a mission's stages (the same `m` API, the same bot hints: the mission bot plays it), with
+three differences: it pays nothing and is never recorded; each stage may name its `view` (`iso`, `top`, `side7`: the
+director's camera plan, set as the stage starts) and a `caption` (shown under the reel's title); and it has a `time`
+(seconds) past which the director cuts to the next. The director also cuts when nothing has moved for six seconds (the
+camera's focus still, no op begun): so a reel never waits long on one op without movement (a guard's round to come by,
+a line said over a still shot), and puts its people where the action starts (a reel is an edit: a stage's setup may
+place the car on the next street, under a change of view). A reel's first stage sets the protagonist, the hour and the
+weather (`m.as`, `m.time`, `m.weather`: held till the reel ends) and spawns what it needs; `m.slowmo(k)` slows the game
+for a moment (a stunt's flight), `m.switchTo(id, { vignette: true })` switches as a player does, the vignette played,
+and the `drive` hint (`{ kind: 'drive', heading, nitro }`) holds the throttle down on a heading (a stunt's run-up). Lowtown's
+one-way streets (and the Loop's ring) decide which way a reel's route can go: check it with `#attract/<id>` and a probe
+of the bot's state before trusting a line of checkpoints.
 
 ## The 10-foot UI
 

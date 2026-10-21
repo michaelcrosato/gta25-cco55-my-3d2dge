@@ -1,7 +1,8 @@
 // The title screen (PLAN.md 8.18): the GRAND THEFT MOTO logo over a live, slow fly-over of Lowtown at night (the play
 // scene's own city, built once a seed, the camera riding the district's tour at a stroll), and the menu: CONTINUE (the
 // newest save), NEW GAME (the prologue), LOAD (the slots), SETTINGS, EXTRAS (the Proving Ground, Credits & About, the
-// field guide). The attract mode follows TUNE.attractIdle seconds without input from any device.
+// field guide). The attract mode follows TUNE.attractIdle seconds without input from any device, on the title or any
+// menu opened from it (not while a rebind waits for its button).
 import { E, def, expose, TUNE, FloorChunks, WorldClock, Weather, skyAt, List, UI, settingsScreen, slotsScreen, guideScreen, compose } from '../../motor/index.js';
 import { makeSaves } from '../save.js';
 import { lowtown, citySeed } from './lowtown.js';
@@ -13,9 +14,17 @@ const FLY = 70;   // (the fly-over's speed, u/s: a stroll down the avenues)
 let THEME = null;   // (the title's tune: the engine's music(), the one thing it still serves, PLAN.md 8.17; NEON DRIVE's genre)
 // the logo from the safe area's top down (MOTO a size smaller on a short screen), the line under it, and where the
 // menu starts below them
-function logo(P) {
-  const y = P.safe[1] + 4, moto = P.H >= 260 ? 5 : 4, motoY = y + 22, tagY = motoY + 7 * moto + 12;
+function logo(P, top = P.safe[1] + 4) {
+  const y = top, moto = P.H >= 260 ? 5 : 4, motoY = y + 22, tagY = motoY + 7 * moto + 12;
   return { y, moto, motoY, tagY, menu: tagY + 18 };
+}
+/** the logo, GRAND THEFT over MOTO and the line under it, from y = top (the title's; the attract mode's title card) */
+export function drawLogo(P, top) {
+  const cx = P.W / 2, Lg = logo(P, top);
+  P.title('GRAND THEFT', cx, Lg.y, { scale: 2, colors: ['#f4f0ff', '#b8b0d8'], align: 'center' });
+  P.title('MOTO', cx, Lg.motoY, { scale: Lg.moto, colors: ['#ffe066', '#ff7a2a', '#d0306a'], align: 'center', depth: 3, depthColor: '#2a0a2a' });
+  P.text(GAME.tagline.toUpperCase(), cx, Lg.tagY, UI.dim, { align: 'center' });
+  return Lg;
 }
 
 def('scenes', 'title', {
@@ -63,7 +72,7 @@ def('scenes', 'title', {
       exit() { if (game.audio && game.audio.music) game.audio.music(null); },
       update(dt) {
         t += dt;
-        if (activity.idle() >= TUNE.attractIdle) { game.go('attract'); return; }
+        if (activity.idle() >= TUNE.attractIdle && !(U.top && U.top.capturing)) { game.go('attract'); return; }   // (a rebind waiting for its button keeps the title)
         // the fly-over: straight legs between the tour's corners (presentation: nothing in it is simulated)
         const A = fly.at, to = fly.tour[(fly.leg + 1) % fly.tour.length], dx = to[0] - A[0], dy = to[1] - A[1], d = Math.hypot(dx, dy), step = FLY * dt;
         if (d <= step) { A[0] = to[0]; A[1] = to[1]; fly.leg = (fly.leg + 1) % fly.tour.length; } else { A[0] += dx / d * step; A[1] += dy / d * step; }
@@ -80,9 +89,7 @@ def('scenes', 'title', {
         if (U.top !== menu) return;
         const cx = P.W / 2, Lg = logo(P), g = P.g, band = g.createLinearGradient(0, 0, 0, Lg.menu);
         P.shade(.25); band.addColorStop(0, 'rgba(5,3,12,.6)'); band.addColorStop(1, 'rgba(5,3,12,0)'); g.fillStyle = band; g.fillRect(0, 0, P.W, Lg.menu); g._c = null;   // (the city quieter behind the logo)
-        P.title('GRAND THEFT', cx, Lg.y, { scale: 2, colors: ['#f4f0ff', '#b8b0d8'], align: 'center' });
-        P.title('MOTO', cx, Lg.motoY, { scale: Lg.moto, colors: ['#ffe066', '#ff7a2a', '#d0306a'], align: 'center', depth: 3, depthColor: '#2a0a2a' });
-        P.text(GAME.tagline.toUpperCase(), cx, Lg.tagY, UI.dim, { align: 'center' });
+        drawLogo(P, Lg.y);
         const ver = E.versionLabel().replace(' · ', ' • ');
         if (P.safe[0] + P.width(ver) + 8 < cx - P.width('GRAND THEFT', 2) / 2) P.text(ver, P.safe[0], P.safe[1], UI.mute);   // (where it clears the logo: not at the largest HUD sizes)
       },

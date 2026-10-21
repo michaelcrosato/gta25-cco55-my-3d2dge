@@ -62,6 +62,7 @@ export function rebindScreen(app, ctx) {
   const list = new List({ id: 'rebind-' + ctx, items: rows() });
   const scr = {
     id: 'rebind', w: 340, tips: true, list, title: 'REBIND ' + spec[1],
+    get capturing() { return !!capture; },   // (waiting for the button: the title's idle timer holds off the attract mode)
     get info() { const g = spec[2][list.page]; return g && g[0] ? [{ text: g[0], color: UI.cyan }] : []; },
     legend: '{menu:confirm} CHANGE   {menu:secondary} DEFAULTS   {menu:back} BACK',
     enter() { list.set(rows()); },

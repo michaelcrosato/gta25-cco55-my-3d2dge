@@ -62,7 +62,7 @@ export const EVENTS = {
   activityStart: 'id, level',
   activityEnd: 'id, level, result',
   // the player
-  switch: 'from, to',
+  switch: 'from, to, camera',                   // camera: the switch camera brought it (not a mission's possess)
   ability: 'who, on',
   // the world and presentation
   view: 'view, prev',

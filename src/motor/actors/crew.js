@@ -74,7 +74,7 @@ export class Crew {
     this.active = s.to; to.played = true; this.switches++;
     const ch = get('characters', s.to);
     this.vignette = s.fresh && ch && ch.vignette ? { who: s.to, t: 0, ...ch.vignette } : null;
-    BUS.emit('switch', { from: s.from, to: s.to });
+    BUS.emit('switch', { from: s.from, to: s.to, camera: true });   // (camera: the switch camera's, not a possession)
   }
   /** control passes to id at once (a mission's setup, a load): no switch camera, no vignette */
   possess(id) {

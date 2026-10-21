@@ -31,9 +31,10 @@ const giverAt = (city, spec) => { const g = spec.giver || {}, gang = g.phone && 
 
 export class Career {
   /** o: { app, world (the play scene's W), save (the save's data, normalized: the scene's own, its respect the gangs'
-   *  too), saves (a SaveStore), bot } */
+   *  too), saves (a SaveStore), bot, demo (the attract mode's: the reels its bot plays, no offers, no random events, no
+   *  hold-ups, no cards, nothing ever written) } */
   constructor(o) {
-    this.app = o.app; this.W = o.world; this.save = o.save || normalizeSave(blankSave()); this.saves = o.saves || makeSaves();
+    this.app = o.app; this.W = o.world; this.save = o.save || normalizeSave(blankSave()); this.saves = o.saves || makeSaves(); this.demo = !!o.demo;
     const W = this.W, fund = { get: () => W.crew.fund, add: (n, why) => { W.crew.fund = Math.max(0, W.crew.fund + n); BUS.emit('cash', { amount: n, reason: why }); } };
     this.econ = new Economy({ save: this.save, fund });
     this.R = new MissionRuntime({ world: () => W, save: this.save, onEnd: r => this._ended(r) });
@@ -56,6 +57,7 @@ export class Career {
     if (o.loaded) this._apply(S);
     for (const u of this.unsub) u();
     this.unsub = [BUS.on('busted', () => { if (this.R.state === 'running') this.R.fail('busted'); }, 'scene')];
+    if (this.demo) return;   // (the attract mode: its director starts the reels)
     if (o.mission) {   // (#mission/<id>/<stage>: an unknown one is said, and free roam goes on)
       const act = !get('missions', o.mission) && !!get('activities', o.mission);
       if (!act && !get('missions', o.mission)) console.warn('MOTOR: #mission/' + o.mission + ': no such mission or activity');
@@ -64,6 +66,9 @@ export class Career {
     else if (o.newGame) { const intro = all('missions').find(m => m.giver && m.giver.intro && !S.missions.done.includes(m.id)); if (intro) this.startMission(intro.id); }
   }
   dispose() { for (const u of this.unsub) u(); this.unsub = []; if (this.R.active) this.R.quit('scene'); if (this.events.active) this.events.R.quit('scene'); if (this.holdups) this.holdups.dispose(); if (this.bot) this.bot.dispose(); }
+  /** the attract mode's: a reel (def('reels')) played by the bot, or the one playing stopped */
+  startReel(id) { this.card = null; this.R.start(id, { reel: true }); }
+  stopReel() { if (this.R.active) this.R.quit('cut'); }
   /** start a mission or an activity (o.activity) by id, at o.stage, at o.level */
   startMission(id, o = {}) {
     if (this.events.active) this.events.R.quit('busy');
@@ -97,6 +102,7 @@ export class Career {
     if (this.bot && this.R.state === 'running' && !ctx.busy && !ctx.down) { const B = this.bot.update(dt, p, this.R, { t: W.life ? W.life.t : 0, pedsNear: W.life ? (x, y, r) => W.life.pedsNear(x, y, r) : null, wet: W.weather.wet, wanted: W.wanted(), police: W.life && W.life.police, inside: ctx.inside, heat: W.combat && W.combat.fire ? (x, y) => W.combat.fire.heatAt(x, y) : null, respray: this._respray() }); if (this.padMode) this.botI = B; else I = B; }
     if (this.card) I = clearIntent(I);   // (the card's own input is the screens': MOTOR's step wrapper gave it first)
     this.R.update(dt);   // (WRECKED or NABBED fails the job at once; JOB BLOWN waits for the card)
+    if (this.demo) { const v = p.seat && p.seat.vehicle, st = this.stunts.update(dt, v && v.driver === p ? v : null); if (st && st.ok) this.pop('STUNT  ' + st.name.toUpperCase(), st.score + ' PTS', '#5af0ff'); return I; }   // (the attract mode: its director sees a reel's end; a stunt still shows)
     if (this.R.state === 'failed' && !ctx.down && !this.card) this._blown();
     if (this.R.state === 'passed' && !this.card) this._jobDone();
     if (this.R.choosing && !this.card && !this.R.picked) this._choice();
@@ -160,6 +166,7 @@ export class Career {
   pop(title, line, color = '#ffe066') { this.pops.push({ title, line, color, t: 2.6 }); if (this.pops.length > 3) this.pops.shift(); }
   // ---- the run's ends
   _ended(r) {
+    if (this.demo) return;
     if (r.passed && (r.kind === 'mission' || (get('activities', r.id) || {}).kind === 'job') && setting(this.app.game, 'autosave', true)) this.write('auto');   // (the autosave: after missions and jobs, PLAN.md 8.19; Settings, Game, can turn it off)
   }
   _eventEnded(r) { if (r.passed) { const c = r.rewards && r.rewards.cash; this.pop((r.title || 'NICE').toUpperCase(), c ? '+$' + c : '', '#7aff8a'); } }
@@ -302,6 +309,7 @@ export class Career {
   saveScreen() { this.app.ui.screens.open(slotsScreen(this.app, { mode: 'save', saves: this.saves, onSave: slot => this.write(slot, true) })); }
   /** write the save to a slot (toast: say so) */
   write(slot, toast = false) {
+    if (this.demo) return { ok: false, reason: 'the demo' };   // (the attract mode never writes)
     const r = this.saves.write(slot, this.snapshot()); if (r.ok) BUS.emit('save', { slot });
     if (toast) this.pop(r.ok ? 'GAME SAVED' : 'NOT SAVED', r.ok ? 'SLOT ' + slot : (r.reason || '').toUpperCase(), r.ok ? '#7af0ff' : '#ff5a4a');
     return r;
@@ -357,13 +365,13 @@ export class Career {
    *  default, the speaker's name in colour), the pops, a hold-up's bar, the prompt at a door (o.blocked: another's) */
   hud(P, o = {}) {
     const R = this.R, t = this.W.game.real || 0, L = hudLayout(P), cx = P.W / 2, fw = footWidth(P);
-    if (R.state === 'running' && R.objective && !this.card) {   // (on a band of its own: over a busy street it had blurred into the scene)
+    if (R.state === 'running' && R.objective && !this.card && !this.demo) {   // (on a band of its own: over a busy street it had blurred into the scene)
       const rows = wrapLines(P, R.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map(r => P.width(r))) + 14), y = L.sy1 - 78;
       P.fill(cx - bw / 2, y - 3, bw, rows.length * 10 + 5, '#05030c', .6);
       rows.forEach((r, i) => P.text(r, cx, y + i * 10, '#f0ecff', { align: 'center' }));
     }
-    if (R.timer && R.state === 'running') { const s = Math.ceil(R.timer.left), txt = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; P.text((R.timer.label ? R.timer.label + ' ' : '') + txt, L.timer[0], L.timer[1], s <= 10 && Math.floor(t * 3) % 2 ? '#ff5a4a' : '#ffe066', { align: 'right', scale: 2 }); }
-    if (R.course && R.state === 'running') P.text(`CHECKPOINT ${R.checkpoint + 1 + R.lap * R.course.length}/${R.course.length * (R.laps || 1)}`, L.timer[0], L.timer[1] + (R.timer ? 18 : 0), '#5af0ff', { align: 'right' });
+    if (R.timer && R.state === 'running' && !this.demo) { const s = Math.ceil(R.timer.left), txt = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; P.text((R.timer.label ? R.timer.label + ' ' : '') + txt, L.timer[0], L.timer[1], s <= 10 && Math.floor(t * 3) % 2 ? '#ff5a4a' : '#ffe066', { align: 'right', scale: 2 }); }
+    if (R.course && R.state === 'running' && !this.demo) P.text(`CHECKPOINT ${R.checkpoint + 1 + R.lap * R.course.length}/${R.course.length * (R.laps || 1)}`, L.timer[0], L.timer[1] + (R.timer ? 18 : 0), '#5af0ff', { align: 'right' });
     const Ls = R.lines || this.events.R.lines; if (Ls && Ls.list[Ls.i] && setting(this.app.game, 'subtitles', true)) drawSubtitle(P, Ls.name, Ls.color, Ls.list[Ls.i], L.sy1 - 48);
     this.pops.forEach((q, i) => { const y = L.sy0 + 54 + i * 30, a = Math.min(1, q.t * 2), big = /^[+-]\$?[\d,]+$/.test(q.line || ''); P.g.globalAlpha = a; P.text(q.title, cx, y, q.color, { align: 'center' }); if (q.line) P.text(q.line, cx, y + 10, big ? (q.line[0] === '-' ? '#ff8a5a' : '#7aff8a') : '#f0ecff', { align: 'center', scale: big ? 2 : 1 }); P.g.globalAlpha = 1; });   // (a sum of money: a big number)
     const hp = this.holdups && this.holdups.progress(); if (hp) P.holdPrompt('HOLD {onFoot:aim} ON THE CLERK', cx + 9, L.sy1 - 100, hp.t, { align: 'center', color: '#ff8a5a' });   // (the hold-up: the ring fills while the gun stays on them)
