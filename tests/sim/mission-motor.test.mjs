@@ -197,3 +197,16 @@ test('a police car whose crew is out on foot is parked to the traffic: drivers g
   u.car.brain.cause = 'queue';   // (whatever it last stopped for)
   assert.equal(other.brain._queued(u.car.v), false, 'not a queue to wait in');
 });
+
+test('a leashed enemy gives up past its leash from where it was put and walks back; a fresh hurt turns it again (D22)', async () => {
+  const g = await world(), { R, P } = g;
+  const m = g.fixture('fx_leash', mm => { const q = mm.player; mm.spawn.ped('saint-grunt', [q.x + 420, q.y], { tag: 'b', role: 'enemy', attack: true, leash: 150, weapons: ['fists'] }); });
+  const b = m.one('b'), e = R.actors.entry(b), home = [b.x, b.y], far = () => Math.hypot(b.x - home[0], b.y - home[1]);
+  assert.ok(e.alerted, 'it comes for the player');
+  let most = 0; for (let t = 0; t < 8; t += .1) { g.game.advance(.1); most = Math.max(most, far()); }
+  assert.ok(most > 120 && most < 200, 'it came, as far as its leash (' + Math.round(most) + ' u)');
+  g.game.advance(10);
+  assert.ok(far() < 24 && !e.alerted, 'back at its post, calm (' + Math.round(far()) + ' u)');
+  b.vitals.hit({ amount: 5, kind: 'test' }); g.game.advance(.2);
+  assert.ok(e.alerted, 'hurt: it turns again'); assert.ok(P());
+});

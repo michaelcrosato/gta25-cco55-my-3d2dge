@@ -171,7 +171,7 @@ export class AutoPlayer {
   _drive(dt, p, v, w) {
     const g = this.goal, level = g.z == null || Math.abs((v.z || 0) - g.z) < 24, d = Math.hypot(g.x - v.x, g.y - v.y) + (level ? 0 : 400); this._tries = 0; this._bfails = 0;   // (a goal on a deck: not there from the road under it)
     if (v.driver !== p) { this.state = 'exit'; this.I.tap.interact = true; return this.I; }   // (a passenger seat: out)
-    if (g.stay && d < Math.max(TUNE.autoArrive * 2, (g.radius || 0) * .6)) { this.state = 'arrived'; this._dropBrain(); const I = clearIntent(this.I); I.brake = 1; return I; }   // (there, seated: it stops)
+    if (g.stay && d < Math.max(TUNE.autoArrive * 2, (g.radius || 0) * .6)) { this.state = 'arrived'; this._dropBrain(); const I = clearIntent(this.I); if (v.speed > 2 && this._fwd(v)) I.brake = 1; else if (v.speed > 2) I.throttle = 1; else I.down.handbrake = true; return I; }   // (there, seated: it stops)
     if (this.esc) return this._escape(dt, v);
     if (!this.brain || this.brain.v !== v) {
       this._dropBrain();

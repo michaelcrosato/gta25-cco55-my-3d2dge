@@ -108,7 +108,12 @@ export class MissionBot {
       default: return this._idle(I, v);
     }
   }
-  _idle(I, v) { if (v && v.speed > 4) I.brake = 1; return I; }
+  _idle(I, v) {
+    if (!v) return I;
+    const b = v.body, u = b ? b.vx * Math.cos(b.heading) + b.vy * Math.sin(b.heading) : 0;   // (its speed along its nose: < 0 rolling back)
+    if (u > 4) I.brake = 1; else if (u < -4) I.throttle = 1; else I.down.handbrake = true;   // (a brake held rolling back, or stopped, drives it backwards: body.js)
+    return I;
+  }
   // on foot away from a point (a car about to blow), at a run
   _away(x, y, p) { const I = clearIntent(this.I), d = Math.hypot(p.x - x, p.y - y) || 1; I.move[0] = (p.x - x) / d; I.move[1] = (p.y - y) / d; I.down.sprint = true; return I; }
   _out(v) { const I = clearIntent(this.I); if (v.speed > 6) { I.brake = 1; return I; } I.tap.interact = true; I.down.interact = true; return I; }
@@ -163,7 +168,7 @@ export class MissionBot {
     const truck = R.actors.tagged(h.tow).find(alive) || (p.seat && p.seat.vehicle && p.seat.vehicle.def.tool === 'hook' ? p.seat.vehicle : null), v = p.seat && p.seat.vehicle;
     if (!truck) return clearIntent(this.I);
     if (v !== truck) { this.tow = null; return this._board(dt, p, truck, w); }
-    if (car.towedBy === truck) { this.tow = null; return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: 'careful', radius: 50, z: h.to[2] }, w); }
+    if (car.towedBy === truck) { this.tow = null; return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: 'careful', radius: 50, z: h.to[2], hold: true }, w); }
     const T = this.tow && this.tow.car === car ? this.tow : (this.tow = { car, phase: 'stage', end: this._towEnd(car, truck), t: 0, n: 0, best: 1e9 });
     const e = T.end, dir = [Math.cos(e.h), Math.sin(e.h)], E = car.toWorld(e.k * car.hl, 0), off = truck.hl + 60, S = [E[0] + dir[0] * off, E[1] + dir[1] * off];
     const hook = truck.model.hook || [-truck.hl - 4, 0], H = truck.toWorld(hook[0], hook[1]), dH = Math.hypot(H[0] - E[0], H[1] - E[1]), I = clearIntent(this.I);
@@ -193,7 +198,7 @@ export class MissionBot {
       const E = car.toWorld(e.k * car.hl, 0), c = Math.cos(e.h), s = Math.sin(e.h), at = d => [E[0] + c * d, E[1] + s * d];
       for (let d = truck.hl * .5; d <= truck.hl * 2 + 60; d += 12) {
         const [x, y] = at(d); if (blockedSpot(this.city, x, y, e.h, 8, truck.hw)) return false;
-        if (this.fleet.near(x, y, 40).some(o => o !== car && o !== truck && o.body && boxDistance(o, x, y) < truck.hw + 3)) return false;
+        if (this.fleet.near(x, y, 40).some(o => o !== car && o !== truck && o.body && o.speed < 15 && boxDistance(o, x, y) < truck.hw + 3)) return false;   // (parked: traffic going by is gone in a moment)
       }
       return true;
     };
@@ -329,9 +334,15 @@ export class MissionBot {
     if (!p.crouching) { this.crouchT -= dt; if (this.crouchT <= 0) { I.tap.crouch = true; I.down.crouch = true; this.crouchT = .5; } return I; }
     // a guard close with its back turned: taken down (the scene offers it; the bot presses attack)
     if ((run && run.takedownFor && run.takedownFor(p)) || (!run && R.actors.takedownFor(p))) { I.tap.attack = true; I.down.attack = true; return I; }
-    // indoors, a guard uneasy (noticing, searching): wait where it stands (at cover). Outdoors a guard that has seen us
-    // fights (it has no unease): fought back
-    if (run && run.guards && run.guards.some(g => g.mind && g.mind.state !== 'calm' && g.mind.state !== 'down' && !g.down && !g.ped.dead)) return I;   // (a dead guard's unease is stale)
+    // indoors, a guard uneasy (noticing, searching): wait where it stands (at cover), or, in its sight, back off along
+    // the way it came, out of it. Outdoors a guard that has seen us fights (it has no unease): fought back
+    const uneasy = run && run.guards ? run.guards.filter(g => g.mind && g.mind.state !== 'calm' && g.mind.state !== 'down' && !g.down && !g.ped.dead) : [];   // (a dead guard's unease is stale)
+    if (uneasy.length) {
+      if (!uneasy.some(g => g.sees)) return I;
+      const b = path[Math.max(0, this.si - 1)], bx = b[0] - p.x, by = b[1] - p.y, bl = Math.hypot(bx, by);
+      if (bl > 6) { I.move[0] = bx / bl * .6; I.move[1] = by / bl * .6; } else if (this.si > 0) this.si--;
+      return I;
+    }
     const foe = !run && R.actors.list.find(e => e.role === 'guard' && e.alerted && !e.a.dead && !e.down && !e.a.out && Math.hypot(e.a.x - p.x, e.a.y - p.y) < 320);
     if (foe) return this._fight(dt, p, foe.a, w);
     while (this.si < path.length - 1 && Math.hypot(path[this.si][0] - p.x, path[this.si][1] - p.y) < 10) this.si++;
