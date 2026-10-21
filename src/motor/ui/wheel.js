@@ -2,7 +2,7 @@
 // component. Ten-foot and controller-first: big slots round a ring, the left stick (or WASD, or the mouse) points at one,
 // and letting go of the button that opened it picks it; d-pad and arrow taps step round it. The game slows while it is
 // open (TUNE.wheelSlow, the scene applies it) and the slot under the stick shows its name and detail in the middle.
-//   wheel.show(items, selectedIndex)  ·  wheel.update(dt, { dir: [x, y], step: -1 | 0 | 1 })  ·  wheel.draw(g, W, H)
+//   wheel.show(items, selectedIndex)  ·  wheel.update(dt, { dir: [x, y], step: -1 | 0 | 1 })  ·  wheel.draw(pen) (the UI layer)
 //   item: { id, label, sub, color, disabled, angle (its own place on the ring), icon(g, x, y, r, selected) }
 import { E } from '../engine.js';
 import { knob } from '../core/tune.js';
@@ -31,10 +31,10 @@ export class Wheel {
       this.sel = best;
     } else if (o.step) this.sel = (this.sel + o.step + n) % n;
   }
-  /** draw into the HUD overlay of a W x H screen: a dimmed frame, the ring of slots and the selected one's name */
-  draw(g, W, H) {
+  /** draw on the UI layer (a Pen): a dimmed frame, the ring of slots and the selected one's name, in the 5 x 7 font */
+  draw(P) {
     if (!this.open) return;
-    const n = this.items.length, cx = W / 2, cy = H / 2 + 4, R = Math.min(W, H) * .34, sr = Math.max(16, Math.min(28, R * 2.6 / Math.max(n, 3))), k = Math.min(1, this.t / .08);
+    const g = P.g, W = P.W, H = P.H, n = this.items.length, cx = W / 2, cy = H / 2 + 4, R = Math.min(W, H) * .34, sr = Math.max(16, Math.min(28, R * 2.6 / Math.max(n, 3))), k = Math.min(1, this.t / .08);
     g.save(); g.globalAlpha = .55 * k; g.fillStyle = '#05030c'; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
     E.px.disc(g, cx, cy, R + sr + 6, '#100c1c'); E.px.disc(g, cx, cy, R - sr - 4, '#1a1428');
     for (let i = 0; i < n; i++) {
@@ -42,15 +42,15 @@ export class Wheel {
       E.px.disc(g, x, y, r + 2, on ? (it.color || '#ffe066') : '#3a3450');
       E.px.disc(g, x, y, r, it.disabled ? '#16121e' : on ? '#2e2440' : '#221c30');
       if (it.icon && !it.disabled) it.icon(g, x, y, r, on);
-      else E.font.text(g, (it.short || it.label || '').toUpperCase(), x, y - 3, it.disabled ? '#4a4060' : '#e8e0ff', { align: 'center', font: 'tiny', outline: false });
+      else { const l = (it.short || it.label || '').toUpperCase(), t = P.width(l) <= r * 2 - 4 ? l : l.slice(0, 3); P.text(t, x, y - 3, it.disabled ? '#4a4060' : '#e8e0ff', { align: 'center', outline: false }); }
     }
     const it = this.current;
-    if (this.title) E.font.text(g, this.title, cx, cy + 18, '#8a80a8', { align: 'center', font: 'tiny', outline: '#05030c' });
+    if (this.title) P.text(this.title, cx, cy + 20, '#8a80a8', { align: 'center' });
     if (it) {
-      E.font.text(g, (it.label || '').toUpperCase(), cx, cy - 10, it.disabled ? '#6a6080' : (it.color || '#ffe066'), { align: 'center', scale: 1, outline: '#05030c' });
-      if (it.sub) E.font.text(g, it.sub, cx, cy + 3, '#d8d0f0', { align: 'center', outline: '#05030c' });
-      else if (it.disabled) E.font.text(g, 'EMPTY', cx, cy + 3, '#6a6080', { align: 'center', font: 'tiny', outline: '#05030c' });
+      P.text((it.label || '').toUpperCase(), cx, cy - 12, it.disabled ? '#6a6080' : (it.color || '#ffe066'), { align: 'center' });
+      if (it.sub) P.text(it.sub, cx, cy + 2, '#d8d0f0', { align: 'center' });
+      else if (it.disabled) P.text('EMPTY', cx, cy + 2, '#6a6080', { align: 'center' });
     }
-    g.restore(); g._c = null;
+    g.restore(); g._c = null; E.px.reset(g);
   }
 }

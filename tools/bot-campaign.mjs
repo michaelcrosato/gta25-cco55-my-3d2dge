@@ -122,7 +122,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   const owned = id => S().properties.some(q => q.id === id);
   const property = pr => {
     const t0 = t, q = city.poi(pr.poi); teleport(q.x, q.y); walk(q.x, q.y, { secs: 60, until: () => !!C().prompt });
-    if (C().prompt) { press(); run(.5); if (C().card && C().card.id === 'confirm') { C().card.items[0].act(); run(.5); } }
+    if (C().prompt) { press(); run(.5); if (C().card && C().card.id === 'confirm') { C().card.items.find(q => /^BUY/.test(q.label)).act(); run(.5); } }
     const ok = owned(pr.id); steps.push({ what: 'property', id: pr.id, ok, secs: Math.round(t - t0), why: ok ? '' : C().prompt ? 'not bought' : 'no prompt' }); say(`property ${pr.id}: ${ok ? 'bought' : 'NOT bought'}`);
     return ok;
   };

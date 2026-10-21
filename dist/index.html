@@ -9923,6 +9923,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var motor_exports = {};
   __export(motor_exports, {
     ABILITIES: () => ABILITIES,
+    ACTION_LABELS: () => ACTION_LABELS,
     ASSIST: () => ASSIST,
     Ability: () => Ability,
     Activity: () => Activity,
@@ -9943,6 +9944,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     CLASSES: () => CLASSES,
     COMPLETION_KINDS: () => COMPLETION_KINDS,
     CONFIRM_ABOVE: () => CONFIRM_ABOVE,
+    Cards: () => Cards,
     CityLife: () => CityLife,
     CityMap: () => CityMap,
     CityRenderer: () => CityRenderer,
@@ -9955,6 +9957,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     CutAway: () => CutAway,
     DEEDS: () => DEEDS,
     DEFAULT_BINDINGS: () => DEFAULT_BINDINGS,
+    DIFFICULTY: () => DIFFICULTY,
     DRIFT: () => DRIFT,
     Damage: () => Damage,
     Deck: () => Deck,
@@ -9977,6 +9980,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     HANDLING: () => HANDLING,
     HELI_HANDLING: () => HELI_HANDLING,
     HINTS: () => HINTS,
+    HOLDS: () => HOLDS,
     HeliBody: () => HeliBody,
     Holdups: () => Holdups,
     HumanController: () => HumanController,
@@ -9986,34 +9990,45 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     Inventory: () => Inventory,
     Junctions: () => Junctions,
     LANES: () => LANES,
+    List: () => List,
+    MARKERS: () => MARKERS,
     MOVE_PENALTY: () => MOVE_PENALTY,
     MissionActors: () => MissionActors,
     MissionBot: () => MissionBot,
     MissionContext: () => MissionContext,
     MissionRuntime: () => MissionRuntime,
+    Onboarding: () => Onboarding,
+    PAGE: () => PAGE,
     PALETTE: () => PALETTE,
     PART_ROLES: () => ROLES,
     PICKUP_KINDS: () => PICKUP_KINDS,
     PROJECTILES: () => PROJECTILES,
+    PROMPTS: () => PROMPTS,
     PROP_MODELS: () => PROP_MODELS,
     PadPilot: () => PadPilot,
     Ped: () => Ped,
     PedBrain: () => PedBrain,
     PedRig: () => PedRig,
+    Pen: () => Pen,
     Pickups: () => Pickups,
     Police: () => Police,
     PursuitDriver: () => PursuitDriver,
+    REBIND: () => REBIND,
     RIG_BUILDS: () => RIG_BUILDS,
     RNG: () => RNG,
     ROAD_KINDS: () => ROAD_KINDS,
+    ROW: () => ROW,
     Radar: () => Radar,
     RailLine: () => RailLine,
     RoadGraph: () => RoadGraph,
+    SAFE: () => SAFE,
+    SETTING_TABS: () => SETTING_TABS,
     SLOTS: () => SLOTS,
     STAT_NAMES: () => STAT_NAMES,
     SURFACES: () => SURFACES,
     SURFACE_GRIP: () => SURFACE_GRIP,
     SaveStore: () => SaveStore,
+    Screens: () => Screens,
     Shots: () => Shots,
     Sidewalks: () => Sidewalks,
     Spans: () => Spans,
@@ -10027,9 +10042,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     TUNE: () => TUNE,
     TURN_R: () => TURN_R,
     TURN_SPEED: () => TURN_SPEED,
+    Tabs: () => Tabs,
     TowJoint: () => TowJoint,
     Traffic: () => Traffic,
     Train: () => Train,
+    UI: () => UI,
+    UILayer: () => UILayer,
+    UIRecord: () => UIRecord,
     VEHICLE_ROLES: () => ROLES2,
     Vehicle: () => Vehicle,
     VehicleBody: () => VehicleBody,
@@ -10046,6 +10065,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     Wheel: () => Wheel,
     WorldClock: () => WorldClock,
     ZONES: () => ZONES,
+    actionLabel: () => actionLabel,
     all: () => all,
     amberLeft: () => amberLeft,
     amountOf: () => amountOf,
@@ -10064,12 +10084,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     checkHint: () => checkHint,
     checkModel: () => checkModel,
     circleObb: () => circleObb,
+    cityImage: () => cityImage,
     classOf: () => classOf,
     clearIntent: () => clearIntent,
     codeFor: () => codeFor,
     collideCars: () => collideCars,
     collidePairs: () => collidePairs,
     completion: () => completion,
+    confirmScreen: () => confirmScreen,
     countOf: () => countOf,
     createApp: () => createApp,
     curbNear: () => curbNear,
@@ -10081,8 +10103,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     def: () => def,
     defActivity: () => defActivity,
     defMission: () => defMission,
+    defineSettings: () => defineSettings,
+    deviceOf: () => deviceOf,
+    docScreen: () => docScreen,
     doorOf: () => doorOf,
     drawAimMarks: () => drawAimMarks,
+    drawBlip: () => drawBlip,
     drawBoxModel: () => drawBoxModel,
     drawDeckCell: () => drawDeckCell,
     drawFistIcon: () => drawFistIcon,
@@ -10090,7 +10116,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     drawLeaf: () => drawLeaf,
     drawPedHud: () => drawPedHud,
     drawPrompt: () => drawPrompt,
+    drawScreen: () => drawScreen,
     drawSign: () => drawSign,
+    drawSubtitle: () => drawSubtitle,
     drawTrain: () => drawTrain,
     drawVehicle: () => drawVehicle,
     drawVehicleHud: () => drawVehicleHud,
@@ -10100,14 +10128,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     exitFor: () => exitFor,
     expose: () => expose,
     flickLock: () => flickLock,
+    footWidth: () => footWidth,
     get: () => get,
     glyphSet: () => glyphSet,
     glyphWidth: () => glyphWidth,
     grade: () => grade,
+    guideScreen: () => guideScreen,
     handle: () => handle,
     handlingChecks: () => handlingChecks,
     hash32: () => hash32,
     heliParts: () => heliParts,
+    hudLayout: () => hudLayout,
     inReach: () => inReach,
     indoorSky: () => indoorSky,
     installHandle: () => installHandle,
@@ -10118,10 +10149,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     knobs: () => knobs,
     laneNear: () => laneNear,
     laneSpot: () => laneSpot,
+    layoutScreen: () => layoutScreen,
     lightFor: () => lightFor,
     losClear: () => losClear,
     makeBody: () => makeBody,
     makeIntent: () => makeIntent,
+    mapPage: () => mapPage,
+    markerColor: () => markerColor,
     measureDps: () => measureDps,
     measureHandling: () => measureHandling,
     memoryBackend: () => memoryBackend,
@@ -10142,19 +10176,27 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     pointOf: () => pointOf,
     promptWidth: () => promptWidth,
     readLinks: () => readLinks,
+    rebindScreen: () => rebindScreen,
     resetActorIds: () => resetActorIds,
+    resetSettings: () => resetSettings,
     roadsOf: () => roadsOf,
     route: () => route,
     sections: () => sections,
+    setting: () => setting,
+    settingRows: () => settingRows,
+    settingsScreen: () => settingsScreen,
     shape: () => shape,
     shotFrom: () => shotFrom,
     signalAt: () => signalAt,
     skyAt: () => skyAt,
+    slotsScreen: () => slotsScreen,
     spawnFleet: () => spawnFleet,
     standInCity: () => standInCity,
     stationLabel: () => stationLabel,
     sustainedDps: () => sustainedDps,
+    tabbedScreen: () => tabbedScreen,
     tapButton: () => tapButton,
+    toggled: () => toggled,
     trainParts: () => trainParts,
     traitsOf: () => traitsOf,
     truckParts: () => truckParts,
@@ -10165,6 +10207,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     tuningMarkdown: () => tuningMarkdown,
     turnCircle: () => turnCircle,
     turnSpeed: () => turnSpeed,
+    uiFrame: () => uiFrame,
     validateCity: () => validateCity,
     validateInterior: () => validateInterior,
     vanParts: () => vanParts,
@@ -10172,6 +10215,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     vehicleModel: () => vehicleModel,
     weaponModel: () => weaponModel,
     wheelPointer: () => wheelPointer,
+    wrapLines: () => wrapLines,
     wrapScenes: () => wrapScenes
   });
 
@@ -10517,7 +10561,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var SaveStore = class {
     /** o: { game, schema (the current version), blank() (a new save), normalize(data) (fills and checks every field),
      *  migrations ({ n: data -> data at n + 1 }), slots (default ['1', '2', '3', 'auto']), backend (default: the
-     *  browser's storage) } */
+     *  browser's storage), summary(data) (what list() adds for the load screen) } */
     constructor(o) {
       Object.assign(this, { slots: ["1", "2", "3", "auto"], migrations: {}, normalize: (d) => d, locked: false }, o);
       this.backend = o.backend || localBackend();
@@ -10565,7 +10609,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       return { data: this.normalize({ ...d, schema: this.schema, game: this.game }), error: null, migrated: from < this.schema ? from : void 0 };
     }
-    /** the slots that hold a save: [{ slot, label, savedAt, playtime }] */
+    /** the slots that hold a save: [{ slot, label, savedAt, playtime, ...summary(data) }] (o.summary: what the load
+     *  screen's cards show besides, the game's own) */
     list() {
       const out = [];
       for (const s of this.slots) {
@@ -10573,7 +10618,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (r7 === null || r7 === void 0) continue;
         try {
           const d = JSON.parse(r7);
-          out.push({ slot: s, label: d.label || "", savedAt: d.savedAt || 0, playtime: d.playtime || 0 });
+          out.push({ slot: s, label: d.label || "", savedAt: d.savedAt || 0, playtime: d.playtime || 0, ...this.summary ? this.summary(d) : {} });
         } catch (e) {
           out.push({ slot: s, label: "(damaged)", savedAt: 0, playtime: 0 });
         }
@@ -10813,13 +10858,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this._isoTag = tag;
       g.save();
       g.imageSmoothingEnabled = false;
-      let drawn = 0, baked = 0;
+      let drawn = 0, baked2 = 0;
       for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
         const cv = this.canvas(i, j), c = cv && this.chunks.get(this._key(i, j));
         if (c) {
-          if ((!c.iso || c.iso.tag !== tag) && this._still >= 2 && baked < ISO_BAKES) {
+          if ((!c.iso || c.iso.tag !== tag) && this._still >= 2 && baked2 < ISO_BAKES) {
             c.iso = this._project(c, v, tag);
-            baked++;
+            baked2++;
           }
           if (c.iso && c.iso.tag === tag) {
             g.setTransform(1, 0, 0, 1, 0, 0);
@@ -10841,7 +10886,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       g.restore();
       g._c = null;
       this.stats.drawn = drawn;
-      this.stats.projected = baked;
+      this.stats.projected = baked2;
     }
     // a chunk as ISO's view v projects it, at its own whole-pixel place: the same pixels its affine blit would put down
     // (the camera's offset is whole pixels), kept until the projection changes
@@ -11828,7 +11873,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.globalAlpha = 1;
       g.globalCompositeOperation = "source-over";
-      g.drawImage(this.cv, 0, 0);
+      g.imageSmoothingEnabled = false;
+      if (g.canvas && (g.canvas.width !== this.cv.width || g.canvas.height !== this.cv.height)) g.drawImage(this.cv, 0, 0, g.canvas.width, g.canvas.height);
+      else g.drawImage(this.cv, 0, 0);
       g.restore();
       g._c = null;
     }
@@ -11895,10 +11942,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.bx = null;
       this._dt = 0;
       this.railHold = null;
+      this.sharp = false;
+      this.px = 1;
+      this.baseS = 1;
       views.onChange((now, prev) => {
         if (now === prev) return;
         this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas);
         this.bx = !views.spec || !views.spec.depth ? { t: 0 } : null;
+        this.sharpSync();
       });
       this.side7 = new Side7View({});
       this.top = new TopView({});
@@ -12064,7 +12115,25 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** each simulation step from the scene (o.vehicle: the focus is in one; o.vel: its velocity): MODE 7's Auto-rail
      *  turns the rail to the axis a vehicle has held 1.5 s, through the crossfade (TUNE.autoRail; here, between frames, so
      *  the fade starts from the last one drawn). Presentation only: the simulation never reads it */
+    /** Sharp MODE 7 (Settings, Display, PLAN.md 5.3): while MODE 7 is the view and the player asks for it, the game's
+     *  buffer at the screen's own resolution (the stress test's depthResolution: the framing comes from the field of view,
+     *  so more pixels only sharpen); back to the game's pixel size with the setting off or another view. px: the size a
+     *  pixel of the overlays (marks, signs' glows) is drawn at meanwhile, so they keep their size on screen; baseS: the
+     *  game's own scale (the UI layer keeps it). In the step: a view change, or each update */
+    sharpSync() {
+      const g = this.game, S = g.screen, want = !g.headless && !!S && this.depth === this.side7 && !!(g.settings && g.settings.sharpSide7);
+      if (want === this.sharp) return;
+      if (want) {
+        this.baseS = Math.max(1, Math.floor(S.S));
+        this._res = g.o.res;
+        S.setOptions({ res: null, minW: 1e6, minH: 1e6, maxW: 1e6, maxH: 1e6 });
+      } else S.setOptions({ res: this._res });
+      this.sharp = want;
+      this.px = want ? this.baseS : 1;
+      g.cam.snap = true;
+    }
     update(dt, o = {}) {
+      this.sharpSync();
       const d = this.depth;
       if (d !== this.side7 || this.rig) return;
       if (this.railHold !== null) {
@@ -12294,14 +12363,28 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (o.always) {
         this.marks.push(() => {
           const q = d.proj(x, y, z);
-          if (q) draw(this.r.ctx, q[0], q[1], q[2]);
+          if (q) this._glowAt(this.r.ctx, draw, q);
         });
         return;
       }
       this.items.push({ k: d.depth(x, y) - 0.01, fn: (g) => {
         const q = d.proj(x, y, z);
-        if (q) draw(g, q[0], q[1], q[2]);
+        if (q) this._glowAt(g, draw, q);
       } });
+    }
+    // a glow at its screen point; under Sharp MODE 7 drawn px times over (its pixels the game's size on screen)
+    _glowAt(g, draw, q) {
+      const px = this.px;
+      if (px === 1) {
+        draw(g, q[0], q[1], q[2]);
+        return;
+      }
+      g.save();
+      g.translate(Math.round(q[0]), Math.round(q[1]));
+      g.scale(px, px);
+      draw(g, 0, 0, q[2] / px);
+      g.restore();
+      g._c = null;
     }
     /** a line that shines from a (where it is hidden-tested in ISO, like a glow) to b: a tracer, a zap's arc. draw(g, A,
      *  B, k) gets both screen points and the pixels a unit at a */
@@ -14475,12 +14558,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     menu: {
       ...NAV,
       confirm: ["Pad0", "Enter", "Space"],
-      back: ["Pad1", "Escape", "Backspace"],
+      back: ["Pad1", "Escape", "Backspace", "Mouse2"],
       tabPrev: ["Pad4", "KeyQ"],
       tabNext: ["Pad5", "KeyE"],
-      secondary: ["Pad3"],
-      tertiary: ["Pad2"],
-      close: ["Pad9"]
+      secondary: ["Pad3", "KeyR"],
+      tertiary: ["Pad2", "KeyF"],
+      close: ["Pad9"],
+      zoomIn: ["Pad7", "Equal", "NumpadAdd"],
+      zoomOut: ["Pad6", "Minus", "NumpadSubtract"]
     },
     wheel: { ...NAV, wheel: ["Pad4", "KeyQ"], confirm: ["Pad0", "Enter"], back: ["Pad1", "Escape"] },
     phone: { ...NAV, confirm: ["Pad0", "Enter", "Space"], back: ["Pad1", "Escape", "Backspace", "KeyT"] },
@@ -14848,8 +14933,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     return out;
   }
+  var PROMPTS = { keys: false };
   function deviceOf(input) {
-    return { device: input.lastDevice === "gamepad" ? "gamepad" : "keyboard", style: input.padStyle ? input.padStyle() : "xbox" };
+    return { device: input.lastDevice === "gamepad" && !PROMPTS.keys ? "gamepad" : "keyboard", style: input.padStyle ? input.padStyle() : "xbox" };
   }
   function promptWidth(text, bindings, input) {
     const { device, style } = deviceOf(input);
@@ -14870,13 +14956,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
 
   // src/motor/input/human.js
+  var LATCHED = ["sprint", "aim"];
   var HumanController = class {
-    /** bindings: a Bindings; views: the ViewManager (screen -> world directions); game: for the mouse */
+    /** bindings: a Bindings; views: the ViewManager (screen -> world directions); game: for the mouse. toggles: the actions
+     *  the player toggles instead of holding (ui/settings.js toggled(game): sprint, aim, crouch), set by the scene */
     constructor(bindings, views, game2) {
       this.bindings = bindings;
       this.views = views;
       this.game = game2;
       this.intent = makeIntent();
+      this.toggles = /* @__PURE__ */ new Set(["crouch"]);
+      this.latch = {};
+      this._ctx = null;
     }
     /** fill the intent for this step; context 'onFoot' | 'vehicle'; actor: the possessed one (mouse aim is relative to it) */
     update(context, actor) {
@@ -14886,6 +14977,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         I.down[b] = B2.down(b);
         I.tap[b] = B2.tap(b);
       }
+      if (context !== this._ctx) {
+        this.latch = {};
+        this._ctx = context;
+      }
+      for (const b of LATCHED) if (this.toggles.has(b)) {
+        if (I.tap[b]) this.latch[b] = !this.latch[b];
+        I.down[b] = !!this.latch[b];
+      } else this.latch[b] = false;
+      if (context === "onFoot" && !this.toggles.has("crouch") && actor && actor.crouching !== void 0) I.tap.crouch = !!I.down.crouch !== !!actor.crouching;
       if (context === "vehicle") {
         const [sx] = B2.stick("LS");
         I.steer = sx || (B2.down("right") ? 1 : 0) - (B2.down("left") ? 1 : 0);
@@ -14897,6 +14997,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         I.move[1] = d[1];
       }
       const rs = B2.modifierHeld() ? [0, 0] : B2.stick("RS");
+      if (this.game.input.invertAimY) rs[1] = -rs[1];
       I.aimStick = Math.min(1, Math.hypot(rs[0], rs[1]));
       if (rs[0] || rs[1]) {
         const a = this.views.screenDirToGround(rs[0], rs[1]), l7 = Math.hypot(a[0], a[1]) || 1;
@@ -15970,7 +16071,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const m = this.mover, v = this.vitals, map = w8.map;
       m.climbMax = TUNE.climbMax;
       m.jumpSpeed = TUNE.jumpSpeed;
-      v.damageTaken = this.ability ? this.ability.damageTaken : 1;
+      v.damageTaken = (this.ability ? this.ability.damageTaken : 1) * (this.hurtScale || 1);
       v.update(dt);
       this.flinch = Math.max(0, this.flinch - dt);
       this.inCombat = Math.max(0, this.inCombat - dt);
@@ -30478,10 +30579,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.sel = best;
       } else if (o.step) this.sel = (this.sel + o.step + n) % n;
     }
-    /** draw into the HUD overlay of a W x H screen: a dimmed frame, the ring of slots and the selected one's name */
-    draw(g, W20, H18) {
+    /** draw on the UI layer (a Pen): a dimmed frame, the ring of slots and the selected one's name, in the 5 x 7 font */
+    draw(P17) {
       if (!this.open) return;
-      const n = this.items.length, cx5 = W20 / 2, cy = H18 / 2 + 4, R2 = Math.min(W20, H18) * 0.34, sr = Math.max(16, Math.min(28, R2 * 2.6 / Math.max(n, 3))), k = Math.min(1, this.t / 0.08);
+      const g = P17.g, W20 = P17.W, H18 = P17.H, n = this.items.length, cx5 = W20 / 2, cy = H18 / 2 + 4, R2 = Math.min(W20, H18) * 0.34, sr = Math.max(16, Math.min(28, R2 * 2.6 / Math.max(n, 3))), k = Math.min(1, this.t / 0.08);
       g.save();
       g.globalAlpha = 0.55 * k;
       g.fillStyle = "#05030c";
@@ -30494,17 +30595,21 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         E.px.disc(g, x, y, r7 + 2, on ? it2.color || "#ffe066" : "#3a3450");
         E.px.disc(g, x, y, r7, it2.disabled ? "#16121e" : on ? "#2e2440" : "#221c30");
         if (it2.icon && !it2.disabled) it2.icon(g, x, y, r7, on);
-        else E.font.text(g, (it2.short || it2.label || "").toUpperCase(), x, y - 3, it2.disabled ? "#4a4060" : "#e8e0ff", { align: "center", font: "tiny", outline: false });
+        else {
+          const l7 = (it2.short || it2.label || "").toUpperCase(), t = P17.width(l7) <= r7 * 2 - 4 ? l7 : l7.slice(0, 3);
+          P17.text(t, x, y - 3, it2.disabled ? "#4a4060" : "#e8e0ff", { align: "center", outline: false });
+        }
       }
       const it = this.current;
-      if (this.title) E.font.text(g, this.title, cx5, cy + 18, "#8a80a8", { align: "center", font: "tiny", outline: "#05030c" });
+      if (this.title) P17.text(this.title, cx5, cy + 20, "#8a80a8", { align: "center" });
       if (it) {
-        E.font.text(g, (it.label || "").toUpperCase(), cx5, cy - 10, it.disabled ? "#6a6080" : it.color || "#ffe066", { align: "center", scale: 1, outline: "#05030c" });
-        if (it.sub) E.font.text(g, it.sub, cx5, cy + 3, "#d8d0f0", { align: "center", outline: "#05030c" });
-        else if (it.disabled) E.font.text(g, "EMPTY", cx5, cy + 3, "#6a6080", { align: "center", font: "tiny", outline: "#05030c" });
+        P17.text((it.label || "").toUpperCase(), cx5, cy - 12, it.disabled ? "#6a6080" : it.color || "#ffe066", { align: "center" });
+        if (it.sub) P17.text(it.sub, cx5, cy + 2, "#d8d0f0", { align: "center" });
+        else if (it.disabled) P17.text("EMPTY", cx5, cy + 2, "#6a6080", { align: "center" });
       }
       g.restore();
       g._c = null;
+      E.px.reset(g);
     }
   };
 
@@ -30548,12 +30653,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return { items, sel: Math.max(0, items.findIndex((i) => i.id === inv.current)) };
     }
     /** step (real seconds): open after the hold, point, pick on release. o: { game (for the mouse), blocked (it can't
-     *  open now: a switch, a menu) } */
+     *  open now: a switch, a menu), toggle (a press opens it, the next picks) } */
     update(real, p, o = {}) {
-      const held = this.B.down("wheel", "onFoot") && !o.blocked && p && !p.dead;
+      if (o.toggle) {
+        if (this.B.tap("wheel", "onFoot")) this.latched = !this.latched;
+      } else this.latched = false;
+      const held = (o.toggle ? this.latched : this.B.down("wheel", "onFoot")) && !o.blocked && p && !p.dead;
+      if (!held) this.latched = false;
       if (held) {
         this.hold += real;
-        if (!this.wheel.open && this.hold >= TUNE.wheelHold) {
+        if (!this.wheel.open && (o.toggle || this.hold >= TUNE.wheelHold)) {
           const w8 = this.items(p);
           this.wheel.show(w8.items, w8.sel);
           this.from = null;
@@ -30579,17 +30688,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       return this.wheel.open;
     }
-    draw(g, W20, H18) {
-      this.wheel.draw(g, W20, H18);
+    draw(P17) {
+      this.wheel.draw(P17);
     }
   };
 
   // src/motor/ui/hud.js
   var CORNERS2 = /* @__PURE__ */ new Map();
-  function corner(key, sig, w8, h, draw) {
+  var OUT = "#05030c";
+  function corner(P17, key, sig, w8, h, x, y, draw) {
     let c = CORNERS2.get(key);
     if (!c) {
-      c = { cv: E.mkCanvas(w8, h), sig: null };
+      c = { cv: E.mkCanvas(w8, h), sig: null, texts: [] };
       CORNERS2.set(key, c);
     }
     if (c.cv.width !== w8 || c.cv.height !== h) {
@@ -30601,55 +30711,65 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const g = c.cv.getContext("2d");
       g.clearRect(0, 0, w8, h);
       g.imageSmoothingEnabled = false;
-      draw(g);
+      c.texts = [];
+      draw(g, (s, tx, ty, color, o = {}) => {
+        const r7 = E.font.text(g, s, tx, ty, color, { outline: OUT, ...o }), tw = r7 ? r7.w : E.font.width(s);
+        c.texts.push({ s, x: o.align === "right" ? tx - tw : o.align === "center" ? tx - tw / 2 : tx, y: ty, w: tw, h: 7 });
+      });
       g._c = null;
       c.sig = sig;
     }
-    return c.cv;
+    P17.g.drawImage(c.cv, Math.round(x), Math.round(y));
+    for (const t of c.texts) P17.rec.text(t.s, Math.round(x + t.x), Math.round(y + t.y), t.w, t.h, 1, "normal");
   }
-  function drawPedHud(g, W20, H18, p, o = {}) {
-    const v = p.vitals, a = p.ability, spec = p.inv.spec(), rd = p.inv.rounds();
+  function hudLayout(P17) {
+    const [sx0, sy0, sx1, sy1] = P17.safe, R2 = Math.max(26, Math.min(44, Math.round(P17.H * 0.163)));
+    return { sx0, sy0, sx1, sy1, R: R2, radar: [sx0 + R2 + 3, sy1 - 38 - R2 - 4], bars: [sx0, sy1 - 34], weapon: [sx1, sy0], stars: [sx1, sy0 + 66], timer: [sx1, sy0 + 80] };
+  }
+  function drawPedHud(P17, p, o = {}) {
+    const L16 = hudLayout(P17), v = p.vitals, a = p.ability, spec = p.inv.spec(), rd = p.inv.rounds();
     const low2 = v.health < 25 && Math.floor((E.current ? E.current.real : 0) * 4) % 2;
-    const bars = [Math.round(v.health), Math.round(v.armor), a ? Math.round(a.meter * 92) : -1, a && a.active ? 1 : 0, low2 ? 1 : 0, o.name || "", o.color || ""].join("|");
-    g.drawImage(corner("bars", bars, 200, 40, (cg) => drawBars(cg, 0, 40, p, o, low2)), 0, H18 - 40);
+    const named = !!a && L16.sx0 + 102 + E.font.width(ABILITIES[a.id].name + "  ON") <= P17.W / 2 - 64;
+    const bars = [Math.round(v.health), Math.round(v.armor), a ? Math.round(a.meter * 92) : -1, a && a.active ? 1 : 0, low2 ? 1 : 0, o.name || "", o.color || "", named ? 1 : 0].join("|");
+    corner(P17, "bars", bars, 230, 34, L16.bars[0], L16.bars[1], (g, T15) => {
+      const x = 0, y = 12, w8 = 92, X = E.px;
+      const bar = (yy, frac, col, back) => {
+        X.rect(g, x, yy - 1, w8 + 2, 6, OUT);
+        X.rect(g, x + 1, yy, w8, 4, back);
+        X.rect(g, x + 1, yy, Math.round(w8 * Math.max(0, Math.min(1, frac))), 4, col);
+      };
+      if (o.name) T15(o.name, x, 0, o.color || "#ffe066");
+      bar(y, v.health / 100, low2 ? "#ff3a3a" : "#5ad84a", "#1e3a1a");
+      bar(y + 7, v.armor / 100, "#5ab0ff", "#1a2a3e");
+      if (a) {
+        const on = a.active;
+        bar(y + 14, a.meter, on ? "#ffffff" : o.color || "#ffe066", "#2a2438");
+        if (named) T15(ABILITIES[a.id].name.toUpperCase() + (on ? "  ON" : ""), x + w8 + 8, y + 11, on ? "#ffffff" : o.color || "#ffe066");
+      }
+    });
     const label = !rd ? "" : p.inv.reloading > 0 ? "RELOAD" : spec.mag ? `${rd.mag} / ${Math.max(0, rd.total - rd.mag)}` : `${rd.total}`;
-    g.drawImage(corner("weapon", [spec && spec.id, label].join("|"), 90, 46, (cg) => drawWeaponCorner(cg, 90, p, spec, rd, label)), W20 - 90, 0);
+    corner(P17, "weapon", [spec && spec.id, label].join("|"), 100, 56, L16.weapon[0] - 100, L16.weapon[1], (g, T15) => {
+      const rx6 = 100;
+      if (spec) T15(spec.name.toUpperCase(), rx6, 0, "#c8c0e8", { align: "right" });
+      E.ui.box(g, rx6 - 84, 10, 84, 36, { alpha: 0.6 });
+      if (spec && spec.model) drawWeaponIcon(g, spec.model, rx6 - 42, 26, 2.2);
+      else drawFistIcon(g, rx6 - 42, 26, 2.4);
+      if (label) T15(label, rx6 - 4, 37, p.inv.reloading > 0 ? "#ffd23a" : rd.total ? "#f0ecff" : "#ff5a5a", { align: "right" });
+    });
   }
-  function drawBars(g, W0, H18, p, o, low2) {
-    const x = 10, y = H18 - 26, w8 = 92, P17 = E.px, v = p.vitals;
-    const bar = (yy, frac, col, back) => {
-      P17.rect(g, x - 1, yy - 1, w8 + 2, 6, "#05030c");
-      P17.rect(g, x, yy, w8, 4, back);
-      P17.rect(g, x, yy, Math.round(w8 * Math.max(0, Math.min(1, frac))), 4, col);
-    };
-    bar(y, v.health / 100, low2 ? "#ff3a3a" : "#5ad84a", "#1e3a1a");
-    bar(y + 7, v.armor / 100, "#5ab0ff", "#1a2a3e");
-    if (p.ability) {
-      const a = p.ability, on = a.active;
-      bar(y + 14, a.meter, on ? "#ffffff" : o.color || "#ffe066", "#2a2438");
-      E.font.text(g, ABILITIES[a.id].name + (on ? "  ON" : ""), x + w8 + 6, y + 12, on ? "#ffffff" : o.color || "#ffe066", { font: "tiny", outline: "#05030c" });
-    }
-    if (o.name) E.font.text(g, o.name, x, y - 11, o.color || "#ffe066", { font: "tiny", outline: "#05030c" });
-  }
-  function drawWeaponCorner(g, W20, p, spec, rd, label) {
-    const rx6 = W20 - 10, ry = 22;
-    E.ui.box(g, rx6 - 76, ry - 6, 80, 32, { alpha: 0.6 });
-    if (spec && spec.model) drawWeaponIcon(g, spec.model, rx6 - 38, ry + 8, 2.2);
-    else drawFistIcon(g, rx6 - 38, ry + 8, 2.4);
-    if (label) E.font.text(g, label, rx6 - 4, ry + 16, p.inv.reloading > 0 ? "#ffd23a" : rd.total ? "#f0ecff" : "#ff5a5a", { align: "right", font: "tiny", outline: "#05030c" });
-    if (spec) E.font.text(g, spec.name.toUpperCase(), rx6 - 72, ry - 12, "#c8c0e8", { font: "tiny", outline: "#05030c" });
-  }
-  function drawVehicleHud(g, W20, H18, v, o = {}) {
-    const share = Math.max(0, v.damage.health / v.damage.max), radio = o.radio || "", sig = [v.def.name, Math.round(share * 46), v.mods.nitro, v.nitroT > 0 ? 1 : 0, v.damage.state, radio].join("|");
-    g.drawImage(corner("vehicle", sig, 200, 30, (cg) => {
-      const x = 10, y = 8, w8 = 92, P17 = E.px, col = share > 0.4 ? "#ffb43a" : share > 0.15 ? "#ff7a2a" : "#ff3a3a";
-      E.font.text(cg, v.def.name.toUpperCase(), x, y - 6, "#f0ecff", { font: "tiny", outline: "#05030c" });
-      P17.rect(cg, x - 1, y + 3, w8 + 2, 6, "#05030c");
-      P17.rect(cg, x, y + 4, w8, 4, "#3a2a1a");
-      P17.rect(cg, x, y + 4, Math.round(w8 * share), 4, col);
-      for (let i = 0; i < Math.min(5, v.mods.nitro); i++) P17.rect(cg, x + w8 + 6 + i * 6, y + 4, 4, 4, v.nitroT > 0 && i === 0 ? "#ffffff" : "#5ac8ff");
-      if (radio) E.font.text(cg, radio, x, y + 12, "#c8c0e8", { font: "tiny", outline: "#05030c" });
-    }), o.x || 0, H18 - 76);
+  var mph = (speed) => Math.round(speed / 8 * 2.237);
+  function drawVehicleHud(P17, v, o = {}) {
+    const L16 = hudLayout(P17), share = Math.max(0, v.damage.health / v.damage.max), radio = o.radio || "", speed = o.speedo ? mph(v.speed) + " MPH" : "", sig = [v.def.name, Math.round(share * 46), v.mods.nitro, v.nitroT > 0 ? 1 : 0, v.damage.state, radio, speed].join("|");
+    corner(P17, "vehicle", sig, 150, 34, L16.sx1 - 150, L16.sy1 - 34, (g, T15) => {
+      const w8 = 92, x = 150 - w8 - 2, X = E.px, col = share > 0.4 ? "#ffb43a" : share > 0.15 ? "#ff7a2a" : "#ff3a3a";
+      T15(v.def.name.toUpperCase(), 148, 0, "#f0ecff", { align: "right" });
+      if (speed) T15(speed, 0, 0, "#ffe066");
+      X.rect(g, x - 1, 11, w8 + 2, 6, OUT);
+      X.rect(g, x, 12, w8, 4, "#3a2a1a");
+      X.rect(g, x, 12, Math.round(w8 * share), 4, col);
+      for (let i = 0; i < Math.min(5, v.mods.nitro); i++) X.rect(g, x - 8 - i * 6, 12, 4, 4, v.nitroT > 0 && i === 0 ? "#ffffff" : "#5ac8ff");
+      if (radio) T15(radio, 148, 22, "#c8c0e8", { align: "right" });
+    });
   }
   function drawAimMarks(stage, p, t) {
     if (p.dead) return;
@@ -30657,21 +30777,47 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     if (A.target) {
       const q = A.target, z2 = (q.z || 0) + CHEST + 18, hurt = q.vitals ? 1 - q.vitals.health / 100 : 0;
       stage.glow(q.x, q.y, z2, (g, sx, sy) => {
-        const P17 = E.px, s = 5 + Math.sin(t * 10) * 0.8, c = hurt > 0.6 ? "#ff3a3a" : "#ff8a3a";
-        P17.poly(g, [[sx - s, sy - s * 1.6], [sx + s, sy - s * 1.6], [sx, sy]], "#05030c");
-        P17.poly(g, [[sx - s + 1.5, sy - s * 1.6 + 1], [sx + s - 1.5, sy - s * 1.6 + 1], [sx, sy - 2]], c);
+        const X = E.px, s = 5 + Math.sin(t * 10) * 0.8, c = hurt > 0.6 ? "#ff3a3a" : "#ff8a3a";
+        X.poly(g, [[sx - s, sy - s * 1.6], [sx + s, sy - s * 1.6], [sx, sy]], OUT);
+        X.poly(g, [[sx - s + 1.5, sy - s * 1.6 + 1], [sx + s - 1.5, sy - s * 1.6 + 1], [sx, sy - 2]], c);
       }, { always: true });
       return;
     }
     if (!p.aiming) return;
     const d = 64, x = p.x + A.dir[0] * d, y = p.y + A.dir[1] * d, z = p.z + CHEST;
     stage.glow(x, y, z, (g, sx, sy) => {
-      const P17 = E.px;
-      P17.rect(g, sx - 4, sy, 3, 1, "#f0ecff");
-      P17.rect(g, sx + 2, sy, 3, 1, "#f0ecff");
-      P17.rect(g, sx, sy - 4, 1, 3, "#f0ecff");
-      P17.rect(g, sx, sy + 2, 1, 3, "#f0ecff");
+      const X = E.px;
+      X.rect(g, sx - 4, sy, 3, 1, "#f0ecff");
+      X.rect(g, sx + 2, sy, 3, 1, "#f0ecff");
+      X.rect(g, sx, sy - 4, 1, 3, "#f0ecff");
+      X.rect(g, sx, sy + 2, 1, 3, "#f0ecff");
     }, { always: true });
+  }
+  function footWidth(P17) {
+    const L16 = hudLayout(P17);
+    return Math.max(160, P17.W - 2 * (L16.sx0 + 2 * L16.R + 12));
+  }
+  function drawSubtitle(P17, name, color, line, y) {
+    const w8 = footWidth(P17), head = name ? String(name).toUpperCase() + ":" : "", words = String(line).split(" "), rows = [];
+    let cur = head;
+    for (const word of words) {
+      const t = cur ? cur + " " + word : word;
+      if (P17.width(t) > w8 - 12 && cur) {
+        rows.push(cur);
+        cur = word;
+      } else cur = t;
+    }
+    if (cur) rows.push(cur);
+    const shown = rows.slice(0, 2), bw = Math.min(w8, Math.max(...shown.map((r7) => P17.width(r7))) + 12), cx5 = P17.W / 2;
+    P17.fill(cx5 - bw / 2, y - 3, bw, shown.length * 10 + 5, OUT, 0.72);
+    shown.forEach((r7, i) => {
+      const x0 = Math.round(cx5 - P17.width(r7) / 2), yy = y + i * 10;
+      if (i === 0 && head && r7.startsWith(head)) {
+        P17.text(head, x0, yy, color || "#ffe066");
+        P17.text(r7.slice(head.length), x0 + P17.width(head), yy, "#f0ecff");
+      } else P17.text(r7, x0, yy, "#f0ecff");
+    });
+    return shown.length * 10 + 5;
   }
 
   // src/motor/ui/radar.js
@@ -30696,6 +30842,45 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     pier: "#5e4630",
     rail: "#38323a"
   };
+  var baked = /* @__PURE__ */ new WeakMap();
+  function cityImage(city, turf = []) {
+    let img = baked.get(city);
+    if (!img) {
+      img = bake(city, turf);
+      baked.set(city, img);
+    }
+    return img;
+  }
+  function bake(C4, turf) {
+    const w8 = C4.w, h = C4.h, cv = E.mkCanvas(w8, h), g = cv.getContext("2d"), maxH = Math.max(1, ...Object.values(C4.types || {}).map((t) => t.h || 0));
+    for (let cy = 0; cy < h; cy++) for (let cx5 = 0; cx5 < w8; cx5++) {
+      const id = C4.map.cell(cx5, cy);
+      if (id > 0 && C4.types && C4.types[id]) {
+        const t = C4.types[id];
+        g.fillStyle = E.shade(t.top || "#6a6a74", -0.35 + 0.4 * (t.h || 0) / maxH);
+      } else g.fillStyle = SURF2[C4.surfaceAt(cx5, cy)] || PALETTE.lot && PALETTE.lot.base || "#4a4640";
+      g.fillRect(cx5, cy, 1, 1);
+    }
+    for (const d of C4.decks || []) if (d.kind !== "rail") for (const c of d.cells || []) {
+      g.fillStyle = "#56565e";
+      g.fillRect(c.cx, c.cy, 1, 1);
+    }
+    for (const T15 of turf) {
+      const hoods = new Set(T15.hoods);
+      g.fillStyle = T15.color;
+      for (let cy = 0; cy < h; cy++) for (let cx5 = 0; cx5 < w8; cx5++) {
+        const hd = C4.hoodAt(cx5, cy);
+        if (!hd || !hoods.has(hd.id)) continue;
+        const on = T15.pattern === "dots" ? cx5 % 4 === 0 && cy % 4 === 0 : T15.pattern === "checks" ? (cx5 >> 1) % 3 === 0 && (cy >> 1) % 3 === 0 : (cx5 + cy) % 6 === 0;
+        if (on) {
+          g.globalAlpha = 0.45;
+          g.fillRect(cx5, cy, 1, 1);
+          g.globalAlpha = 1;
+        }
+      }
+    }
+    return cv;
+  }
   var Radar = class {
     /** city: the CityMap; o: { turf: [{ hoods: [ids], color, pattern ('stripes' | 'dots' | 'checks') }], r (radius px) } */
     constructor(city, o = {}) {
@@ -30704,42 +30889,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.r = o.r || 44;
       this.img = null;
     }
-    // the city a pixel a tile: surfaces, buildings (taller lighter), decks, then each gang's turf hatched over its hoods
     _bake() {
-      const C4 = this.city, w8 = C4.w, h = C4.h, cv = E.mkCanvas(w8, h), g = cv.getContext("2d"), maxH = Math.max(1, ...Object.values(C4.types || {}).map((t) => t.h || 0));
-      for (let cy = 0; cy < h; cy++) for (let cx5 = 0; cx5 < w8; cx5++) {
-        const id = C4.map.cell(cx5, cy);
-        if (id > 0 && C4.types && C4.types[id]) {
-          const t = C4.types[id];
-          g.fillStyle = E.shade(t.top || "#6a6a74", -0.35 + 0.4 * (t.h || 0) / maxH);
-        } else g.fillStyle = SURF2[C4.surfaceAt(cx5, cy)] || PALETTE.lot && PALETTE.lot.base || "#4a4640";
-        g.fillRect(cx5, cy, 1, 1);
-      }
-      for (const d of C4.decks || []) if (d.kind !== "rail") for (const c of d.cells || []) {
-        g.fillStyle = "#56565e";
-        g.fillRect(c.cx, c.cy, 1, 1);
-      }
-      for (const T15 of this.turf) {
-        const hoods = new Set(T15.hoods);
-        g.fillStyle = T15.color;
-        for (let cy = 0; cy < h; cy++) for (let cx5 = 0; cx5 < w8; cx5++) {
-          const hd = C4.hoodAt(cx5, cy);
-          if (!hd || !hoods.has(hd.id)) continue;
-          const on = T15.pattern === "dots" ? cx5 % 4 === 0 && cy % 4 === 0 : T15.pattern === "checks" ? (cx5 >> 1) % 3 === 0 && (cy >> 1) % 3 === 0 : (cx5 + cy) % 6 === 0;
-          if (on) {
-            g.globalAlpha = 0.45;
-            g.fillRect(cx5, cy, 1, 1);
-            g.globalAlpha = 1;
-          }
-        }
-      }
-      this.img = cv;
+      this.img = cityImage(this.city, this.turf);
     }
     /** draw it centred at (cx, cy). o: { focus: [x, y], heading (radians: the vehicle's, or null: north-up), player
      *  ({ x, y, z, facing }), police (Police: its eyes, units, Eye and wanted level), blips ([{ x, y, z, shape, color }]),
      *  t (seconds: blinking) } */
-    draw(g, cx5, cy, o = {}) {
+    draw(Pn, cx5, cy, o = {}) {
       if (!this.img) this._bake();
+      const g = Pn.g;
       const R2 = this.r, C4 = this.city, T15 = C4.T, [fx7, fy] = o.focus, range = TUNE.radarRange, k = R2 / range;
       const rot = o.heading === null || o.heading === void 0 ? 0 : -o.heading - Math.PI / 2, cs = Math.cos(rot), sn = Math.sin(rot), t = o.t || 0;
       const at = (x, y) => {
@@ -30761,6 +30919,22 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       g.imageSmoothingEnabled = false;
       g.drawImage(this.img, -fx7 / T15, -fy / T15);
       g.restore();
+      if (o.route && o.route.length > 1) {
+        g.lineJoin = "round";
+        g.lineCap = "round";
+        g.beginPath();
+        o.route.forEach((q, i) => {
+          const [x, y] = at(q[0], q[1]);
+          if (i) g.lineTo(x, y);
+          else g.moveTo(x, y);
+        });
+        g.strokeStyle = "#05030c";
+        g.lineWidth = 4;
+        g.stroke();
+        g.strokeStyle = markerColor(o.routeColor || "#ff5ac8");
+        g.lineWidth = 2;
+        g.stroke();
+      }
       const P17 = o.police, W20 = P17 && P17.wanted;
       if (P17 && W20 && W20.stars && TUNE.radarCones) {
         for (const e of P17.eyes()) {
@@ -30800,16 +30974,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         E.px.poly(g, [[x - 2, y + s * -3], [x + 2, y + s * -3], [x, y + s * -5]], c);
       };
       for (const b of o.blips || []) {
-        const [x, y] = edge(at(b.x, b.y), cx5, cy, R2 - 3, b.edge);
-        blip(g, x, y, b.shape || "dot", b.color || "#ffe066");
-        height(b.z, x, y, b.color || "#ffe066");
+        const [x, y] = edge(at(b.x, b.y), cx5, cy, R2 - 3, b.edge), c = markerColor(b.color || "#ffe066");
+        blip(g, x, y, b.shape || "dot", c);
+        height(b.z, x, y, c);
       }
       if (P17) {
         const blink = Math.floor(t * 4) % 2;
         for (const u of P17.units) {
           const v = u.car.v;
           const [x, y] = edge(at(v.x, v.y), cx5, cy, R2 - 3, true);
-          blip(g, x, y, "square", blink ? "#ff3a3a" : "#3a7aff");
+          blip(g, x, y, "square", markerColor(blink ? "#ff3a3a" : "#3a7aff"));
           height(v.z, x, y, "#f0ecff");
         }
         for (const b of P17.blocks) {
@@ -30845,13 +31019,35 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       g.arc(cx5, cy, R2 + 0.5, 0, Math.PI * 2);
       g.stroke();
       const na = -Math.PI / 2 + rot, nx = cx5 + Math.cos(na) * (R2 + 1), ny = cy + Math.sin(na) * (R2 + 1);
-      E.px.disc(g, nx, ny, 5, "#05030c");
-      E.font.text(g, "N", nx, ny - 3, "#ffe066", { align: "center", font: "tiny" });
+      E.px.disc(g, nx, ny, 6, "#05030c");
+      Pn.text("N", nx + 1, ny - 3, "#ffe066", { align: "center", outline: false });
     }
   };
   function edge(p, cx5, cy, R2, pin) {
     const dx = p[0] - cx5, dy = p[1] - cy, d = Math.hypot(dx, dy);
     return d > R2 && pin ? [cx5 + dx / d * R2, cy + dy / d * R2] : p;
+  }
+  var MARKERS = { cvd: false };
+  var CVD = {
+    "#5af0ff": "#56b4e9",
+    "#ffd23a": "#e69f00",
+    "#ff8ac8": "#cc79a7",
+    "#ffe066": "#f0e442",
+    "#5aff8a": "#009e73",
+    "#7aff8a": "#009e73",
+    "#2a8a4a": "#00664a",
+    "#ff5a5a": "#d55e00",
+    "#ff3a3a": "#d55e00",
+    "#5a9aff": "#0072b2",
+    "#3a7aff": "#0072b2",
+    "#7af0ff": "#56b4e9",
+    "#ffa23a": "#e69f00",
+    "#ff5a3a": "#d55e00",
+    "#ff8af0": "#cc79a7"
+  };
+  var markerColor = (c) => MARKERS.cvd && c && CVD[String(c).toLowerCase()] || c;
+  function drawBlip(g, x, y, shape2, c) {
+    blip(g, x, y, shape2, markerColor(c));
   }
   function blip(g, x, y, shape2, c) {
     const P17 = E.px, X = Math.round(x), Y = Math.round(y);
@@ -30864,14 +31060,22 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     } else if (shape2 === "triangle") {
       P17.poly(g, [[X, Y - 4], [X + 4, Y + 3], [X - 4, Y + 3]], "#05030c");
       P17.poly(g, [[X, Y - 2], [X + 2, Y + 2], [X - 2, Y + 2]], c);
+    } else if (shape2 === "circle") {
+      P17.disc(g, X, Y, 4, "#05030c");
+      P17.disc(g, X, Y, 3, c);
+    } else if (shape2 === "flag") {
+      P17.rect(g, X - 3, Y - 5, 2, 10, "#05030c");
+      P17.poly(g, [[X - 1, Y - 5], [X + 5, Y - 2], [X - 1, Y + 1]], "#05030c");
+      P17.poly(g, [[X - 1, Y - 4], [X + 3, Y - 2], [X - 1, Y]], c);
+      P17.rect(g, X - 2, Y - 4, 1, 8, c);
     } else {
       P17.rect(g, X - 2, Y - 2, 4, 4, "#05030c");
       P17.rect(g, X - 1, Y - 1, 2, 2, c);
     }
   }
-  function drawWanted(g, W20, y, wanted, t) {
+  function drawWanted(g, right, y, wanted, t) {
     if (!wanted) return;
-    const n = wanted.stars, flash = wanted.flashing && Math.floor(t * 3) % 2 === 0, s = 7, gap = 15, x0 = W20 - 12 - gap * 4;
+    const n = wanted.stars, flash = wanted.flashing && Math.floor(t * 3) % 2 === 0, s = 7, gap = 15, x0 = right - 8 - gap * 4;
     for (let i = 0; i < 5; i++) {
       const x = x0 + i * gap, on = i < n;
       star(g, x, y, s + 1.5, on ? "#05030c" : "#8a84a8");
@@ -30887,6 +31091,1410 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     E.px.poly(g, pts2, c);
   }
+
+  // src/motor/ui/record.js
+  var UIRecord = class {
+    constructor() {
+      this.begin(480, 270, [0, 0, 480, 270]);
+    }
+    /** a fresh frame: its size and safe area in UI pixels */
+    begin(W20, H18, safe2) {
+      this.W = W20;
+      this.H = H18;
+      this.safe = safe2;
+      this.screen = null;
+      this.texts = [];
+      this.prompts = [];
+      this.focus = [];
+      this.lists = [];
+      this.rects = [];
+      this.tabs = [];
+    }
+    text(s, x, y, w8, h, scale, font) {
+      this.texts.push({ s, x, y, w: w8, h, scale, font });
+    }
+    prompt(s, x, y, w8, h, unresolved) {
+      this.prompts.push({ s, x, y, w: w8, h, unresolved });
+    }
+    /** a panel or a card: what the safe-area rule checks besides the text */
+    rect(kind, x, y, w8, h) {
+      this.rects.push({ kind, x, y, w: w8, h });
+    }
+    focused(x, y, w8, h) {
+      this.focus.push({ x, y, w: w8, h });
+    }
+    /** a list on screen: the items on its page, the page and the pages; rows: each shown item's box and label (the mouse
+     *  pass points at them); live: the screen in front's (one under it is drawn without its focus) */
+    list(id, shown, page, pages, rows = [], live = true) {
+      this.lists.push({ id, shown, page, pages, rows, live });
+    }
+    /** a row of tabs: each one's label and box */
+    tab(boxes) {
+      this.tabs.push(...boxes);
+    }
+    /** the frame as plain data */
+    snapshot() {
+      return { W: this.W, H: this.H, safe: this.safe, screen: this.screen, texts: this.texts, prompts: this.prompts, focus: this.focus, lists: this.lists, rects: this.rects, tabs: this.tabs };
+    }
+  };
+
+  // src/motor/ui/layer.js
+  var SAFE = 0.05;
+  var MIN_W = 320;
+  var MIN_H = 180;
+  var UILayer = class {
+    /** game: the E.Game; o.id: the page's UI canvas (#ui); o.base(): the game's own scale where its buffer is not at it
+     *  now (Sharp MODE 7 draws the world at the screen's resolution: the UI keeps the game's scale) */
+    constructor(game2, o = {}) {
+      this.game = game2;
+      this.rec = new UIRecord();
+      this.k = 4;
+      this.W = 480;
+      this.H = 270;
+      this.t = 0;
+      this.base = o.base || null;
+      this.wheel = 0;
+      this._down = false;
+      this._clicked = false;
+      this.cv = null;
+      this.page = false;
+      if (!game2.headless && typeof document !== "undefined") {
+        this.cv = document.getElementById(o.id || "ui");
+        this.page = !!this.cv;
+        const el = game2.screen && game2.screen.canvas;
+        if (el && el.addEventListener) el.addEventListener("wheel", (e) => {
+          this.wheel += e.deltaY > 0 ? 1 : e.deltaY < 0 ? -1 : 0;
+        }, { passive: true });
+      }
+      if (!this.cv) this.cv = E.mkCanvas(this.W, this.H);
+      this.g = this.cv.getContext("2d");
+    }
+    /** the HUD size setting: 0 Standard, 1 Large, 2 Huge (game.settings.hudSize) */
+    get hudSize() {
+      const S = this.game.settings;
+      return Math.max(0, Math.min(2, (S && S.hudSize) | 0));
+    }
+    /** the device pixels the game's canvas holds, and its own scale (S) */
+    _device() {
+      const sc = this.game.screen, c = sc && sc.canvas;
+      const base3 = this.base && this.base();
+      return c && c.width ? { w: c.width, h: c.height, S: base3 || Math.max(1, Math.floor(sc.S || 1)), dpr: sc.dpr || 1 } : { w: 1920, h: 1080, S: 4, dpr: 1 };
+    }
+    /** fit the UI to the screen: its scale by the HUD size, its size in UI pixels, the canvas over the game's */
+    layout() {
+      const D = this._device(), most = Math.max(1, Math.floor(Math.min(D.w / MIN_W, D.h / MIN_H)));
+      const k = Math.max(1, Math.min(most, D.S + this.hudSize)), W20 = Math.floor(D.w / k), H18 = Math.floor(D.h / k);
+      this.k = k;
+      this.dev = D;
+      if (W20 !== this.W || H18 !== this.H || !this._sized) {
+        this.W = W20;
+        this.H = H18;
+        this._sized = true;
+        this.cv.width = W20;
+        this.cv.height = H18;
+        this.g = this.cv.getContext("2d");
+        this.g.imageSmoothingEnabled = false;
+        if (this.page && this.cv.style) {
+          const s = this.cv.style, cw = W20 * k / D.dpr, ch = H18 * k / D.dpr;
+          s.width = cw + "px";
+          s.height = ch + "px";
+          s.left = Math.floor((D.w - W20 * k) / 2) / D.dpr + "px";
+          s.top = Math.floor((D.h - H18 * k) / 2) / D.dpr + "px";
+        }
+      }
+      return this;
+    }
+    /** the safe area in UI pixels: [x0, y0, x1, y1] */
+    get safe() {
+      const mx = Math.round(this.W * SAFE), my = Math.round(this.H * SAFE);
+      return [mx, my, this.W - mx, this.H - my];
+    }
+    /** start a frame: laid out, cleared, a fresh record; returns the context to draw with */
+    frame(dt = 0) {
+      this.t += dt;
+      this.layout();
+      const g = this.g;
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.globalAlpha = 1;
+      g.clearRect(0, 0, this.W, this.H);
+      g._c = null;
+      this.rec.begin(this.W, this.H, this.safe);
+      return g;
+    }
+    /** the mouse in UI pixels (null before it has moved over the game), whether it moved, a click this step (a fresh left
+     *  press), the left button held (down) and let go (up), and the wheel's notches since the last poll (down positive);
+     *  call once a step */
+    poll() {
+      const I = this.game.input, down = !!(I && I.held && I.held.has("Mouse0"));
+      const click = down && !this._down, up = !down && this._down;
+      this._down = down;
+      const wheel4 = this.wheel, p = this.pointer(), last = this._last;
+      this.wheel = 0;
+      const moved = !!p && (!last || Math.abs(p.x - last.x) + Math.abs(p.y - last.y) > 0.5);
+      this._last = p;
+      return { x: p ? p.x : null, y: p ? p.y : null, moved, click, down, up, wheel: wheel4 };
+    }
+    /** the mouse's position in UI pixels, or null */
+    pointer() {
+      const I = this.game.input, m = I && I.mouse;
+      if (!m || !m.active || !this.page || !this.cv.getBoundingClientRect) return null;
+      const r7 = this.cv.getBoundingClientRect();
+      if (!r7.width || !r7.height) return null;
+      return { x: (m.cx - r7.left) * this.W / r7.width, y: (m.cy - r7.top) * this.H / r7.height };
+    }
+  };
+
+  // src/motor/ui/tenfoot.js
+  var UI = {
+    ink: "#f0ecff",
+    dim: "#c8c0e8",
+    mute: "#8a84a8",
+    off: "#6a6488",
+    accent: "#ffe066",
+    cyan: "#5af0ff",
+    pink: "#ff5ac8",
+    green: "#7aff8a",
+    red: "#ff5a4a",
+    panel: ["#1c1a34", "#0e0c1c"],
+    line: "#3a3460",
+    shade: "rgba(5,3,12,.62)",
+    outline: "#05030c"
+  };
+  var ROW = 18;
+  var PAGE = 6;
+  var Pen = class {
+    constructor(layer, bindings, input) {
+      this.L = layer;
+      this.g = layer.g;
+      this.rec = layer.rec;
+      this.B = bindings;
+      this.input = input;
+      this.t = layer.t;
+    }
+    get W() {
+      return this.L.W;
+    }
+    get H() {
+      return this.L.H;
+    }
+    get safe() {
+      return this.L.safe;
+    }
+    /** text at (x, y) (its top left; align 'center' or 'right' moves it); o: { scale, align, wrap, outline, shadow } */
+    text(s, x, y, color = UI.ink, o = {}) {
+      const scale = o.scale || 1, r7 = E.font.text(this.g, String(s), x, y, color, { outline: o.outline === void 0 ? UI.outline : o.outline, shadow: o.shadow, scale, align: o.align, wrap: o.wrap });
+      const w8 = r7 ? r7.w : E.font.width(String(s), { scale }), h = r7 ? r7.h : 7 * scale, x0 = o.align === "center" ? x - w8 / 2 : o.align === "right" ? x - w8 : x;
+      this.rec.text(String(s), Math.round(x0), y, w8, h, scale, "normal");
+      return { w: w8, h };
+    }
+    width(s, scale = 1) {
+      return E.font.width(String(s), { scale });
+    }
+    /** big logo letters (E.font.title) */
+    title(s, x, y, o = {}) {
+      E.font.title(this.g, s, x, y, o);
+      const sc = o.scale || 2, w8 = E.font.width(s, { scale: sc });
+      this.rec.text(s, Math.round(o.align === "center" ? x - w8 / 2 : x), y, w8, 7 * sc, sc, "title");
+    }
+    /** a prompt with glyph tokens ("{menu:confirm} SELECT"): the player's own buttons; o: { align, color } */
+    prompt(s, x, y, o = {}) {
+      const w8 = drawPrompt(this.g, s, x, y, this.B, this.input, { align: o.align, color: o.color || UI.dim, shadow: o.shadow });
+      const { device } = deviceOf(this.input), parts2 = parsePrompt(s, this.B, device), bad = parts2.filter((p) => p.text === "?").length;
+      this.rec.prompt(s, Math.round(o.align === "center" ? x - w8 / 2 : o.align === "right" ? x - w8 : x), y - 2, w8, 11, bad);
+      return w8;
+    }
+    promptWidth(s) {
+      return promptWidth(s, this.B, this.input);
+    }
+    /** a prompt with a hold ring before it: how far a held button has got (t, 0..1), filling clockwise from the top */
+    holdPrompt(s, x, y, t, o = {}) {
+      const w8 = this.promptWidth(s), x0 = o.align === "center" ? x - w8 / 2 : o.align === "right" ? x - w8 : x, cx5 = Math.round(x0 - 10), cy = y + 3, g = this.g, f = Math.max(0, Math.min(1, t));
+      g.save();
+      g.lineWidth = 2;
+      g.strokeStyle = UI.line;
+      g.beginPath();
+      g.arc(cx5, cy, 6, 0, Math.PI * 2);
+      g.stroke();
+      if (f > 0) {
+        g.strokeStyle = o.color || UI.accent;
+        g.beginPath();
+        g.arc(cx5, cy, 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f);
+        g.stroke();
+      }
+      g.restore();
+      g._c = null;
+      this.rec.rect("ring", cx5 - 7, cy - 7, 14, 14);
+      return this.prompt(s, x, y, o);
+    }
+    /** a window: the kit's gradient, a border and a shadow */
+    panel(x, y, w8, h, o = {}) {
+      E.ui.box(this.g, Math.round(x), Math.round(y), Math.round(w8), Math.round(h), { bg: o.bg || UI.panel, border: o.border, shadow: o.shadow });
+      this.rec.rect(o.kind || "panel", x, y, w8, h);
+    }
+    /** a filled rectangle (a bar, a swatch) */
+    fill(x, y, w8, h, color, a = 1) {
+      const g = this.g;
+      g.globalAlpha = a;
+      g.fillStyle = color;
+      g.fillRect(Math.round(x), Math.round(y), Math.round(w8), Math.round(h));
+      g.globalAlpha = 1;
+      g._c = null;
+    }
+    /** the whole screen dimmed (under a menu over the game) */
+    shade(a = 0.62) {
+      this.fill(0, 0, this.W, this.H, "#05030c", a);
+    }
+    /** the focus: a 2 px frame that pulses, round (x, y, w, h) already lifted a pixel by the caller */
+    focus(x, y, w8, h, color = UI.accent) {
+      const g = this.g, a = 0.7 + 0.3 * Math.sin(this.t * 6);
+      g.globalAlpha = a;
+      g.strokeStyle = color;
+      g.lineWidth = 2;
+      g.strokeRect(Math.round(x) + 1, Math.round(y) + 1, Math.round(w8) - 2, Math.round(h) - 2);
+      g.globalAlpha = 1;
+      g._c = null;
+      this.rec.focused(x, y, w8, h);
+    }
+    /** the button legend at the foot of a panel (centred) */
+    legend(s, cx5, y) {
+      return this.prompt(s, cx5, y, { align: "center", color: UI.dim });
+    }
+    /** "2/4": a list's page and its pages, at a panel's top right */
+    pages(page, pages, x, y) {
+      if (pages > 1) this.text(`${page + 1}/${pages}`, x, y, UI.mute, { align: "right" });
+    }
+  };
+  var List = class {
+    /** o: { id, items, per (≤ 6), color (the focus's), sel } */
+    constructor(o = {}) {
+      this.id = o.id || "list";
+      this.items = o.items || [];
+      this.per = Math.min(PAGE, o.per || PAGE);
+      this.color = o.color || UI.accent;
+      this.sel = Math.max(0, Math.min(this.items.length - 1, o.sel || 0));
+      this.rows = [];
+    }
+    get page() {
+      return Math.floor(this.sel / this.per);
+    }
+    get pages() {
+      return Math.max(1, Math.ceil(this.items.length / this.per));
+    }
+    get current() {
+      return this.items[this.sel] || null;
+    }
+    set(items) {
+      this.items = items;
+      this.sel = Math.max(0, Math.min(this.items.length - 1, this.sel));
+      return this;
+    }
+    /** a step's input: nav (taps), mouse ({ x, y, click, wheel }); returns the sound it made, or null */
+    input(nav, mouse = {}) {
+      const n = this.items.length;
+      if (!n) return nav.confirm ? "error" : null;
+      let sound = null;
+      const move = (d) => {
+        const s0 = this.sel;
+        this.sel = (this.sel + d + n) % n;
+        if (this.sel !== s0) sound = "move";
+      };
+      if (nav.down) move(1);
+      if (nav.up) move(-1);
+      if (mouse.wheel) {
+        const s0 = this.sel;
+        this.sel = Math.max(0, Math.min(n - 1, this.sel + mouse.wheel));
+        if (s0 !== this.sel) sound = "move";
+      }
+      const hover = mouse.x !== null && mouse.x !== void 0 ? this.rows.find((r7) => mouse.x >= r7.x && mouse.x < r7.x + r7.w && mouse.y >= r7.y && mouse.y < r7.y + r7.h) : null;
+      if (hover && hover.i !== this.sel && mouse.moved) {
+        this.sel = hover.i;
+        sound = "move";
+      }
+      const it = this.items[this.sel];
+      if (it && (nav.left || nav.right)) sound = this.adjust(it, nav.right ? 1 : -1) || sound;
+      if (nav.confirm || mouse.click && hover) {
+        if (mouse.click && hover) this.sel = hover.i;
+        return this.activate(this.items[this.sel], mouse.click && hover ? { ...hover, mx: mouse.x } : null);
+      }
+      return sound;
+    }
+    /** left or right on a row: a slider's step, a choice's next, a toggle flipped */
+    adjust(it, d) {
+      if (it.disabled) return null;
+      if (it.kind === "slider") {
+        const v = it.get(), st = it.step || 0.1, nv = Math.max(it.min ?? 0, Math.min(it.max ?? 1, Math.round((v + d * st) / st) * st));
+        if (nv === v) return "error";
+        it.set(+nv.toFixed(4));
+        return "move";
+      }
+      if (it.kind === "choice") {
+        const o = it.options, i = o.findIndex((q) => q[0] === it.get());
+        it.set(o[((i < 0 ? 0 : i) + d + o.length) % o.length][0]);
+        return "move";
+      }
+      if (it.kind === "toggle") {
+        it.set(!it.get());
+        return "move";
+      }
+      return null;
+    }
+    /** ✕ (or a click) on a row */
+    activate(it, at = null) {
+      if (!it || it.kind === "info") return null;
+      if (it.disabled) return "error";
+      if (it.kind === "toggle") {
+        it.set(!it.get());
+        return "confirm";
+      }
+      if (it.kind === "choice") return this.adjust(it, 1) && "confirm";
+      if (it.kind === "slider") {
+        if (at) {
+          const f = (at.mx - at.bx) / at.bw;
+          if (f >= 0 && f <= 1) {
+            const st = it.step || 0.1;
+            it.set(+(Math.round(((it.min ?? 0) + f * ((it.max ?? 1) - (it.min ?? 0))) / st) * st).toFixed(4));
+          }
+        }
+        return "confirm";
+      }
+      if (it.act) {
+        it.act();
+        return "confirm";
+      }
+      return null;
+    }
+    /** draw the page shown, rows of ROW from (x, y), w wide; returns the height used */
+    draw(P17, x, y, w8, o = {}) {
+      const page = this.page, shown = this.items.slice(page * this.per, page * this.per + this.per);
+      this.rows = [];
+      shown.forEach((it, i) => {
+        const k = page * this.per + i, on = k === this.sel, ry = y + i * ROW - (on ? 1 : 0), col = it.disabled ? UI.off : on ? UI.ink : UI.dim;
+        const row = { i: k, x, y: y + i * ROW, w: w8, h: ROW };
+        if (on && o.focus !== false) P17.focus(x, ry - 1, w8, ROW, this.color);
+        if (it.kind === "info") {
+          P17.text(it.label, x + 8, ry + 5, it.color || UI.mute);
+          if (it.right !== void 0) P17.text(it.right, x + w8 - 8, ry + 5, UI.dim, { align: "right" });
+          this.rows.push(row);
+          return;
+        }
+        P17.text(it.label, x + 8, ry + 5, it.color && !it.disabled ? it.color : col);
+        const right = x + w8 - 8;
+        if (it.kind === "toggle") P17.text(it.get() ? "ON" : "OFF", right, ry + 5, it.get() ? UI.green : UI.mute, { align: "right" });
+        else if (it.kind === "choice") {
+          const op2 = it.options.find((q) => q[0] === it.get()) || it.options[0], lab = "< " + String(op2 ? op2[1] : "").toUpperCase() + " >";
+          P17.text(lab, right, ry + 5, on ? UI.accent : UI.dim, { align: "right" });
+        } else if (it.kind === "slider") {
+          const v = it.get(), lo = it.min ?? 0, hi = it.max ?? 1, f = (v - lo) / (hi - lo || 1), bw = 64, bx = right - bw - 30;
+          P17.fill(bx, ry + 6, bw, 5, UI.line);
+          P17.fill(bx, ry + 6, Math.round(bw * f), 5, on ? UI.accent : UI.cyan);
+          P17.text(it.format ? it.format(v) : Math.round(f * 100) + "%", right, ry + 5, UI.dim, { align: "right" });
+          row.bx = bx;
+          row.bw = bw;
+        } else {
+          let rw = 0;
+          if (it.prompt) rw = P17.prompt(it.prompt, right, ry + 5, { align: "right", color: it.disabled ? UI.off : UI.accent }) + 12;
+          else if (it.right !== void 0) {
+            P17.text(it.right, right, ry + 5, it.disabled ? UI.off : UI.accent, { align: "right" });
+            rw = P17.width(it.right) + 12;
+          }
+          if (it.sub) P17.text(it.sub, right - rw, ry + 5, UI.mute, { align: "right" });
+        }
+        this.rows.push(row);
+      });
+      P17.rec.list(this.id, shown.length, page, this.pages, this.rows.map((r7) => ({ label: this.items[r7.i].label, x: r7.x, y: r7.y, w: r7.w, h: r7.h })), o.focus !== false);
+      return shown.length * ROW;
+    }
+  };
+  var Tabs = class {
+    /** o: { tabs: [{ id, label }], i, color } */
+    constructor(o = {}) {
+      this.tabs = o.tabs || [];
+      this.i = o.i || 0;
+      this.color = o.color || UI.accent;
+      this.boxes = [];
+    }
+    get current() {
+      return this.tabs[this.i] || null;
+    }
+    input(nav, mouse = {}) {
+      const n = this.tabs.length;
+      if (!n) return null;
+      if (nav.tabNext) {
+        this.i = (this.i + 1) % n;
+        return "move";
+      }
+      if (nav.tabPrev) {
+        this.i = (this.i - 1 + n) % n;
+        return "move";
+      }
+      if (mouse.click && mouse.x !== null) {
+        const b = this.boxes.find((q) => mouse.x >= q.x && mouse.x < q.x + q.w && mouse.y >= q.y && mouse.y < q.y + q.h);
+        if (b && b.i !== this.i) {
+          this.i = b.i;
+          return "move";
+        }
+      }
+      return null;
+    }
+    /** the labels in a row centred on cx at y, the bumpers' glyphs either side */
+    draw(P17, cx5, y) {
+      const gap = 14, ws = this.tabs.map((t) => P17.width(t.label)), total = ws.reduce((a, b) => a + b, 0) + gap * (this.tabs.length - 1);
+      let x = Math.round(cx5 - total / 2);
+      this.boxes = [];
+      P17.prompt("{menu:tabPrev}", x - 8, y, { align: "right" });
+      this.tabs.forEach((t, i) => {
+        const on = i === this.i;
+        if (on) {
+          P17.fill(x - 4, y - 3, ws[i] + 8, 13, this.color, 0.22);
+          P17.fill(x - 4, y + 10, ws[i] + 8, 2, this.color);
+        }
+        P17.text(t.label, x, y, on ? UI.ink : UI.mute);
+        this.boxes.push({ i, x: x - 4, y: y - 3, w: ws[i] + 8, h: 15 });
+        x += ws[i] + gap;
+      });
+      P17.prompt("{menu:tabNext}", x - gap + 8, y);
+      P17.rec.tab(this.boxes.map((b) => ({ label: this.tabs[b.i].label, x: b.x, y: b.y, w: b.w, h: b.h })));
+    }
+  };
+  var Cards = class {
+    constructor(o = {}) {
+      this.id = o.id || "cards";
+      this.cards = o.cards || [];
+      this.cols = o.cols || 3;
+      this.per = Math.min(PAGE, o.per || PAGE);
+      this.sel = 0;
+      this.color = o.color || UI.accent;
+      this.boxes = [];
+    }
+    get page() {
+      return Math.floor(this.sel / this.per);
+    }
+    get pages() {
+      return Math.max(1, Math.ceil(this.cards.length / this.per));
+    }
+    get current() {
+      return this.cards[this.sel] || null;
+    }
+    input(nav, mouse = {}) {
+      const n = this.cards.length;
+      if (!n) return null;
+      let sound = null;
+      const go = (d) => {
+        const s0 = this.sel;
+        this.sel = Math.max(0, Math.min(n - 1, this.sel + d));
+        if (s0 !== this.sel) sound = "move";
+      };
+      if (nav.right) go(1);
+      if (nav.left) go(-1);
+      if (nav.down) go(this.cols);
+      if (nav.up) go(-this.cols);
+      if (mouse.wheel) go(mouse.wheel * this.cols);
+      const hover = mouse.x !== null && mouse.x !== void 0 ? this.boxes.find((b) => mouse.x >= b.x && mouse.x < b.x + b.w && mouse.y >= b.y && mouse.y < b.y + b.h) : null;
+      if (hover && hover.i !== this.sel && mouse.moved) {
+        this.sel = hover.i;
+        sound = "move";
+      }
+      if (nav.confirm || mouse.click && hover) {
+        const c = this.cards[hover && mouse.click ? hover.i : this.sel];
+        if (!c || !c.act) return sound;
+        if (c.disabled) return "error";
+        c.act();
+        return "confirm";
+      }
+      return sound;
+    }
+    /** the page shown in a grid at (x, y), w wide, cards h tall */
+    draw(P17, x, y, w8, h = 52, live = true) {
+      const page = this.page, shown = this.cards.slice(page * this.per, page * this.per + this.per), gap = 8, cw = Math.floor((w8 - gap * (this.cols - 1)) / this.cols);
+      this.boxes = [];
+      shown.forEach((c, i) => {
+        const k = page * this.per + i, on = k === this.sel, cx5 = x + i % this.cols * (cw + gap), cy = y + Math.floor(i / this.cols) * (h + gap) - (on ? 1 : 0);
+        P17.panel(cx5, cy, cw, h, { kind: "card", bg: on ? ["#2a2650", "#141028"] : UI.panel });
+        if (on && live) P17.focus(cx5 - 1, cy - 1, cw + 2, h + 2, this.color);
+        P17.text(c.title, cx5 + cw / 2, cy + 6, c.disabled ? UI.off : UI.mute, { align: "center" });
+        P17.text(c.value, cx5 + cw / 2, cy + 18, c.disabled ? UI.off : c.color || UI.ink, { align: "center", scale: 2 });
+        if (c.sub) P17.text(c.sub, cx5 + cw / 2, cy + h - 12, UI.mute, { align: "center" });
+        this.boxes.push({ i: k, x: cx5, y: cy, w: cw, h });
+      });
+      P17.rec.list(this.id, shown.length, page, this.pages, this.boxes.map((b) => ({ label: this.cards[b.i].title, x: b.x, y: b.y, w: b.w, h: b.h })), live);
+      return Math.ceil(shown.length / this.cols) * (h + gap) - gap;
+    }
+  };
+
+  // src/motor/ui/screens.js
+  var SOUND = { move: "select", confirm: "confirm", back: "cancel", error: "bump" };
+  var TAPS = ["up", "down", "left", "right", "confirm", "back", "tabPrev", "tabNext", "secondary", "tertiary", "close"];
+  var Screens = class {
+    /** o: { app (bindings, game), layer (the UILayer) } */
+    constructor(o) {
+      this.app = o.app;
+      this.L = o.layer;
+      this.stack = [];
+      this.t = 0;
+      this.lastSound = null;
+      this.mouse = { x: null, y: null, moved: false, click: false, wheel: 0 };
+    }
+    get top() {
+      return this.stack[this.stack.length - 1] || null;
+    }
+    get isOpen() {
+      return this.stack.length > 0;
+    }
+    /** does a screen open hold the game still (the pause menu, the map, settings from it)? */
+    get pausing() {
+      return this.stack.some((s) => s.pause);
+    }
+    open(s) {
+      this.stack.push(s);
+      if (s.enter) s.enter();
+      const I = this.app.game.input;
+      if (I && I.consumeAll) I.consumeAll();
+      BUS.emit("uiOpen", { screen: s.id });
+      return s;
+    }
+    /** the top screen in place of the one under it (a tab's sub-screen, a confirm) */
+    replace(s) {
+      const old = this.stack.pop();
+      if (old && old.exit) old.exit();
+      return this.open(s);
+    }
+    back() {
+      const s = this.stack.pop();
+      if (!s) return null;
+      if (s.exit) s.exit();
+      BUS.emit("uiClose", { screen: s.id });
+      return s;
+    }
+    closeAll() {
+      while (this.stack.length) this.back();
+    }
+    /** Options: every screen closed down to a sticky one (the title's menu, a card: those answer it themselves) */
+    closeToSticky() {
+      while (this.stack.length && !this.top.sticky) this.back();
+    }
+    /** a step's taps in the menu context, from the player's bindings */
+    nav() {
+      const B2 = this.app.bindings;
+      B2.setContext("menu");
+      const n = {};
+      for (const k of TAPS) n[k] = B2.tap(k);
+      return n;
+    }
+    /** a step: the top screen takes the input; ○ backs out of it, Options closes them all */
+    update(dt) {
+      this.t += dt;
+      const s = this.top;
+      if (!s) return null;
+      const nav = this.nav(), mouse = this.L.poll();
+      this.mouse = mouse;
+      let sound = s.update ? s.update(nav, mouse, dt) : null;
+      if (sound === true) return null;
+      if (sound === void 0 || sound === null) {
+        if (s.tabs) sound = s.tabs.input(nav, mouse);
+        if (!sound && s.cards) sound = s.cards.input(nav, mouse);
+        if (!sound && s.list) sound = s.list.input(nav, mouse);
+      }
+      if (this.stack.includes(s) && !sound) {
+        if (nav.close && !s.sticky) {
+          this.closeToSticky();
+          sound = "back";
+        } else if (nav.back) {
+          if (!(s.back && s.back())) this.back();
+          sound = "back";
+        }
+      }
+      if (sound) this.sound(sound);
+      return sound;
+    }
+    sound(kind) {
+      this.lastSound = kind;
+      const A = this.app.game.audio;
+      if (A && A.sfx && !this.app.game.headless) try {
+        A.sfx(SOUND[kind] || kind);
+      } catch {
+      }
+    }
+    /** draw the top screen, and under a dialog (over: true, a question) the screen it asks about, dimmed by it */
+    draw(P17) {
+      const n = this.stack.length;
+      if (!n) return;
+      let from = n - 1;
+      while (from > 0 && this.stack[from].over && !this.stack[from].full) from--;
+      for (let i = from; i < n; i++) {
+        const s = this.stack[i], live = i === n - 1;
+        if (live) P17.rec.screen = s.id;
+        if (s.draw) s.draw(P17, this, live);
+        else drawScreen(P17, s, live);
+      }
+    }
+  };
+  function drawScreen(P17, s, live = true) {
+    if (!s.full && s.shade !== false) P17.shade(0.62);
+    const [sx0, sy0, sx1, sy1] = P17.safe, maxW = sx1 - sx0, w8 = Math.min(maxW, s.w || 320), x = Math.round(P17.W / 2 - w8 / 2);
+    const info = (s.info || []).flatMap((l7) => typeof l7 === "string" ? wrapLines(P17, l7, w8 - 24) : [l7]), lh = (l7) => typeof l7 === "string" || !l7.scale ? 10 : 10 * l7.scale + 4, infoH = info.reduce((a, l7) => a + lh(l7), 0);
+    const listH = s.list ? Math.min(s.list.items.length, s.list.per) * ROW : 0, cardsH = s.cards ? s.cardsH || 120 : 0, bodyH = typeof s.bodyH === "function" ? s.bodyH(P17, w8) : s.bodyH || 0;
+    const tip = s.tips ? s.list && s.list.current && s.list.current.help || "" : null, tipH = tip === null ? 0 : 24;
+    const h = Math.min(sy1 - sy0, (s.title ? 30 : 8) + (s.tabs ? 22 : 0) + infoH + (info.length ? 6 : 0) + bodyH + listH + cardsH + tipH + 26), y = Math.max(sy0, Math.min(sy1 - h, s.top ? s.top(P17, h) : Math.round(P17.H / 2 - h / 2)));
+    P17.panel(x, y, w8, h, { kind: "screen" });
+    if (s.title) P17.text(s.title, P17.W / 2, y + 8, s.color || UI.accent, { align: "center", scale: 2 });
+    const pg = s.paging ? s.paging() : s.list ? [s.list.page, s.list.pages] : s.cards ? [s.cards.page, s.cards.pages] : null;
+    if (pg) P17.pages(pg[0], pg[1], x + w8 - 8, y + 8);
+    let yy = y + (s.title ? 30 : 8);
+    if (s.tabs) {
+      s.tabs.draw(P17, P17.W / 2, yy);
+      yy += 22;
+    }
+    for (const l7 of info) {
+      const t = typeof l7 === "string" ? l7 : l7.text, c = typeof l7 === "string" ? UI.dim : l7.color || UI.dim;
+      if (TOKEN.test(t)) P17.prompt(t, P17.W / 2, yy, { align: "center", color: c });
+      else P17.text(t, P17.W / 2, yy, c, { align: "center", scale: typeof l7 === "object" && l7.scale || 1 });
+      yy += lh(l7);
+    }
+    if (info.length) yy += 6;
+    if (s.body) yy += s.body(P17, x + 8, yy, w8 - 16) || 0;
+    if (s.cards) yy += s.cards.draw(P17, x + 10, yy, w8 - 20, s.cardH || 52, live) + 8;
+    if (s.list) {
+      s.list.draw(P17, x + 8, yy, w8 - 16, { focus: live });
+      yy += listH;
+    }
+    if (tip) wrapLines(P17, tip, w8 - 24).slice(0, 2).forEach((l7, i) => P17.text(l7, P17.W / 2, yy + 6 + i * 10, UI.mute, { align: "center" }));
+    P17.legend(s.legend || (s.list || s.cards ? "{menu:confirm} SELECT   {menu:back} BACK" : "{menu:back} BACK"), P17.W / 2, y + h - 14);
+  }
+  var TOKEN = /\{[a-zA-Z]+(:[a-zA-Z]+)?\}/;
+  function wrapLines(P17, s, w8) {
+    const m = TOKEN.test(s) ? (t) => P17.promptWidth(t) : (t) => P17.width(t);
+    return m(s) <= w8 ? [s] : wrapWords(m, s, w8);
+  }
+  function wrapWords(m, s, w8) {
+    const out = [];
+    let line = "";
+    for (const word of String(s).split(" ")) {
+      const t = line ? line + " " + word : word;
+      if (m(t) > w8 && line) {
+        out.push(line);
+        line = word;
+      } else line = t;
+    }
+    if (line) out.push(line);
+    return out;
+  }
+
+  // src/motor/ui/settings.js
+  var SETTING_TABS = [
+    { id: "controls", label: "CONTROLS", keys: ["deadzone", "invertY", "rumble", "promptStyle"] },
+    { id: "display", label: "DISPLAY", keys: ["defaultView", "autoRail", "sharpSide7", "hudSize", "subtitles", "colorblind", "speedometer", "shake", "flashes", "motion"] },
+    { id: "audio", label: "AUDIO", keys: ["sound", "volume", "music", "radio", "effects", "djChatter"] },
+    { id: "game", label: "GAME", keys: ["difficulty", "aimAssist", "autosave"] },
+    { id: "access", label: "ACCESS", keys: ["holdSprint", "holdAim", "holdCrouch", "holdWheel"] }
+  ];
+  var DIFFICULTY = { easy: 0.7, normal: 1, hard: 1.35 };
+  var HOLDS = { holdSprint: ["sprint"], holdAim: ["aim"], holdCrouch: ["crouch"], holdWheel: ["wheel", "switch"] };
+  var LABELS = { deadzone: "Stick dead zone", invertY: "Invert aim", rumble: "Vibration", volume: "Master volume", sound: "Sound", music: "Music", effects: "Effects", shake: "Screen shake", flashes: "Screen flashes", motion: "Reduce motion" };
+  var TIPS = {
+    deadzone: "How far a stick moves before it counts (twin-stick aim has no speed to scale)",
+    invertY: "The right stick's up and down swapped when aiming",
+    rumble: "How hard the controller shakes",
+    volume: "Everything at once",
+    sound: "All sound on or off",
+    music: "The menus' music",
+    effects: "Guns, engines, crashes and the menus' clicks",
+    shake: "How much the screen shakes",
+    flashes: "How bright explosions and camera flashes get"
+  };
+  function defineSettings(game2) {
+    const S = game2.settings;
+    if (!S || !S.define) return null;
+    const def2 = (sp) => {
+      if (!S.spec(sp.key)) S.define(sp);
+    };
+    def2({
+      key: "promptStyle",
+      group: "Controller",
+      label: "Button symbols",
+      type: "select",
+      value: "auto",
+      options: [["auto", "Auto"], ["playstation", "PlayStation"], ["xbox", "Xbox"], ["nintendo", "Nintendo"], ["keyboard", "Keyboard"]],
+      help: "Auto: the symbols of the controller in use, or the keys",
+      apply: (g, v) => {
+        PROMPTS.keys = v === "keyboard";
+        if (g.input) g.input.glyphs = v === "keyboard" ? "auto" : v;
+      }
+    });
+    def2({ key: "defaultView", group: "Display", label: "Default view", type: "select", value: "iso", options: [["iso", "ISO"], ["top", "Top-down"], ["side7", "Mode 7"]], help: "The view a game starts in" });
+    def2({ key: "autoRail", group: "Display", label: "Auto-rail", type: "toggle", value: true, help: "MODE 7 in a vehicle: the rail turns to the way you have held", apply: (g, v) => tuneSet("autoRail", v ? 1 : 0) });
+    def2({ key: "sharpSide7", group: "Display", label: "Sharp MODE 7", type: "toggle", value: false, help: "MODE 7 drawn at the screen's own resolution: crisp instead of the pixel look" });
+    def2({ key: "hudSize", group: "Display", label: "HUD size", type: "select", value: 0, options: [[0, "Standard"], [1, "Large"], [2, "Huge"]], help: "The HUD and the menus, bigger" });
+    def2({ key: "subtitles", group: "Display", label: "Subtitles", type: "toggle", value: true, help: "What people say, at the foot of the screen" });
+    def2({ key: "speedometer", group: "Display", label: "Speedometer", type: "toggle", value: false, help: "The speed in the vehicle's panel" });
+    def2({ key: "colorblind", group: "Display", label: "Colourblind markers", type: "toggle", value: false, help: "Markers and blips in colours everyone tells apart", apply: (g, v) => {
+      MARKERS.cvd = !!v;
+    } });
+    def2({ key: "radio", group: "Sound", label: "Radio", type: "slider", value: 0.8, help: "The car radio's volume" });
+    def2({ key: "djChatter", group: "Sound", label: "DJ chatter", type: "toggle", value: true, help: "The DJs' and the ads' lines between songs" });
+    def2({ key: "difficulty", group: "Game", label: "Difficulty", type: "select", value: "normal", options: [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]], help: "How much the street hurts" });
+    def2({ key: "aimAssist", group: "Game", label: "Aim assist", type: "select", value: "standard", options: [["off", "Off"], ["low", "Low"], ["standard", "Standard"]], help: "How far free aim is pulled toward a target" });
+    def2({ key: "autosave", group: "Game", label: "Autosave", type: "toggle", value: true, help: "After every mission and job" });
+    for (const [k, l7, v] of [["holdSprint", "Sprint", "hold"], ["holdAim", "Aim", "hold"], ["holdCrouch", "Crouch", "toggle"], ["holdWheel", "Wheels", "hold"]]) def2({ key: k, group: "Access", label: l7, type: "select", value: v, options: [["hold", "Hold"], ["toggle", "Toggle"]], help: `Hold the button, or press once to start and again to stop (${l7.toLowerCase()})` });
+    return S;
+  }
+  function setting(game2, key, fallback) {
+    const S = game2 && game2.settings;
+    if (!S || !S.spec || !S.spec(key)) return fallback;
+    const v = S[key];
+    return v === void 0 ? fallback : v;
+  }
+  function toggled(game2) {
+    const out = /* @__PURE__ */ new Set();
+    for (const [k, acts] of Object.entries(HOLDS)) if (setting(game2, k, k === "holdCrouch" ? "toggle" : "hold") === "toggle") for (const a of acts) out.add(a);
+    return out;
+  }
+  function settingRows(game2, keys) {
+    const S = game2.settings, out = [];
+    for (const key of keys) {
+      const sp = S && S.spec && S.spec(key);
+      if (!sp) continue;
+      const label = (LABELS[key] || sp.label || key).toUpperCase(), help = TIPS[key] || sp.help || "", get2 = () => S[key], set = (v) => S.set(key, v);
+      if (sp.type === "toggle") out.push({ kind: "toggle", key, label, help, get: get2, set });
+      else if (sp.type === "slider") {
+        const min = sp.min ?? 0, max = sp.max ?? 1;
+        out.push({ kind: "slider", key, label, help, get: get2, set, min, max, step: sp.step || (max - min) / 20, format: max <= 1 ? (v) => Math.round(v * 100) + "%" : (v) => String(+v.toFixed(2)) + (sp.unit || "") });
+      } else if (sp.type === "select") out.push({ kind: "choice", key, label, help, get: get2, set, options: (sp.options || []).map((o) => Array.isArray(o) ? o : [o, String(o)]) });
+    }
+    return out;
+  }
+  function resetSettings(game2, keys) {
+    const S = game2.settings;
+    if (!S || !S.spec) return;
+    for (const k of keys) if (S.spec(k)) S.set(k, S.default(k));
+  }
+
+  // src/motor/ui/menus.js
+  var ACTION_LABELS = {
+    up: "UP",
+    down: "DOWN",
+    left: "LEFT",
+    right: "RIGHT",
+    sprint: "SPRINT",
+    jump: "JUMP / CLIMB",
+    roll: "ROLL",
+    interact: "GET IN / USE",
+    reload: "RELOAD",
+    wheel: "WEAPON WHEEL",
+    aim: "AIM",
+    attack: "ATTACK",
+    crouch: "CROUCH",
+    weaponPrev: "WEAPON BACK",
+    weaponNext: "WEAPON ON",
+    view: "CHANGE VIEW",
+    turnLeft: "TURN LEFT",
+    turnRight: "TURN RIGHT",
+    ability: "ABILITY",
+    phone: "PHONE",
+    switch: "SWITCH CHARACTER",
+    map: "MAP",
+    pause: "PAUSE",
+    photo: "PHOTO MODE",
+    throttle: "ACCELERATE",
+    brake: "BRAKE / REVERSE",
+    handbrake: "HANDBRAKE",
+    nitro: "NITRO",
+    fire: "DRIVE-BY",
+    horn: "HORN",
+    radioPrev: "RADIO BACK",
+    radioNext: "RADIO ON",
+    confirm: "CONFIRM",
+    back: "BACK",
+    tabPrev: "TAB LEFT",
+    tabNext: "TAB RIGHT",
+    secondary: "MORE",
+    tertiary: "FILTER",
+    close: "CLOSE ALL",
+    zoomIn: "ZOOM IN",
+    zoomOut: "ZOOM OUT",
+    snap: "TAKE THE SHOT"
+  };
+  var actionLabel = (a) => ACTION_LABELS[a] || String(a).replace(/([A-Z])/g, " $1").toUpperCase();
+  var REBIND = [
+    ["onFoot", "ON FOOT", [
+      ["MOVING", ["up", "down", "left", "right", "sprint", "jump"]],
+      ["DOING", ["roll", "crouch", "interact", "ability", "switch", "phone"]],
+      ["FIGHTING", ["aim", "attack", "reload", "wheel", "weaponPrev", "weaponNext"]],
+      ["CAMERA AND MENUS", ["view", "turnLeft", "turnRight", "map", "photo", "pause"]]
+    ]],
+    ["vehicle", "IN A VEHICLE", [
+      ["DRIVING", ["left", "right", "throttle", "brake", "handbrake", "nitro"]],
+      ["DOING", ["fire", "horn", "interact", "radioPrev", "radioNext", "ability"]],
+      ["CAMERA AND MENUS", ["view", "turnLeft", "turnRight", "phone", "switch", "map"]],
+      ["MORE", ["photo", "pause"]]
+    ]],
+    ["photo", "PHOTO MODE", [["FRAMING", ["up", "down", "left", "right", "zoomIn", "zoomOut"]], ["THE SHOT", ["view", "snap", "back"]]]]
+  ];
+  var LOCKED2 = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt)/;
+  var PADLIKE = /^(Pad|LS|RS)/;
+  var KEYS2 = /^(Key[A-Z]|Digit\d|Numpad\d|Arrow(Up|Down|Left|Right)|Space|Shift(Left|Right)|Tab|Backspace|Backquote|Minus|Equal|Bracket(Left|Right)|Backslash|Semicolon|Quote|Comma|Period|Slash|CapsLock|Mouse[0-4])$/;
+  function confirmScreen(S, o) {
+    const items = [{ label: o.no || "NO", act: () => {
+      S.back();
+      if (o.onNo) o.onNo();
+    } }, { label: o.yes || "YES", act: () => {
+      S.back();
+      o.onYes();
+    } }];
+    return { id: o.id || "confirm", title: o.title, color: o.color || UI.accent, info: o.lines || [], w: o.w || 280, over: true, list: new List({ id: "confirm", items, color: o.color }) };
+  }
+  function settingsScreen(app2, o = {}) {
+    const S = app2.ui.screens, game2 = app2.game, tabs = new Tabs({ tabs: SETTING_TABS.map((t) => ({ id: t.id, label: t.label })), i: o.tab || 0 });
+    const extra = { controls: [
+      { label: "BUTTON LAYOUT", help: "Every button, in your controller's symbols", act: () => S.open(layoutScreen(app2)) },
+      ...REBIND.map(([ctx, name]) => ({ label: "REBIND " + name, help: `Change the buttons ${name.toLowerCase()}, one at a time`, act: () => S.open(rebindScreen(app2, ctx)) }))
+    ] };
+    const lists = SETTING_TABS.map((t) => new List({ id: "settings-" + t.id, items: [
+      ...settingRows(game2, t.keys),
+      ...extra[t.id] || [],
+      { label: "DEFAULTS", help: `Every ${t.label.toLowerCase()} setting as it came`, act: () => S.open(confirmScreen(S, { title: "BACK TO DEFAULTS?", lines: [`Every ${t.label.toLowerCase()} setting as it came`], yes: "DEFAULTS", onYes: () => resetSettings(game2, t.keys) })) }
+    ] }));
+    return { id: "settings", title: "SETTINGS", w: 380, tabs, tips: true, full: !!o.full, get list() {
+      return lists[tabs.i];
+    } };
+  }
+  function rebindScreen(app2, ctx) {
+    const S = app2.ui.screens, B2 = app2.bindings, I = app2.game.input, spec = REBIND.find((r7) => r7[0] === ctx) || [ctx, ctx.toUpperCase(), [["", Object.keys(B2.map[ctx] || {})]]];
+    let capture = null, said = null;
+    const pad = () => deviceOf(I).device === "gamepad";
+    const rows = () => spec[2].flatMap(([, acts]) => acts.filter((a) => B2.map[ctx] && B2.map[ctx][a]).map((action) => {
+      const list2 = B2.codes(action, ctx), dev = pad(), i = list2.findIndex((c) => PADLIKE.test(c) === dev), code = i >= 0 ? list2[i] : null;
+      const fixed = !code || /[+>^]/.test(code) || LOCKED2.test(code);
+      return {
+        label: actionLabel(action),
+        action,
+        prompt: code ? `{${ctx}:${action}}` : void 0,
+        right: code ? void 0 : "STICK",
+        sub: fixed && code ? "FIXED" : "",
+        disabled: fixed,
+        help: fixed ? "Kept as it is: the menus, a chord or a stick need it" : "Press, then the button you want",
+        act: () => {
+          capture = { action, slot: i, dev, t: 0, steps: 0 };
+          said = null;
+        }
+      };
+    }));
+    const list = new List({ id: "rebind-" + ctx, items: rows() });
+    const scr = {
+      id: "rebind",
+      w: 340,
+      tips: true,
+      list,
+      title: "REBIND " + spec[1],
+      get info() {
+        const g = spec[2][list.page];
+        return g && g[0] ? [{ text: g[0], color: UI.cyan }] : [];
+      },
+      legend: "{menu:confirm} CHANGE   {menu:secondary} DEFAULTS   {menu:back} BACK",
+      enter() {
+        list.set(rows());
+      },
+      update(nav, mouse, dt) {
+        if (said) {
+          said.t -= dt;
+          if (said.t <= 0) said = null;
+        }
+        if (!capture) {
+          if (scr._dev !== pad()) {
+            scr._dev = pad();
+            list.set(rows());
+          }
+          if (nav.secondary) {
+            S.open(confirmScreen(S, { title: "BACK TO DEFAULTS?", lines: [`Every button ${spec[1].toLowerCase()} as it came`], yes: "DEFAULTS", onYes: () => {
+              B2.reset(ctx);
+              B2.save();
+              list.set(rows());
+            } }));
+            return "confirm";
+          }
+          return null;
+        }
+        capture.t += dt;
+        const R2 = I.raw, fresh = capture.steps++ && R2 && R2.pressed ? [...R2.pressed] : [];
+        for (const c of fresh) {
+          if (c === "Escape" || c === "Pad9") {
+            capture = null;
+            return "back";
+          }
+          if (capture.dev ? !/^Pad\d+$/.test(c) : !KEYS2.test(c)) continue;
+          const r7 = B2.rebind(ctx, capture.action, c, capture.slot < 0 ? null : capture.slot), what = actionLabel(capture.action);
+          capture = null;
+          if (r7.ok) {
+            B2.save();
+            list.set(rows());
+            said = { text: what + " CHANGED", color: UI.green, t: 1.5 };
+            return "confirm";
+          }
+          said = { text: r7.reason === "conflict" ? `THAT ONE IS ${actionLabel(r7.with)}` : "THAT ONE STAYS AS IT IS", color: UI.red, t: 2.2 };
+          return "error";
+        }
+        if (capture.t > 8) {
+          capture = null;
+          return "back";
+        }
+        return true;
+      },
+      draw(P17) {
+        drawScreen(P17, scr, !capture);
+        if (said) P17.text(said.text, P17.W / 2, P17.safe[1] + 4, said.color, { align: "center" });
+        if (capture) {
+          const w8 = 240, h = 52, x = Math.round(P17.W / 2 - w8 / 2), y = Math.round(P17.H / 2 - h / 2);
+          P17.shade(0.5);
+          P17.panel(x, y, w8, h, { kind: "capture" });
+          P17.text("PRESS A " + (capture.dev ? "BUTTON" : "KEY") + " FOR", P17.W / 2, y + 8, UI.dim, { align: "center" });
+          P17.text(actionLabel(capture.action), P17.W / 2, y + 20, UI.accent, { align: "center" });
+          P17.legend(capture.dev ? "{menu:close} CANCEL" : "{menu:back} CANCEL", P17.W / 2, y + h - 13);
+          P17.focus(x, y, w8, h);
+        }
+      }
+    };
+    return scr;
+  }
+  function layoutScreen(app2) {
+    const tabs = new Tabs({ tabs: REBIND.map(([id, label]) => ({ id, label })) }), B2 = app2.bindings;
+    const scr = {
+      id: "layout",
+      title: "BUTTON LAYOUT",
+      w: 400,
+      tabs,
+      bodyH: 6 * 14 + 8,
+      body(P17, x, y, w8) {
+        const ctx = tabs.current.id, acts = REBIND.find((r7) => r7[0] === ctx)[2].flatMap((g) => g[1]).filter((a) => B2.map[ctx] && B2.map[ctx][a]), per = Math.ceil(acts.length / 2), colW = Math.floor(w8 / 2);
+        acts.forEach((a, i) => {
+          const cx5 = x + 8 + Math.floor(i / per) * colW, cy = y + 4 + i % per * Math.min(14, Math.floor(86 / per));
+          P17.prompt(`{${ctx}:${a}} ${actionLabel(a)}`, cx5, cy, { color: UI.ink });
+        });
+        return this.bodyH;
+      }
+    };
+    return scr;
+  }
+  function slotsScreen(app2, o) {
+    const S = app2.ui.screens, slots = o.mode === "save" ? ["1", "2", "3"] : ["1", "2", "3", "auto"];
+    const make = () => {
+      const have = new Map(o.saves.list().map((q) => [q.slot, q]));
+      return slots.map((sl) => {
+        const q = have.get(sl), title = sl === "auto" ? "AUTOSAVE" : "SLOT " + sl;
+        return {
+          slot: sl,
+          title,
+          value: q ? Number.isFinite(q.completion) ? q.completion.toFixed(1) + "%" : "SAVED" : "EMPTY",
+          sub: q ? clock(q.playtime) + (Number.isFinite(q.day) ? `   DAY ${q.day + 1}` : "") : o.mode === "save" ? "FREE" : "",
+          color: q ? UI.ink : UI.mute,
+          disabled: o.mode === "load" && !q,
+          act: () => pick(sl, q, title)
+        };
+      });
+    };
+    const cards = new Cards({ id: "slots", cards: make(), cols: 2 });
+    function pick(sl, q, title) {
+      if (o.mode === "load") {
+        S.closeAll();
+        o.onLoad(sl);
+        return;
+      }
+      const go = () => {
+        o.onSave(sl);
+        cards.cards = make();
+      };
+      if (q) S.open(confirmScreen(S, { title: "SAVE OVER " + title + "?", lines: ["The game saved there is lost"], yes: "SAVE OVER IT", onYes: go }));
+      else go();
+    }
+    return { id: "slots-" + o.mode, title: o.mode === "load" ? "LOAD" : "SAVE", w: 320, cards, cardH: 56, cardsH: 2 * 56 + 8, full: !!o.full, enter() {
+      cards.cards = make();
+    } };
+  }
+  var clock = (s) => {
+    s = Math.floor(s || 0);
+    return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  };
+  function guideScreen(app2, o) {
+    const S = app2.ui.screens;
+    const list = new List({ id: "guide", items: o.topics.map((t, i) => ({ label: t.title.toUpperCase(), act: () => S.open(pageScreen(o, i)) })) });
+    return { id: o.id || "guide", title: o.title || "HELP", w: 300, list, full: !!o.full };
+  }
+  function pageScreen(o, i) {
+    let k = i;
+    const n = o.topics.length, scr = {
+      id: "guide-page",
+      w: 380,
+      legend: "{menu:left}{menu:right} TURN THE PAGE   {menu:back} BACK",
+      get title() {
+        return o.topics[k].title.toUpperCase();
+      },
+      get info() {
+        return o.topics[k].lines.flatMap((l7, i2) => i2 ? ["", l7] : [l7]);
+      },
+      paging: () => [k, n],
+      update(nav, mouse) {
+        const d = nav.right || mouse.wheel > 0 || mouse.click ? 1 : nav.left || mouse.wheel < 0 ? -1 : 0;
+        if (!d) return null;
+        k = (k + d + n) % n;
+        return "move";
+      }
+    };
+    return scr;
+  }
+  function docScreen(o) {
+    let k = 0, laid = null;
+    const layout = (P17, w8, h) => {
+      if (laid && laid.W === P17.W && laid.H === P17.H) return laid.pages;
+      const lines = [];
+      for (const s of o.sections) {
+        if (lines.length) lines.push({ gap: 6 });
+        lines.push({ text: s.title.toUpperCase(), color: UI.accent, head: true });
+        for (const [label, text] of s.rows || []) {
+          lines.push({ text: label.toUpperCase(), color: UI.cyan });
+          for (const l7 of wrapText(P17, text, w8)) lines.push({ text: l7, color: UI.ink });
+          lines.push({ gap: 3 });
+        }
+        for (const t of s.lines || []) {
+          for (const l7 of wrapText(P17, t, w8)) lines.push({ text: l7, color: UI.dim });
+          lines.push({ gap: 3 });
+        }
+      }
+      const pages = [[]];
+      let y = 0;
+      for (const l7 of lines) {
+        const lh = l7.gap || 10;
+        if (y + lh > h && pages[pages.length - 1].length) {
+          pages.push([]);
+          y = 0;
+          if (l7.gap) continue;
+        }
+        pages[pages.length - 1].push(l7);
+        y += lh;
+      }
+      laid = { W: P17.W, H: P17.H, pages };
+      return pages;
+    };
+    const scr = {
+      id: o.id || "doc",
+      title: o.title,
+      w: 9999,
+      full: !!o.full,
+      legend: "{menu:left}{menu:right} TURN THE PAGE   {menu:back} BACK",
+      paging: () => [k, laid ? laid.pages.length : 1],
+      bodyH: (P17) => Math.max(60, P17.safe[3] - P17.safe[1] - 30 - 26 - 8),
+      body(P17, x, y, w8) {
+        const h = scr.bodyH(P17), pages = layout(P17, w8 - 24, h);
+        k = Math.min(k, pages.length - 1);
+        let yy = y;
+        for (const l7 of pages[k]) {
+          if (l7.gap) {
+            yy += l7.gap;
+            continue;
+          }
+          P17.text(l7.text, x + 12, yy, l7.color);
+          yy += 10;
+        }
+        return h;
+      },
+      update(nav, mouse) {
+        const n = laid ? laid.pages.length : 1, d = nav.right || mouse.wheel > 0 || mouse.click ? 1 : nav.left || mouse.wheel < 0 ? -1 : 0;
+        if (!d || n < 2) return null;
+        k = (k + d + n) % n;
+        return "move";
+      }
+    };
+    return scr;
+  }
+  function wrapText(P17, s, w8) {
+    const out = [];
+    let line = "";
+    for (const word of String(s).split(" ")) {
+      const t = line ? line + " " + word : word;
+      if (P17.width(t) > w8 && line) {
+        out.push(line);
+        line = word;
+      } else line = t;
+    }
+    if (line) out.push(line);
+    return out;
+  }
+  function tabbedScreen(o) {
+    const tabs = new Tabs({ tabs: o.tabs.map((t) => ({ id: t.id, label: t.label })), i: o.tab || 0, color: o.color }), pg = () => o.tabs[tabs.i].page;
+    let seen = -1;
+    const scr = {
+      id: o.id,
+      title: o.title,
+      color: o.color,
+      pause: !!o.pause,
+      tabs,
+      back: o.back,
+      get w() {
+        return pg().w || o.w || 380;
+      },
+      get list() {
+        return pg().list || null;
+      },
+      get cards() {
+        return pg().cards || null;
+      },
+      get cardH() {
+        return pg().cardH;
+      },
+      get cardsH() {
+        return pg().cardsH;
+      },
+      get info() {
+        return pg().info || [];
+      },
+      get body() {
+        const p = pg();
+        return p.body ? (P17, x, y, w8) => p.body(P17, x, y, w8) : null;
+      },
+      get bodyH() {
+        return pg().bodyH || 0;
+      },
+      get tips() {
+        return !!pg().tips;
+      },
+      get legend() {
+        const l7 = pg().legend || (pg().list || pg().cards ? "{menu:confirm} SELECT" : "");
+        return [l7, o.legend].filter(Boolean).join("   ");
+      },
+      get tab() {
+        return tabs.current.id;
+      },
+      show(id) {
+        const i = o.tabs.findIndex((t) => t.id === id);
+        if (i >= 0) tabs.i = i;
+        return scr;
+      },
+      enter() {
+        seen = -1;
+      },
+      update(nav, mouse, dt) {
+        if (tabs.i !== seen) {
+          seen = tabs.i;
+          const p2 = pg();
+          if (p2.enter) p2.enter();
+        }
+        const p = pg();
+        return p.update ? p.update(nav, mouse, dt) : null;
+      }
+    };
+    return scr;
+  }
+
+  // src/motor/ui/map.js
+  var ZOOMS = [1, 1.5, 2, 3, 4];
+  var PAN = 220;
+  function mapPage(app2, o) {
+    const C4 = o.city, T15 = C4.T, B2 = app2.bindings, filters = o.filters || [["all", "ALL"]];
+    const st = { cx: null, cy: null, z: 0, legend: false, filter: 0, drag: null, box: null, mouse: false, mx: 0, my: 0 };
+    const view = () => {
+      const b = st.box;
+      if (!b) return null;
+      const k = Math.min(b.w / C4.w, b.h / C4.h) * ZOOMS[st.z];
+      return { k, ox: b.x + b.w / 2 - st.cx / T15 * k, oy: b.y + b.h / 2 - st.cy / T15 * k };
+    };
+    const toWorld = (sx, sy) => {
+      const v = view();
+      return v ? [(sx - v.ox) / v.k * T15, (sy - v.oy) / v.k * T15] : null;
+    };
+    const clampCentre = () => {
+      const b = st.box;
+      if (!b) return;
+      const k = Math.min(b.w / C4.w, b.h / C4.h) * ZOOMS[st.z], hw5 = b.w / 2 / k * T15, hh = b.h / 2 / k * T15, W20 = C4.w * T15, H18 = C4.h * T15;
+      st.cx = hw5 * 2 >= W20 ? W20 / 2 : E.clamp(st.cx, hw5, W20 - hw5);
+      st.cy = hh * 2 >= H18 ? H18 / 2 : E.clamp(st.cy, hh, H18 - hh);
+    };
+    const zoom = (d, at) => {
+      const z = E.clamp(st.z + d, 0, ZOOMS.length - 1);
+      if (z === st.z) return "error";
+      const before = at && toWorld(at[0], at[1]);
+      st.z = z;
+      if (before) {
+        const v = view();
+        st.cx += before[0] - (at[0] - v.ox) / v.k * T15;
+        st.cy += before[1] - (at[1] - v.oy) / v.k * T15;
+      }
+      clampCentre();
+      return "move";
+    };
+    const target = () => st.mouse && st.box ? toWorld(st.mx, st.my) : [st.cx, st.cy];
+    const setWaypoint = (at) => {
+      const w8 = o.waypoint && o.waypoint(), v = view();
+      if (w8 && v && Math.hypot((w8[0] - at[0]) / T15 * v.k, (w8[1] - at[1]) / T15 * v.k) < 8) {
+        o.onWaypoint(null);
+        return "back";
+      }
+      o.onWaypoint([Math.round(at[0]), Math.round(at[1])]);
+      return "confirm";
+    };
+    const shown = () => {
+      const f = filters[st.filter][0];
+      return (o.blips ? o.blips() : []).filter((b) => f === "all" || b.cat === f);
+    };
+    const page = {
+      id: "map",
+      w: 9999,
+      legend: "{menu:confirm} WAYPOINT   {menu:secondary} LEGEND   {menu:tertiary} FILTER   {menu:zoomOut}{menu:zoomIn} ZOOM",
+      enter() {
+        const p = o.player && o.player();
+        st.cx = p ? p.x : C4.w * T15 / 2;
+        st.cy = p ? p.y : C4.h * T15 / 2;
+        st.mouse = false;
+      },
+      bodyH: (P17) => Math.max(80, P17.safe[3] - P17.safe[1] - 30 - 22 - 26 - 8),
+      update(nav, mouse, dt) {
+        if (st.cx === null) page.enter();
+        let sound = null;
+        const [dx, dy] = B2.direction("menu"), k = view() ? view().k : 1;
+        if (dx || dy) {
+          st.cx += dx * PAN * dt / k * T15;
+          st.cy += dy * PAN * dt / k * T15;
+          st.mouse = false;
+          clampCentre();
+        }
+        if (B2.tap("zoomIn", "menu")) sound = zoom(1);
+        if (B2.tap("zoomOut", "menu")) sound = zoom(-1);
+        if (nav.secondary) {
+          st.legend = !st.legend;
+          sound = "move";
+        }
+        if (nav.tertiary) {
+          st.filter = (st.filter + 1) % filters.length;
+          sound = "move";
+        }
+        if (nav.confirm) sound = setWaypoint(target());
+        const b = st.box, over = b && mouse.x !== null && mouse.x >= b.x && mouse.x < b.x + b.w && mouse.y >= b.y && mouse.y < b.y + b.h;
+        if (over && mouse.moved) {
+          st.mouse = true;
+          st.mx = mouse.x;
+          st.my = mouse.y;
+        }
+        if (over && mouse.wheel) sound = zoom(mouse.wheel < 0 ? 1 : -1, [mouse.x, mouse.y]);
+        if (over && mouse.click) st.drag = { x: mouse.x, y: mouse.y, moved: 0 };
+        if (st.drag && mouse.down && mouse.x !== null) {
+          const ddx = mouse.x - st.drag.x, ddy = mouse.y - st.drag.y;
+          st.drag.moved += Math.abs(ddx) + Math.abs(ddy);
+          st.cx -= ddx / k * T15;
+          st.cy -= ddy / k * T15;
+          st.drag.x = mouse.x;
+          st.drag.y = mouse.y;
+          clampCentre();
+        }
+        if (st.drag && mouse.up) {
+          if (st.drag.moved < 3 && over) sound = setWaypoint(toWorld(mouse.x, mouse.y));
+          st.drag = null;
+        }
+        return sound;
+      },
+      body(P17, x, y, w8) {
+        const h = page.bodyH(P17), g = P17.g, first = !st.box;
+        st.box = { x, y, w: w8, h };
+        if (st.cx === null) page.enter();
+        if (first) clampCentre();
+        const v = view(), img = cityImage(C4, o.turf || []);
+        g.save();
+        g.beginPath();
+        g.rect(x, y, w8, h);
+        g.clip();
+        P17.fill(x, y, w8, h, "#0b1a30");
+        g.imageSmoothingEnabled = false;
+        g.drawImage(img, Math.round(v.ox), Math.round(v.oy), Math.round(C4.w * v.k), Math.round(C4.h * v.k));
+        const at = (wx2, wy) => [v.ox + wx2 / T15 * v.k, v.oy + wy / T15 * v.k];
+        for (const bl of shown()) {
+          const [sx, sy] = at(bl.x, bl.y);
+          if (sx > x - 6 && sx < x + w8 + 6 && sy > y - 6 && sy < y + h + 6) drawBlip(g, sx, sy, bl.shape || "square", bl.color || UI.accent);
+        }
+        const wp = o.waypoint && o.waypoint();
+        if (wp) {
+          const [sx, sy] = at(wp[0], wp[1]);
+          drawBlip(g, sx, sy, "flag", UI.cyan);
+        }
+        const p = o.player && o.player();
+        if (p) {
+          const [sx, sy] = at(p.x, p.y), a = p.facing || 0, c = Math.cos(a), s = Math.sin(a);
+          E.px.poly(g, [[sx + c * 6, sy + s * 6], [sx - c * 4 - s * 4, sy - s * 4 + c * 4], [sx - c * 4 + s * 4, sy - s * 4 - c * 4]], "#05030c");
+          E.px.poly(g, [[sx + c * 5, sy + s * 5], [sx - c * 3 - s * 3, sy - s * 3 + c * 3], [sx - c * 3 + s * 3, sy - s * 3 - c * 3]], "#f0ecff");
+        }
+        const [cx5, cy] = st.mouse ? [Math.round(st.mx), Math.round(st.my)] : [Math.round(x + w8 / 2), Math.round(y + h / 2)];
+        P17.fill(cx5 - 6, cy, 4, 1, UI.accent);
+        P17.fill(cx5 + 3, cy, 4, 1, UI.accent);
+        P17.fill(cx5, cy - 6, 1, 4, UI.accent);
+        P17.fill(cx5, cy + 3, 1, 4, UI.accent);
+        g.restore();
+        E.px.reset(g);
+        P17.rec.rect("map", x, y, w8, h);
+        const wc = toWorld(cx5, cy), hood2 = wc && C4.hoodAtPoint ? C4.hoodAtPoint(wc[0], wc[1]) : null;
+        P17.text((hood2 ? hood2.name : "LOWTOWN").toUpperCase(), x + 6, y + h - 12, UI.ink);
+        P17.text("SHOWING " + filters[st.filter][1] + "   " + Math.round(ZOOMS[st.z] * 100) + "%", x + w8 - 6, y + 4, UI.dim, { align: "right" });
+        if (st.legend && o.legend) {
+          const rows = o.legend.slice(0, 8), lw = 128, lh = rows.length * 12 + 10, lx = x + 6, ly = y + 6;
+          P17.panel(lx, ly, lw, lh, { kind: "legend" });
+          rows.forEach((r7, i) => {
+            drawBlip(g, lx + 10, ly + 10 + i * 12, r7.shape, r7.color);
+            P17.text(r7.label.toUpperCase(), lx + 20, ly + 7 + i * 12, UI.ink);
+          });
+          E.px.reset(g);
+        }
+        return h;
+      }
+    };
+    return page;
+  }
+
+  // src/motor/ui/onboarding.js
+  knob("UI", "tipTime", "Onboarding hint time", 6, 2, 20, 0.5, "Seconds a first-time hint stays up");
+  var Onboarding = class {
+    constructor(game2, verbs) {
+      this.game = game2;
+      this.verbs = verbs;
+      this.now = null;
+      this.t = 0;
+      this.queue = [];
+      this._seen = null;
+    }
+    /** the hints shown already (the player's settings: kept between visits) */
+    get seen() {
+      if (!this._seen) {
+        const S = this.game.settings;
+        if (S && S.define && !S.spec("tipsSeen")) S.define({ key: "tipsSeen", group: "Hidden", type: "value", value: () => [] });
+        this._seen = new Set(Array.isArray(S && S.tipsSeen) ? S.tipsSeen : []);
+      }
+      return this._seen;
+    }
+    _mark(id) {
+      this.seen.add(id);
+      const S = this.game.settings;
+      if (S && S.set && S.spec("tipsSeen")) S.set("tipsSeen", [...this.seen]);
+    }
+    /** each step: ctx is the game's own (what the player can do now; ctx.off: no hints, the bot plays) */
+    update(dt, ctx) {
+      if (ctx.off) {
+        this.now = null;
+        return;
+      }
+      for (const v of this.verbs) if (!this.seen.has(v.id) && !this.queue.includes(v) && this.now !== v && v.when(ctx)) this.queue.push(v);
+      if (this.now) {
+        this.t += dt;
+        if (this.t >= TUNE.tipTime) this.now = null;
+      }
+      if (!this.now && this.queue.length) {
+        this.now = this.queue.shift();
+        this.t = 0;
+        this._mark(this.now.id);
+      }
+    }
+    /** the hint showing, in a box from (x, y) */
+    draw(P17, x, y) {
+      const v = this.now;
+      if (!v) return;
+      const a = Math.min(1, this.t * 4, (TUNE.tipTime - this.t) * 2), w8 = P17.promptWidth(v.text) + 16;
+      P17.g.globalAlpha = Math.max(0, a);
+      P17.panel(x, y, w8, 19, { kind: "tip", bg: ["#1c1a34", "#0e0c1c"], border: UI.cyan });
+      P17.prompt(v.text, x + 8, y + 6, { color: UI.ink });
+      P17.g.globalAlpha = 1;
+    }
+  };
 
   // src/motor/actors/characters.js
   declare("characters", shape({
@@ -30930,25 +32538,85 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     RNG.seed(seed);
     syncMouseButtons(game2);
     const app2 = { game: game2, links: links2, views, bindings, activity, human: new HumanController(bindings, views, game2), footprint: new Footprint(), kiosk: kioskWanted(links2), seed, stage: new Stage(game2, views) };
+    defineSettings(game2);
+    const layer = new UILayer(game2, { base: () => app2.stage.sharp ? app2.stage.baseS : null });
+    app2.ui = { layer, screens: new Screens({ app: app2, layer }), took: false, held: false, record: () => layer.rec.snapshot() };
     for (const [k, v] of Object.entries(app2)) expose(k, v);
     expose("BUS", BUS);
     expose("TUNE", TUNE);
     return app2;
   }
   function wrapScenes(app2, specs) {
-    const out = {};
+    const out = {}, U = app2.ui.screens;
     for (const spec of specs) {
-      const s = spec.make(app2), update = s.update ? s.update.bind(s) : null;
+      const s = spec.make(app2), update = s.update ? s.update.bind(s) : null, draw = s.draw ? s.draw.bind(s) : null;
       s.update = (dt) => {
         app2.bindings.update(dt);
+        app2.ui.took = U.isOpen;
+        if (U.isOpen) U.update(dt);
+        const held = U.pausing;
+        if (held !== app2.ui.held) {
+          app2.ui.held = held;
+          try {
+            app2.game.audio.duck(held);
+          } catch (e) {
+          }
+        }
+        if (held) return;
         if (update) update(dt);
+      };
+      s.draw = (r7) => {
+        if (draw) draw(r7);
+        uiFrame(app2, s);
+      };
+      const exit = s.exit ? s.exit.bind(s) : null;
+      s.exit = () => {
+        U.closeAll();
+        if (exit) exit();
       };
       out[spec.id] = s;
     }
     return out;
   }
+  function uiFrame(app2, s) {
+    const L16 = app2.ui.layer, g = app2.game;
+    L16.frame(Math.max(0, Math.min(0.1, g.real - (L16._real ?? g.real))));
+    L16._real = g.real;
+    if (g.paused && s && s.openPause) {
+      const why = g.pauseReason;
+      g.resume();
+      s.openPause(why);
+    }
+    const P17 = new Pen(L16, app2.bindings, g.input);
+    if (s && s.hud) s.hud(P17);
+    app2.ui.screens.draw(P17);
+    return P17;
+  }
 
   // src/about.js
+  var SOURCE_INFO = [
+    ["Initial Date", "2026-10-17 (UTC): the first prompt of the planning session"],
+    ["SOURCE", "Grand Theft Auto 2 (PC, 1999; DMA Design / Rockstar Games), with depth, features and gameplay drawn from Grand Theft Auto V (2013; Rockstar North); my-3D2dge 2D pixel style; views isometric (primary), top-down (secondary) and side scrolling with depth (Mode 7)"],
+    ["GAME ENGINE", "my-3D2dge v0.46.1, commit cfa866aa45474868350cad1a7fc015e612f9305f (2026-10-15), https://github.com/michaelcrosato/my-3d2dge (MIT), vendored and extended by MOTOR"],
+    ["Environment", "Claude Code in Anthropic's managed cloud environment (claude.ai/code remote session, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22; headless Chromium 141 (Playwright) for tests; the game targets desktop browsers"],
+    ["Model and Effort Level", "AI lab: Anthropic. Planning effort: max. Implementation effort: recorded in each run's chat report, which also names the exact model (this environment keeps model identifiers out of repository files)"]
+  ];
+  var ENGINE_SUMMARY = [
+    "Used: the fixed-step loop, scenes and boot; the isometric view and TileMap walls, facades and heights; the depth-sorted renderer; Humanoid rigs and mocap; Mover, actions and perception; bullets, particles and lighting; the chip synth; saves and settings; session replay and the check, filmstrip and replay tools; the stress test's side scrolling with depth (Mode 7) and the shooter kit's one-point lean, generalized by MOTOR.",
+    "Not used: the agent edition, the 3D engine, the side-scroller kit, the whole-map floor bake, the HTML menus (not TV-scaled), the orthographic top-down view, circle bodies for cars, music() for the radio.",
+    "One change: make the world scale - a chunked, streamed TileMap (floors baked per chunk on demand, walls culled to the view, cells with space under bridges)."
+  ];
+  var ENGINE_CREDIT = [
+    "my-3D2dge v0.46.1 by Michael Crosato: https://github.com/michaelcrosato/my-3d2dge. Vendored in vendor/my-3d2dge, patched only where vendor/my-3d2dge/PATCHES.md says, and extended by MOTOR, this game's own layer.",
+    "MIT License. Copyright (c) 2026 Michael Crosato.",
+    'Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:',
+    "The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.",
+    'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'
+  ];
+  var GAME_CREDIT = [
+    "An original game in the spirit of Grand Theft Auto 2, with depth drawn from Grand Theft Auto V. Lowtown, its people, its gangs, its vehicles, its radio and every line are made up for it: no names, logos, music or text from those games.",
+    "Every picture and sound is drawn and played by code at run time: no image or audio files."
+  ];
   var GAME = { title: "GRAND THEFT MOTO", id: "GrandTheftMoto-5S", tagline: "If it has a motor, it's yours." };
 
   // src/game/characters/crew.js
@@ -33143,7 +34811,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var BENCH = [2200, 726];
   var SPOT = [2200, 744];
   var IN = [[2336, 548], [2312, 572], [2312, 704], [2296, 736], [2232, 744], SPOT];
-  var OUT = [SPOT, [2296, 736], [2312, 704], [2312, 572], [2336, 548]];
+  var OUT2 = [SPOT, [2296, 736], [2312, 704], [2312, 572], [2336, 548]];
   var GUARDS = [
     { tag: "g-bench", arch: "saint-enforcer", at: [2224, 760], facing: Math.PI / 2 },
     // (the bench's: watching the car and the street)
@@ -33217,8 +34885,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           yield m.waitUntil((m2) => near(m2, SPOT, 12));
           yield m.photo(BENCH, { from: SPOT, range: 120, text: "Photograph the ledger on the bench (the Snap)" });
           yield m.say(["Got it."], VIV2);
-          m.objective("Get out the way you came", { hint: { kind: "stealth", path: OUT } });
-          yield m.waitUntil((m2) => near(m2, OUT[OUT.length - 1], 20));
+          m.objective("Get out the way you came", { hint: { kind: "stealth", path: OUT2 } });
+          yield m.waitUntil((m2) => near(m2, OUT2[OUT2.length - 1], 20));
           yield m.say(["Fender keeps neat books. Bless him.", "Lovely work, Viv. The Saints will be paying the Rats' bills for a while."], BILGE2);
         }
       }
@@ -34493,10 +36161,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           fx7.draw(stage, combat, [me.x, me.y]);
           drawAimMarks(stage, me, game2.real);
           stage.end();
-          r7.overlay((g) => {
-            drawPedHud(g, r7.W, r7.H, me, { color: "#ff5a4a", name: "RANGE" });
-            wheel4.draw(g, r7.W, r7.H);
-          });
+        },
+        /** the HUD on the UI layer (the proving scene's hud(pen) calls it) */
+        uiHud(P17) {
+          drawPedHud(P17, me, { color: "#ff5a4a", name: "RANGE" });
+          wheel4.draw(P17);
         },
         hud() {
           const spec = me.inv.spec(), rd = me.inv.rounds(), lines = [`${spec.name.toUpperCase()}  ${rd ? rd.mag + "/" + rd.total : ""}  KILLS ${combat.kills}  FIRE ${combat.fire ? combat.fire.count : 0}`];
@@ -34626,7 +36295,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
   };
   function makeSaves(o = {}) {
-    return new SaveStore({ game: GAME_ID, schema: SCHEMA2, blank: blankSave, normalize: normalizeSave, migrations: MIGRATIONS, ...o });
+    return new SaveStore({ game: GAME_ID, schema: SCHEMA2, blank: blankSave, normalize: normalizeSave, migrations: MIGRATIONS, summary: (d) => ({ completion: Number.isFinite(d.completion) ? d.completion : 0, day: Number.isFinite(d.gameDay) ? d.gameDay : 0 }), ...o });
   }
 
   // src/game/scenes/attract.js
@@ -34694,7 +36363,6 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var SHOP_R = 20;
   var DRIVE_R = 44;
   var PROP_R = 22;
-  var PAGE = 6;
   var giverAt = (city, spec) => {
     const g = spec.giver || {}, gang = g.phone && get("gangs", g.phone), id = g.at || (gang ? gang.phone : null), q = id && city.poi(id);
     return q ? [q.x, q.y] : null;
@@ -34821,10 +36489,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (this.padMode) this.botI = B2;
         else I = B2;
       }
-      if (this.card) {
-        this._cardInput(dt);
-        I = clearIntent(I);
-      }
+      if (this.card) I = clearIntent(I);
       this.R.update(dt);
       if (this.R.state === "failed" && !ctx.down && !this.card) this._blown();
       if (this.R.state === "passed" && !this.card) this._jobDone();
@@ -34901,7 +36566,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (s.drive) continue;
         const q = C4.poi(s.poi);
         if (q && near2(q) && Math.hypot(q.x - p.x, q.y - p.y) < SHOP_R) {
-          this.prompt = { text: `{interact} SHOP  ${s.name.toUpperCase()}`, color: s.color, act: () => this._shopCard(s, { ped: p }) };
+          this.prompt = { text: `{onFoot:interact} SHOP  ${s.name.toUpperCase()}`, color: s.color, act: () => this._shopCard(s, { ped: p }) };
           return;
         }
       }
@@ -34915,11 +36580,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           return;
         }
         const price = Math.round(amountOf(pr.price));
-        this.prompt = { text: `{interact} BUY  ${pr.name.toUpperCase()}  $${price.toLocaleString("en-US")}`, color: "#5aff8a", act: () => this._buyProperty(pr) };
+        this.prompt = { text: `{onFoot:interact} BUY  ${pr.name.toUpperCase()}  $${price.toLocaleString("en-US")}`, color: "#5aff8a", act: () => this._buyProperty(pr) };
         return;
       }
       const safe2 = C4.poi("safehouse");
-      if (safe2 && near2(safe2) && Math.hypot(safe2.x - p.x, safe2.y - p.y) < SHOP_R) this.prompt = { text: "{interact} SAVE", color: "#7af0ff", act: () => this.write("1", true) };
+      if (safe2 && near2(safe2) && Math.hypot(safe2.x - p.x, safe2.y - p.y) < SHOP_R) this.prompt = { text: "{onFoot:interact} SAVE", color: "#7af0ff", act: () => this.saveScreen() };
     }
     /** keep a vehicle in the save's garage (a mission's stash), and the one kept under an id (null: gone or wrecked) */
     stash(v, id, at = null) {
@@ -34961,7 +36626,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // ---- the run's ends
     _ended(r7) {
-      if (r7.passed && (r7.kind === "mission" || (get("activities", r7.id) || {}).kind === "job")) this.write("auto");
+      if (r7.passed && (r7.kind === "mission" || (get("activities", r7.id) || {}).kind === "job") && setting(this.app.game, "autosave", true)) this.write("auto");
     }
     _eventEnded(r7) {
       if (r7.passed) {
@@ -34969,33 +36634,19 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.pop((r7.title || "NICE").toUpperCase(), c ? "+$" + c : "", "#7aff8a");
       }
     }
-    // ---- the cards: { title, color, body: [lines], items: [{ label, sub, right, disabled, act }], sel, legend, back, auto }
+    // ---- the cards: { id, title, color, body: [lines], items: [{ label, sub, right, disabled, act }], sel, legend, back,
+    // confirm (no items: ✕ continues), auto (the bot's answer), medal, style ('phone') }, each shown as a screen
     _open(card) {
-      this.card = { sel: 0, page: 0, ...card };
-      this.app.game.input.consumeAll && this.app.game.input.consumeAll();
-      BUS.emit("uiOpen", { screen: card.id });
+      const U = this.app.ui.screens, mine = U.top && U.top.career === this;
+      this.card = { sel: 0, ...card };
+      const scr = cardScreen(this, this.card);
+      if (mine) U.replace(scr);
+      else U.open(scr);
     }
     close() {
-      if (this.card) BUS.emit("uiClose", { screen: this.card.id });
+      const U = this.app.ui.screens;
+      if (this.card && U.top && U.top.career === this) U.back();
       this.card = null;
-    }
-    _cardInput() {
-      const B2 = this.app.bindings, c = this.card;
-      B2.setContext("menu");
-      const items = c.items || [], n = items.length;
-      if (n) {
-        if (B2.tap("down") || B2.tap("right")) c.sel = (c.sel + 1) % n;
-        if (B2.tap("up") || B2.tap("left")) c.sel = (c.sel - 1 + n) % n;
-        c.page = Math.floor(c.sel / PAGE);
-      }
-      if (B2.tap("confirm")) {
-        const it = items[c.sel];
-        if (it && !it.disabled && it.act) it.act();
-        else if (!n && c.confirm) c.confirm();
-      } else if (B2.tap("back")) {
-        if (c.back) c.back();
-        else this.close();
-      }
     }
     _jobCard(m) {
       const rw = m.rewards || {}, resp = Object.entries(rw.respect || {}).map(([g, d]) => `${(get("gangs", g) || { name: g }).name} ${d > 0 ? "+" : ""}${d}`).join("   ");
@@ -35066,7 +36717,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       const rw = r7.rewards || {}, body2 = [];
       if (r7.kind === "activity" && (get("activities", r7.id) || {}).levels > 1) body2.push(`LEVEL ${r7.level} DONE`);
-      body2.push(`$${(rw.cash || 0).toLocaleString("en-US")}`);
+      body2.push({ text: `+$${(rw.cash || 0).toLocaleString("en-US")}`, color: "#7aff8a", scale: 2 });
       for (const [g, d] of Object.entries(rw.respect || {})) body2.push(`${(get("gangs", g) || { name: g }).name.toUpperCase()}  ${d > 0 ? "+" : ""}${d} RESPECT`);
       for (const b of r7.bonus || []) body2.push(`${b.ok ? "[X]" : "[ ]"} ${b.text}`);
       body2.push(`TIME ${Math.floor(r7.elapsed / 60)}:${String(Math.floor(r7.elapsed % 60)).padStart(2, "0")}`);
@@ -35102,7 +36753,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.card.sel = sel;
     }
     _confirm(s, it, ctx, price) {
-      this._open({ id: "confirm", title: "BUY " + it.name.toUpperCase() + "?", color: s.color, body: [`$${price.toLocaleString("en-US")}`], items: [{ label: "BUY IT", act: () => this._buy(s, it, ctx) }, { label: "NO", act: () => this._shopCard(s, ctx) }], back: () => this._shopCard(s, ctx) });
+      this._open({ id: "confirm", title: "BUY " + it.name.toUpperCase() + "?", color: s.color, body: [`$${price.toLocaleString("en-US")}`], items: [{ label: "NO", act: () => this._shopCard(s, ctx) }, { label: "BUY IT", act: () => this._buy(s, it, ctx) }], back: () => this._shopCard(s, ctx) });
     }
     _buyProperty(pr) {
       const price = Math.round(amountOf(pr.price)), go = () => {
@@ -35111,45 +36762,65 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (r7.ok) this.pop(pr.name.toUpperCase() + " IS YOURS", "-$" + price.toLocaleString("en-US"), "#5aff8a");
         else this.pop("NOT ENOUGH CASH", "$" + price.toLocaleString("en-US"), "#ff5a4a");
       };
-      if (price > CONFIRM_ABOVE) this._open({ id: "confirm", title: "BUY " + pr.name.toUpperCase() + "?", color: "#5aff8a", body: [`$${price.toLocaleString("en-US")}`, `PAYS $${Math.round(amountOf(pr.income))} EVERY MIDNIGHT`], items: [{ label: "BUY IT", act: go }, { label: "NO", act: () => this.close() }] });
+      if (price > CONFIRM_ABOVE) this._open({ id: "confirm", title: "BUY " + pr.name.toUpperCase() + "?", color: "#5aff8a", body: [`$${price.toLocaleString("en-US")}`, `PAYS $${Math.round(amountOf(pr.income))} EVERY MIDNIGHT`], items: [{ label: "NO", act: () => this.close() }, { label: "BUY IT", act: go }] });
       else go();
     }
-    // ---- the phone: jobs (in a job's vehicle), cabs, contacts, completion
+    // ---- the phone (PLAN.md 8.18): CONTACTS (the jobs' givers, Lowtown Cabs), TEXTS, JOBS, SNAP, SETTINGS; a job the
+    // vehicle you sit in can start now comes first
     phone() {
       if (this.card || this.R.active) return;
       const W20 = this.W, p = W20.crew.ped, v = p.seat && p.seat.vehicle, items = [];
+      this._phoneSel = 0;
       for (const a of all("activities").filter((q) => q.kind === "job" && q.start && q.start.vehicle && v && v.driver === p && fits(q.start.vehicle, v))) {
         const next = Math.min(a.levels || 1, (this.save.activities[a.id] || 0) + 1);
-        items.push({ label: a.title.toUpperCase(), sub: `LEVEL ${next}/${a.levels || 1}`, act: () => {
+        items.push({ label: a.title.toUpperCase(), sub: `START  LEVEL ${next}/${a.levels || 1}`, icon: "job", color: "#ffd23a", act: () => {
           this.close();
           this.startMission(a.id, { activity: true, level: next });
         } });
       }
-      const stars = W20.wanted() ? W20.wanted().stars : 0;
-      items.push({ label: "LOWTOWN CABS", sub: stars ? "NOT WHILE WANTED" : v ? "ON FOOT ONLY" : "", disabled: !!stars || !!v, act: () => this._cabs() });
-      items.push({ label: "CONTACTS", sub: `${this.available().length} JOBS ON OFFER`, act: () => this._contacts() });
-      const c = completion(this.save);
-      items.push({ label: "COMPLETION", right: c.pct.toFixed(1) + "%", act: () => this._stats() });
-      this._open({ id: "phone", title: "PHONE", color: "#7af0ff", body: [], items });
+      const offers = this.available().length, texts = this._textList().length;
+      items.push({ label: "CONTACTS", sub: `${offers} JOB${offers === 1 ? "" : "S"} ON OFFER`, icon: "contacts", act: this._app(() => this._contacts()) });
+      items.push({ label: "TEXTS", sub: texts ? `${texts} UNREAD` : "NOTHING NEW", icon: "texts", act: this._app(() => this._texts()) });
+      items.push({ label: "JOBS", sub: "TAXI, AMBULANCE, MORE", icon: "jobs", act: this._app(() => this._jobs()) });
+      items.push({ label: "SNAP", sub: "PHOTO MODE", icon: "snap", disabled: !this.W.photo, act: () => {
+        this.close();
+        if (this.W.photo) this.W.photo();
+      } });
+      items.push({ label: "SETTINGS", icon: "settings", act: () => this.app.ui.screens.open(settingsScreen(this.app)) });
+      this._open({ id: "phone", style: "phone", title: "PHONE", color: "#7af0ff", body: [], items, legend: "{menu:confirm} OPEN   {menu:back} HANG UP" });
     }
     _cabs() {
-      const W20 = this.W, p = W20.crew.ped, kinds2 = /* @__PURE__ */ new Set(["safehouse", "shop", "property", "gang", "landmark", "hospital", "police", "marina"]);
+      const W20 = this.W, p = W20.crew.ped, kinds2 = /* @__PURE__ */ new Set(["safehouse", "shop", "property", "gang", "landmark", "hospital", "police", "marina"]), stars = W20.wanted() ? W20.wanted().stars : 0, v = p.seat && p.seat.vehicle;
       const dests = W20.city.pois.filter((q) => kinds2.has(q.kind) && q.label).sort((a, b) => a.label.localeCompare(b.label));
+      const why = stars ? "NOT WHILE WANTED" : v ? "ON FOOT ONLY" : "";
       this._open({
         id: "cabs",
+        style: "phone",
         title: "LOWTOWN CABS",
         color: "#ffd23a",
-        body: [`CASH  $${W20.crew.fund.toLocaleString("en-US")}`],
-        back: () => this.phone_(),
+        body: [why || `CASH  $${W20.crew.fund.toLocaleString("en-US")}`],
+        back: () => this._contacts(),
         items: dests.map((q) => {
           const fee = this.cabFee(p, q);
-          return { label: q.label.toUpperCase(), right: "$" + fee, disabled: fee > W20.crew.fund, act: () => this.cab(q) };
+          return { label: q.label.toUpperCase(), right: "$" + fee, icon: "cab", disabled: !!why || fee > W20.crew.fund, act: () => this.cab(q) };
         })
       });
     }
     phone_() {
+      const sel = this._phoneSel || 0;
       this.close();
       this.phone();
+      if (this.card) {
+        this.card.sel = Math.min(sel, this.card.items.length - 1);
+        this._phoneSel = sel;
+      }
+    }
+    // (back on the app it opened)
+    _app(open) {
+      return () => {
+        this._phoneSel = this.card ? this.card.sel : 0;
+        open();
+      };
     }
     /** a cab's fare from the ped to a point of interest */
     cabFee(p, q) {
@@ -35169,18 +36840,53 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       });
       return true;
     }
-    _contacts() {
-      const items = this.available().map((m) => ({ label: m.title.toUpperCase(), sub: m.gang ? (get("gangs", m.gang) || { name: m.gang }).name.toUpperCase() : "VIV", act: () => {
-        const at = giverAt(this.W.city, m);
-        this.waypoint = at;
-        this.close();
-        this.pop("MARKED ON THE MAP", m.title.toUpperCase(), "#7af0ff");
-      } }));
-      this._open({ id: "contacts", title: "CONTACTS", color: "#7af0ff", body: items.length ? [] : ["NOTHING ON OFFER"], items, back: () => this.phone_() });
+    // a giver's name: the gang's, the crew member's, or the planning board
+    _giverName(m) {
+      return m.gang ? (get("gangs", m.gang) || { name: m.gang }).name.toUpperCase() : m.giver && m.giver.at ? (get("characters", String(m.giver.at).split("-")[0]) || { name: "VIV" }).name.toUpperCase() : "THE CREW";
     }
-    _stats() {
-      const c = completion(this.save);
-      this._open({ id: "stats", title: `COMPLETION ${c.pct.toFixed(1)}%`, color: "#ffe066", body: [], items: c.items.map((q) => ({ label: q.label.toUpperCase(), right: `${q.done}/${q.of}` })), back: () => this.phone_() });
+    _mark(m) {
+      const at = giverAt(this.W.city, m);
+      this.waypoint = at;
+      this.close();
+      this.pop("MARKED ON THE MAP", m.title.toUpperCase(), "#7af0ff");
+    }
+    _contacts() {
+      const stars = this.W.wanted() ? this.W.wanted().stars : 0;
+      const items = [
+        { label: "LOWTOWN CABS", sub: stars ? "NOT WHILE WANTED" : "A RIDE ANYWHERE", icon: "cab", color: "#ffd23a", act: () => this._cabs() },
+        ...this.available().map((m) => ({ label: this._giverName(m), sub: m.title.toUpperCase(), icon: "pin", color: m.gang && get("gangs", m.gang) ? get("gangs", m.gang).colors[0] : "#ffe066", act: () => this._mark(m) }))
+      ];
+      this._open({ id: "contacts", style: "phone", title: "CONTACTS", color: "#7af0ff", body: [], items, back: () => this.phone_() });
+    }
+    // the texts: a line from each giver with a job on offer
+    _textList() {
+      return this.available().filter((m) => (m.brief || []).length);
+    }
+    _texts() {
+      const list = this._textList(), items = list.map((m) => ({ label: this._giverName(m), sub: m.title.toUpperCase(), icon: "texts", act: () => this._text(m) }));
+      this._open({ id: "texts", style: "phone", title: "TEXTS", color: "#7af0ff", body: items.length ? [] : ["NOTHING NEW"], items, back: () => this.phone_() });
+    }
+    _text(m) {
+      this._open({
+        id: "text",
+        style: "phone",
+        title: this._giverName(m),
+        color: m.gang && get("gangs", m.gang) ? get("gangs", m.gang).colors[0] : "#7af0ff",
+        body: (m.brief || []).flatMap((l7) => E.font.wrap(l7, 160, {})),
+        items: [{ label: "MARK IT ON THE MAP", icon: "pin", act: () => this._mark(m) }],
+        back: () => this._texts()
+      });
+    }
+    _jobs() {
+      const W20 = this.W, p = W20.crew.ped, v = p.seat && p.seat.vehicle;
+      const items = all("activities").filter((a) => a.kind === "job" && a.start && a.start.vehicle).map((a) => {
+        const next = Math.min(a.levels || 1, (this.save.activities[a.id] || 0) + 1), ok = !!v && v.driver === p && fits(a.start.vehicle, v), need = [].concat(a.start.vehicle)[0];
+        return { label: a.title.toUpperCase(), sub: ok ? `START  LEVEL ${next}/${a.levels || 1}` : "IN " + ((get("vehicles", need) || {}).name || String(need)).toUpperCase(), icon: "job", disabled: !ok, act: () => {
+          this.close();
+          this.startMission(a.id, { activity: true, level: next });
+        } };
+      });
+      this._open({ id: "jobs", style: "phone", title: "JOBS", color: "#ffd23a", body: items.length ? [] : ["NO JOBS YET"], items, back: () => this.phone_() });
     }
     // ---- saving
     /** the save from the live world */
@@ -35206,6 +36912,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (W20.life && W20.life.gangs) out.respect = { ...W20.life.gangs.respect };
       out.completion = completion(S).pct;
       return out;
+    }
+    /** the safehouse's save: the three slots as cards (over a used one asked first) */
+    saveScreen() {
+      this.app.ui.screens.open(slotsScreen(this.app, { mode: "save", saves: this.saves, onSave: (slot) => this.write(slot, true) }));
     }
     /** write the save to a slot (toast: say so) */
     write(slot, toast = false) {
@@ -35255,8 +36965,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (this.waypoint && near2(this.waypoint[0], this.waypoint[1])) ring(this.waypoint[0], this.waypoint[1], "#7af0ff", 16, t);
       }
     }
-    /** the radar's blips: [{ x, y, color, shape }] */
-    blips() {
+    /** where the GPS leads: the waypoint, else the running job's first marker on the radar ([x, y] or null) */
+    gpsGoal() {
+      if (this.waypoint) return this.waypoint;
+      if (!this.R.active) return null;
+      const mk = this.R.markers.find((q) => !q.gone && q.blip);
+      if (!mk) return null;
+      const a = mk.actor;
+      return a ? [Math.round(a.x / 16) * 16, Math.round(a.y / 16) * 16] : mk.at;
+    }
+    /** the radar's blips: [{ x, y, color, shape }] (o.waypoint false: without the waypoint, which the big map draws itself) */
+    blips(o = {}) {
       const out = [];
       if (this.R.active) {
         for (const mk of this.R.markers) if (!mk.gone && mk.blip) {
@@ -35269,46 +36988,36 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           out.push({ x: at[0], y: at[1], color: g ? g.colors[0] : "#ffe066", shape: g ? g.icon || "square" : "square", label: m.title });
         }
         for (const { at } of this.startable()) out.push({ x: at[0], y: at[1], color: "#5af0ff", shape: "flag" });
-        if (this.waypoint) out.push({ x: this.waypoint[0], y: this.waypoint[1], color: "#7af0ff", shape: "square", edge: true });
+        if (this.waypoint && o.waypoint !== false) out.push({ x: this.waypoint[0], y: this.waypoint[1], color: "#7af0ff", shape: "flag", edge: true });
       }
       return out;
     }
-    /** the HUD's part: the objective, the timer, the subtitles, the race, the pops, the card */
-    hud(g, Wd, Hd, o = {}) {
-      const R2 = this.R, B2 = this.app.bindings, input = this.app.game.input, t = this.W.game.real || 0;
+    /** the HUD's part, on the UI layer: the objective, the timer, the race's checkpoint, the subtitles (Settings: on by
+     *  default, the speaker's name in colour), the pops, a hold-up's bar, the prompt at a door (o.blocked: another's) */
+    hud(P17, o = {}) {
+      const R2 = this.R, t = this.W.game.real || 0, L16 = hudLayout(P17), cx5 = P17.W / 2, fw = footWidth(P17);
       if (R2.state === "running" && R2.objective && !this.card) {
-        const rows = E.font.wrap(R2.objective.text, Wd - 80, {}), bw = Math.min(Wd - 40, Math.max(...rows.map((r7) => E.font.width(r7))) + 14);
-        g.fillStyle = "rgba(5,3,12,.6)";
-        g.fillRect(Math.round(Wd / 2 - bw / 2), Hd - 89, Math.round(bw), rows.length * 10 + 5);
-        g._c = null;
-        E.font.text(g, R2.objective.text, Wd / 2, Hd - 86, "#f0ecff", { align: "center", outline: "#05030c", wrap: Wd - 80 });
+        const rows = wrapLines(P17, R2.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map((r7) => P17.width(r7))) + 14), y = L16.sy1 - 78;
+        P17.fill(cx5 - bw / 2, y - 3, bw, rows.length * 10 + 5, "#05030c", 0.6);
+        rows.forEach((r7, i) => P17.text(r7, cx5, y + i * 10, "#f0ecff", { align: "center" }));
       }
       if (R2.timer && R2.state === "running") {
         const s = Math.ceil(R2.timer.left), txt = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-        E.font.text(g, (R2.timer.label ? R2.timer.label + " " : "") + txt, Wd - 8, 22, s <= 10 && Math.floor(t * 3) % 2 ? "#ff5a4a" : "#ffe066", { align: "right", scale: 2, outline: "#05030c" });
+        P17.text((R2.timer.label ? R2.timer.label + " " : "") + txt, L16.timer[0], L16.timer[1], s <= 10 && Math.floor(t * 3) % 2 ? "#ff5a4a" : "#ffe066", { align: "right", scale: 2 });
       }
-      if (R2.course && R2.state === "running") E.font.text(g, `CHECKPOINT ${R2.checkpoint + 1 + R2.lap * R2.course.length}/${R2.course.length * (R2.laps || 1)}`, Wd - 8, 42, "#5af0ff", { align: "right", outline: "#05030c" });
-      const L16 = R2.lines || this.events.R.lines;
-      if (L16 && L16.list[L16.i]) {
-        const line = L16.list[L16.i];
-        E.ui.box(g, Wd / 2 - 160, Hd - 58, 320, 24, { alpha: 0.75 });
-        E.font.text(g, (L16.name ? L16.name.toUpperCase() + ": " : "") + line, Wd / 2, Hd - 54, "#f0ecff", { align: "center", wrap: 308 });
-        if (L16.name) E.font.text(g, L16.name.toUpperCase() + ":", Wd / 2 - 154, Hd - 54, L16.color, {});
-      }
+      if (R2.course && R2.state === "running") P17.text(`CHECKPOINT ${R2.checkpoint + 1 + R2.lap * R2.course.length}/${R2.course.length * (R2.laps || 1)}`, L16.timer[0], L16.timer[1] + (R2.timer ? 18 : 0), "#5af0ff", { align: "right" });
+      const Ls = R2.lines || this.events.R.lines;
+      if (Ls && Ls.list[Ls.i] && setting(this.app.game, "subtitles", true)) drawSubtitle(P17, Ls.name, Ls.color, Ls.list[Ls.i], L16.sy1 - 48);
       this.pops.forEach((q, i) => {
-        const y = 64 + i * 26, a = Math.min(1, q.t * 2);
-        g.globalAlpha = a;
-        E.font.text(g, q.title, Wd / 2, y, q.color, { align: "center", outline: "#05030c" });
-        if (q.line) E.font.text(g, q.line, Wd / 2, y + 10, "#f0ecff", { align: "center", scale: 1, outline: "#05030c" });
-        g.globalAlpha = 1;
+        const y = L16.sy0 + 54 + i * 30, a = Math.min(1, q.t * 2), big = /^[+-]\$?[\d,]+$/.test(q.line || "");
+        P17.g.globalAlpha = a;
+        P17.text(q.title, cx5, y, q.color, { align: "center" });
+        if (q.line) P17.text(q.line, cx5, y + 10, big ? q.line[0] === "-" ? "#ff8a5a" : "#7aff8a" : "#f0ecff", { align: "center", scale: big ? 2 : 1 });
+        P17.g.globalAlpha = 1;
       });
       const hp = this.holdups && this.holdups.progress();
-      if (hp) {
-        E.ui.bar(g, Wd / 2 - 40, Hd - 100, 80, 5, hp.t, "#ff8a5a");
-        E.font.text(g, "HOLD-UP", Wd / 2, Hd - 112, "#ff8a5a", { align: "center", outline: "#05030c" });
-      }
-      if (this.prompt && !this.card && !o.blocked) drawPrompt(g, this.prompt.text, Wd / 2, Hd - 64, B2, input, { align: "center", color: this.prompt.color });
-      if (this.card) drawCard(g, Wd, Hd, this.card, B2, input, t);
+      if (hp) P17.holdPrompt("HOLD {onFoot:aim} ON THE CLERK", cx5 + 9, L16.sy1 - 100, hp.t, { align: "center", color: "#ff8a5a" });
+      if (this.prompt && !this.card && !o.blocked) P17.prompt(this.prompt.text, cx5, L16.sy1 - 10, { align: "center", color: this.prompt.color });
     }
     /** the career's share of the sim hash */
     hash() {
@@ -35336,47 +37045,239 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const l7 = Array.isArray(need) ? need : [need];
     return l7.some((n) => n === v.def.id || n === v.cls || n === v.def.role || n === v.def.model);
   }
-  function drawCard(g, W20, H18, c, B2, input, t) {
-    const items = c.items || [], pages = Math.max(1, Math.ceil(items.length / PAGE)), page = Math.min(c.page || 0, pages - 1), shown = items.slice(page * PAGE, page * PAGE + PAGE);
-    const w8 = Math.min(W20 - 40, 320), rows = (c.body || []).map((l7) => Math.max(1, E.font.wrap(l7, w8 - 16, {}).length)), lines = rows.reduce((a, b) => a + b, 0), gap = lines ? 6 : 0;
-    const h = 34 + lines * 10 + gap + shown.length * 18 + (c.medal ? 20 : 0) + 22, x = Math.round(W20 / 2 - w8 / 2), y = Math.max(12, Math.round(H18 / 2 - h / 2));
-    g.fillStyle = "rgba(5,3,12,.55)";
-    g.fillRect(0, 0, W20, H18);
-    g._c = null;
-    E.ui.box(g, x, y, w8, h, { bg: ["#1a1830", "#0e0c1c"] });
-    E.font.text(g, c.title, W20 / 2, y + 8, c.color || "#ffe066", { align: "center", scale: 2, outline: "#05030c" });
-    let yy = y + 30;
-    if (c.medal) {
-      E.font.text(g, c.medal.toUpperCase() + " MEDAL", W20 / 2, yy, MEDAL[c.medal] || "#fff", { align: "center", scale: 2, outline: "#05030c" });
-      yy += 20;
+  function cardScreen(C4, card) {
+    const items = card.items || [], list = items.length ? new List({ id: "card-" + card.id, items, color: card.color }) : null;
+    if (list) {
+      card.sel = Math.max(0, Math.min(items.length - 1, card.sel || 0));
+      Object.defineProperty(list, "sel", { get: () => card.sel, set: (v) => {
+        card.sel = v;
+      }, configurable: true });
     }
-    (c.body || []).forEach((l7, i) => {
-      E.font.text(g, l7, W20 / 2, yy, "#c8c0e8", { align: "center", wrap: w8 - 16 });
-      yy += 10 * rows[i];
-    });
-    yy += gap;
-    shown.forEach((it, i) => {
-      const k = page * PAGE + i, on = k === c.sel, iy = yy + i * 18 + (on ? -1 : 0);
-      if (on) {
-        const a = 0.65 + 0.35 * Math.sin(t * 6);
-        g.strokeStyle = c.color || "#ffe066";
-        g.globalAlpha = a;
-        g.lineWidth = 2;
-        g.strokeRect(x + 8, iy - 2, w8 - 16, 16);
-        g.globalAlpha = 1;
-        g._c = null;
+    const back = () => {
+      if (card.back) card.back();
+      else C4.close();
+    };
+    const scr = {
+      id: card.id,
+      career: C4,
+      title: card.title,
+      color: card.color,
+      w: 320,
+      list,
+      sticky: true,
+      info: [...card.medal ? [{ text: card.medal.toUpperCase() + " MEDAL", color: MEDAL[card.medal] || UI.ink, scale: 2 }] : [], ...card.body || []],
+      legend: card.legend || (items.length ? card.back && card.id === "choice" ? "{menu:confirm} SELECT" : "{menu:confirm} SELECT   {menu:back} BACK" : "{menu:confirm} CONTINUE"),
+      back: () => {
+        back();
+        return true;
+      },
+      update(nav, mouse) {
+        if (nav.close) {
+          back();
+          return "back";
+        }
+        if (!items.length && (nav.confirm || mouse.click) && card.confirm) {
+          card.confirm();
+          return "confirm";
+        }
+        return null;
       }
-      E.font.text(g, it.label, x + 14, iy + 2, it.disabled ? "#6a6488" : on ? "#ffffff" : "#d8d4f0", {});
-      if (it.right) E.font.text(g, it.right, x + w8 - 14, iy + 2, it.disabled ? "#6a6488" : "#ffe066", { align: "right" });
-      if (it.sub) E.font.text(g, it.sub, x + w8 - 14 - (it.right ? E.font.width(it.right) + 12 : 0), iy + 2, "#8a84a8", { align: "right" });
-    });
-    if (pages > 1) E.font.text(g, `${page + 1}/${pages}`, x + w8 - 10, y + 8, "#8a84a8", { align: "right" });
-    const legend = items.length ? "{menu:confirm} SELECT   {menu:back} BACK" : "{menu:confirm} CONTINUE";
-    drawPrompt(g, legend, W20 / 2, y + h - 14, B2, input, { align: "center", color: "#c8c0e8" });
+    };
+    if (card.style === "phone") scr.draw = (P17, U, live) => drawPhone(P17, scr, card, C4, live);
+    return scr;
+  }
+  function drawPhone(P17, scr, card, C4, live = true) {
+    const list = scr.list, items = list ? list.items : [], per = 6, page = list ? list.page : 0, pages = list ? list.pages : 1, shown = items.slice(page * per, page * per + per);
+    const [, sy0, sx1, sy1] = P17.safe, body2 = (card.body || []).length, fixed = 44 + body2 * 10 + (body2 ? 4 : 0) + 26 + 8;
+    const RH = Math.max(20, Math.min(24, Math.floor((sy1 - sy0 - fixed) / per))), w8 = 188, h = fixed - 8 + per * RH, x = sx1 - w8 - 4, y = Math.max(sy0 + 4, sy1 - h - 4);
+    P17.shade(0.35);
+    P17.panel(x - 4, y - 4, w8 + 8, h + 8, { kind: "phone", bg: ["#0c0a16", "#05030c"], border: "#4a4470" });
+    P17.fill(x + 4, y + 6, w8 - 8, h - 12, "#141026");
+    P17.text(C4.W.clock && C4.W.clock.label ? C4.W.clock.label() : "", x + 10, y + 10, UI.mute);
+    P17.text(card.title, x + w8 - 10, y + 10, card.color || UI.cyan, { align: "right" });
+    if (pages > 1) P17.pages(page, pages, x + w8 / 2 + 12, y + 10);
+    let yy = y + 26;
+    for (const l7 of card.body || []) {
+      P17.text(l7, x + w8 / 2, yy, UI.dim, { align: "center" });
+      yy += 10;
+    }
+    if (body2) yy += 4;
+    if (list) {
+      list.rows = [];
+      shown.forEach((it, i) => {
+        const k = page * per + i, on = k === list.sel, ry = yy + i * RH - (on ? 1 : 0), col = it.disabled ? UI.off : on ? UI.ink : UI.dim;
+        if (on && live) P17.focus(x + 6, ry - 1, w8 - 12, RH, card.color || UI.cyan);
+        phoneIcon(P17, it.icon || "dot", x + 12, ry + 4, it.disabled ? UI.off : it.color || card.color || UI.cyan);
+        P17.text(it.label, x + 34, ry + 3, col);
+        const sub2 = it.right !== void 0 ? it.right + (it.sub ? "  " + it.sub : "") : it.sub;
+        if (sub2) P17.text(sub2, x + 34, ry + 13, it.disabled ? UI.off : UI.mute);
+        list.rows.push({ i: k, x: x + 6, y: yy + i * RH, w: w8 - 12, h: RH });
+      });
+      P17.rec.list(list.id, shown.length, page, pages, list.rows.map((r7) => ({ label: items[r7.i].label, x: r7.x, y: r7.y, w: r7.w, h: r7.h })), live);
+    }
+    P17.legend(scr.legend, x + w8 / 2, y + h - 16);
+  }
+  function phoneIcon(P17, kind, x, y, c) {
+    const f = (a, b, w8, h) => P17.fill(x + a, y + b, w8, h, c);
+    if (kind === "contacts") {
+      f(5, 1, 6, 6);
+      f(3, 9, 10, 6);
+    } else if (kind === "texts") {
+      f(1, 2, 14, 9);
+      f(4, 11, 3, 3);
+    } else if (kind === "jobs" || kind === "job") {
+      f(5, 2, 6, 2);
+      f(1, 4, 14, 10);
+      P17.fill(x + 1, y + 8, 14, 1, "#141026");
+    } else if (kind === "snap") {
+      f(1, 4, 14, 10);
+      f(5, 2, 6, 2);
+      P17.fill(x + 6, y + 7, 4, 4, "#141026");
+    } else if (kind === "settings") {
+      f(6, 1, 4, 14);
+      f(1, 6, 14, 4);
+      f(3, 3, 10, 10);
+      P17.fill(x + 6, y + 6, 4, 4, "#141026");
+    } else if (kind === "cab") {
+      f(2, 6, 12, 6);
+      f(4, 3, 8, 3);
+      P17.fill(x + 3, y + 12, 3, 3, "#05030c");
+      P17.fill(x + 10, y + 12, 3, 3, "#05030c");
+    } else if (kind === "pin") {
+      f(4, 1, 8, 8);
+      f(6, 9, 4, 3);
+      f(7, 12, 2, 3);
+    } else f(5, 5, 6, 6);
   }
 
-  // src/game/scenes/play.js
+  // src/game/scenes/lowtown.js
   var cached = null;
+  function lowtown(seed) {
+    if (!cached || cached.seed !== seed) {
+      const city = buildCity("lowtown", seed);
+      cached = { seed, city, render: new CityRenderer(city) };
+    }
+    return cached;
+  }
+  var citySeed = (links2) => +(links2.query.get("seed") || 1999);
+
+  // src/game/ui/guide.js
+  var GUIDE = [
+    { title: "The basics", lines: ["Lowtown is yours to take. Walk into a coloured ring for a job, or just drive.", "The radar at the bottom left shows the way: jobs, shops, the police. {onFoot:map} opens the big map, {onFoot:pause} pauses.", "Money buys guns, armour, paint and property. The phone ({onFoot:phone}) finds work, cabs and your contacts."] },
+    { title: "On foot", lines: ["Move with the left stick or WASD. {onFoot:sprint} sprints, {onFoot:jump} jumps and climbs low walls, {onFoot:roll} rolls out of trouble.", "{onFoot:crouch} crouches: slower, quieter, harder to see. From behind a guard who is not hunting you, {onFoot:attack} takes them down.", "{onFoot:interact} uses what is in front of you: a door, a shop, a vehicle."] },
+    { title: "Driving", lines: ["{onFoot:interact} by any door gets in. Someone at the wheel? You jack them out.", "{vehicle:throttle} accelerates, {vehicle:brake} brakes and reverses, {vehicle:handbrake} the handbrake slides it round corners.", "{vehicle:nitro} fires the nitro where it is fitted. {vehicle:radioPrev} {vehicle:radioNext} change the station. {vehicle:interact} gets out."] },
+    { title: "Fighting", lines: ["Hold {onFoot:aim} to lock on to the nearest threat, {onFoot:attack} to fire. {onFoot:reload} reloads.", "Hold {onFoot:wheel} for the weapon wheel: point at one and let go. The game slows while it is open.", "{onFoot:weaponPrev} {onFoot:weaponNext} step through what you carry."] },
+    { title: "The law", lines: ["Crimes the police see earn stars. One star: a word. Five: everyone.", "Break their line of sight and the stars flash while they search. Stay hidden and they give up.", "Spray & Pray repaints a car and the stars go with it, if nobody watches you drive in. A bribe takes one star."] },
+    { title: "The crew", lines: ["Dex, Viv and Gus. Hold {onFoot:switch} for the character wheel and point at one of them.", "Each has an ability: {onFoot:ability}. Each has their own stats, which grow as they use them.", "You cannot switch while wanted, or in a job that needs one of them."] },
+    { title: "Jobs and money", lines: ["Missions come from the gangs' payphones, the crew and the planning board. Walk into the ring.", "A blown job can be retried from the stage it went wrong. Every finished one autosaves.", "Races, rampages and vehicle jobs pay too. Properties pay at midnight: walk up to collect."] },
+    { title: "The views", lines: ["{onFoot:view} changes the view: ISO, TOP-DOWN and MODE 7, the side-scrolling camera on a rail.", "Hold {onFoot:view} and flick the right stick ({onFoot:turnLeft} {onFoot:turnRight} on the keys) to turn ISO or the MODE 7 rail a quarter.", "Nothing in the game depends on the view you play in."] },
+    { title: "Saving", lines: ["Save at the safehouse: walk to its door and press {onFoot:interact}. Three slots, and the autosave after every job.", "CONTINUE on the title loads the newest save. LOAD picks one."] }
+  ];
+
+  // src/game/ui/pause.js
+  var MAP_FILTERS = [["all", "ALL"], ["jobs", "JOBS"], ["activities", "ACTIVITIES"], ["shops", "SHOPS"], ["property", "PROPERTY"], ["services", "SERVICES"]];
+  var SERVICES = { safehouse: ["square", "#7af0ff"], hospital: ["circle", "#ff5a5a"], police: ["triangle", "#5a9aff"] };
+  var clock2 = (s) => {
+    s = Math.floor(s || 0);
+    return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}`;
+  };
+  function mapBlips(city, career) {
+    const out = [];
+    for (const b of career.blips({ waypoint: false })) out.push({ ...b, cat: b.shape === "flag" ? "activities" : "jobs" });
+    for (const s of all("shops")) {
+      const q = city.poi(s.poi);
+      if (q) out.push({ x: q.x, y: q.y, shape: "square", color: s.color, cat: "shops", label: s.name });
+    }
+    for (const p of all("properties")) {
+      const q = city.poi(p.poi);
+      if (q) out.push({ x: q.x, y: q.y, shape: "diamond", color: career.econ.owned(p.id) ? "#5aff8a" : "#2a8a4a", cat: "property", label: p.name });
+    }
+    for (const q of city.pois) {
+      const s = SERVICES[q.kind];
+      if (s) out.push({ x: q.x, y: q.y, shape: s[0], color: s[1], cat: "services", label: q.label });
+    }
+    return out;
+  }
+  function mapLegend() {
+    return [
+      { shape: "diamond", color: "#5af0ff", label: "Saints job" },
+      { shape: "triangle", color: "#ffd23a", label: "Rats job" },
+      { shape: "circle", color: "#ff8ac8", label: "Gnomes job" },
+      { shape: "square", color: "#ffe066", label: "Crew job" },
+      { shape: "flag", color: "#5af0ff", label: "Activity" },
+      { shape: "square", color: "#ffa23a", label: "Shop" },
+      { shape: "diamond", color: "#5aff8a", label: "Property" },
+      { shape: "square", color: "#7af0ff", label: "Safehouse" }
+    ];
+  }
+  function pauseScreen(app2, w8, o = {}) {
+    const S = app2.ui.screens, C4 = w8.career;
+    const map = mapPage(app2, { city: w8.city, turf: w8.turf, blips: () => mapBlips(w8.city, C4), player: w8.player, waypoint: () => C4.waypoint, onWaypoint: (at) => {
+      C4.waypoint = at;
+    }, filters: MAP_FILTERS, legend: mapLegend() });
+    const briefItems = () => [
+      { label: "RESUME", act: () => S.closeAll() },
+      ...C4.R.active ? [{ label: "QUIT THE JOB", act: () => S.open(confirmScreen(S, { title: "QUIT THE JOB?", lines: ["It can be started again from its ring"], yes: "QUIT IT", onYes: () => {
+        S.closeAll();
+        C4.R.quit("player");
+      } })) }] : [],
+      { label: "QUIT TO TITLE", act: () => S.open(confirmScreen(S, { title: "QUIT TO THE TITLE?", lines: ["Anything since the last save is lost"], yes: "QUIT", onYes: () => w8.quitToTitle() })) }
+    ];
+    const brief = {
+      w: 380,
+      list: new List({ id: "brief", items: briefItems() }),
+      enter() {
+        brief.list.set(briefItems());
+      },
+      get info() {
+        const R2 = C4.R;
+        if (R2.active && R2.spec) return [{ text: String(R2.spec.title || "").toUpperCase(), color: UI.accent }, ...(R2.spec.brief || []).slice(0, 4), { text: "NOW: " + (R2.objective ? R2.objective.text : "..."), color: UI.cyan }];
+        const n = C4.available().length;
+        return [{ text: "FREE ROAM", color: UI.accent }, `${n} job${n === 1 ? "" : "s"} on offer: the rings on the map`, `Completion ${completion(w8.save).pct.toFixed(1)}%`];
+      }
+    };
+    const statCards = () => {
+      const c = completion(w8.save);
+      return [
+        { title: "COMPLETION", value: c.pct.toFixed(1) + "%", color: UI.accent },
+        { title: "CASH", value: "$" + w8.crew.fund.toLocaleString("en-US"), color: UI.green },
+        { title: "PLAY TIME", value: clock2(w8.save.playtime) },
+        ...c.items.map((q) => ({ title: q.label.toUpperCase(), value: `${q.done}/${q.of}`, color: q.of && q.done >= q.of ? UI.green : UI.ink, sub: q.of && q.done >= q.of ? "ALL DONE" : "" }))
+      ];
+    };
+    const stats = { w: 400, cards: new Cards({ id: "stats", cols: 3 }), cardH: 52, cardsH: 2 * 52 + 8, legend: "{menu:left}{menu:right} MORE", enter() {
+      stats.cards.cards = statCards();
+    } };
+    const settings = { w: 300, list: new List({ id: "pause-settings", items: SETTING_TABS.map((t, i) => ({ label: t.label, act: () => S.open(settingsScreen(app2, { tab: i })) })) }) };
+    const help = { w: 300, list: guideScreen(app2, { topics: GUIDE }).list };
+    const scr = tabbedScreen({
+      id: "pause",
+      title: o.reason === "controller" ? "CONTROLLER UNPLUGGED" : "PAUSED",
+      pause: true,
+      legend: "{menu:back} RESUME",
+      tabs: [{ id: "map", label: "MAP", page: map }, { id: "brief", label: "BRIEF", page: brief }, { id: "stats", label: "STATS", page: stats }, { id: "settings", label: "SETTINGS", page: settings }, { id: "help", label: "HELP", page: help }]
+    });
+    return o.tab ? scr.show(o.tab) : scr;
+  }
+
+  // src/game/ui/tips.js
+  var TIPS2 = [
+    { id: "steal", text: "{onFoot:interact} GETS YOU INTO ANY CAR", when: (c) => !!c.board },
+    { id: "drive", text: "{vehicle:throttle} GO   {vehicle:brake} BRAKE AND REVERSE", when: (c) => !!c.v },
+    { id: "handbrake", text: "{vehicle:handbrake} HANDBRAKE: SLIDE ROUND CORNERS", when: (c) => !!c.v && c.v.speed > 110 },
+    { id: "radio", text: "{vehicle:radioPrev} {vehicle:radioNext} CHANGE THE STATION", when: (c) => !!c.v && c.vt > 12 },
+    { id: "getout", text: "{vehicle:interact} GETS YOU OUT", when: (c) => !!c.v && c.vt > 25 },
+    { id: "sprint", text: "HOLD {onFoot:sprint} TO SPRINT", when: (c) => !c.v && c.moving && c.t > 2 },
+    { id: "aim", text: "HOLD {onFoot:aim} TO AIM   {onFoot:attack} FIRES", when: (c) => !c.v && c.gun },
+    { id: "wheel", text: "HOLD {onFoot:wheel} FOR THE WEAPON WHEEL", when: (c) => !c.v && c.weapons >= 3 },
+    { id: "phone", text: "{onFoot:phone} THE PHONE: JOBS, CABS, CONTACTS", when: (c) => c.free && c.t > 25 },
+    { id: "map", text: "{onFoot:map} THE MAP", when: (c) => c.free && c.t > 45 },
+    { id: "view", text: "{onFoot:view} CHANGES THE VIEW", when: (c) => c.t > 70 },
+    { id: "switch", text: "HOLD {onFoot:switch} TO SWITCH CHARACTER", when: (c) => c.free && c.t > 100 && !c.wanted },
+    { id: "crouch", text: "{onFoot:crouch} CROUCHES: QUIETER, HARDER TO SEE", when: (c) => !!c.inside }
+  ];
+
+  // src/game/scenes/play.js
   function standIns() {
     const r7 = E.rng(77), pick = (l7) => l7[Math.floor(r7() * l7.length)], peds = [], cars = [];
     for (let i = 0; i < 40; i++) {
@@ -35394,13 +37295,6 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     for (let i = 0; i < 20; i++) cars.push({ ox: (r7() * 2 - 1) * 190, oy: (r7() * 2 - 1) * 160, h: pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]), model: carModel({ color: pick(["#c8423a", "#3a6ac8", "#d8c8a0", "#3a8a5a", "#2a2a30", "#e0e0e4"]) }) });
     return { peds, cars };
   }
-  function lowtown(seed) {
-    if (!cached || cached.seed !== seed) {
-      const city = buildCity("lowtown", seed);
-      cached = { seed, city, render: new CityRenderer(city) };
-    }
-    return cached;
-  }
   knob("Camera", "camLead", "Driving look-ahead", 0.32, 0, 1, 0.02, "Seconds of a vehicle's travel the ISO camera looks ahead of it");
   knob("Wanted", "hospitalFee", "Hospital bill", 100, 0, 5e3, 10, "What WRECKED costs ($)");
   knob("Wanted", "bailFee", "Bail", 250, 0, 5e3, 10, "What NABBED costs ($), the guns aside");
@@ -35408,17 +37302,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   knob("Wanted", "cardTime", "WRECKED and NABBED last", 3.2, 1, 10, 0.1, "Seconds the card shows before the respawn");
   var NOAIM7 = { candidates: [], level: "off" };
   var REFUSED = { wanted: "NOT WHILE WANTED", mission: "NOT DURING THIS JOB", down: "THEY'RE IN NO STATE", busy: "", same: "", unknown: "" };
-  var DOWN = { wrecked: { text: "WRECKED", color: "#ff3a3a", tint: "rgba(40,0,0,.35)" }, nabbed: { text: "NABBED", color: "#5a9aff", tint: "rgba(0,8,40,.35)" } };
+  var DOWN = { wrecked: { text: "WRECKED", color: "#ff3a3a", tint: ["#280000", 0.35] }, nabbed: { text: "NABBED", color: "#5a9aff", tint: ["#000828", 0.35] } };
   var DOOR_R = 22;
   var DOOR_FADE = 0.3;
   var PLAY = {
     make(app2) {
       const { game: game2, views, human, footprint, links: links2, stage, bindings: B2 } = app2;
-      let city, map, cityR, floor, clock, weather, bridges = [], hoodName = "", tour = null, rec = null, crowd = null;
+      let city, map, cityR, floor, clock3, weather, bridges = [], hoodName = "", tour = null, rec = null, crowd = null;
       let crew, combat, fx7, weaponWheel, switchWheel, holdS = 0, toast = null, down = null, prevView = null, mouse0 = null, radar = null, inShop = false, lastCause = null;
       let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null, life = null, unsub = [], auto = null;
       let inside = null, transit = null, door = null, takedown = null;
       let career = null, save = null;
+      let switchLatch = false;
+      const tips = new Onboarding(game2, TIPS2);
+      let playT = 0, wheelT = 0;
       let pilot = null;
       const saves = makeSaves();
       const lead = [0, 0];
@@ -35562,7 +37459,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         BUS.emit("respray", { vehicle: v.id, color: v.color });
         toast = { text: "RESPRAYED  -$" + TUNE.resprayFee, t: 2.5 };
       }
-      const aimCtx = () => ({ candidates: combat.bodies.filter((b) => b.aimable && !b.dead), toScreen: (x, y, z) => views.screenVec(x, y, z), los: (s, c) => losClear(map, s, c, city.decks), level: "standard" });
+      const assist2 = () => career && career.bot ? "standard" : setting(game2, "aimAssist", "standard");
+      const hurtScale = () => career && career.bot ? 1 : DIFFICULTY[setting(game2, "difficulty", "normal")] || 1;
+      const aimCtx = () => ({ candidates: combat.bodies.filter((b) => b.aimable && !b.dead), toScreen: (x, y, z) => views.screenVec(x, y, z), los: (s, c) => losClear(map, s, c, city.decks), level: assist2() });
       function switchItems() {
         const ANG = { dex: Math.PI, viv: -Math.PI / 2, gus: 0 };
         const items = crew.order.map((id) => {
@@ -35710,7 +37609,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           return life;
         },
         get clock() {
-          return clock;
+          return clock3;
         },
         get weather() {
           return weather;
@@ -35764,17 +37663,70 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         endMission: () => {
         }
       };
-      return {
-        get pausable() {
-          return !(career && career.busy);
+      const subtitle = (P17, name, color, line, y) => {
+        if (setting(game2, "subtitles", true)) drawSubtitle(P17, name, color, line, y);
+      };
+      let gps = null;
+      function gpsRoute(v) {
+        const goal = v && !inside && career ? career.gpsGoal() : null;
+        if (!goal) {
+          gps = null;
+          return null;
+        }
+        const t = game2.real;
+        if (gps && gps.goal[0] === goal[0] && gps.goal[1] === goal[1] && t - gps.t < 0.5) return gps.pts;
+        const R2 = roadsOf(city), r7 = R2.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z || 0 });
+        gps = { goal, t, pts: r7 ? [[v.x, v.y], ...r7.lanes.map((i) => R2.graph.lanes[i].b), goal] : null };
+        return gps.pts;
+      }
+      const U = app2.ui.screens;
+      const pauseView = {
+        get city() {
+          return city;
         },
-        // (with a card up, Esc and Options back out of it instead)
+        get career() {
+          return career;
+        },
+        get crew() {
+          return crew;
+        },
+        get save() {
+          return save;
+        },
+        get turf() {
+          return turfOf();
+        },
+        player: () => {
+          const p = hero(), v = p.seat && p.seat.vehicle;
+          return v ? { x: v.x, y: v.y, facing: v.heading } : { x: p.x, y: p.y, facing: p.mover.facing };
+        },
+        quitToTitle: () => {
+          U.closeAll();
+          game2.go("title");
+        }
+      };
+      function openPause(reason, tab) {
+        if (U.isOpen || !career) return false;
+        U.open(pauseScreen(app2, pauseView, { reason, tab }));
+        return true;
+      }
+      return {
+        // (the engine pauses on its own only for what it alone sees: the page hidden, the window left, a controller
+        // unplugged; the pause button is ours, read in the step, so a pause is a step's input like any other)
+        get pausable() {
+          return !U.isOpen && !(career && career.busy) && !game2.input.pressed("pause");
+        },
+        openPause: (reason) => openPause(reason),
         enter(data) {
-          ({ city, render: cityR } = lowtown(+(links2.query.get("seed") || 1999)));
+          ({ city, render: cityR } = lowtown(citySeed(links2)));
+          {
+            const dv = links2.query.get("view") || setting(game2, "defaultView", "iso");
+            if (game2.views.includes(dv) && views.active !== dv) game2.setView(dv);
+          }
           map = city.map;
           floor = new FloorChunks({ w: map.w * map.T, h: map.h * map.T, paint: (g, x0, y0, x1, y1) => city.painter.paint(g, x0, y0, x1, y1) });
           stage.setWorld({ map, city, floor });
-          clock = new WorldClock(links2.query.get("time") || "night");
+          clock3 = new WorldClock(links2.query.get("time") || "night");
           const w8 = links2.query.get("weather");
           weather = new Weather(w8 ? { state: w8, fixed: true } : {});
           bridges = city.drawbridges.map((b) => new Drawbridge(b, city));
@@ -35843,7 +37795,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
               view: views.active,
               hero: [p.x, p.y, p.z].map((v2) => Math.round(v2)),
               hood: hoodName,
-              time: clock.label(),
+              time: clock3.label(),
               weather: weather.state,
               crew: crew.active,
               health: Math.round(p.health),
@@ -35876,7 +37828,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           expose("life", life);
           expose("auto", auto);
           expose("city", city);
-          expose("clock", clock);
+          expose("clock", clock3);
           expose("weather", weather);
           expose("bridges", bridges);
           expose("crew", crew);
@@ -35890,7 +37842,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
               return [Math.round(at.x * 8), Math.round(at.y * 8), Math.round(at.z * 8), Math.round(p.health * 10)];
             }),
             crew.order.indexOf(crew.active),
-            Math.round(clock.hour * 60),
+            Math.round(clock3.hour * 60),
             weather.index,
             Math.round(weather.wet * 100),
             ...bridges.map((b) => Math.round(b.lift * 100)),
@@ -35929,6 +37881,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         },
         update(dt) {
           const real = dt / Math.max(0.05, game2.timeScale);
+          if (!app2.ui.took && !career.busy && (B2.tap("pause", "onFoot") || game2.input.pressed("pause") || B2.tap("map", "onFoot"))) {
+            const map2 = B2.tap("map", "onFoot");
+            if (openPause(null, map2 ? "map" : null)) return;
+          }
           if (transit) {
             transit.t += dt;
             if (!transit.done && transit.t >= DOOR_FADE) {
@@ -35938,9 +37894,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             if (transit.t >= DOOR_FADE * 2) transit = null;
           }
           if (!inside) {
-            const h0 = clock.hour;
-            clock.update(dt);
-            const hours = (clock.hour - h0 + 24) % 24;
+            const h0 = clock3.hour;
+            clock3.update(dt);
+            const hours = (clock3.hour - h0 + 24) % 24;
             weather.update(dt, hours);
             for (const b of bridges) b.update(dt, hours, (br) => crew.order.some((id) => br.contains(crew.member(id).ped.x, crew.member(id).ped.y)));
           }
@@ -35954,16 +37910,21 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             prevView = null;
           }
           const p = hero(), busy = crew.switching || weaponWheel.open || switchWheel.open || transit && !transit.done;
-          weaponWheel.update(real, p, { game: game2, blocked: crew.switching || switchWheel.open || !!p.seat || !!p.boarding });
+          const toggles = human.toggles = toggled(game2);
+          weaponWheel.update(real, p, { game: game2, blocked: crew.switching || switchWheel.open || !!p.seat || !!p.boarding, toggle: toggles.has("wheel") });
           if (!crew.switching && !p.dead && !inside) {
-            if (B2.down("switch", "onFoot") && !weaponWheel.open) {
+            if (toggles.has("switch")) {
+              if (B2.tap("switch", "onFoot")) switchLatch = !switchLatch;
+            } else switchLatch = false;
+            if ((toggles.has("switch") ? switchLatch : B2.down("switch", "onFoot")) && !weaponWheel.open) {
               holdS += real;
-              if (!switchWheel.open && holdS >= TUNE.wheelHold) {
+              if (!switchWheel.open && (toggles.has("switch") || holdS >= TUNE.wheelHold)) {
                 const w8 = switchItems();
                 switchWheel.show(w8.items, w8.sel);
                 mouse0 = null;
               }
             } else {
+              switchLatch = false;
               if (switchWheel.open) {
                 const it = switchWheel.hide();
                 if (it && it.id !== crew.active) trySwitch(it.id);
@@ -36033,11 +37994,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             p.mover.facing = Math.atan2(dy, dx);
             I = clearIntent(I);
           }
-          const night2 = clock.hour >= 19 || clock.hour < 6.5;
+          const night2 = clock3.hour >= 19 || clock3.hour < 6.5;
           if (inside) {
             const R2 = inside.run;
             p.lazyRig = false;
-            p.update(dt, I, { map: R2.map, city: R2.city, combat: R2.combat, fleet: null, aim: { candidates: R2.combat.bodies.filter((b) => b.aimable && !b.dead), toScreen: (x, y, z) => views.screenVec(x, y, z), los: (a, c) => losClear(R2.map, a, c), level: "standard" } });
+            p.hurtScale = hurtScale();
+            p.update(dt, I, { map: R2.map, city: R2.city, combat: R2.combat, fleet: null, aim: { candidates: R2.combat.bodies.filter((b) => b.aimable && !b.dead), toScreen: (x, y, z) => views.screenVec(x, y, z), los: (a, c) => losClear(R2.map, a, c), level: assist2() } });
             R2.update(dt, { player: p, wanted: stars() });
           } else {
             {
@@ -36047,9 +38009,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             if (life) life.update(dt, { night: night2, wet: weather.wet, player: p.seat && p.seat.vehicle && p.seat.vehicle.driver === p ? p.seat.vehicle : null, ped: p, others: crew.order.map((id) => crew.member(id).ped) });
             fleet.update(dt, { intent: (v2) => v2.driver === p ? I : life && life.intentFor(v2) || career.intentFor(v2) || clearIntent(idle), peds: combat.bodies, night: night2, wet: weather.wet });
             const W20 = { map, city, combat, fleet, aim: aimCtx() }, W0 = { map, city, combat, fleet, aim: NOAIM7 };
+            const hs = hurtScale();
             for (const id of crew.order) {
               const q2 = crew.member(id).ped;
               q2.lazyRig = q2 !== p;
+              q2.hurtScale = hs;
               q2.update(dt, q2 === p ? I : clearIntent(idle), q2 === p ? W20 : W0);
             }
             combat.update(dt, { wet: weather.wet, takers: [p], take });
@@ -36065,6 +38029,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (!v) lastRadio = null;
           if (!tour) stage.zoomTo(down && down.kind === "nabbed" ? 1.6 : zoom.update(dt, !!v, v ? v.speed : 0));
           board = !v && !p.boarding && !p.dead && !busy && !inside && !door && !career.prompt && !career.busy ? boardTarget(p) : null;
+          {
+            const drv = v && v.driver === p ? v : null, sp = drv ? 0 : Math.hypot(p.mover.vx, p.mover.vy), spec = p.inv.spec();
+            playT += real;
+            wheelT = drv ? wheelT + real : 0;
+            tips.update(real, { off: !!career.bot || !!pilot || !!auto || !!tour || crew.switching, board, v: drv, vt: wheelT, moving: sp > 20, gun: !!(spec && spec.mag), weapons: p.inv.slots ? Object.values(p.inv.slots).filter(Boolean).length + 1 : 1, free: !career.R.active && !career.busy, wanted: stars() > 0, inside: !!inside, t: playT });
+          }
           if (p.dead && (!down || down.kind !== "wrecked")) {
             down = { kind: "wrecked", t: 0 };
             BUS.emit("wrecked", { cause: lastCause || "unknown" });
@@ -36109,7 +38079,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             rec.frames++;
           }
           const p = hero(), hold2 = stage.top.hold, pv = p.seat && p.seat.vehicle, fx0 = hold2 ? hold2.x : pv ? pv.x : p.x, fy0 = hold2 ? hold2.y : pv ? pv.y : p.y;
-          stage.setSky(inside ? indoorSky(clock.hour) : skyAt(clock.hour, weather));
+          stage.setSky(inside ? indoorSky(clock3.hour) : skyAt(clock3.hour, weather));
           stage.begin(r7, { focus: [fx0, fy0], vel: hold2 ? [0, 0] : pv ? [pv.body.vx, pv.body.vy] : [p.mover.vx, p.mover.vy], speed01: pv ? Math.min(1, pv.speed / 300) : 0, vehicle: !!pv, player: [p.x, p.y, p.z] });
           const vg = crew.vignette;
           if (inside) {
@@ -36150,47 +38120,45 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             if (!crew.switching) drawAimMarks(stage, p, game2.real);
             stage.end();
           }
-          r7.overlay((g) => {
-            const W20 = r7.W, H18 = r7.H, ch = chOf(crew.active);
-            E.font.text(g, (hoodName || "LOWTOWN").toUpperCase() + "  •  " + clock.label() + "  •  " + (views.spec.label || views.active).toUpperCase(), 6, 6, "#ffe066", { shadow: "#000" });
-            if (!crew.switching) {
-              drawPedHud(g, W20, H18, p, { color: ch.color, name: ch.short + "   $" + crew.fund });
-              radar ||= new Radar(city, { turf: turfOf() });
-              const R2 = radar.r;
-              if (!inside) radar.draw(g, 12 + R2, H18 - 48 - R2, { focus: [fx0, fy0], heading: pv && !pv.def.tool ? pv.heading : null, player: p, police: life && life.police, blips: career.blips(), t: game2.real });
-              drawWanted(g, W20, 56, wanted(), game2.real);
-            }
-            if (inside && inside.run.alarm && Math.floor(game2.real * 2.5) % 2 === 0) E.font.text(g, "ALARM", W20 / 2, 52, "#ff3a30", { align: "center", scale: 2, outline: "#05030c" });
-            if (door && !crew.switching && !down) drawPrompt(g, `{interact} ${inside ? "LEAVE" : "ENTER"}  ${(inside ? door.id === "sewer" ? "BY THE SEWER" : "TO THE STREET" : door.label || "DOOR").toUpperCase()}`, W20 / 2, H18 - 64, B2, game2.input, { align: "center", color: inside ? "#7aff8a" : "#ffe066" });
-            else if (takedown && !down) drawPrompt(g, "{attack} TAKEDOWN", W20 / 2, H18 - 64, B2, game2.input, { align: "center", color: "#ff8a5a" });
-            if (!crew.switching && pv) drawVehicleHud(g, W20, H18, pv, { radio: stationLabel(pv.radio), x: 2 * (radar ? radar.r : 44) + 22 });
-            if (board && !crew.switching) drawPrompt(g, `{interact} ${board.locked ? PROMPT.breakIn : PROMPT[board.kind]}  ${board.vehicle.def.name.toUpperCase()}`, W20 / 2, H18 - 64, B2, game2.input, { align: "center", color: "#ffe066" });
-            career.hud(g, W20, H18, { blocked: !!door || !!board || !!takedown || crew.switching });
-            weaponWheel.draw(g, W20, H18);
-            switchWheel.draw(g, W20, H18);
-            if (vg && vg.line && vg.who === crew.active) {
-              E.ui.box(g, W20 / 2 - 150, H18 - 46, 300, 22, { alpha: 0.7 });
-              E.font.text(g, `${chOf(vg.who).short}: ${vg.line}`, W20 / 2, H18 - 40, "#f0ecff", { align: "center", wrap: 290 });
-            }
-            if (crew.switching) E.font.text(g, chOf(crew.seq.to).name.toUpperCase(), W20 / 2, H18 - 30, chOf(crew.seq.to).color, { align: "center", scale: 2, outline: "#05030c" });
-            if (toast) E.font.text(g, toast.text, W20 / 2, 34, "#ffe066", { align: "center", outline: "#05030c" });
-            if (down && down.t > 0.6) {
-              const D = DOWN[down.kind];
-              g.fillStyle = D.tint;
-              g.fillRect(0, 0, W20, H18);
-              g.fillStyle = "#05030c";
-              g.fillRect(0, 0, W20, 18);
-              g.fillRect(0, H18 - 18, W20, 18);
-              g._c = null;
-              E.font.text(g, D.text, W20 / 2, H18 / 2 - 12, D.color, { align: "center", scale: 3, outline: "#05030c" });
-            }
-            if (transit) {
-              const t = transit.t / DOOR_FADE, a = t < 1 ? t : 2 - t;
-              g.fillStyle = `rgba(5,3,12,${E.clamp(a, 0, 1).toFixed(3)})`;
-              g.fillRect(0, 0, W20, H18);
-              g._c = null;
-            }
-          });
+        },
+        // the HUD on the UI layer (PLAN.md 8.18), inside the safe area: where and when at the top left, the weapon, the
+        // stars and a job's timer at the top right, the radar (with the GPS line in a vehicle) and the bars at the bottom
+        // left, the vehicle at the bottom right, the prompts, the objective and the subtitles at the foot, the wheels,
+        // the toasts and pops; then WRECKED or NABBED, then a door's fade over all of it
+        hud(P17) {
+          const p = hero(), pv = p.seat && p.seat.vehicle, hold2 = stage.top.hold, fx0 = hold2 ? hold2.x : pv ? pv.x : p.x, fy0 = hold2 ? hold2.y : pv ? pv.y : p.y;
+          const L16 = hudLayout(P17), ch = chOf(crew.active), t = game2.real, cx5 = P17.W / 2, vg = crew.vignette;
+          P17.text((hoodName || "LOWTOWN").toUpperCase() + "  •  " + clock3.label() + "  •  " + (views.spec.label || views.active).toUpperCase(), L16.sx0, L16.sy0, "#ffe066");
+          if (!crew.switching && !down) tips.draw(P17, L16.sx0, L16.sy0 + 12);
+          if (!crew.switching) {
+            drawPedHud(P17, p, { color: ch.color, name: ch.short + "   $" + crew.fund });
+            radar ||= new Radar(city, { turf: turfOf() });
+            radar.r = L16.R;
+            if (!inside) radar.draw(P17, L16.radar[0], L16.radar[1], { focus: [fx0, fy0], heading: pv && !pv.def.tool ? pv.heading : null, player: p, police: life && life.police, blips: career.blips(), route: gpsRoute(pv), t });
+            drawWanted(P17.g, L16.stars[0], L16.stars[1], wanted(), t);
+            if (pv) drawVehicleHud(P17, pv, { radio: stationLabel(pv.radio), speedo: setting(game2, "speedometer", false) });
+          }
+          if (inside && inside.run.alarm && Math.floor(t * 2.5) % 2 === 0) P17.text("ALARM", cx5, L16.sy0 + 4, "#ff3a30", { align: "center", scale: 2 });
+          const prompt = crew.switching || down ? null : door ? [`{onFoot:interact} ${inside ? "LEAVE" : "ENTER"}  ${(inside ? door.id === "sewer" ? "BY THE SEWER" : "TO THE STREET" : door.label || "DOOR").toUpperCase()}`, inside ? "#7aff8a" : "#ffe066"] : takedown ? ["{onFoot:attack} TAKEDOWN", "#ff8a5a"] : board ? [`{onFoot:interact} ${board.locked ? PROMPT.breakIn : PROMPT[board.kind]}  ${board.vehicle.def.name.toUpperCase()}`, "#ffe066"] : null;
+          if (prompt) P17.prompt(prompt[0], cx5, L16.sy1 - 10, { align: "center", color: prompt[1] });
+          career.hud(P17, { blocked: !!prompt || crew.switching });
+          weaponWheel.draw(P17);
+          switchWheel.draw(P17);
+          if (vg && vg.line && vg.who === crew.active) subtitle(P17, chOf(vg.who).short, chOf(vg.who).color, vg.line, L16.sy1 - 46);
+          if (crew.switching) P17.text(chOf(crew.seq.to).name.toUpperCase(), cx5, L16.sy1 - 30, chOf(crew.seq.to).color, { align: "center", scale: 2 });
+          if (toast) P17.text(toast.text, cx5, L16.sy0 + 38, "#ffe066", { align: "center" });
+          if (down && down.t > 0.6) {
+            const D = DOWN[down.kind];
+            P17.fill(0, 0, P17.W, P17.H, D.tint[0], D.tint[1]);
+            P17.fill(0, 0, P17.W, L16.sy0 + 8, "#05030c");
+            P17.fill(0, L16.sy1 - 8, P17.W, P17.H - L16.sy1 + 8, "#05030c");
+            P17.text(D.text, cx5, P17.H / 2 - 16, D.color, { align: "center", scale: 3 });
+            P17.text(down.kind === "nabbed" ? `BAIL $${TUNE.bailFee}  •  THE GUNS ARE GONE` : `THE HOSPITAL BILL  $${TUNE.hospitalFee}`, cx5, P17.H / 2 + 12, "#f0ecff", { align: "center" });
+          }
+          if (transit) {
+            const k = transit.t / DOOR_FADE, a = k < 1 ? k : 2 - k;
+            P17.fill(0, 0, P17.W, P17.H, "#05030c", E.clamp(a, 0, 1));
+          }
         }
       };
     }
@@ -36227,6 +38195,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         update(dt) {
           zone.update(dt);
         },
+        hud(P17) {
+          if (zone && zone.uiHud) zone.uiHud(P17);
+        },
+        // (a zone's HUD on the UI layer)
         draw(r7) {
           const st = game2.stats;
           hud.draw += (st.renderMs - hud.draw) * 0.1;
@@ -36256,40 +38228,116 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
   });
 
+  // src/game/ui/credits.js
+  function creditsScreen(o = {}) {
+    return docScreen({ id: "credits", title: "CREDITS & ABOUT", full: !!o.full, sections: [
+      { title: "Source Information", rows: SOURCE_INFO },
+      { title: "Game Engine Analysis", lines: ENGINE_SUMMARY },
+      { title: "The engine", lines: ENGINE_CREDIT },
+      { title: GAME.title, lines: GAME_CREDIT }
+    ] });
+  }
+
   // src/game/scenes/title.js
+  var FLY = 70;
+  function logo(P17) {
+    const y = P17.safe[1] + 4, moto = P17.H >= 260 ? 5 : 4, motoY = y + 22, tagY = motoY + 7 * moto + 12;
+    return { y, moto, motoY, tagY, menu: tagY + 18 };
+  }
   def("scenes", "title", {
     make(app2) {
-      const { game: game2, bindings, activity } = app2;
-      let t = 0, bg = null;
+      const { game: game2, activity, stage, links: links2 } = app2, U = app2.ui.screens;
+      let t = 0, city = null, cityR = null, clock3 = null, weather = null, fly = null, menu = null;
+      const saves = makeSaves(), latest = () => saves.list().sort((a, b) => b.savedAt - a.savedAt)[0] || null;
+      const play = (data) => {
+        U.closeAll();
+        game2.input.consumeAll();
+        game2.go("play", data);
+      };
+      function extras() {
+        const list = new List({ id: "extras", items: [
+          { label: "PROVING GROUND", act: () => {
+            U.closeAll();
+            game2.go("proving");
+          } },
+          { label: "CREDITS & ABOUT", act: () => U.open(creditsScreen()) },
+          { label: "HOW TO PLAY", act: () => U.open(guideScreen(app2, { id: "help", title: "HOW TO PLAY", topics: GUIDE })) }
+        ] });
+        return { id: "extras", title: "EXTRAS", w: 240, list };
+      }
+      function titleMenu() {
+        const items = () => {
+          const last = latest();
+          return [
+            { label: "CONTINUE", sub: last ? last.slot === "auto" ? "AUTOSAVE" : "SLOT " + last.slot : "NO SAVE YET", disabled: !last, act: () => play({ load: last.slot }) },
+            { label: "NEW GAME", act: () => play({ newGame: true }) },
+            { label: "LOAD", disabled: !last, act: () => U.open(slotsScreen(app2, { mode: "load", saves, onLoad: (slot) => play({ load: slot }) })) },
+            { label: "SETTINGS", act: () => U.open(settingsScreen(app2)) },
+            { label: "EXTRAS", act: () => U.open(extras()) }
+          ];
+        };
+        const list = new List({ id: "title", items: items(), sel: latest() ? 0 : 1 });
+        return { id: "title", w: 220, list, sticky: true, shade: false, legend: "{menu:confirm} SELECT", top: (P17) => logo(P17).menu, back: () => true, enter() {
+          list.set(items());
+        } };
+      }
       return {
         view: "iso",
         enter() {
           t = 0;
           activity.reset();
-          bg = new E.Backdrop("city-night");
-          expose("snapshot", () => ({ scene: "title", t: +t.toFixed(2), idle: +activity.idle().toFixed(2) }));
+          ({ city, render: cityR } = lowtown(citySeed(links2)));
+          const map = city.map, floor = new FloorChunks({ w: map.w * map.T, h: map.h * map.T, paint: (g, x0, y0, x1, y1) => city.painter.paint(g, x0, y0, x1, y1) });
+          stage.setWorld({ map, city, floor });
+          game2.cam.bounds = (v) => map.bounds(v);
+          clock3 = new WorldClock("night");
+          weather = new Weather({ state: "clear", fixed: true });
+          const tour = city.tour.length ? city.tour : [[map.w * map.T / 2, map.h * map.T / 2]];
+          fly = { tour, leg: 0, at: [...tour[0]] };
+          game2.focus(fly.at[0], fly.at[1], 16);
+          game2.cam.snap = true;
+          U.closeAll();
+          menu = U.open(titleMenu());
+          expose("snapshot", () => ({ scene: "title", t: +t.toFixed(2), idle: +activity.idle().toFixed(2), screen: U.top ? U.top.id : null, item: U.top && U.top.list ? U.top.list.current && U.top.list.current.label : null }));
         },
         update(dt) {
           t += dt;
-          bindings.setContext("menu");
-          if (bindings.tap("confirm") || bindings.tap("close")) {
-            game2.input.consumeAll();
-            const last = makeSaves().list().sort((a, b) => b.savedAt - a.savedAt)[0];
-            game2.go("play", last ? { load: last.slot } : { newGame: true });
+          if (activity.idle() >= TUNE.attractIdle) {
+            game2.go("attract");
             return;
           }
-          if (activity.idle() >= TUNE.attractIdle) game2.go("attract");
+          const A = fly.at, to = fly.tour[(fly.leg + 1) % fly.tour.length], dx = to[0] - A[0], dy = to[1] - A[1], d = Math.hypot(dx, dy), step2 = FLY * dt;
+          if (d <= step2) {
+            A[0] = to[0];
+            A[1] = to[1];
+            fly.leg = (fly.leg + 1) % fly.tour.length;
+          } else {
+            A[0] += dx / d * step2;
+            A[1] += dy / d * step2;
+          }
+          game2.focus(A[0], A[1], 16);
         },
         draw(r7) {
-          bg.draw(r7);
-          r7.overlay((g) => {
-            const cx5 = r7.W / 2, y = Math.round(r7.H * 0.26);
-            E.font.title(g, "GRAND THEFT", cx5, y, { scale: 2, colors: ["#f4f0ff", "#b8b0d8"], align: "center" });
-            E.font.title(g, "MOTO", cx5, y + 22, { scale: 5, colors: ["#ffe066", "#ff7a2a", "#d0306a"], align: "center", depth: 3, depthColor: "#2a0a2a" });
-            E.font.text(g, "IF IT HAS A MOTOR, IT'S YOURS.", cx5, y + 74, "#c8c0e8", { align: "center", shadow: "#000" });
-            if ((t * 1.6 | 0) % 2 === 0) drawPrompt(g, "PRESS {menu:confirm}", cx5, Math.round(r7.H * 0.74), bindings, game2.input, { align: "center" });
-            E.font.text(g, E.versionLabel().replace(" · ", " • ") + "  •  MOTOR", 6, r7.H - 11, "#7a7298", { shadow: "#000" });
-          });
+          stage.setSky(skyAt(clock3.hour, weather));
+          stage.begin(r7, { focus: [fly.at[0], fly.at[1]], vel: [0, 0], speed01: 0, vehicle: false, player: [fly.at[0], fly.at[1], 0] });
+          cityR.queue(stage, fly.at[0], fly.at[1], 520, stage.world.lamps, [fly.at[0], fly.at[1], 0]);
+          stage.end();
+        },
+        // the logo and the line under it while the menu is the screen; the version at the foot
+        hud(P17) {
+          if (U.top !== menu) return;
+          const cx5 = P17.W / 2, Lg = logo(P17), g = P17.g, band3 = g.createLinearGradient(0, 0, 0, Lg.menu);
+          P17.shade(0.25);
+          band3.addColorStop(0, "rgba(5,3,12,.6)");
+          band3.addColorStop(1, "rgba(5,3,12,0)");
+          g.fillStyle = band3;
+          g.fillRect(0, 0, P17.W, Lg.menu);
+          g._c = null;
+          P17.title("GRAND THEFT", cx5, Lg.y, { scale: 2, colors: ["#f4f0ff", "#b8b0d8"], align: "center" });
+          P17.title("MOTO", cx5, Lg.motoY, { scale: Lg.moto, colors: ["#ffe066", "#ff7a2a", "#d0306a"], align: "center", depth: 3, depthColor: "#2a0a2a" });
+          P17.text(GAME.tagline.toUpperCase(), cx5, Lg.tagY, UI.dim, { align: "center" });
+          const ver = E.versionLabel().replace(" · ", " • ");
+          if (P17.safe[0] + P17.width(ver) + 8 < cx5 - P17.width("GRAND THEFT", 2) / 2) P17.text(ver, P17.safe[0], P17.safe[1], UI.mute);
         }
       };
     }
@@ -37866,7 +39914,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   });
 
   // content:content
-  var CONTENT_FILES = ["characters/crew.js", "characters/vignette-props.js", "crimes.js", "districts/hello/map.js", "districts/lowtown/district.js", "districts/lowtown/fleet.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/garage.js", "districts/proving/pad.js", "districts/proving/range.js", "districts/proving/scale-city.js", "economy.js", "gangs.js", "interiors/bank.js", "missions/g1-lawn-order.js", "missions/g2-bingo-night.js", "missions/g3-gutter-ball.js", "missions/h4-big-withdrawal.js", "missions/r1-rat-run.js", "missions/r2-below-deck.js", "missions/r3-crane-game.js", "missions/s1-holy-rollers.js", "peds/cast.js", "peds/civilians.js", "peds/gangs.js", "police.js", "proving/city-zones.js", "proving/garage-zone.js", "proving/occluder-zone.js", "proving/pad-zone.js", "proving/range-zone.js", "radio/stations.js", "save.js", "scenes/attract.js", "scenes/career.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "tune.js", "vehicles/bilgerat.js", "vehicles/brute.js", "vehicles/cortez.js", "vehicles/cruiser.js", "vehicles/eye.js", "vehicles/hauler.js", "vehicles/hookline.js", "vehicles/pumper.js", "vehicles/saint.js", "vehicles/sparrow.js", "vehicles/the-l.js", "vehicles/vandal.js", "vehicles/zephyr.js", "weapons/arsenal.js"];
+  var CONTENT_FILES = ["characters/crew.js", "characters/vignette-props.js", "crimes.js", "districts/hello/map.js", "districts/lowtown/district.js", "districts/lowtown/fleet.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/garage.js", "districts/proving/pad.js", "districts/proving/range.js", "districts/proving/scale-city.js", "economy.js", "gangs.js", "interiors/bank.js", "missions/g1-lawn-order.js", "missions/g2-bingo-night.js", "missions/g3-gutter-ball.js", "missions/h4-big-withdrawal.js", "missions/r1-rat-run.js", "missions/r2-below-deck.js", "missions/r3-crane-game.js", "missions/s1-holy-rollers.js", "peds/cast.js", "peds/civilians.js", "peds/gangs.js", "police.js", "proving/city-zones.js", "proving/garage-zone.js", "proving/occluder-zone.js", "proving/pad-zone.js", "proving/range-zone.js", "radio/stations.js", "save.js", "scenes/attract.js", "scenes/career.js", "scenes/lowtown.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "tune.js", "ui/credits.js", "ui/guide.js", "ui/pause.js", "ui/tips.js", "vehicles/bilgerat.js", "vehicles/brute.js", "vehicles/cortez.js", "vehicles/cruiser.js", "vehicles/eye.js", "vehicles/hauler.js", "vehicles/hookline.js", "vehicles/pumper.js", "vehicles/saint.js", "vehicles/sparrow.js", "vehicles/the-l.js", "vehicles/vandal.js", "vehicles/zephyr.js", "weapons/arsenal.js"];
 
   // src/main.js
   var links = readLinks();

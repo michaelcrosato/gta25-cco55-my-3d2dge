@@ -756,3 +756,56 @@ and where it landed.
     body or vehicle: MAYHEM's count); and a mission driver chases a tagged actor as well as the player (`drive: {
     chase: tag }`: S2's ambush on Fender's car).
 - **Answered:** no. **Landed in:** M8.
+
+## D23 · 2026-10-21 · M9's 10-foot UI: our own layer and our own pause, cards on the kit, settings that reach play
+- **Principle:** PLAN.md 8.18's rules (canvas UI primary; the UI layer at an integer scale by HUD size; six items a
+  page; ✕/○/L1-R1/△/□/Options; 5% safe area; pad, keyboard and mouse; a sound on each move) and 7.3 (a deterministic,
+  replayable simulation); the engine's public API only.
+- **Calls:**
+  - **The HUD and every menu draw on MOTOR's UI layer** (`#ui` over the game's canvas, `src/motor/ui/layer.js`): its
+    scale is the game's S (Standard), S + 1 (Large) or S + 2 (Huge), never so big that 320 x 180 UI pixels no longer
+    fit; text only in the 5 x 7 font at scale 1 or more. The HUD's labels had used the engine's 3 x 5 `tiny` font: all
+    of them moved to the 5 x 7 one, and the HUD to the safe area (the radar a sixth of the screen's height, the
+    ability's name left off where the foot's prompt needs the room, the vehicle's panel at the bottom right, the
+    objective and the subtitles between them). Every frame records what it drew (text with its scale, prompts with any
+    unresolved glyph token, the focus, each list's rows, panels, tabs) for `tools/ui-audit.mjs`.
+  - **Our own pause, read in the step.** The pause button (Options, Esc, P) and the map button (the touchpad, M, Tab)
+    are a step's input like any other: the pause screen opens in the step, and while a screen that pauses is open the
+    scene's update doesn't run (the engine's timers and particles aside, which no simulation reads: the hash stands
+    still, a test says so). The engine pauses by itself only for what it alone sees (the page hidden, the window left,
+    a controller unplugged): the play scene's `pausable` is false while its own pause key is down or a screen is open,
+    and the UI frame, the one hook that runs while the engine holds, hands its pause to ours (`uiFrame`). The engine's
+    PAUSED overlay never shows, and the music ducks under our pause.
+  - **The screen stack** draws the top screen alone over the game (a question draws over the screen it asks about);
+    ○ goes back one; Options closes down to a sticky screen (the title's menu stays; a card answers it as ○).
+  - **The career's cards keep their model** (`career.card`: id, items, act; the bot and `tools/bot-campaign.mjs`
+    answer it) and are shown as screens of the kit (`cardScreen`). A purchase's question puts NO first (the safe answer
+    under the thumb): the campaign tool picks BUY by its label. JOB DONE's medal and cash are big.
+  - **The phone** is CONTACTS (each job's giver, a waypoint on a press, and Lowtown Cabs), TEXTS (a line from each giver
+    with a job on offer), JOBS (each vehicle job, and the one the vehicle you sit in can start: also first on the
+    phone itself), SNAP (photo mode: M12) and SETTINGS; big rows with an icon, one column, at the bottom right; back
+    from an app returns to its row.
+  - **Settings:** the engine's store with MOTOR's added (`ui/settings.js`), in five tabs. PLAN's controller
+    *sensitivity* is the stick's dead zone (the twin-stick aim is a direction: there is no speed to scale); the button
+    symbols are Auto, PlayStation, Xbox, Nintendo or Keyboard; *Sharp MODE 7* gives the game's buffer the screen's own
+    resolution while MODE 7 is the view (the stress test's `depthResolution`: `screen.setOptions`), with the overlays'
+    pixels drawn at the game's size and the UI layer keeping the game's scale; colourblind markers move the markers'
+    hues onto the Okabe-Ito palette (the shapes and the turf's patterns say it as well). **Difficulty** (the damage the
+    crew takes: 0.7, 1, 1.35) and **aim assist** (off, low, standard) are simulation inputs the player chooses: a
+    session replays with the settings it was played with, and the bot and the tests always play the defaults.
+    ACCESS: sprint and aim toggled latch on a press; crouch is a toggle by default (as it was) and can be held; the
+    wheels toggled open on a press and pick on the next.
+  - **Rebinding** is per context (on foot, in a vehicle, photo mode), paged by group (MOVING, DOING, FIGHTING, CAMERA
+    AND MENUS), the device in use's buttons: ✕ waits for the next press (Options or Esc cancels), a button another
+    action of the context holds is refused and said; the menus' keys, chords, held modifiers and release taps stay
+    fixed. The capture ignores its first step: the engine's raw presses arrive a step after the bindings see them, and
+    the ✕ that began it had bound itself.
+  - **Keys PLAN left open:** △ (more) is R and □ (filter) is F on the keyboard; a right click goes back with the mouse;
+    the map zooms on L2/R2, - and = and the wheel.
+  - **The map** is the radar's own picture of the district, panned, zoomed, filtered by kind, with a legend and a
+    waypoint; in a vehicle the radar draws the GPS line to the waypoint, or to the running job's marker.
+  - **Onboarding:** a hint the first time each verb becomes possible (`ui/onboarding.js`, the verbs in
+    `src/game/ui/tips.js`), once ever (kept in the settings as `tipsSeen`), never for the bot.
+- **Why:** the engine's HTML menus are not TV-scaled (PLAN 8.18, rule 1); a pause handled in a draw would leave a
+  headless replay stuck paused; the cards' model is what the bot plays.
+- **Answered:** no. **Landed in:** M9.

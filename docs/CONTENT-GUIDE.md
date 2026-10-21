@@ -23,7 +23,28 @@ Every recipe below names the test to run. From M12 on, `tests/recipes/*.test.js`
 | A property | `def('properties', id, { name, poi, price, income, cap })` | the same |
 | Moto Tokens, stunt jumps | `def('collectibles', id, { name, reward, bonus, spots: [{ id, at: [x, y, z], via }] })`, `def('stunts', id, { name, takeoff, r, landing, minDist, minAir, reward, approach })` | the same; the bot campaign |
 
+| A screen (M9) | a plain object for `app.ui.screens.open(screen)`: `{ id, title, list: new List({ items }), tabs, cards, info, body, legend, pause, back() }` drawn by the 10-foot kit (`src/motor/ui/`); MOTOR's own: `confirmScreen`, `settingsScreen`, `slotsScreen`, `guideScreen`, `docScreen`, `tabbedScreen`, `mapPage` | `node tools/ui-audit.mjs` (add the screen to its walk) |
+| A first-time hint (M9) | `{ id, text, when(ctx) }` in `src/game/ui/tips.js` (glyph tokens name their context: `{onFoot:interact}`) | `node --test tests/sim/ui.test.mjs` |
+| A help page (M9) | `{ title, lines }` in `src/game/ui/guide.js` | the audit's help stops |
+
 More recipes are added as each system lands: vehicle, variant, weapon, ped, outfit, gang, station, song, reel, district.
+
+## The 10-foot UI
+
+Everything the player reads is drawn on MOTOR's UI layer by its kit (PLAN.md 8.18, D23), so content keeps to a few
+rules the audit (`tools/ui-audit.mjs`) checks on every screen:
+- **A glyph token names its context** (`{onFoot:interact}`, `{vehicle:handbrake}`, `{menu:confirm}`): a token without
+  one resolves in the context live when it is drawn, and under a menu that is `menu`, where `interact` is nobody's
+  button. An objective or a line in a mission is plain text; a prompt that shows a button names its context.
+- **Six items a page at most:** a `List` pages longer lists itself (`2/4` at the panel's top right); a card's
+  `items` are the same.
+- **The 5 x 7 font only**, at scale 1 or more (`pen.text(s, x, y, color, { scale })`); never the engine's `tiny`.
+- **Inside the safe area** (5% each side): `pen.safe` is [x0, y0, x1, y1] in UI pixels; `hudLayout(pen)` says where
+  the HUD's own parts sit.
+- **Subtitles** come from `m.say(lines, { name, color })`: the speaker's name in their colour, the line after it;
+  the player may turn them off (Settings, Display).
+- A career card (`career._open({ id, title, body, items })`) is a screen of the kit: `items` are `{ label, sub, right,
+  disabled, act }`, ✕ acts, ○ backs out (`back()`), and the bot answers a card's `auto()`.
 
 ## Missions
 

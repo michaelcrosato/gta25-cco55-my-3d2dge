@@ -30,6 +30,7 @@ def('scenes', 'proving', {
         expose('selftest', selftest ? () => selftest.result : () => ({ zone: id, ok: null, note: 'no self-test asked (?selftest=1)' }));
       },
       update(dt) { zone.update(dt); },
+      hud(P) { if (zone && zone.uiHud) zone.uiHud(P); },   // (a zone's HUD on the UI layer)
       draw(r) {
         const st = game.stats; hud.draw += (st.renderMs - hud.draw) * .1; hud.update += (st.updateMs - hud.update) * .1;
         if (rec) { rec.update.push(+st.updateMs.toFixed(3)); rec.render.push(+st.renderMs.toFixed(3)); rec.frames++; }

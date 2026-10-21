@@ -62,8 +62,10 @@ test('the cab skip: the phone\'s Lowtown Cabs, a fade, the fare, and there on fo
   gtm.crew.fund = 500; const fee = C.cabFee(p, q);
   assert.ok(C.cab(q)); game.advance(1);
   assert.ok(Math.hypot(p.x - q.x, p.y - q.y) < 2, 'there'); assert.equal(gtm.crew.fund, 500 - fee);
-  gtm.life.wanted.set(2); C.phone(); const cabs = C.card.items.find(i => i.label === 'LOWTOWN CABS');
-  assert.ok(cabs.disabled && /WANTED/.test(cabs.sub), 'refused while wanted'); C.close();
+  gtm.life.wanted.set(2); C.phone(); C.card.items.find(i => i.label === 'CONTACTS').act();
+  const cabs = C.card.items.find(i => i.label === 'LOWTOWN CABS');
+  assert.ok(/WANTED/.test(cabs.sub), 'said under CONTACTS'); cabs.act();
+  assert.ok(C.card.id === 'cabs' && C.card.items.length && C.card.items.every(i => i.disabled), 'every ride refused while wanted'); C.close();
 });
 
 test('a Kwik-Lux hold-up: a gun held on the clerk for the hold-up\'s time empties the till at the counter, and the silent alarm brings two stars', async () => {

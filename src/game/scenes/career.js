@@ -13,10 +13,11 @@
 //   - the save: written at the safehouse (△ SAVE, slot 1) and to the autosave after a mission or a job; ?load=<slot>
 //     (or the title's) loads one;
 //   - the bot (?bot=1, or a test's): the MissionBot plays the running mission and answers the cards.
-// The cards are this milestone's 10-foot screens (≤ 6 items a page, ✕ confirms, ○ backs out); M9 rebuilds them with
-// the UI kit.
+// The cards are screens of the 10-foot kit on the UI layer (≤ 6 items a page, ✕ confirms, ○ and Options back out), over
+// the game, which plays on under them: each card is a model ({ id, title, color, body, items, back, confirm, auto }, the
+// bot's and the tools' handle) shown by cardScreen.
 import { E, all, get, BUS, TUNE, knob, MissionRuntime, AmbientEvents, MissionBot, Economy, CONFIRM_ABOVE, amountOf, completion, Collectibles, StuntJumps, Holdups,
-  RNG, roadsOf, drawPrompt, clearIntent } from '../../motor/index.js';
+  RNG, roadsOf, clearIntent, List, UI, settingsScreen, slotsScreen, hudLayout, footWidth, drawSubtitle, wrapLines, setting } from '../../motor/index.js';
 import { makeSaves, blankSave, normalizeSave, PROTAGONISTS } from '../save.js';
 
 knob('Economy', 'cabBase', 'Cab flag fall', 20, 0, 500, 5, 'What a cab costs to start ($)');
@@ -25,7 +26,7 @@ knob('Missions', 'giverReach', 'Giver reach', 18, 6, 60, 1, 'How near a mission\
 knob('Missions', 'botRetries', 'Bot retries', 2, 0, 10, 1, 'How many times the bot retries a failed stage before it quits');
 const MEDAL = { gold: '#ffd23a', silver: '#d8dce8', bronze: '#d08a4a' };
 const REASON = { wrecked: 'YOU WERE WRECKED', busted: 'YOU WERE NABBED', time: 'OUT OF TIME' };
-const SHOP_R = 20, DRIVE_R = 44, PROP_R = 22, PAGE = 6;
+const SHOP_R = 20, DRIVE_R = 44, PROP_R = 22;
 const giverAt = (city, spec) => { const g = spec.giver || {}, gang = g.phone && get('gangs', g.phone), id = g.at || (gang ? gang.phone : null), q = id && city.poi(id); return q ? [q.x, q.y] : null; };
 
 export class Career {
@@ -94,7 +95,7 @@ export class Career {
     let I = ctx.I;
     this.botI = null;
     if (this.bot && this.R.state === 'running' && !ctx.busy && !ctx.down) { const B = this.bot.update(dt, p, this.R, { t: W.life ? W.life.t : 0, pedsNear: W.life ? (x, y, r) => W.life.pedsNear(x, y, r) : null, wet: W.weather.wet, wanted: W.wanted(), police: W.life && W.life.police, inside: ctx.inside, heat: W.combat && W.combat.fire ? (x, y) => W.combat.fire.heatAt(x, y) : null, respray: this._respray() }); if (this.padMode) this.botI = B; else I = B; }
-    if (this.card) { this._cardInput(dt); I = clearIntent(I); }
+    if (this.card) I = clearIntent(I);   // (the card's own input is the screens': MOTOR's step wrapper gave it first)
     this.R.update(dt);   // (WRECKED or NABBED fails the job at once; JOB BLOWN waits for the card)
     if (this.R.state === 'failed' && !ctx.down && !this.card) this._blown();
     if (this.R.state === 'passed' && !this.card) this._jobDone();
@@ -132,14 +133,14 @@ export class Career {
   // on foot at a door (near only, when given): a shop, a property, the safehouse
   _doors(p, only) {
     const C = this.W.city, near = q => !only || Math.hypot(q.x - only[0], q.y - only[1]) < 30;
-    for (const s of all('shops')) { if (s.drive) continue; const q = C.poi(s.poi); if (q && near(q) && Math.hypot(q.x - p.x, q.y - p.y) < SHOP_R) { this.prompt = { text: `{interact} SHOP  ${s.name.toUpperCase()}`, color: s.color, act: () => this._shopCard(s, { ped: p }) }; return; } }
+    for (const s of all('shops')) { if (s.drive) continue; const q = C.poi(s.poi); if (q && near(q) && Math.hypot(q.x - p.x, q.y - p.y) < SHOP_R) { this.prompt = { text: `{onFoot:interact} SHOP  ${s.name.toUpperCase()}`, color: s.color, act: () => this._shopCard(s, { ped: p }) }; return; } }
     for (const pr of all('properties')) {
       const q = C.poi(pr.poi); if (!q || !near(q) || Math.hypot(q.x - p.x, q.y - p.y) > PROP_R) continue;
       const own = this.econ.owned(pr.id);
       if (own) { const n = this.econ.collect(pr.id); if (n) this.pop(pr.name.toUpperCase(), '+$' + n, '#5aff8a'); return; }
-      const price = Math.round(amountOf(pr.price)); this.prompt = { text: `{interact} BUY  ${pr.name.toUpperCase()}  $${price.toLocaleString('en-US')}`, color: '#5aff8a', act: () => this._buyProperty(pr) }; return;
+      const price = Math.round(amountOf(pr.price)); this.prompt = { text: `{onFoot:interact} BUY  ${pr.name.toUpperCase()}  $${price.toLocaleString('en-US')}`, color: '#5aff8a', act: () => this._buyProperty(pr) }; return;
     }
-    const safe = C.poi('safehouse'); if (safe && near(safe) && Math.hypot(safe.x - p.x, safe.y - p.y) < SHOP_R) this.prompt = { text: '{interact} SAVE', color: '#7af0ff', act: () => this.write('1', true) };
+    const safe = C.poi('safehouse'); if (safe && near(safe) && Math.hypot(safe.x - p.x, safe.y - p.y) < SHOP_R) this.prompt = { text: '{onFoot:interact} SAVE', color: '#7af0ff', act: () => this.saveScreen() };
   }
   /** keep a vehicle in the save's garage (a mission's stash), and the one kept under an id (null: gone or wrecked) */
   stash(v, id, at = null) {
@@ -159,23 +160,17 @@ export class Career {
   pop(title, line, color = '#ffe066') { this.pops.push({ title, line, color, t: 2.6 }); if (this.pops.length > 3) this.pops.shift(); }
   // ---- the run's ends
   _ended(r) {
-    if (r.passed && (r.kind === 'mission' || (get('activities', r.id) || {}).kind === 'job')) this.write('auto');   // (the autosave: after missions and jobs, PLAN.md 8.19)
+    if (r.passed && (r.kind === 'mission' || (get('activities', r.id) || {}).kind === 'job') && setting(this.app.game, 'autosave', true)) this.write('auto');   // (the autosave: after missions and jobs, PLAN.md 8.19; Settings, Game, can turn it off)
   }
   _eventEnded(r) { if (r.passed) { const c = r.rewards && r.rewards.cash; this.pop((r.title || 'NICE').toUpperCase(), c ? '+$' + c : '', '#7aff8a'); } }
-  // ---- the cards: { title, color, body: [lines], items: [{ label, sub, right, disabled, act }], sel, legend, back, auto }
-  _open(card) { this.card = { sel: 0, page: 0, ...card }; this.app.game.input.consumeAll && this.app.game.input.consumeAll(); BUS.emit('uiOpen', { screen: card.id }); }
-  close() { if (this.card) BUS.emit('uiClose', { screen: this.card.id }); this.card = null; }
-  _cardInput() {
-    const B = this.app.bindings, c = this.card; B.setContext('menu');
-    const items = c.items || [], n = items.length;
-    if (n) {
-      if (B.tap('down') || B.tap('right')) c.sel = (c.sel + 1) % n;
-      if (B.tap('up') || B.tap('left')) c.sel = (c.sel - 1 + n) % n;
-      c.page = Math.floor(c.sel / PAGE);
-    }
-    if (B.tap('confirm')) { const it = items[c.sel]; if (it && !it.disabled && it.act) it.act(); else if (!n && c.confirm) c.confirm(); }
-    else if (B.tap('back')) { if (c.back) c.back(); else this.close(); }
+  // ---- the cards: { id, title, color, body: [lines], items: [{ label, sub, right, disabled, act }], sel, legend, back,
+  // confirm (no items: ✕ continues), auto (the bot's answer), medal, style ('phone') }, each shown as a screen
+  _open(card) {
+    const U = this.app.ui.screens, mine = U.top && U.top.career === this;
+    this.card = { sel: 0, ...card };
+    const scr = cardScreen(this, this.card); if (mine) U.replace(scr); else U.open(scr);   // (one card at a time: the next in its place)
   }
+  close() { const U = this.app.ui.screens; if (this.card && U.top && U.top.career === this) U.back(); this.card = null; }
   _jobCard(m) {
     const rw = m.rewards || {}, resp = Object.entries(rw.respect || {}).map(([g, d]) => `${(get('gangs', g) || { name: g }).name} ${d > 0 ? '+' : ''}${d}`).join('   ');
     this._open({ id: 'job', title: m.title.toUpperCase(), color: (m.gang && get('gangs', m.gang) && get('gangs', m.gang).colors[0]) || '#ffe066',
@@ -200,7 +195,7 @@ export class Career {
     if (this.bot) { R.done(); return; }
     const rw = r.rewards || {}, body = [];
     if (r.kind === 'activity' && (get('activities', r.id) || {}).levels > 1) body.push(`LEVEL ${r.level} DONE`);
-    body.push(`$${(rw.cash || 0).toLocaleString('en-US')}`);
+    body.push({ text: `+$${(rw.cash || 0).toLocaleString('en-US')}`, color: '#7aff8a', scale: 2 });   // (the big number)
     for (const [g, d] of Object.entries(rw.respect || {})) body.push(`${(get('gangs', g) || { name: g }).name.toUpperCase()}  ${d > 0 ? '+' : ''}${d} RESPECT`);
     for (const b of r.bonus || []) body.push(`${b.ok ? '[X]' : '[ ]'} ${b.text}`);
     body.push(`TIME ${Math.floor(r.elapsed / 60)}:${String(Math.floor(r.elapsed % 60)).padStart(2, '0')}`);
@@ -224,34 +219,39 @@ export class Career {
     const sel = this.card ? this.card.sel : 0; this._shopCard(s, ctx); this.card.sel = sel;   // (the card again: what can be bought now)
   }
   _confirm(s, it, ctx, price) {
-    this._open({ id: 'confirm', title: 'BUY ' + it.name.toUpperCase() + '?', color: s.color, body: [`$${price.toLocaleString('en-US')}`], items: [{ label: 'BUY IT', act: () => this._buy(s, it, ctx) }, { label: 'NO', act: () => this._shopCard(s, ctx) }], back: () => this._shopCard(s, ctx) });
+    this._open({ id: 'confirm', title: 'BUY ' + it.name.toUpperCase() + '?', color: s.color, body: [`$${price.toLocaleString('en-US')}`], items: [{ label: 'NO', act: () => this._shopCard(s, ctx) }, { label: 'BUY IT', act: () => this._buy(s, it, ctx) }], back: () => this._shopCard(s, ctx) });
   }
   _buyProperty(pr) {
     const price = Math.round(amountOf(pr.price)), go = () => { const r = this.econ.buyProperty(pr.id, pr); this.close(); if (r.ok) this.pop(pr.name.toUpperCase() + ' IS YOURS', '-$' + price.toLocaleString('en-US'), '#5aff8a'); else this.pop('NOT ENOUGH CASH', '$' + price.toLocaleString('en-US'), '#ff5a4a'); };
-    if (price > CONFIRM_ABOVE) this._open({ id: 'confirm', title: 'BUY ' + pr.name.toUpperCase() + '?', color: '#5aff8a', body: [`$${price.toLocaleString('en-US')}`, `PAYS $${Math.round(amountOf(pr.income))} EVERY MIDNIGHT`], items: [{ label: 'BUY IT', act: go }, { label: 'NO', act: () => this.close() }] });
+    if (price > CONFIRM_ABOVE) this._open({ id: 'confirm', title: 'BUY ' + pr.name.toUpperCase() + '?', color: '#5aff8a', body: [`$${price.toLocaleString('en-US')}`, `PAYS $${Math.round(amountOf(pr.income))} EVERY MIDNIGHT`], items: [{ label: 'NO', act: () => this.close() }, { label: 'BUY IT', act: go }] });
     else go();
   }
-  // ---- the phone: jobs (in a job's vehicle), cabs, contacts, completion
+  // ---- the phone (PLAN.md 8.18): CONTACTS (the jobs' givers, Lowtown Cabs), TEXTS, JOBS, SNAP, SETTINGS; a job the
+  // vehicle you sit in can start now comes first
   phone() {
     if (this.card || this.R.active) return;
-    const W = this.W, p = W.crew.ped, v = p.seat && p.seat.vehicle, items = [];
+    const W = this.W, p = W.crew.ped, v = p.seat && p.seat.vehicle, items = []; this._phoneSel = 0;
     for (const a of all('activities').filter(q => q.kind === 'job' && q.start && q.start.vehicle && v && v.driver === p && fits(q.start.vehicle, v))) {
       const next = Math.min(a.levels || 1, (this.save.activities[a.id] || 0) + 1);
-      items.push({ label: a.title.toUpperCase(), sub: `LEVEL ${next}/${a.levels || 1}`, act: () => { this.close(); this.startMission(a.id, { activity: true, level: next }); } });
+      items.push({ label: a.title.toUpperCase(), sub: `START  LEVEL ${next}/${a.levels || 1}`, icon: 'job', color: '#ffd23a', act: () => { this.close(); this.startMission(a.id, { activity: true, level: next }); } });
     }
-    const stars = W.wanted() ? W.wanted().stars : 0;
-    items.push({ label: 'LOWTOWN CABS', sub: stars ? 'NOT WHILE WANTED' : v ? 'ON FOOT ONLY' : '', disabled: !!stars || !!v, act: () => this._cabs() });
-    items.push({ label: 'CONTACTS', sub: `${this.available().length} JOBS ON OFFER`, act: () => this._contacts() });
-    const c = completion(this.save); items.push({ label: 'COMPLETION', right: c.pct.toFixed(1) + '%', act: () => this._stats() });
-    this._open({ id: 'phone', title: 'PHONE', color: '#7af0ff', body: [], items });
+    const offers = this.available().length, texts = this._textList().length;
+    items.push({ label: 'CONTACTS', sub: `${offers} JOB${offers === 1 ? '' : 'S'} ON OFFER`, icon: 'contacts', act: this._app(() => this._contacts()) });
+    items.push({ label: 'TEXTS', sub: texts ? `${texts} UNREAD` : 'NOTHING NEW', icon: 'texts', act: this._app(() => this._texts()) });
+    items.push({ label: 'JOBS', sub: 'TAXI, AMBULANCE, MORE', icon: 'jobs', act: this._app(() => this._jobs()) });
+    items.push({ label: 'SNAP', sub: 'PHOTO MODE', icon: 'snap', disabled: !this.W.photo, act: () => { this.close(); if (this.W.photo) this.W.photo(); } });
+    items.push({ label: 'SETTINGS', icon: 'settings', act: () => this.app.ui.screens.open(settingsScreen(this.app)) });
+    this._open({ id: 'phone', style: 'phone', title: 'PHONE', color: '#7af0ff', body: [], items, legend: '{menu:confirm} OPEN   {menu:back} HANG UP' });
   }
   _cabs() {
-    const W = this.W, p = W.crew.ped, kinds = new Set(['safehouse', 'shop', 'property', 'gang', 'landmark', 'hospital', 'police', 'marina']);
+    const W = this.W, p = W.crew.ped, kinds = new Set(['safehouse', 'shop', 'property', 'gang', 'landmark', 'hospital', 'police', 'marina']), stars = W.wanted() ? W.wanted().stars : 0, v = p.seat && p.seat.vehicle;
     const dests = W.city.pois.filter(q => kinds.has(q.kind) && q.label).sort((a, b) => a.label.localeCompare(b.label));
-    this._open({ id: 'cabs', title: 'LOWTOWN CABS', color: '#ffd23a', body: [`CASH  $${W.crew.fund.toLocaleString('en-US')}`], back: () => this.phone_(),
-      items: dests.map(q => { const fee = this.cabFee(p, q); return { label: q.label.toUpperCase(), right: '$' + fee, disabled: fee > W.crew.fund, act: () => this.cab(q) }; }) });
+    const why = stars ? 'NOT WHILE WANTED' : v ? 'ON FOOT ONLY' : '';
+    this._open({ id: 'cabs', style: 'phone', title: 'LOWTOWN CABS', color: '#ffd23a', body: [why || `CASH  $${W.crew.fund.toLocaleString('en-US')}`], back: () => this._contacts(),
+      items: dests.map(q => { const fee = this.cabFee(p, q); return { label: q.label.toUpperCase(), right: '$' + fee, icon: 'cab', disabled: !!why || fee > W.crew.fund, act: () => this.cab(q) }; }) });
   }
-  phone_() { this.close(); this.phone(); }
+  phone_() { const sel = this._phoneSel || 0; this.close(); this.phone(); if (this.card) { this.card.sel = Math.min(sel, this.card.items.length - 1); this._phoneSel = sel; } }   // (back on the app it opened)
+  _app(open) { return () => { this._phoneSel = this.card ? this.card.sel : 0; open(); }; }
   /** a cab's fare from the ped to a point of interest */
   cabFee(p, q) { return Math.round(TUNE.cabBase + Math.hypot(q.x - p.x, q.y - p.y) / 100 * TUNE.cabRate); }
   /** the cab skip: a fade, the fare, and there on foot */
@@ -261,13 +261,32 @@ export class Career {
     W.fade(() => { p.place(q.x, q.y, 0); p.mover.vx = p.mover.vy = 0; W.snap(); });
     return true;
   }
+  // a giver's name: the gang's, the crew member's, or the planning board
+  _giverName(m) { return m.gang ? (get('gangs', m.gang) || { name: m.gang }).name.toUpperCase() : m.giver && m.giver.at ? (get('characters', String(m.giver.at).split('-')[0]) || { name: 'VIV' }).name.toUpperCase() : 'THE CREW'; }
+  _mark(m) { const at = giverAt(this.W.city, m); this.waypoint = at; this.close(); this.pop('MARKED ON THE MAP', m.title.toUpperCase(), '#7af0ff'); }
   _contacts() {
-    const items = this.available().map(m => ({ label: m.title.toUpperCase(), sub: m.gang ? (get('gangs', m.gang) || { name: m.gang }).name.toUpperCase() : 'VIV', act: () => { const at = giverAt(this.W.city, m); this.waypoint = at; this.close(); this.pop('MARKED ON THE MAP', m.title.toUpperCase(), '#7af0ff'); } }));
-    this._open({ id: 'contacts', title: 'CONTACTS', color: '#7af0ff', body: items.length ? [] : ['NOTHING ON OFFER'], items, back: () => this.phone_() });
+    const stars = this.W.wanted() ? this.W.wanted().stars : 0;
+    const items = [{ label: 'LOWTOWN CABS', sub: stars ? 'NOT WHILE WANTED' : 'A RIDE ANYWHERE', icon: 'cab', color: '#ffd23a', act: () => this._cabs() },
+      ...this.available().map(m => ({ label: this._giverName(m), sub: m.title.toUpperCase(), icon: 'pin', color: (m.gang && get('gangs', m.gang) ? get('gangs', m.gang).colors[0] : '#ffe066'), act: () => this._mark(m) }))];
+    this._open({ id: 'contacts', style: 'phone', title: 'CONTACTS', color: '#7af0ff', body: [], items, back: () => this.phone_() });
   }
-  _stats() {
-    const c = completion(this.save);
-    this._open({ id: 'stats', title: `COMPLETION ${c.pct.toFixed(1)}%`, color: '#ffe066', body: [], items: c.items.map(q => ({ label: q.label.toUpperCase(), right: `${q.done}/${q.of}` })), back: () => this.phone_() });
+  // the texts: a line from each giver with a job on offer
+  _textList() { return this.available().filter(m => (m.brief || []).length); }
+  _texts() {
+    const list = this._textList(), items = list.map(m => ({ label: this._giverName(m), sub: m.title.toUpperCase(), icon: 'texts', act: () => this._text(m) }));
+    this._open({ id: 'texts', style: 'phone', title: 'TEXTS', color: '#7af0ff', body: items.length ? [] : ['NOTHING NEW'], items, back: () => this.phone_() });
+  }
+  _text(m) {
+    this._open({ id: 'text', style: 'phone', title: this._giverName(m), color: (m.gang && get('gangs', m.gang) ? get('gangs', m.gang).colors[0] : '#7af0ff'), body: (m.brief || []).flatMap(l => E.font.wrap(l, 160, {})),
+      items: [{ label: 'MARK IT ON THE MAP', icon: 'pin', act: () => this._mark(m) }], back: () => this._texts() });
+  }
+  _jobs() {
+    const W = this.W, p = W.crew.ped, v = p.seat && p.seat.vehicle;
+    const items = all('activities').filter(a => a.kind === 'job' && a.start && a.start.vehicle).map(a => {
+      const next = Math.min(a.levels || 1, (this.save.activities[a.id] || 0) + 1), ok = !!v && v.driver === p && fits(a.start.vehicle, v), need = [].concat(a.start.vehicle)[0];
+      return { label: a.title.toUpperCase(), sub: ok ? `START  LEVEL ${next}/${a.levels || 1}` : 'IN ' + ((get('vehicles', need) || {}).name || String(need)).toUpperCase(), icon: 'job', disabled: !ok, act: () => { this.close(); this.startMission(a.id, { activity: true, level: next }); } };
+    });
+    this._open({ id: 'jobs', style: 'phone', title: 'JOBS', color: '#ffd23a', body: items.length ? [] : ['NO JOBS YET'], items, back: () => this.phone_() });
   }
   // ---- saving
   /** the save from the live world */
@@ -279,6 +298,8 @@ export class Career {
     out.completion = completion(S).pct;
     return out;
   }
+  /** the safehouse's save: the three slots as cards (over a used one asked first) */
+  saveScreen() { this.app.ui.screens.open(slotsScreen(this.app, { mode: 'save', saves: this.saves, onSave: slot => this.write(slot, true) })); }
   /** write the save to a slot (toast: say so) */
   write(slot, toast = false) {
     const r = this.saves.write(slot, this.snapshot()); if (r.ok) BUS.emit('save', { slot });
@@ -313,33 +334,40 @@ export class Career {
       if (this.waypoint && near(this.waypoint[0], this.waypoint[1])) ring(this.waypoint[0], this.waypoint[1], '#7af0ff', 16, t);
     }
   }
-  /** the radar's blips: [{ x, y, color, shape }] */
-  blips() {
+  /** where the GPS leads: the waypoint, else the running job's first marker on the radar ([x, y] or null) */
+  gpsGoal() {
+    if (this.waypoint) return this.waypoint;
+    if (!this.R.active) return null;
+    const mk = this.R.markers.find(q => !q.gone && q.blip); if (!mk) return null; const a = mk.actor;
+    return a ? [Math.round(a.x / 16) * 16, Math.round(a.y / 16) * 16] : mk.at;   // (a moving goal in steps of a tile: the line is worked out again as it moves)
+  }
+  /** the radar's blips: [{ x, y, color, shape }] (o.waypoint false: without the waypoint, which the big map draws itself) */
+  blips(o = {}) {
     const out = [];
     // (the job's own markers and the waypoint pinned to the rim when far: which way to go)
     if (this.R.active) { for (const mk of this.R.markers) if (!mk.gone && mk.blip) { const a = mk.actor; out.push({ x: a ? a.x : mk.at[0], y: a ? a.y : mk.at[1], color: mk.color, shape: a ? 'diamond' : 'square', edge: true }); } }
     else {
       for (const m of this.available()) { const at = giverAt(this.W.city, m), g = m.gang && get('gangs', m.gang); out.push({ x: at[0], y: at[1], color: g ? g.colors[0] : '#ffe066', shape: g ? g.icon || 'square' : 'square', label: m.title }); }
       for (const { at } of this.startable()) out.push({ x: at[0], y: at[1], color: '#5af0ff', shape: 'flag' });
-      if (this.waypoint) out.push({ x: this.waypoint[0], y: this.waypoint[1], color: '#7af0ff', shape: 'square', edge: true });
+      if (this.waypoint && o.waypoint !== false) out.push({ x: this.waypoint[0], y: this.waypoint[1], color: '#7af0ff', shape: 'flag', edge: true });
     }
     return out;
   }
-  /** the HUD's part: the objective, the timer, the subtitles, the race, the pops, the card */
-  hud(g, Wd, Hd, o = {}) {
-    const R = this.R, B = this.app.bindings, input = this.app.game.input, t = this.W.game.real || 0;
+  /** the HUD's part, on the UI layer: the objective, the timer, the race's checkpoint, the subtitles (Settings: on by
+   *  default, the speaker's name in colour), the pops, a hold-up's bar, the prompt at a door (o.blocked: another's) */
+  hud(P, o = {}) {
+    const R = this.R, t = this.W.game.real || 0, L = hudLayout(P), cx = P.W / 2, fw = footWidth(P);
     if (R.state === 'running' && R.objective && !this.card) {   // (on a band of its own: over a busy street it had blurred into the scene)
-      const rows = E.font.wrap(R.objective.text, Wd - 80, {}), bw = Math.min(Wd - 40, Math.max(...rows.map(r => E.font.width(r))) + 14);
-      g.fillStyle = 'rgba(5,3,12,.6)'; g.fillRect(Math.round(Wd / 2 - bw / 2), Hd - 89, Math.round(bw), rows.length * 10 + 5); g._c = null;
-      E.font.text(g, R.objective.text, Wd / 2, Hd - 86, '#f0ecff', { align: 'center', outline: '#05030c', wrap: Wd - 80 });
+      const rows = wrapLines(P, R.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map(r => P.width(r))) + 14), y = L.sy1 - 78;
+      P.fill(cx - bw / 2, y - 3, bw, rows.length * 10 + 5, '#05030c', .6);
+      rows.forEach((r, i) => P.text(r, cx, y + i * 10, '#f0ecff', { align: 'center' }));
     }
-    if (R.timer && R.state === 'running') { const s = Math.ceil(R.timer.left), txt = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; E.font.text(g, (R.timer.label ? R.timer.label + ' ' : '') + txt, Wd - 8, 22, s <= 10 && Math.floor(t * 3) % 2 ? '#ff5a4a' : '#ffe066', { align: 'right', scale: 2, outline: '#05030c' }); }
-    if (R.course && R.state === 'running') E.font.text(g, `CHECKPOINT ${R.checkpoint + 1 + R.lap * R.course.length}/${R.course.length * (R.laps || 1)}`, Wd - 8, 42, '#5af0ff', { align: 'right', outline: '#05030c' });
-    const L = R.lines || (this.events.R.lines); if (L && L.list[L.i]) { const line = L.list[L.i]; E.ui.box(g, Wd / 2 - 160, Hd - 58, 320, 24, { alpha: .75 }); E.font.text(g, (L.name ? L.name.toUpperCase() + ': ' : '') + line, Wd / 2, Hd - 54, '#f0ecff', { align: 'center', wrap: 308 }); if (L.name) E.font.text(g, L.name.toUpperCase() + ':', Wd / 2 - 154, Hd - 54, L.color, {}); }
-    this.pops.forEach((q, i) => { const y = 64 + i * 26, a = Math.min(1, q.t * 2); g.globalAlpha = a; E.font.text(g, q.title, Wd / 2, y, q.color, { align: 'center', outline: '#05030c' }); if (q.line) E.font.text(g, q.line, Wd / 2, y + 10, '#f0ecff', { align: 'center', scale: 1, outline: '#05030c' }); g.globalAlpha = 1; });
-    const hp = this.holdups && this.holdups.progress(); if (hp) { E.ui.bar(g, Wd / 2 - 40, Hd - 100, 80, 5, hp.t, '#ff8a5a'); E.font.text(g, 'HOLD-UP', Wd / 2, Hd - 112, '#ff8a5a', { align: 'center', outline: '#05030c' }); }
-    if (this.prompt && !this.card && !o.blocked) drawPrompt(g, this.prompt.text, Wd / 2, Hd - 64, B, input, { align: 'center', color: this.prompt.color });
-    if (this.card) drawCard(g, Wd, Hd, this.card, B, input, t);
+    if (R.timer && R.state === 'running') { const s = Math.ceil(R.timer.left), txt = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; P.text((R.timer.label ? R.timer.label + ' ' : '') + txt, L.timer[0], L.timer[1], s <= 10 && Math.floor(t * 3) % 2 ? '#ff5a4a' : '#ffe066', { align: 'right', scale: 2 }); }
+    if (R.course && R.state === 'running') P.text(`CHECKPOINT ${R.checkpoint + 1 + R.lap * R.course.length}/${R.course.length * (R.laps || 1)}`, L.timer[0], L.timer[1] + (R.timer ? 18 : 0), '#5af0ff', { align: 'right' });
+    const Ls = R.lines || this.events.R.lines; if (Ls && Ls.list[Ls.i] && setting(this.app.game, 'subtitles', true)) drawSubtitle(P, Ls.name, Ls.color, Ls.list[Ls.i], L.sy1 - 48);
+    this.pops.forEach((q, i) => { const y = L.sy0 + 54 + i * 30, a = Math.min(1, q.t * 2), big = /^[+-]\$?[\d,]+$/.test(q.line || ''); P.g.globalAlpha = a; P.text(q.title, cx, y, q.color, { align: 'center' }); if (q.line) P.text(q.line, cx, y + 10, big ? (q.line[0] === '-' ? '#ff8a5a' : '#7aff8a') : '#f0ecff', { align: 'center', scale: big ? 2 : 1 }); P.g.globalAlpha = 1; });   // (a sum of money: a big number)
+    const hp = this.holdups && this.holdups.progress(); if (hp) P.holdPrompt('HOLD {onFoot:aim} ON THE CLERK', cx + 9, L.sy1 - 100, hp.t, { align: 'center', color: '#ff8a5a' });   // (the hold-up: the ring fills while the gun stays on them)
+    if (this.prompt && !this.card && !o.blocked) P.prompt(this.prompt.text, cx, L.sy1 - 10, { align: 'center', color: this.prompt.color });
   }
   /** the career's share of the sim hash */
   hash() { const S = this.save; return [...this.R.hash(), ...this.events.hash(), S.missions.done.length, S.collectibles.length, S.stunts.length, S.properties.length, ...(this.holdups ? this.holdups.hash() : [])]; }
@@ -352,26 +380,64 @@ export class Career {
 }
 // does a vehicle fit an activity's start.vehicle (a definition id, a class, a role, or a list of them)?
 function fits(need, v) { const l = Array.isArray(need) ? need : [need]; return l.some(n => n === v.def.id || n === v.cls || n === v.def.role || n === v.def.model); }
-// a card: a panel in the middle, its title, its lines, up to six items with the focus, a page count, the legend
-function drawCard(g, W, H, c, B, input, t) {
-  const items = c.items || [], pages = Math.max(1, Math.ceil(items.length / PAGE)), page = Math.min(c.page || 0, pages - 1), shown = items.slice(page * PAGE, page * PAGE + PAGE);
-  const w = Math.min(W - 40, 320), rows = (c.body || []).map(l => Math.max(1, E.font.wrap(l, w - 16, {}).length)), lines = rows.reduce((a, b) => a + b, 0), gap = lines ? 6 : 0;
-  const h = 34 + lines * 10 + gap + shown.length * 18 + (c.medal ? 20 : 0) + 22, x = Math.round(W / 2 - w / 2), y = Math.max(12, Math.round(H / 2 - h / 2));
-  g.fillStyle = 'rgba(5,3,12,.55)'; g.fillRect(0, 0, W, H); g._c = null;
-  E.ui.box(g, x, y, w, h, { bg: ['#1a1830', '#0e0c1c'] });
-  E.font.text(g, c.title, W / 2, y + 8, c.color || '#ffe066', { align: 'center', scale: 2, outline: '#05030c' });
-  let yy = y + 30;
-  if (c.medal) { E.font.text(g, c.medal.toUpperCase() + ' MEDAL', W / 2, yy, MEDAL[c.medal] || '#fff', { align: 'center', scale: 2, outline: '#05030c' }); yy += 20; }
-  (c.body || []).forEach((l, i) => { E.font.text(g, l, W / 2, yy, '#c8c0e8', { align: 'center', wrap: w - 16 }); yy += 10 * rows[i]; });
-  yy += gap;   // (the items clear of the last line: a one-line reason had sat under the first item's frame)
-  shown.forEach((it, i) => {
-    const k = page * PAGE + i, on = k === c.sel, iy = yy + i * 18 + (on ? -1 : 0);
-    if (on) { const a = .65 + .35 * Math.sin(t * 6); g.strokeStyle = c.color || '#ffe066'; g.globalAlpha = a; g.lineWidth = 2; g.strokeRect(x + 8, iy - 2, w - 16, 16); g.globalAlpha = 1; g._c = null; }
-    E.font.text(g, it.label, x + 14, iy + 2, it.disabled ? '#6a6488' : on ? '#ffffff' : '#d8d4f0', {});
-    if (it.right) E.font.text(g, it.right, x + w - 14, iy + 2, it.disabled ? '#6a6488' : '#ffe066', { align: 'right' });
-    if (it.sub) E.font.text(g, it.sub, x + w - 14 - (it.right ? E.font.width(it.right) + 12 : 0), iy + 2, '#8a84a8', { align: 'right' });   // (why it can't be had: left of its price)
-  });
-  if (pages > 1) E.font.text(g, `${page + 1}/${pages}`, x + w - 10, y + 8, '#8a84a8', { align: 'right' });
-  const legend = items.length ? '{menu:confirm} SELECT   {menu:back} BACK' : '{menu:confirm} CONTINUE';
-  drawPrompt(g, legend, W / 2, y + h - 14, B, input, { align: 'center', color: '#c8c0e8' });
+// a card as a screen of the kit: its lines over its list (the card's own sel, so a card made again keeps its place), ○
+// and Options back out (a choice can't be backed out of), a card without items continues on ✕ or a click
+function cardScreen(C, card) {
+  const items = card.items || [], list = items.length ? new List({ id: 'card-' + card.id, items, color: card.color }) : null;
+  if (list) { card.sel = Math.max(0, Math.min(items.length - 1, card.sel || 0)); Object.defineProperty(list, 'sel', { get: () => card.sel, set: v => { card.sel = v; }, configurable: true }); }
+  const back = () => { if (card.back) card.back(); else C.close(); };
+  const scr = {
+    id: card.id, career: C, title: card.title, color: card.color, w: 320, list, sticky: true,
+    info: [...(card.medal ? [{ text: card.medal.toUpperCase() + ' MEDAL', color: MEDAL[card.medal] || UI.ink, scale: 2 }] : []), ...(card.body || [])],
+    legend: card.legend || (items.length ? (card.back && card.id === 'choice' ? '{menu:confirm} SELECT' : '{menu:confirm} SELECT   {menu:back} BACK') : '{menu:confirm} CONTINUE'),
+    back: () => { back(); return true; },
+    update(nav, mouse) {
+      if (nav.close) { back(); return 'back'; }
+      if (!items.length && (nav.confirm || mouse.click) && card.confirm) { card.confirm(); return 'confirm'; }
+      return null;
+    },
+  };
+  if (card.style === 'phone') scr.draw = (P, U, live) => drawPhone(P, scr, card, C, live);
+  return scr;
+}
+// the phone: a handset at the foot of the screen's right, one column of big rows with an icon each, its time at the top
+function drawPhone(P, scr, card, C, live = true) {
+  const list = scr.list, items = list ? list.items : [], per = 6, page = list ? list.page : 0, pages = list ? list.pages : 1, shown = items.slice(page * per, page * per + per);
+  const [, sy0, sx1, sy1] = P.safe, body = (card.body || []).length, fixed = 44 + body * 10 + (body ? 4 : 0) + 26 + 8;
+  const RH = Math.max(20, Math.min(24, Math.floor((sy1 - sy0 - fixed) / per))), w = 188, h = fixed - 8 + per * RH, x = sx1 - w - 4, y = Math.max(sy0 + 4, sy1 - h - 4);   // (rows as tall as the screen allows; its frame inside the safe area too)
+  P.shade(.35);
+  P.panel(x - 4, y - 4, w + 8, h + 8, { kind: 'phone', bg: ['#0c0a16', '#05030c'], border: '#4a4470' });
+  P.fill(x + 4, y + 6, w - 8, h - 12, '#141026');
+  P.text(C.W.clock && C.W.clock.label ? C.W.clock.label() : '', x + 10, y + 10, UI.mute);
+  P.text(card.title, x + w - 10, y + 10, card.color || UI.cyan, { align: 'right' });
+  if (pages > 1) P.pages(page, pages, x + w / 2 + 12, y + 10);
+  let yy = y + 26;
+  for (const l of card.body || []) { P.text(l, x + w / 2, yy, UI.dim, { align: 'center' }); yy += 10; }
+  if (body) yy += 4;
+  if (list) {
+    list.rows = [];
+    shown.forEach((it, i) => {
+      const k = page * per + i, on = k === list.sel, ry = yy + i * RH - (on ? 1 : 0), col = it.disabled ? UI.off : on ? UI.ink : UI.dim;
+      if (on && live) P.focus(x + 6, ry - 1, w - 12, RH, card.color || UI.cyan);
+      phoneIcon(P, it.icon || 'dot', x + 12, ry + 4, it.disabled ? UI.off : it.color || card.color || UI.cyan);
+      P.text(it.label, x + 34, ry + 3, col);
+      const sub = it.right !== undefined ? it.right + (it.sub ? '  ' + it.sub : '') : it.sub;
+      if (sub) P.text(sub, x + 34, ry + 13, it.disabled ? UI.off : UI.mute);
+      list.rows.push({ i: k, x: x + 6, y: yy + i * RH, w: w - 12, h: RH });
+    });
+    P.rec.list(list.id, shown.length, page, pages, list.rows.map(r => ({ label: items[r.i].label, x: r.x, y: r.y, w: r.w, h: r.h })), live);
+  }
+  P.legend(scr.legend, x + w / 2, y + h - 16);
+}
+// a phone row's icon, 16 x 16, drawn by code
+function phoneIcon(P, kind, x, y, c) {
+  const f = (a, b, w, h) => P.fill(x + a, y + b, w, h, c);
+  if (kind === 'contacts') { f(5, 1, 6, 6); f(3, 9, 10, 6); }
+  else if (kind === 'texts') { f(1, 2, 14, 9); f(4, 11, 3, 3); }
+  else if (kind === 'jobs' || kind === 'job') { f(5, 2, 6, 2); f(1, 4, 14, 10); P.fill(x + 1, y + 8, 14, 1, '#141026'); }
+  else if (kind === 'snap') { f(1, 4, 14, 10); f(5, 2, 6, 2); P.fill(x + 6, y + 7, 4, 4, '#141026'); }
+  else if (kind === 'settings') { f(6, 1, 4, 14); f(1, 6, 14, 4); f(3, 3, 10, 10); P.fill(x + 6, y + 6, 4, 4, '#141026'); }
+  else if (kind === 'cab') { f(2, 6, 12, 6); f(4, 3, 8, 3); P.fill(x + 3, y + 12, 3, 3, '#05030c'); P.fill(x + 10, y + 12, 3, 3, '#05030c'); }
+  else if (kind === 'pin') { f(4, 1, 8, 8); f(6, 9, 4, 3); f(7, 12, 2, 3); }
+  else f(5, 5, 6, 6);
 }

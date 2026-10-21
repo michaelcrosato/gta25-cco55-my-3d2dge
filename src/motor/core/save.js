@@ -17,7 +17,7 @@ export function memoryBackend(map = new Map()) { return { map, get: k => (map.ha
 export class SaveStore {
   /** o: { game, schema (the current version), blank() (a new save), normalize(data) (fills and checks every field),
    *  migrations ({ n: data -> data at n + 1 }), slots (default ['1', '2', '3', 'auto']), backend (default: the
-   *  browser's storage) } */
+   *  browser's storage), summary(data) (what list() adds for the load screen) } */
   constructor(o) {
     Object.assign(this, { slots: ['1', '2', '3', 'auto'], migrations: {}, normalize: d => d, locked: false }, o);
     this.backend = o.backend || localBackend(); this.writes = 0;
@@ -44,10 +44,11 @@ export class SaveStore {
     while (v < this.schema) { const m = this.migrations[v]; if (!m) { this.backend.set(k + ':bak', raw); return { data: null, error: 'corrupt' }; } d = m(d); v++; }
     return { data: this.normalize({ ...d, schema: this.schema, game: this.game }), error: null, migrated: from < this.schema ? from : undefined };
   }
-  /** the slots that hold a save: [{ slot, label, savedAt, playtime }] */
+  /** the slots that hold a save: [{ slot, label, savedAt, playtime, ...summary(data) }] (o.summary: what the load
+   *  screen's cards show besides, the game's own) */
   list() {
     const out = [];
-    for (const s of this.slots) { const r = this.backend.get(this.key(s)); if (r === null || r === undefined) continue; try { const d = JSON.parse(r); out.push({ slot: s, label: d.label || '', savedAt: d.savedAt || 0, playtime: d.playtime || 0 }); } catch (e) { out.push({ slot: s, label: '(damaged)', savedAt: 0, playtime: 0 }); } }
+    for (const s of this.slots) { const r = this.backend.get(this.key(s)); if (r === null || r === undefined) continue; try { const d = JSON.parse(r); out.push({ slot: s, label: d.label || '', savedAt: d.savedAt || 0, playtime: d.playtime || 0, ...(this.summary ? this.summary(d) : {}) }); } catch (e) { out.push({ slot: s, label: '(damaged)', savedAt: 0, playtime: 0 }); } }
     return out;
   }
   clear(slot) { if (!this.locked) this.backend.remove(this.key(slot)); }
