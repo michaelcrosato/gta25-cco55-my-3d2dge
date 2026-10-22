@@ -159,6 +159,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   const job = (a, level) => play('job', `${a.id} L${level}`, () => {
     const kinds = [].concat(a.start.vehicle).sort((p, q) => topOf(q) - topOf(p));
     const { v, ok: aboard } = takeCar(...kinds.map(k => () => carNear(P().x, P().y, k, 1e9))); if (!v) { why = 'no ' + [].concat(a.start.vehicle).join('/') + ' about'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
+    if (!cool()) { why = 'wanted after taking the ' + v.def.id; return false; }   // (a police car broken into is a crime a cop may see, and a job never starts while wanted: the stars lost in it first, as a player would)
     if (C().card) C().close();   // (a drive-in shop's card, opened by stopping at its door: the phone waits for no card)
     C().phone(); const it = C().card && C().card.items.find(q => q.label === a.title.toUpperCase());
     if (!it) { why = 'not on the phone (' + (C().card ? C().card.items.map(q => q.label).join(', ') : 'no phone') + ')'; C().close(); return false; } it.act(); run(1); return ours(null);

@@ -33,7 +33,7 @@ export class CityLife {
     this.t = 0; this.handed = []; this.player = null;
     this.crowd = o.crowd === false ? null : new Crowd({ city: this.city, walks: this.walks, combat: this.combat, fleet: this.fleet, footprint: this.fp, spec: this.spec.crowd, rng: RNG.stream('peds') });
     this.traffic = o.traffic === false ? null : new Traffic({ city: this.city, fleet: this.fleet, graph: this.graph, gps: this.gps, junctions: this.junctions, footprint: this.fp, spec: this.spec.traffic, rng: RNG.stream('traffic'),
-      onDriverOut: (ped, v, why) => this._driverOut(ped, v, why) });
+      onDriverOut: (ped, v, why) => this._driverOut(ped, v, why), isPlayer: o.isPlayer });
     const police = o.police !== false && !!this.traffic;
     this.services = o.services === false || !this.traffic ? null : new Emergency({ life: this, combat: this.combat, fleet: this.fleet, footprint: this.fp, spec: this.spec.services, rng: RNG.stream('services'), reports: !police });
     this.police = police ? new Police({ life: this, city: this.city, fleet: this.fleet, combat: this.combat, footprint: this.fp, spec: this.spec.police, isPlayer: o.isPlayer, rng: RNG.stream('police') }) : null;

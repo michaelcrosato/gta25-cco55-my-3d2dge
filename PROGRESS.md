@@ -1199,6 +1199,12 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
     that live for hours in the campaign, so it left cars at their first box, gave cars up at a glance and never walked
     straight; a new goal starts them afresh (a unit test). A job started on the way during a token, a stunt or a
     property is quit at once (Lawn Order, begun by a teleport beside its giver, had taken the controls from a stunt's).
+    On that, S1's bot got out on the Loop over Gutterball Lanes for the Gnomes' Brute below and walked the deck for
+    good: a vehicle off the bot's level is now far, driven to at its level, and a car boxed in on a deck is never left.
+    On that, every mission passed at its first try; then the courier's bike sat behind the Pumper the campaign had left
+    across its road (nothing towed a car the player got out of: now out of sight it is towed, or one parked as the
+    world was made goes back to its spot, a sim test), and Vigilante never started (its cruiser, broken into, brought
+    stars, and the phone offers no job while wanted: the campaign loses them in it first).
   - **The shots** (`tools/shot-matrix.mjs`, PLAN.md 10's matrix): `docs/media/shots/`: the 4 neighbourhoods by day,
     dusk and night in ISO (`<hood>-<time>-iso.png`) and every view on the contact sheets (`sheet-iso-clear.jpg`,
     `sheet-top-clear.jpg`, `sheet-side7-clear.jpg`, and ISO in rain, `sheet-iso-rain.jpg`); the bank's lobby in each

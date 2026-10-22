@@ -16411,7 +16411,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var SIREN_ROLES = /* @__PURE__ */ new Set(["police", "medic", "fire"]);
   var Vehicle = class {
     /** defId: a 'vehicles' id; o: { x, y, heading, color, kit (a different kit than the definition's), id, owner
-     *  ('world' | 'mission'), locked, mods: { armor, nitro, oil, mines, roofMG, bomb } } */
+     *  ('world' | 'mission'), locked, mods: { armor, nitro, oil, mines, roofMG, bomb }, home (parked as the world was
+     *  made: the spot kept) } */
     constructor(defId, o = {}) {
       const d = this.def = vehicleDef(defId);
       this.cls = classOf(d);
@@ -16420,6 +16421,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.actor = new Actor("vehicle", { id: o.id, x: o.x, y: o.y, faction: d.role === "police" ? "police" : "civilian" });
       this.id = this.actor.id;
       this.owner = o.owner || "world";
+      this.home = o.home ? { x: o.x || 0, y: o.y || 0, heading: o.heading || 0 } : null;
       this.color = o.color || d.palette[0];
       this.mods = Object.assign({ armor: false, nitro: 0, oil: 0, mines: 0, roofMG: false, bomb: null }, o.mods || {});
       this.damage = new Damage(d.health * (this.mods.armor ? 1.5 : 1), d.toughness);
@@ -20494,7 +20496,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         const k = j & 1 ? (j + 1) / 2 : -j / 2, L17 = hl5 * 2 + 10, x = base3.x - Math.cos(base3.heading) * L17 * k, y = base3.y - Math.sin(base3.heading) * L17 * k;
         if (!fits2(x, y, base3.heading, hl5, hw5, ht)) continue;
         i++;
-        fleet.spawn(sp.def, x, y, base3.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked });
+        fleet.spawn(sp.def, x, y, base3.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked, home: true });
         taken4.push({ x, y, h: base3.heading, hl: hl5, hw: hw5 });
         out.spots++;
       }
@@ -20513,7 +20515,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (busyNear(city, r7, cx5, cy) || noSpawn.some((z) => cx5 >= z.rect[0] && cx5 <= z.rect[2] && cy >= z.rect[1] && cy <= z.rect[3])) continue;
           const s = laneSpot(r7, side, cx5, cy, T20, hw5);
           if (!fits2(s.x, s.y, s.heading, hl5, hw5, ht)) continue;
-          fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)] });
+          fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)], home: true });
           taken4.push({ x: s.x, y: s.y, h: s.heading, hl: hl5, hw: hw5 });
           out.parked++;
           break;
@@ -25964,12 +25966,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.rng = o.rng || RNG.stream("traffic");
       this.onDriverOut = o.onDriverOut || null;
       this.pick = o.pick || null;
+      this.isPlayer = o.isPlayer || null;
       this.cars = [];
       this.t = 0;
       this._spawnT = 0;
       this.spawned = 0;
       this.despawned = 0;
       this.towed = 0;
+      this.homed = 0;
       this._towT = 0;
       this.idle = makeIntent();
       this.filled = false;
@@ -25986,9 +25990,24 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
       }
       this.pool = all("vehicles").filter((d) => d.spawn && (d.spawn.weight || 0) > 0 && d.spawn.zones && this.spec.roles.includes(d.role) && this.spec.classes.includes(classOf(d)));
-      this._unsub = [BUS.on("crime", (e) => {
-        if (e.severity !== 0) this._scare(e.x, e.y, e.type === "murder" || e.type === "explosion" ? 1.4 : 1);
-      }, "world"), BUS.on("explode", (e) => this._scare(e.x, e.y, 1.6), "world")];
+      this._unsub = [
+        BUS.on("crime", (e) => {
+          if (e.severity !== 0) this._scare(e.x, e.y, e.type === "murder" || e.type === "explosion" ? 1.4 : 1);
+        }, "world"),
+        BUS.on("explode", (e) => this._scare(e.x, e.y, 1.6), "world"),
+        // (a traffic offence scares nobody)
+        BUS.on("vehicleExit", (e) => {
+          if (this.isPlayer && this.isPlayer(e.actor)) {
+            const v = this.fleet.byId(e.vehicle);
+            if (v) v.leftT = this.t;
+          }
+        }, "world"),
+        // (the player out of a car: the tow's, once out of sight)
+        BUS.on("vehicleEnter", (e) => {
+          const v = this.fleet.byId(e.vehicle);
+          if (v) v.leftT = void 0;
+        }, "world")
+      ];
     }
     /** stop listening (the scene is leaving) */
     dispose() {
@@ -26058,9 +26077,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       if ((this._towT -= dt) <= 0) {
         this._towT = 2;
-        for (const v of [...this.fleet.vehicles]) if (v.abandonT !== void 0 && this.t - v.abandonT > TOW_AFTER && fp.d(v.x, v.y) > TUNE.fpSpawnIn && !v.seats.some((p) => p && !p.dead) && !(v.damage && v.damage.burning)) {
-          this.fleet.remove(v);
-          this.towed++;
+        for (const v of [...this.fleet.vehicles]) {
+          const t0 = v.abandonT ?? v.leftT;
+          if (t0 === void 0 || this.t - t0 <= TOW_AFTER || fp.d(v.x, v.y) <= TUNE.fpSpawnIn || v.owner === "mission" || v.seats.some((p) => p && !p.dead) || v.damage && v.damage.burning) continue;
+          if (v.home && !v.wrecked && fp.d(v.home.x, v.home.y) > TUNE.fpSpawnIn && this._homeFree(v)) {
+            this._home(v);
+            this.homed++;
+          } else {
+            this.fleet.remove(v);
+            this.towed++;
+          }
         }
       }
       const W26 = { fleet: this.fleet, t: ctx.t ?? this.t, pedsNear: ctx.pedsNear || null, wet: ctx.wet || 0, sirens: ctx.sirens || null, closed: ctx.closed || null };
@@ -26259,6 +26285,24 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       p.place(side[0] ?? sx, side[1] ?? sy, v.z);
       this._drop(c, false);
       if (this.onDriverOut) this.onDriverOut(p, v, why);
+    }
+    // a towed car's spot (where it was parked as the world was made) with no other vehicle on it
+    _homeFree(v) {
+      const h = v.home;
+      return this.fleet.near(h.x, h.y, v.hl + 80).every((o) => o === v || Math.hypot(o.x - h.x, o.y - h.y) > o.hl + v.hl + 4);
+    }
+    // a towed car back at its spot, parked, the tow's clocks off
+    _home(v) {
+      const h = v.home, b = v.body;
+      b.x = h.x;
+      b.y = h.y;
+      b.z = 0;
+      b.heading = h.heading;
+      b.u = b.v = b.w = 0;
+      b.vz = 0;
+      b.airborne = false;
+      v.abandonT = v.leftT = void 0;
+      v.asleep = false;
     }
     // a car leaves the traffic: its brain lets go of its junctions; despawned, it is removed with its driver; jacked, its
     // old driver is handed on
@@ -28556,7 +28600,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this.boxT > (b.cause === "ped" ? 8 : 5)) {
         this.boxT = 0;
         this.boxed = (this.boxed || 0) + 1;
-        if (this.boxed > 3 && !g.hold) {
+        if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) {
           this.boxed = 0;
           return this._bail(v);
         }
@@ -29011,16 +29055,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return A.update(dt, p, w8);
     }
     // into that vehicle: a long way off, near it first by any means (a car taken, as the AutoPlayer does), then to its door
-    // (held to one way or the other: near it by car until within 260 or there, then to its door until it is 650 off)
+    // (held to one way or the other: near it by car until within 260 or there, then to its door until it is 650 off). Off
+    // its level (up on a deck above it, under one below it) it is far, and the drive near it is to its level: S1's bot
+    // got out on the Loop over Gutterball Lanes for the Gnomes' Brute below, and walked the deck for good
     _board(dt, p, v, w8) {
-      const P17 = p.seat ? p.seat.vehicle : p, d = Math.hypot(v.x - P17.x, v.y - P17.y), A = this.auto;
+      const P17 = p.seat ? p.seat.vehicle : p, d = Math.hypot(v.x - P17.x, v.y - P17.y) + (Math.abs((P17.z || 0) - (v.z || 0)) > 24 ? 700 : 0), A = this.auto;
       if (this.boardFor !== v) {
         this.boardFor = v;
         this.boardNear = d < (p.seat ? 110 : 450);
       }
       if (this.boardNear && d > 650) this.boardNear = false;
       else if (!this.boardNear && (d < (p.seat ? 110 : 260) || A.goal && !A.goal.board && (A.state === "arrived" || A.state === "final"))) this.boardNear = true;
-      if (!this.boardNear) return this._go(dt, p, v.x, v.y, { stay: true, radius: 100, slack: 80 }, w8);
+      if (!this.boardNear) return this._go(dt, p, v.x, v.y, { stay: true, radius: 100, slack: 80, z: v.z || 0 }, w8);
       if (!A.goal || A.goal.board !== v) A.board(v);
       return A.update(dt, p, w8);
     }
@@ -31257,7 +31303,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         footprint: this.fp,
         spec: this.spec.traffic,
         rng: RNG.stream("traffic"),
-        onDriverOut: (ped, v, why) => this._driverOut(ped, v, why)
+        onDriverOut: (ped, v, why) => this._driverOut(ped, v, why),
+        isPlayer: o.isPlayer
       });
       const police = o.police !== false && !!this.traffic;
       this.services = o.services === false || !this.traffic ? null : new Emergency({ life: this, combat: this.combat, fleet: this.fleet, footprint: this.fp, spec: this.spec.services, rng: RNG.stream("services"), reports: !police });

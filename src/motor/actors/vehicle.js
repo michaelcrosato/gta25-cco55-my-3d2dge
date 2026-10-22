@@ -22,13 +22,17 @@ const SIREN_ROLES = new Set(['police', 'medic', 'fire']);
 
 export class Vehicle {
   /** defId: a 'vehicles' id; o: { x, y, heading, color, kit (a different kit than the definition's), id, owner
-   *  ('world' | 'mission'), locked, mods: { armor, nitro, oil, mines, roofMG, bomb } } */
+   *  ('world' | 'mission'), locked, mods: { armor, nitro, oil, mines, roofMG, bomb }, home (parked as the world was
+   *  made: the spot kept) } */
   constructor(defId, o = {}) {
     const d = this.def = vehicleDef(defId);
     this.cls = classOf(d); this.model = modelOf(o.kit !== undefined ? { ...d, kit: o.kit } : d);
     this.body = this.cls === 'rail' ? null : makeBody(defId, o.x || 0, o.y || 0, o.heading || 0);
     this.actor = new Actor('vehicle', { id: o.id, x: o.x, y: o.y, faction: d.role === 'police' ? 'police' : 'civilian' });
     this.id = this.actor.id; this.owner = o.owner || 'world';
+    /** home: where it was parked when the world was made (the curbs', a landmark's own), or null: the tow takes a car
+     *  the player left back there (traffic.js) */
+    this.home = o.home ? { x: o.x || 0, y: o.y || 0, heading: o.heading || 0 } : null;
     this.color = o.color || d.palette[0];
     this.mods = Object.assign({ armor: false, nitro: 0, oil: 0, mines: 0, roofMG: false, bomb: null }, o.mods || {});
     this.damage = new Damage(d.health * (this.mods.armor ? 1.5 : 1), d.toughness);

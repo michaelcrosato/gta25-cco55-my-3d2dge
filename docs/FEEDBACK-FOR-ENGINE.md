@@ -17,7 +17,7 @@ or a new one. The engine's maintainers decide each point's status; the game's ow
   traffic, a crowd, police with a wanted level and a helicopter, three gangs with respect and turf; 14 missions and
   their side content on a staged mission runtime, played through by a bot; a 10-foot UI for a controller on a TV;
   four radio stations composed at run time; an attract mode that plays the game by itself. On top of the engine sits
-  MOTOR, the game's own layer (about 15,400 lines), and the content (about 8,400). Seven engine patches.
+  MOTOR, the game's own layer (about 16,100 lines), and the content (about 8,500). Seven engine patches.
 - **Used:** the loop's exact fixed step and headless `game.advance` (the whole test plan runs the real game in Node:
   over 300 unit and sim tests, the mission bot, a bot campaign, soaks); scenes and fades; `expand`; the pixel primitives, colour helpers,
   textures and the font; `TileMap` for the buildings; `E.Backdrop`; the depth-sorted renderer; the `iso` view;

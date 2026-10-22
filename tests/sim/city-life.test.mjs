@@ -204,3 +204,23 @@ test('a far car knocked off its line and wedged there is put back on its path af
   assert.ok(v.kinematic, 'back in the far LOD');
   assert.ok(off() < 2, `on its line again (${off().toFixed(1)} off)`);
 });
+
+test('a car the player got out of is towed once out of sight: one parked when the world was made back to its curb, another away; never a job\'s (the campaign\'s bot had left the Pumper across the courier\'s road for good)', async () => {
+  const { game, gtm } = await play('greasy-spoke'), T = gtm.life.traffic, M = gtm.motor, F = gtm.fleet, P = gtm.crew.ped, BUS = gtm.BUS;
+  const parked = F.vehicles.filter(v => v.home && v.cls === 'car' && !v.driver && Math.hypot(v.x - P.x, v.y - P.y) < 600).sort((a, b) => a.id - b.id)[0];
+  assert.ok(parked, 'a car parked at a curb near the start');
+  const home = { ...parked.home };
+  const leave = (v, x, y) => { v.body.x = x; v.body.y = y; BUS.emit('vehicleExit', { vehicle: v.id, actor: P.id, seat: 0 }); };   // (driven there, and the player out of it)
+  leave(parked, home.x + 60, home.y + 60);
+  const loose = F.spawn('cortez', home.x + 140, home.y, 0); leave(loose, loose.x, loose.y);   // (no curb of its own: traffic's, a jacked one)
+  const job = F.spawn('cortez', home.x + 220, home.y, 0, { owner: 'mission' }); leave(job, job.x, job.y);
+  game.advance(4); assert.ok(F.vehicles.includes(loose) && Math.hypot(parked.x - home.x, parked.y - home.y) > 50, 'in sight: left where it stands');
+  const far = M.roadsOf(gtm.city).walks.nearestNode(home.x + 1400, home.y, 600) || M.roadsOf(gtm.city).walks.nearestNode(home.x - 1400, home.y, 600);
+  gtm.teleport(far.x, far.y); game.advance(14);
+  assert.ok(Math.hypot(parked.x - home.x, parked.y - home.y) < 1 && F.vehicles.includes(parked), 'the parked one back at its curb');
+  assert.ok(!F.vehicles.includes(loose), 'the other one towed away');
+  assert.ok(F.vehicles.includes(job), 'a job\'s car stays');
+  assert.ok(T.homed >= 1 && T.towed >= 1);
+  const again = F.vehicles.filter(v => v.home && v !== parked && !v.driver)[0]; BUS.emit('vehicleExit', { vehicle: again.id, actor: P.id, seat: 0 }); BUS.emit('vehicleEnter', { vehicle: again.id, actor: P.id, seat: 0 });
+  assert.equal(again.leftT, undefined, 'got back into: the tow\'s clock off');
+});

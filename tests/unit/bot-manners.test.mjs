@@ -169,3 +169,26 @@ test('the AutoPlayer\'s counts are a trip\'s: boxed in, the unstick moves, the w
   Object.assign(A, { skip: 2, stuck: 0, dodge: 0 }); A._walkTo(.25, p, 80, 0, 'car2'); assert.equal(A.skip, 2, 'the same place: the hops kept');
   A.stuck = 0; A._walkTo(.25, p, 200, 0, 'goal'); assert.equal(A.skip, 0, 'another place: afresh');
 });
+
+test('the mission bot to a vehicle off its level (up on a deck over it): far, driven to its level first, never out on the deck (S1\'s bot got out on the Loop over the Gnomes\' Brute below and walked the deck for good)', async () => {
+  const { MissionBot } = await import('../../src/motor/ai/missionbot.js');
+  const calls = [], A = { goal: null, state: 'drive', board(v) { calls.push(['board', v.id]); this.goal = { board: v }; return this; }, update: () => makeIntent() };
+  const B = Object.assign(Object.create(MissionBot.prototype), { t: 0, I: makeIntent(), auto: A }); B._go = (dt, p, x, y, o) => { calls.push(['go', o.z]); return makeIntent(); };
+  const brute = { id: 9, x: 712, y: 1144, z: 6 }, car = z => ({ x: 729, y: 1180, z }), p = z => ({ x: 729, y: 1180, z: z - 6, seat: { vehicle: car(z) } });
+  B._board(1 / 60, p(70), brute, {});
+  assert.deepEqual(calls, [['go', 6]], 'on the deck 40 u over it: driven to its level, not boarded');
+  calls.length = 0; B.boardFor = null; B._board(1 / 60, p(6), brute, {});
+  assert.deepEqual(calls, [['board', 9]], 'on its level, as near: to its door');
+});
+
+test('the AutoPlayer boxed in a fourth time gets out at street level only: up on a deck it goes round again (out there, a walk has no way down)', () => {
+  const run = z => {
+    const p = { x: 0, y: 0, z }, v = { id: 4, x: 0, y: 0, z, speed: 0, heading: 0, hw: 8, hl: 20, body: { vx: 0, vy: 0 } }; v.driver = p;
+    const A = Object.assign(Object.create(AutoPlayer.prototype), { t: 0, I: makeIntent(), tried: new Set(), gaveUp: new Map(), boxed: 3, boxT: 4.9 });
+    A.goal = { x: 2000, y: 0, z: null, stay: false, hold: false };
+    A.brain = { v, cause: null, leader: { gap: 5, speed: 0, v: null }, pass: null, lost: false, arrived: false, dispose() {} };
+    A._drive(.25, p, v, {}); return A;
+  };
+  assert.equal(run(0).state, 'exit', 'in the street: out, another car or on foot');
+  const D = run(64); assert.notEqual(D.state, 'exit'); assert.ok(D.round, 'on the Loop: round it again');
+});

@@ -142,13 +142,15 @@ export class MissionBot {
     return A.update(dt, p, w);
   }
   // into that vehicle: a long way off, near it first by any means (a car taken, as the AutoPlayer does), then to its door
-  // (held to one way or the other: near it by car until within 260 or there, then to its door until it is 650 off)
+  // (held to one way or the other: near it by car until within 260 or there, then to its door until it is 650 off). Off
+  // its level (up on a deck above it, under one below it) it is far, and the drive near it is to its level: S1's bot
+  // got out on the Loop over Gutterball Lanes for the Gnomes' Brute below, and walked the deck for good
   _board(dt, p, v, w) {
-    const P = p.seat ? p.seat.vehicle : p, d = Math.hypot(v.x - P.x, v.y - P.y), A = this.auto;
+    const P = p.seat ? p.seat.vehicle : p, d = Math.hypot(v.x - P.x, v.y - P.y) + (Math.abs((P.z || 0) - (v.z || 0)) > 24 ? 700 : 0), A = this.auto;
     if (this.boardFor !== v) { this.boardFor = v; this.boardNear = d < (p.seat ? 110 : 450); }
     if (this.boardNear && d > 650) this.boardNear = false;
     else if (!this.boardNear && (d < (p.seat ? 110 : 260) || (A.goal && !A.goal.board && (A.state === 'arrived' || A.state === 'final')))) this.boardNear = true;
-    if (!this.boardNear) return this._go(dt, p, v.x, v.y, { stay: true, radius: 100, slack: 80 }, w);
+    if (!this.boardNear) return this._go(dt, p, v.x, v.y, { stay: true, radius: 100, slack: 80, z: v.z || 0 }, w);
     if (!A.goal || A.goal.board !== v) A.board(v);
     return A.update(dt, p, w);
   }

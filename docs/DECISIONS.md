@@ -1244,6 +1244,16 @@ and where it landed.
     20 s of walks to doors were it gave a car up at a glance, and after its first hop it never walked straight again,
     each walk begun from a farther node. A new goal starts them at nothing (the walk's clock is a car's, the hops a
     place's). The per-mission runs start each mission with a new game, which is why only the campaign met it.
+  - **A vehicle to board off the bot's level is far,** and the drive near it goes to its level: S1's bot, driving the
+    Loop over Gutterball Lanes, counted the Gnomes' Brute below as near, got out on the deck and walked it for good.
+    And the AutoPlayer gets out of a car boxed in a fourth time at street level only, as a stall's: out on a deck, a
+    walk has no way down.
+  - **A car the player gets out of is towed once out of sight,** as the traffic's own abandoned cars already were: 10 s
+    beyond the spawn ring's inner edge, nobody in it, not burning, never a job's. One parked when the world was made
+    (the curbs', a landmark's own, which keep their spot as `home`) goes back to its spot instead, when that is clear
+    and out of sight too: the fire station's Pumper is there again for the next call. Nothing had taken them: the
+    campaign's bot left the Pumper across the road the courier's first drop ran down, and the bike sat behind it,
+    retry after retry. A player who leaves cars in the road blocks it the same way.
   - **Content:** a retry of H1's garage stage puts Dex beside Lefty (it had put him the far side of where the Loop's
     ramp meets the sidewalk, with no way round on foot).
   - **The campaign's tool:** a stunt's line-up stops against the way the car rolls (holding the brake while it backed
@@ -1251,12 +1261,13 @@ and where it landed.
     stopped car, so the campaign holds it still a moment there (Harbor Hustle had "not started" 10 u from its start).
     A car it could not board is passed over for ten minutes, not for good (the only Pumper). A job that starts on the
     way while it is about a token, a stunt or a property is quit at once, as on the way to another job: whatever
-    runs, the career's bot has the controls.
+    runs, the career's bot has the controls. The stars a job's car brought (a police car broken into for Vigilante,
+    a cop watching) are lost in it before the phone, which offers no job while wanted.
   - **The look pass:** the flat roofs' clutter (a stair hut, skylights, a duct, a chimney on brick, an aerial or a dish
     on the tall, more units) on the builder's own stream (`roofs+`), none of it solid; a style's neon (`style.neon`:
     tubes up its street corners, more shop signs; Neon Mile's); TOP-DOWN draws a thing standing on a roof after the
     roof. Accepted as at M2 (D11): the night light field's soft dark between the lamps' pools.
   - **The gym's kill fixture on seed 1** (two armed Rats, the police joining at three stars, then a detour round a
-    jammed exit) fails with the bot and passes through the pad; seeds 2 and 3 pass with the bot. A fixture of the
-    gym's, not content: recorded, not tuned to pass.
+    jammed exit) failed with the bot through part 5's first commits and passed through the pad; it passes both ways
+    since `6d4df84`. A fixture of the gym's, not content: it was never tuned to pass.
 - **Landed in:** M13 (part 5: `9843969`, `6efaf9c`, `409e551`, `1805e75` and after).

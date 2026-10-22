@@ -17,10 +17,12 @@
 //     by the GPS; it waits where it stops while its crew is out (emergency.js), then rejoins the traffic. A unit on
 //     duty.ext is driven by someone else (police.js's chase): the traffic only keeps its record;
 //   - the tow: a car the traffic left standing with nobody alive at the wheel (its driver killed, or out to fight, a
-//     unit's crew all dead) is taken away once it has stood 10 s out of every view's sight (beyond the spawn ring's
-//     inner edge): it had blocked its lane, and the crossing beside it, for good.
+//     unit's crew all dead), or one the player got out of, is taken away once it has stood 10 s out of every view's
+//     sight (beyond the spawn ring's inner edge): it had blocked its lane, and the crossing beside it, for good (the
+//     campaign's bot left the Pumper across the courier's road). One parked when the world was made (the curbs', a
+//     landmark's own: the Pumper by the L depot) goes back to its spot instead, if that is clear and out of sight too.
 // Deterministic: the 'traffic' RNG stream, lanes and cars in a fixed order; the camera is never read.
-//   const T = new Traffic({ city, fleet, graph, junctions, footprint, spec });  T.update(dt, ctx);  T.intentFor(v)
+//   const T = new Traffic({ city, fleet, graph, junctions, footprint, spec, isPlayer });  T.update(dt, ctx);  T.intentFor(v)
 import { TUNE, knob } from '../core/tune.js';
 import { RNG } from '../core/rng.js';
 import { BUS } from '../core/bus.js';
@@ -47,8 +49,8 @@ export class Traffic {
   constructor(o) {
     this.city = o.city; this.fleet = o.fleet; this.g = o.graph; this.gps = o.gps || null; this.J = o.junctions; this.fp = o.footprint;
     this.spec = Object.assign({ hoods: {}, roles: ['civilian'], classes: ['car', 'truck', 'bike'] }, o.spec || {});
-    this.rng = o.rng || RNG.stream('traffic'); this.onDriverOut = o.onDriverOut || null; this.pick = o.pick || null;
-    this.cars = []; this.t = 0; this._spawnT = 0; this.spawned = 0; this.despawned = 0; this.towed = 0; this._towT = 0; this.idle = makeIntent(); this.filled = false; this.fills = 0; this._fx = 0; this._fy = 0;
+    this.rng = o.rng || RNG.stream('traffic'); this.onDriverOut = o.onDriverOut || null; this.pick = o.pick || null; this.isPlayer = o.isPlayer || null;
+    this.cars = []; this.t = 0; this._spawnT = 0; this.spawned = 0; this.despawned = 0; this.towed = 0; this.homed = 0; this._towT = 0; this.idle = makeIntent(); this.filled = false; this.fills = 0; this._fx = 0; this._fy = 0;
     // spawn points: every SAMPLE units along each lane that goes somewhere (no dead ends, no jump), clear of the junction
     // boxes at both ends and short of its stop line by a braking distance (a car put down is never already in a junction)
     this.points = [];
@@ -58,7 +60,9 @@ export class Traffic {
       for (let s = 24; s < end; s += SAMPLE) { const p = this.g.pointOn(l, s); this.points.push({ lane: l, s, x: p[0], y: p[1], z: p[2] }); }
     }
     this.pool = all('vehicles').filter(d => d.spawn && (d.spawn.weight || 0) > 0 && d.spawn.zones && this.spec.roles.includes(d.role) && this.spec.classes.includes(classOf(d)));
-    this._unsub = [BUS.on('crime', e => { if (e.severity !== 0) this._scare(e.x, e.y, e.type === 'murder' || e.type === 'explosion' ? 1.4 : 1); }, 'world'), BUS.on('explode', e => this._scare(e.x, e.y, 1.6), 'world')];   // (a traffic offence scares nobody)
+    this._unsub = [BUS.on('crime', e => { if (e.severity !== 0) this._scare(e.x, e.y, e.type === 'murder' || e.type === 'explosion' ? 1.4 : 1); }, 'world'), BUS.on('explode', e => this._scare(e.x, e.y, 1.6), 'world'),   // (a traffic offence scares nobody)
+      BUS.on('vehicleExit', e => { if (this.isPlayer && this.isPlayer(e.actor)) { const v = this.fleet.byId(e.vehicle); if (v) v.leftT = this.t; } }, 'world'),   // (the player out of a car: the tow's, once out of sight)
+      BUS.on('vehicleEnter', e => { const v = this.fleet.byId(e.vehicle); if (v) v.leftT = undefined; }, 'world')];
   }
   /** stop listening (the scene is leaving) */
   dispose() { for (const u of this._unsub) u(); for (const c of [...this.cars]) this._drop(c, false); }
@@ -95,7 +99,11 @@ export class Traffic {
     if (this._spawnT <= 0) { this._spawnT = SPAWN_EVERY; const want = this.target(ctx); for (let k = 0; k < 2 && this.cars.length < want; k++) this._spawn(ctx); }
     if ((this._towT -= dt) <= 0) {   // (the tow, out of sight)
       this._towT = 2;
-      for (const v of [...this.fleet.vehicles]) if (v.abandonT !== undefined && this.t - v.abandonT > TOW_AFTER && fp.d(v.x, v.y) > TUNE.fpSpawnIn && !v.seats.some(p => p && !p.dead) && !(v.damage && v.damage.burning)) { this.fleet.remove(v); this.towed++; }
+      for (const v of [...this.fleet.vehicles]) {
+        const t0 = v.abandonT ?? v.leftT;
+        if (t0 === undefined || this.t - t0 <= TOW_AFTER || fp.d(v.x, v.y) <= TUNE.fpSpawnIn || v.owner === 'mission' || v.seats.some(p => p && !p.dead) || (v.damage && v.damage.burning)) continue;
+        if (v.home && !v.wrecked && fp.d(v.home.x, v.home.y) > TUNE.fpSpawnIn && this._homeFree(v)) { this._home(v); this.homed++; } else { this.fleet.remove(v); this.towed++; }
+      }
     }
     const W = { fleet: this.fleet, t: ctx.t ?? this.t, pedsNear: ctx.pedsNear || null, wet: ctx.wet || 0, sirens: ctx.sirens || null, closed: ctx.closed || null };   // (closed(bridgeId): a drawbridge's gates shut)
     for (const c of this.cars) {
@@ -214,6 +222,10 @@ export class Traffic {
     const side = v.toWorld(0, -(v.hw + 8)); p.place(side[0] ?? sx, side[1] ?? sy, v.z);
     this._drop(c, false); if (this.onDriverOut) this.onDriverOut(p, v, why);
   }
+  // a towed car's spot (where it was parked as the world was made) with no other vehicle on it
+  _homeFree(v) { const h = v.home; return this.fleet.near(h.x, h.y, v.hl + 80).every(o => o === v || Math.hypot(o.x - h.x, o.y - h.y) > o.hl + v.hl + 4); }
+  // a towed car back at its spot, parked, the tow's clocks off
+  _home(v) { const h = v.home, b = v.body; b.x = h.x; b.y = h.y; b.z = 0; b.heading = h.heading; b.u = b.v = b.w = 0; b.vz = 0; b.airborne = false; v.abandonT = v.leftT = undefined; v.asleep = false; }
   // a car leaves the traffic: its brain lets go of its junctions; despawned, it is removed with its driver; jacked, its
   // old driver is handed on
   _drop(c, jacked, despawn = false) {
