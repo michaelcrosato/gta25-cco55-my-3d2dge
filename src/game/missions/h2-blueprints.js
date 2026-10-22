@@ -75,7 +75,8 @@ function moment(m, text, at, gate) {
 const go = (m, word, text, path) => m.parallel([m.say([word], DEX), sneak(m, text, path)]);
 /** a door: △ at it (the bot's goto with interact), done when the player is through it (inside or out) */
 function door(m, text, at, inside) {
-  const q = m.at(at), o = m.waitUntil(mm => !!mm.inside === inside);
+  let tow = 0;   // (going in: a car left on the door step towed, looked for once a second)
+  const q = m.at(at), o = m.waitUntil(mm => { if (inside && !mm.inside && mm.stageTime >= tow) { tow = mm.stageTime + 1; mm.clearSpot(q, 10); } return !!mm.inside === inside; });
   return { ...o, start: mm => { mm.objective(text, { hint: { kind: 'goto', at: q, interact: true, foot: true } }); mm.marker(q, { color: '#ffe066', r: 10 }); }, nav: () => q };
 }
 

@@ -61,6 +61,9 @@ function ride(m) {
   m.place('player', { in: b });
   return b;
 }
+// on the job the gangs leave the courier alone: a parcel van's rider is nobody's business (the other jobs' truce, till
+// the job ends however it ends)
+const neutral = m => { for (const g of ['saints', 'rats', 'gnomes']) m.truce(g); };
 // ride up to the drop on a bike (any: the job's or another), slow enough to hand the parcel over
 function drop(m, at, text) {
   return Object.assign(m.waitUntil(mm => onBike(mm) && Math.hypot(mm.mover.x - at[0], mm.mover.y - at[1]) < R && mm.mover.speed < 30), {
@@ -73,7 +76,7 @@ const dropStage = k => ({
   id: 'drop' + (k + 1),
   setup(m) {
     if (k >= count(m)) return;   // (past the level's drops: nothing to do)
-    ride(m);
+    neutral(m); ride(m);
     dropFor(m, k);
     m.failIf(mm => !onBike(mm) && !mm.one('ride'), 'the bike\'s a wreck');
   },
@@ -94,7 +97,7 @@ defActivity('job_moto_courier', {
   rewardsFor: level => ({ cash: [0, 450, 900, 1500][level] || 450 }),
   bonus: [{ id: 'spare', text: 'Every drop with 10 s to spare', check: m => (m.data.spare ?? 0) >= 10 }],
   stages: [
-    { id: 'call', setup(m) { ride(m); }, *run(m) { yield m.say([`Lowtown Express. ${count(m)} parcels in your box.`, 'The clock starts when you see the address. Go.'], BOSS); } },
+    { id: 'call', setup(m) { neutral(m); ride(m); }, *run(m) { yield m.say([`Lowtown Express. ${count(m)} parcels in your box.`, 'The clock starts when you see the address. Go.'], BOSS); } },
     ...Array.from({ length: MAX }, (_, k) => dropStage(k)),
   ],
 });

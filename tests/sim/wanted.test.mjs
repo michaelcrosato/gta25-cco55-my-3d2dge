@@ -10,8 +10,8 @@ const play = async (poi, q = {}) => { const g = await loadGame({ hash: '#play/' 
 const listen = (BUS, names) => { const log = []; for (const n of names) BUS.on(n, e => log.push({ n, ...e }), 'world'); return log; };
 // nobody about within r of (x, y): the crowd's peds there taken away
 const clearAround = (gtm, x, y, r) => { const C = gtm.life.crowd; for (const m of [...C.members]) if (Math.hypot(m.ped.x - x, m.ped.y - y) < r) C._drop(m); };
-// an officer of the MPD put down at (x, y), facing (x0, y0)
-const cop = (gtm, x, y, face) => { const P = gtm.life.police, ped = P._newCop(gtm.motor.get('peds', 'mpd'), x, y, 0); ped.mover.facing = Math.atan2(face.y - y, face.x - x); return P._addCop(ped, {}); };
+// an officer of the MPD put down at (x, y) (at height z), facing (x0, y0)
+const cop = (gtm, x, y, face, z = 0) => { const P = gtm.life.police, ped = P._newCop(gtm.motor.get('peds', 'mpd'), x, y, z); ped.mover.facing = Math.atan2(face.y - y, face.x - x); return P._addCop(ped, {}); };
 // a crime of the player's where they stand
 const crime = (gtm, type, victim = null) => { const P = gtm.crew.ped; gtm.BUS.emit('crime', { type, x: P.x, y: P.y, by: P.id, victim, severity: 1 }); };
 
@@ -155,13 +155,14 @@ test('the respray: in a car at Spray & Pray, out of sight, the stars go for a fe
   }
 });
 
-test('NABBED: cuffed on foot when slow or unarmed (not when quick and armed), at the door of a stopped car (not a moving one), never at no stars; then the precinct, bail, the guns gone', async () => {
+test('NABBED: cuffed on foot when slow or unarmed (not when quick and armed), at the door of a stopped car (not a moving one, nor from the street under the deck it stands on), never at no stars; then the precinct, bail, the guns gone', async () => {
+  const DECK = [1600, 1267, 64];   // (the Loop's north leg, up on its deck over the street)
   const nab = async (o) => {
     const { game, gtm } = await play('greasy-spoke'), P = gtm.crew.ped, W = gtm.life.wanted, log = listen(gtm.BUS, ['busted']);
-    clearAround(gtm, P.x, P.y, 600);
-    let v = null; if (o.car) { v = gtm.fleet.spawn('cortez', P.x, P.y, 0); v.sit(P, 0); }
+    clearAround(gtm, P.x, P.y, 600); if (o.deck) clearAround(gtm, DECK[0], DECK[1], 300);
+    let v = null; if (o.car) { v = gtm.fleet.spawn('cortez', o.deck ? DECK[0] : P.x, o.deck ? DECK[1] : P.y, 0); if (o.deck) v.body.z = DECK[2]; v.sit(P, 0); if (o.deck) game.advance(.5); }
     if (o.armed) P.inv.select('snub38'); else P.inv.select('fists');
-    const at = v ? gtm.motor.doorOf(v) : [P.x + 8, P.y], c = cop(gtm, at[0], at[1], P);
+    const at = v ? gtm.motor.doorOf(v) : [P.x + 8, P.y], c = cop(gtm, at[0], at[1], P, o.deck === 'up' ? v.z : 0);
     if (o.stars) W.set(o.stars);
     const x0 = P.x, y0 = P.y;
     for (let i = 0; i < 360 && !log.length; i++) {   // (3 s)
@@ -177,6 +178,9 @@ test('NABBED: cuffed on foot when slow or unarmed (not when quick and armed), at
   assert.equal((await nab({ stars: 1, armed: true, fast: true })).log.length, 0, 'running and armed: not');
   assert.equal((await nab({ stars: 1, car: true })).log[0]?.how, 'door', 'in a stopped car, a cop at the door 1.5 s');
   assert.equal((await nab({ stars: 1, car: true, fast: true })).log.length, 0, 'in a moving car: not');
+  { const r = await nab({ stars: 1, car: true, deck: 'up' }), v = r.gtm.crew.ped.seat.vehicle;
+    assert.ok(v.z > 50, 'the car up on the deck: ' + v.z); assert.equal(r.log[0]?.how, 'door', 'on the deck, a cop at the door up there'); }
+  assert.equal((await nab({ stars: 1, car: true, deck: 'under' })).log.length, 0, 'on the deck, a cop on the street under the door: not');
   assert.equal((await nab({ stars: 0, armed: false })).log.length, 0, 'no stars: never');
   // the arrest played out: the precinct, bail, the guns taken (a job's tool kept), the stars gone
   const { game, gtm } = await nab({ stars: 2, armed: false }), P = gtm.crew.ped;

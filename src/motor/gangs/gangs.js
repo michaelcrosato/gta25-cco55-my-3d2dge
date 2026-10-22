@@ -42,7 +42,7 @@ knob('Gangs', 'gangPatrol', 'A patrol', 2, 0, 6, 1, 'Members walking each of a g
 knob('Gangs', 'gangCars', 'Gang cars', .3, 0, 1, .05, 'The share of the traffic in a gang\'s turf that is its own cars');
 knob('Gangs', 'turfWarTime', 'A turf war lasts at most', 60, 10, 300, 5, 'Seconds before a turf war\'s survivors walk away');
 const SENSE_EVERY = .25, KEEP_EVERY = 2, MATES = 150, WAR_R = 240, GIVE_UP = 6, LOSE_R = 320, CAR_AGAIN = 10, WAR_AGAIN = 45, SMALL = 10;
-const NOAIM = { candidates: [], level: 'off' };
+const NOAIM = { candidates: [], level: 'off' }, NONE = [];
 const PROFILE = { range: .5, burst: .6, pause: .8, aimOff: .1 };
 
 export class Gangs {
@@ -118,10 +118,13 @@ export class Gangs {
     const C = this.life.crowd, m = C && C.members.find(q => q.ped === ped);
     if (m) { C.release(m); }
     if (this.combat && !this.combat.bodies.includes(ped)) this.combat.add(ped);
-    f = { ped, gang: ped.gang, arch: ped.archetype, target, war, brain: new Fighter(ped, { walks: this.life.walks, map: this.city.map, fleet: this.fleet, rng: this.rng, profile: PROFILE }), lostT: 0, deadT: 0 };
+    f = { ped, gang: ped.gang, arch: ped.archetype, target, war, brain: new Fighter(ped, { walks: this.life.walks, map: this.city.map, fleet: this.fleet, rng: this.rng, profile: PROFILE, spare: () => this._spare(ped.gang) }), lostT: 0, deadT: 0 };
     ped.lazyRig = true; ped.coast = false;
     this.fighters.push(f); return f;
   }
+  // whom a member's fire must never reach in a fight with someone else: the player and their car, unless its gang is
+  // after the player (hostile, and no truce). A gang that isn't had shot a job's car to a wreck in its turf wars.
+  _spare(g) { const P = this.player; if (!P || P.dead || (this.stance(g) === 'hostile' && !this.allies.has(g))) return NONE; const v = P.seat && P.seat.vehicle; return v ? [P, v] : [P]; }
   /** a gang member out of its car (pulled out by the player, rammed, or getting out to fight): on foot, in the fight */
   adopt(ped, why, by) {
     const target = by && !by.dead ? by : this.player;
@@ -177,7 +180,7 @@ export class Gangs {
     // a hostile gang's car that sees the player near: its driver gets out to fight
     const T = this.life.traffic;
     if (T && P && !P.dead) for (const c of T.cars) {
-      if (!c.gang || c.out || c.v.kinematic || this.stance(c.gang) !== 'hostile') continue;
+      if (!c.gang || c.out || c.v.kinematic || this.allies.has(c.gang) || this.stance(c.gang) !== 'hostile') continue;   // (a truce: it drives on)
       const v = c.v; if (Math.hypot(P.x - v.x, P.y - v.y) > 140 || this.turfAt(v.x, v.y) !== c.gang) continue;
       if (map.ray({ x: v.x, y: v.y, z: v.z }, P, { eye: 14, target: 14 }).clear) { c.brain.crashed(2); c.out = { why: 'angry', t: .4 }; }
     }
@@ -218,7 +221,7 @@ export class Gangs {
       if (p.seat) continue;
       let tg = f.target;
       if (f.war && (!tg || tg.dead)) { const foes = this.fighters.filter(q => q.war === f.war && q.gang !== f.gang && !q.ped.dead).map(q => q.ped); tg = f.target = foes.length ? nearest(p, foes) : null; }
-      if (!tg || tg.dead) f.done = true;
+      if (!tg || tg.dead || (!f.war && tg === P && this.allies.has(f.gang))) f.done = true;   // (a truce: one going for the player stands down)
       else {
         const far = Math.hypot(tg.x - p.x, tg.y - p.y) > LOSE_R || !sameLevel(p, tg);
         f.lostT = far ? f.lostT + dt : 0; if (f.lostT > GIVE_UP) f.done = true;

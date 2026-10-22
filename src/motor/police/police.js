@@ -13,7 +13,8 @@
 //     the footprint's annulus (out of sight); a unit's crew gets out where the player is on foot (or stopped) and works
 //     on foot (cop.js), and runs back to drive on when the player drives off;
 //   - NABBED: a cop reaches the player on foot while they are slow or unarmed (TUNE.arrestTime), or stands at the door
-//     of their stopped car for TUNE.doorTime: `busted` goes out, the police hold still, and the scene plays the rest;
+//     of their stopped car for TUNE.doorTime, on the player's level either way (never from the street under a deck or a
+//     ramp): `busted` goes out, the police hold still, and the scene plays the rest;
 //   - stood down (the stars gone), the crews walk back and drive off as traffic again, officers without a car go back
 //     to the sidewalks (the crowd), the Eye to its patrol; roadblocks and strips go once out of sight.
 // Deterministic: the 'police' RNG stream; units and cops in a fixed order; the camera is never read.
@@ -420,14 +421,15 @@ export class Police {
   _nab(dt, P, car) {
     if (this.busted || P.dead || !this.wanted.stars) { this.cuffT = this.doorT = 0; return; }
     const reach = TUNE.arrestReach, able = c => !c.ped.dead && !c.ped.floored && !c.ped.seat && !c.ped.boarding && c.ped.vitals.stun <= 0;
+    const level = (c, z) => Math.abs((c.ped.z || 0) - (z || 0)) < 12;
     if (!car && !P.seat && !P.boarding) {
       const spec = P.inv.spec(), unarmed = !spec || spec.projectile === 'melee', slow = Math.hypot(P.mover.vx, P.mover.vy) < TUNE.slowSpeed;
-      const cop = this.cops.find(c => able(c) && Math.hypot(c.ped.x - P.x, c.ped.y - P.y) < reach && Math.abs((c.ped.z || 0) - (P.z || 0)) < 12);
+      const cop = this.cops.find(c => able(c) && Math.hypot(c.ped.x - P.x, c.ped.y - P.y) < reach && level(c, P.z));
       this.cuffT = cop && (unarmed || slow) ? this.cuffT + dt : Math.max(0, this.cuffT - dt * 2);
       if (cop && this.cuffT >= TUNE.arrestTime) this._bust(cop.ped, 'cuffed');
       this.doorT = 0;
     } else if (car) {
-      const door = doorOf(car), cop = car.speed < 4 && this.cops.find(c => able(c) && Math.hypot(c.ped.x - door[0], c.ped.y - door[1]) < reach + 4);
+      const door = doorOf(car), cop = car.speed < 4 && this.cops.find(c => able(c) && Math.hypot(c.ped.x - door[0], c.ped.y - door[1]) < reach + 4 && level(c, car.z));
       this.doorT = cop ? this.doorT + dt : 0;
       if (cop && this.doorT >= TUNE.doorTime) this._bust(cop.ped, 'door');
       this.cuffT = 0;

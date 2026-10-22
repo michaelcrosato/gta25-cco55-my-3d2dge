@@ -287,3 +287,27 @@ test('m.standDown: the city\'s own service of a kind takes no calls while the jo
   assert.ok(!S.held.has('fire'), 'on duty again when the job ends');
   assert.ok(S.call('fire', P.x + 120, P.y), 'and an engine comes');
 });
+
+test('m.clearTraffic: the traffic within r of a point taken off the road at once (a race\'s grid), never a unit on a call (D27)', async () => {
+  const g = await world(), T = g.gtm.life.traffic, P = g.P();
+  T.fill(30, { focus: [P.x, P.y] }); g.game.advance(.5);
+  const near = () => T.cars.filter(c => Math.hypot(c.v.x - P.x, c.v.y - P.y) < 400);
+  assert.ok(near().length > 0, 'traffic about (' + near().length + ')');
+  const unit = near()[0]; unit.duty = { kind: 'police' };
+  const m = g.fixture('fx_cleartraffic');
+  const n = m.clearTraffic([P.x, P.y], 400);
+  assert.ok(n > 0, n + ' taken off');
+  assert.ok(near().length === 1 && near()[0] === unit, 'none left but the unit on its call');
+  assert.ok(!g.gtm.fleet.vehicles.some(v => v.traffic && v !== unit.v && Math.hypot(v.x - P.x, v.y - P.y) < 400), 'gone from the city, not parked');
+});
+
+test('m.clearSpot: a car left standing on a spot (nobody in it, not the job\'s) towed at once; one with someone in it, the job\'s own and one off the spot stay (D27)', async () => {
+  const g = await world(), F = g.gtm.fleet, P = g.P(), A = [P.x + 120, P.y], B = [P.x - 120, P.y];
+  const left = F.spawn('cortez', A[0] + 4, A[1], .3), off = F.spawn('cortez', A[0], A[1] + 60, 0), held = F.spawn('cortez', B[0] + 2, B[1] + 2, 0);
+  held.sit(new g.M.Ped({ x: held.x, y: held.y }), 0);
+  let own = null;
+  const m = g.fixture('fx_clearspot', mm => { own = mm.spawn.vehicle('cortez', [B[0], B[1] + 36], { tag: 'own', heading: 0 }); });
+  g.game.advance(.5); m.place(own, [B[0] - 4, B[1] + 20], { heading: 0 }); g.game.advance(.1);
+  assert.equal(m.clearSpot(A, 10), 1, 'one towed'); assert.ok(!F.vehicles.includes(left), 'the one left on the spot: gone'); assert.ok(F.vehicles.includes(off), 'one off the spot: stays');
+  assert.equal(m.clearSpot(B, 14), 0, 'none towed'); assert.ok(F.vehicles.includes(held), 'someone at the wheel: stays'); assert.ok(F.vehicles.includes(own), 'the job\'s own: stays');
+});

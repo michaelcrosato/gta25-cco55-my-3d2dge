@@ -12,6 +12,7 @@
 import { loadGame } from '../tests/harness.mjs';
 
 const TRIES = 3;   // (an item that fails is tried again, after the rest: three times in all)
+const STALL = 120;   // (seconds at the wheel within 40 u before a rescue: rescue())
 
 /** one campaign: { pct, tenths, items (the checklist), steps: [{ what, id, ok, secs, why, fails }], secs (game time), fund,
  *  errors }. prep(gtm, save): a probe's, once the new game is up; only: ids to play (the rest passed over); onStep(t, g):
@@ -42,7 +43,11 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   // on foot: out of the vehicle first
   const onFoot = () => { stand(); const p = P(); if (!p.seat && !p.boarding) return true; A.goto(p.x, p.y, { foot: true }); return auto(12, () => !P().seat && !P().boarding); };
   // the dev teleport: on foot to the sidewalk nearest (x, y)
-  const teleport = (x, y) => { onFoot(); const n = roads.walks.nearestNode(x, y, 400); gtm.teleport(n ? n.x : x, n ? n.y : y); run(.5); };
+  const teleport = (x, y) => {
+    onFoot(); const p = P(); if (p.seat) p.seat.vehicle.unseat(p);   // (a car it couldn't get out of, its doors against a wall: the teleport takes the player out of it)
+    const n = roads.walks.nearestNode(x, y, 400), tx = n ? n.x : x, ty = n ? n.y : y; gtm.teleport(tx, ty); run(.5);
+    if (Math.hypot(P().x - tx, P().y - ty) > 60) say(`the teleport to ${Math.round(tx)},${Math.round(ty)} left the player at ${[P().x, P().y, P().z || 0].map(Math.round)} (seat ${!!P().seat}, boarding ${!!P().boarding}, held ${!!P().held}, floored ${!!P().floored}, dead ${!!P().dead})`);
+  };
   // on foot to (x, y) the AutoPlayer's way (the sidewalks, then straight)
   const walk = (x, y, o = {}) => { A.goto(x, y, { foot: true, radius: o.r || 0 }); return auto(o.secs || 90, o.until); };
   // straight at (x, y) and up whatever is in the way (a jump climbs a ledge up to TUNE.climbMax): a roof's way up
@@ -63,7 +68,10 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   // before the rest: a chase's cruiser, not the SWAT truck), parked, the fastest near. A locked one only when a job needs
   // that kind (every police car is locked: Vigilante's, broken into as a player would). jack: one waiting at a red light
   // instead, jacked as a player would (by the second hour the campaign has driven off the cars parked near every start)
-  const carNear = (x, y, need = null, r = 600, jack = false) => {
+  // (to: where it is to be driven: a car the roads take there the short way, not one facing up a one-way street that
+  // leads round the city first: Harbor Hustle's start, 70 u off, had been 2,000 u by the lanes in the car taken)
+  const way = (v, to) => { if (!to) return 0; const q = roads.gps.routeTo(v.x, v.y, v.heading, to[0], to[1], { z: v.z || 0 }); return q ? q.cost : 120; };
+  const carNear = (x, y, need = null, r = 600, jack = false, to = null) => {
     const kinds = need ? [].concat(need) : null, rank = v => kinds ? kinds.findIndex(n => fits(n, v)) : 0;
     let best = null, bs = -Infinity;   // (a far one still counts: the only Pumper may be across town)
     for (const v of gtm.fleet.vehicles) {
@@ -71,7 +79,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
       if (need ? !fits(need, v) : !M.pickable(v) || v.cls !== 'car') continue;
       const driven = !!(v.driver && v.driver !== P()); if (driven !== jack || unboardable.has(v.id) || (v.z || 0) > 10) continue;   // (at street level: one parked up on the Loop is walked to from under it)
       if (jack && !(v.speed < 2 && v.brain && v.brain.cause === 'signal' && !v.duty && !v.gang && v.owner !== 'mission')) continue;   // (never a unit on a call, a gang's or a job's)
-      const d = Math.hypot(v.x - x, v.y - y); if (d > r) continue; const s = top(v) - d * .2 - rank(v) * 400; if (s > bs) { bs = s; best = v; }
+      const d = Math.hypot(v.x - x, v.y - y); if (d > r) continue; const s = top(v) - d * .2 - rank(v) * 400 - way(v, to) * 8; if (s > bs) { bs = s; best = v; }
     }
     return best;
   };
@@ -82,19 +90,49 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   // a job, an activity or a mission played out by the bot from its start (true: passed); why: what kept it from
   // starting (start() may set it), fails: its stages' failures on the way
   let why = '';
+  // is item id running? Another that started on the way (a giver's marker walked into, its card taken by the bot: G1
+  // had started on the way to a race, and was played as the race) is quit, and the way goes on
+  const ours = id => { if (R().state === 'running' && R().id !== id && id !== null) { say(`${R().id} started on the way: quit`); R().quit('not the campaign\'s'); run(1); } return R().state === 'running' && (id === null || R().id === id); };
+  // a car the bot can't drive out of where it stands (a long truck in a dead end it can't turn round in, wedged on a
+  // corner), STALL s within 40 u at its wheel: put back on the nearest lane that leads on, at its own spot, facing its
+  // way, and the AutoPlayer's route made afresh from there. A player backs out; the bot's driving can't. Each rescue is
+  // told and counted in the result (rescues), so a place that needs them is seen
+  const rescues = [];
+  const rescue = (id, v) => {
+    const G = roads.graph, z = v.z || 0, x0 = Math.round(v.x), y0 = Math.round(v.y);
+    const n = G.nearestLane(v.x, v.y, null, z, 400, l => (!l.deadEnd && l.out.length && l.len > 60 ? [30, l.len - 30] : null)); if (!n) return;
+    const L = n.lane, free = s => { const q = G.pointOn(L, s); return gtm.fleet.near(q[0], q[1], 40).every(o => o === v || Math.hypot(o.x - q[0], o.y - q[1]) > 36) ? q : null; };
+    let q = null; for (let k = 0; k < 6 && !q; k++) q = free(Math.min(L.len - 30, n.s + k * 50)); if (!q) q = G.pointOn(L, n.s);
+    const b = v.body; b.x = q[0]; b.y = q[1]; b.z = q[2] || 0; b.heading = Math.atan2(L.dir[1], L.dir[0]); b.u = b.v = b.w = 0; b.vz = 0; b.airborne = false; v.asleep = false;
+    const A2 = C().bot && C().bot.auto; if (A2) { A2._dropBrain(); A2.esc = null; A2.round = null; A2.prog = null; A2.wedge = null; }
+    rescues.push({ id, at: [x0, y0], to: [Math.round(q[0]), Math.round(q[1])], vehicle: v.def.id, t: Math.round(t) });
+    say(`  ${id}: rescued, ${STALL} s stuck at ${x0},${y0} in the ${v.def.id}: put back on lane ${L.id} at ${Math.round(q[0])},${Math.round(q[1])}`);
+  };
   const play = (what, id, start, max = 2400) => {
     const t0 = t; cool(); why = '';
-    const began = start() || R().state === 'running';
+    const began = start() || ours(id);
     if (!began || R().state !== 'running') { steps.push({ what, id, ok: false, secs: Math.round(t - t0), why: 'did not start' + (why ? ': ' + why : '') }); say(`${what} ${id}: did not start${why ? ' (' + why + ')' : ''}`); return false; }
     say(`${what} ${id}: started at ${clock()} (${Math.floor(gtm.clock.hour)}:00, ${gtm.weather.state || 'clear'}, ${P().seat ? 'in the ' + P().seat.vehicle.def.id : 'on foot'})`);
     // what hurt the player and their vehicle on the way, by source (kind:who), told with each stage's failure
-    const dmg = {}, add = (k, n) => { dmg[k] = (dmg[k] || 0) + n; }, ours = id => { const v = P().seat && P().seat.vehicle; return id === P().id || (v && id === v.id); };
+    const dmg = {}, add = (k, n) => { dmg[k] = (dmg[k] || 0) + n; }, us = id => { const v = P().seat && P().seat.vehicle; return id === P().id || (v && id === v.id); };   // (the player or their car: not ours(), which is the item running)
     const who = e => { const b = gtm.combat.bodies.find(q => q.id === e.by), v = !b && gtm.fleet.vehicles.find(q => q.id === e.by); const q = b || v; return q ? (q.gang || (q.owner === 'mission' ? 'job:' + (q.missionTag || '?') : null) || q.faction || q.role || (q.def && q.def.role) || 'ped') : e.by == null ? 'world' : String(e.by); };
     const top = () => Object.entries(dmg).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, n]) => `${k} ${Math.round(n)}`).join(', ');
     const fails = [], uns = [gtm.BUS.on('stageFail', e => { fails.push(`${e.stage}: ${e.reason}${Object.keys(dmg).length ? ' [' + top() + ']' : ''}`); for (const k in dmg) delete dmg[k]; }, 'global'),
-      gtm.BUS.on('hit', e => { if (ours(e.target) && e.damage > 0) add(`${e.kind || 'hit'}:${who(e)}`, e.damage); }, 'global'),
-      gtm.BUS.on('vehicleDamage', e => { if (ours(e.vehicle)) add('crash', e.amount); }, 'global')], un = () => uns.forEach(f => f());
-    if (!run(max, () => R().state === 'idle') && R().active) { R().quit('over the campaign\'s ' + max + ' s'); run(1); }   // (out at the cap: what comes next starts clean)
+      gtm.BUS.on('hit', e => { if (us(e.target) && e.damage > 0) add(`${e.kind || 'hit'}:${who(e)}`, e.damage); }, 'global'),
+      gtm.BUS.on('vehicleDamage', e => { if (us(e.vehicle)) add('crash', e.amount); }, 'global')], un = () => uns.forEach(f => f());
+    // (a long one says where it stands every 5 minutes: a stall shows what holds it)
+    let next = t0 + 300, still = { at: [P().x, P().y], t };
+    const watch = () => {
+      const p = P(), v = p.seat && p.seat.vehicle;
+      if (!v || v.driver !== p || R().state !== 'running' || Math.hypot(p.x - still.at[0], p.y - still.at[1]) > 40) still = { at: [p.x, p.y], t };
+      else if (t - still.t > STALL) { rescue(id, v); still = { at: [P().x, P().y], t }; }
+      if (t >= next) {
+        next += 300; const B = C().bot, a = B && B.auto, p = P(), v = p.seat && p.seat.vehicle, st = R().stage, o = R().objective;
+        say(`  ${id} at ${Math.round(t - t0)} s: ${st ? st.id : '-'}, "${o && o.text ? o.text.slice(0, 50) : ''}", the bot ${a ? a.state : '-'} at ${[p.x, p.y, p.z || 0].map(Math.round)}, ${v ? `in the ${v.def.id} (${Math.round(v.damage.share * 100)}%) at ${Math.round(v.speed)}` : 'on foot'}, ${stars()} star(s)`);
+      }
+      return R().state === 'idle';
+    };
+    if (!run(max, watch) && R().active) { R().quit('over the campaign\'s ' + max + ' s'); run(1); }   // (out at the cap: what comes next starts clean)
     un();
     const r = R().result || {}, ok = !!r.passed;
     steps.push({ what, id, ok, secs: Math.round(t - t0), medal: r.medal || null, retries: r.retries ?? null, why: ok ? '' : r.failure || r.reason || 'not passed', fails });
@@ -106,20 +144,20 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   const startAt = a => { const q = typeof a.start.at === 'string' ? city.poi(a.start.at) : null; return q ? [q.x, q.y] : a.start.at; };
 
   // ---- each kind of thing to do
-  const mission = m => play('mission', m.id, () => { const at = C().giverOf(m); teleport(at[0], at[1]); return walk(at[0], at[1], { until: () => R().state === 'running' }) && R().state === 'running'; });
+  const mission = m => play('mission', m.id, () => { const at = C().giverOf(m); teleport(at[0], at[1]); return walk(at[0], at[1], { until: () => ours(m.id) }) && ours(m.id); });
   const job = (a, level) => play('job', `${a.id} L${level}`, () => {
     const { v, ok: aboard } = takeCar(() => carNear(P().x, P().y, a.start.vehicle, 1e9)); if (!v) { why = 'no ' + [].concat(a.start.vehicle).join('/') + ' about'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
     if (C().card) C().close();   // (a drive-in shop's card, opened by stopping at its door: the phone waits for no card)
     C().phone(); const it = C().card && C().card.items.find(q => q.label === a.title.toUpperCase());
-    if (!it) { why = 'not on the phone (' + (C().card ? C().card.items.map(q => q.label).join(', ') : 'no phone') + ')'; C().close(); return false; } it.act(); run(1); return R().state === 'running';
+    if (!it) { why = 'not on the phone (' + (C().card ? C().card.items.map(q => q.label).join(', ') : 'no phone') + ')'; C().close(); return false; } it.act(); run(1); return ours(null);
   });
   const activity = a => play(a.kind, a.id, () => {
     const at = startAt(a), need = a.start.vehicle;
-    if (a.start.foot || !need) { teleport(at[0], at[1]); return walk(at[0], at[1], { until: () => R().state === 'running' }) && R().state === 'running'; }
+    if (a.start.foot || !need) { teleport(at[0], at[1]); return walk(at[0], at[1], { until: () => ours(a.id) }) && ours(a.id); }
     teleport(at[0], at[1]); run(2);   // (there first, as a player takes a car there: the traffic about it filled in)
-    const nd = need === true ? null : need, { v, ok: aboard } = takeCar(() => carNear(at[0], at[1], nd), () => carNear(at[0], at[1], nd, 300, true), () => carNear(P().x, P().y, nd, 1e9));
+    const nd = need === true ? null : need, { v, ok: aboard } = takeCar(() => carNear(at[0], at[1], nd, 600, false, at), () => carNear(at[0], at[1], nd, 300, true, at), () => carNear(P().x, P().y, nd, 1e9, false, at));
     if (!v) { why = 'no ' + (need === true ? 'car' : [].concat(need).join('/')) + ' near its start'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
-    A.goto(at[0], at[1], { car: v, stay: true }); const ok = auto(240, () => R().state === 'running') && R().state === 'running'; if (!ok) why = `drove to ${Math.round(P().x)},${Math.round(P().y)}: ${Math.round(Math.hypot(at[0] - P().x, at[1] - P().y))} u from the start`; return ok;
+    A.goto(at[0], at[1], { car: v, stay: true }); const ok = auto(240, () => ours(a.id)) && ours(a.id); if (!ok) why = `drove to ${Math.round(P().x)},${Math.round(P().y)}: ${Math.round(Math.hypot(at[0] - P().x, at[1] - P().y))} u from the start`; return ok;
   });
   const token = s => {
     const way = [...(s.via || []), s.at], t0 = t; teleport(way[0][0], way[0][1]);
@@ -199,7 +237,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   }
   const c = M.completion(S()), fund = gtm.crew.fund, errors = [...R().errors.map(e => String(e.err && e.err.message || e.err)), ...gtm.BUS.errors.map(e => String(e.err && e.err.message || e.err))];
   game.dispose && game.dispose();
-  return { pct: c.pct, tenths: c.tenths, items: c.items, steps, secs: Math.round(t), fund, errors };
+  return { pct: c.pct, tenths: c.tenths, items: c.items, steps, secs: Math.round(t), fund, errors, rescues };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -208,6 +246,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const s of r.steps) console.log(`${s.ok ? 'ok  ' : 'FAIL'} ${s.what} ${s.id}${s.ok ? (s.medal ? ' ' + s.medal : '') : ' (' + s.why + ')'} ${s.secs} s${!s.ok && s.fails && s.fails.length ? '; ' + s.fails.join(', ') : ''}`);
   for (const q of r.items) console.log(`  ${q.label}: ${q.done}/${q.of}`);
   if (r.errors.length) console.log('ERRORS: ' + r.errors.join(' | '));
+  console.log(`rescues: ${r.rescues.length}${r.rescues.map(q => `\n  ${q.id}: the ${q.vehicle} at ${q.at.join(',')} put on the lane at ${q.to.join(',')} (${q.t} s)`).join('')}`);
   console.log(`\ncompletion ${r.pct.toFixed(1)}% after ${(r.secs / 3600).toFixed(2)} h of game [${((Date.now() - t0) / 60000).toFixed(1)} min]`);
   process.exit(r.tenths >= 1000 && !r.errors.length ? 0 : 1);
 }

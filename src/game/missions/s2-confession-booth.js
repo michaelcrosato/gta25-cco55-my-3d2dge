@@ -36,6 +36,7 @@ const LOST_T = 12;   // (a Brute held up out of sight this long, at a light or i
 const REACH = 240;   // (the window's reach: a Brute further off is let come, not sprayed at through the traffic)
 const GONE_R = 420;   // (out of the player's sight: a Brute out of it this far off towed, one held up this far off replaced)
 const JAM_T = 20;   // (the booth stood this long on the way to the chapel, the fight over: Fender walks the last of it)
+const QUIET_T = 45;   // (no Brute in the window's reach this long, the convoy held up in a jam with no lane behind it clear for the next: the Rats left lose it, and the fight is over)
 const LOST = 'you lost the booth', DEAD = 'Father Fender is dead', WRECK = 'the booth went up';
 
 // ---- the places (the same for every stage and retry: kept in m.data)
@@ -129,6 +130,9 @@ const smoking = v => !!(v.damage && v.damage.smoking);
 const doneFor = v => v.wrecked || smoking(v) || !v.driver || v.driver.dead;
 function rats(m, dt) {
   const R = roster(m), P = m.player, live = R.filter(r => r.id !== null && !r.out).length, next = R.findIndex(r => r.id === null);
+  const close = R.some(r => { const v = !r.out && ratCar(m, r); return !!v && Math.hypot(v.x - P.x, v.y - P.y) < REACH * 1.5; });
+  m.data.quietT = close ? 0 : (m.data.quietT || 0) + dt;
+  if (m.data.quietT > QUIET_T) { for (const r of R) r.out = true; return; }   // (lost in the traffic: called off)
   if (next >= 0 && live < AT_ONCE && (!live || m.stageTime - (m.data.spawnT ?? -1e9) > NEXT_T)) { const q = behind(m); if (q) ratAt(m, next, q); }
   R.forEach((r, i) => {
     const v = ratCar(m, r); if (r.out || !v) return;
@@ -221,6 +225,7 @@ defMission('saints_confession_booth', {
         const B = m.one('booth'), v = m.vehicle, own = v && v.driver === m.player && Math.hypot(v.x - B.x, v.y - B.y) < 400;
         if (fresh || !m.one('ike') || m.vehicle !== m.one('escort')) ikeDrives(m, own ? { x: v.x, y: v.y, heading: v.heading } : laneAt(m, B.x + 130), B.x);
         if (!m.tagged('rats').length) { m.data.rats = null; m.data.spawnT = null; }   // (the Rats afresh)
+        m.data.quietT = 0;
       },
       *run(m) {
         m.failIf(mm => !boothOk(mm), WRECK);

@@ -25,6 +25,7 @@ import { RNG } from '../core/rng.js';
 import { MissionActors, pointOf, curbNear, laneNear, within } from './actors.js';
 import { grade } from './grading.js';
 import { checkHint } from './dsl.js';
+import { boxDistance } from '../actors/fleet.js';
 
 const OP = Symbol('op');
 /** an op: step(m, dt) returns undefined while it runs, or { value } once done (o: start, end, nav) */
@@ -273,6 +274,21 @@ export class MissionContext {
    *  fought beside that gang (R3's Rats); truce: one fought against its own (G3's), the same thing */
   ally(gang) { const G = this.W.life && this.W.life.gangs; if (!G) return; if (gang) G.allies.add(gang); else G.allies.clear(); this.R.allyHeld = true; }
   truce(gang) { this.ally(gang); }
+  /** the city's traffic within r of at taken off the road (a race's marshals clearing its grid: done as the player is
+   *  put on it, so nothing is seen to go); how many went */
+  clearTraffic(at, r) { const T = this.W.life && this.W.life.traffic, q = this.at(at); return T && q ? T.clear(q[0], q[1], r) : 0; }
+  /** the vehicles left standing within r of at (parked or abandoned: nobody in them, none of the job's own) towed away
+   *  at once: a door the stage needs kept clear (a car left on the bank's door step had held H4's lobby shut for good,
+   *  a player as much as the bot); how many went */
+  clearSpot(at, r) {
+    const q = this.at(at), F = this.fleet; if (!q || !F) return 0;
+    let n = 0;
+    for (const v of F.near(q[0], q[1], r + 40)) {
+      if (v.owner === 'mission' || v.seats.some(p => p && !p.dead) || v.speed > 2 || boxDistance(v, q[0], q[1]) > r) continue;
+      F.remove(v); n++;
+    }
+    return n;
+  }
   /** the city's own service of a kind ('fire' | 'medic' | 'police') takes no new calls while the run lasts: a job that is
    *  that service (Firefighter: the player's the engine on call, and the city's own would come to the same fires) */
   standDown(kind) { const S = this.W.life && this.W.life.services; if (!S) return; S.held.add(kind); this.R.servicesHeld = true; }

@@ -12,30 +12,19 @@ anywhere can resume from it: the work in flight is listed with where it lives.
     vehicles; the roads, traffic, crowds and emergency services; the wanted level, police and gangs; the bank;
   - M9: the 10-foot UI on MOTOR's own layer (D23); M10: sound and the radio (D24); M11: the attract mode, kiosk and
     phone (D25); M12: the Proving Ground, photo mode, the dev tools, the 15 content recipes and District 2 (D26).
-- **M8, at its last step:** all 14 missions and the side content are in and pass through the bot on seeds 1-3 and
-  through a pad (parts 1-3c); parts 4a-4c fixed what the bot campaign and the full validations found (D27). What is
-  left is the bot campaign to 100% (`tools/bot-campaign.mjs`: 71% in part 4c's run, 57.6% in the run on part 4d's
-  first batch, which the batch below fixes), then M8's acceptance.
-- **The work in flight (2026-10-22), in two worktrees:**
-  - `/home/user/gtm-m9` (branch `m11-attract`, at `e323867` = this branch's head) holds part 4d, uncommitted (D27's
-    "part 4d" calls): a truce reaches every way a gang goes for the player; **crossfire spares the player** (a gang not
-    after them holds its fire and its throws: S1's cars had been shot to wrecks in fights that weren't the player's);
-    **`m.clearSpot`** keeps the bank's door step clear for H2 and H4 (a car left on it had held H4's lobby shut for
-    40 minutes); the AutoPlayer keeps the cars it gave up on (`board()` had forgotten them) and plans a U-turn route
-    when the lane it faces leads nowhere; S2's last Rats are called off when the convoy is jammed with no lane behind it
-    (a softlock); Moto Courier has the other jobs' truce; both races start on their grids (`m.clearTraffic`); and the
-    campaign's tool says where a long mission stands every 5 minutes, takes the player out of a car its teleport can't
-    get them out of, and picks a car the roads take to a start the short way. It is under validation in that tree:
-    `node tools/bot.mjs --all --seeds 1,2,3 --par 3`, then `--all --pad --seeds 1 --par 3`, then the bot gym both ways
-    (`docs/handoff/m8-a2/tools/botgym.mjs`, copied to `tools/_botgym.mjs`), and `node tools/bot-campaign.mjs --seed 1
-    --verbose`; then `npm test` alone (never beside the bot runs: the container was restarted once under that load),
-    the commit "M8 (part 4d)" by its paths, and a fast-forward here. A session that finds this tree gone: the batch is
-    lost with it; start part 4d again from D27's list.
-  - this tree holds M13's first work, uncommitted: the controller's rumble profiles (`input/rumble.js`, PLAN.md 8.1:
-    they had never been wired), `docs/ENGINE-ANALYSIS.md` and `docs/FEEDBACK-FOR-ENGINE.md` (final drafts), `README.md`
-    and `src/about.js` final drafts, `docs/QA-DUALSENSE.md`, `docs/TUNING.md` with `tools/tuning-doc.mjs` (a new
-    `npm test` step), the look notes fixed (the title's tagline, the attract captions, WRECKED and NABBED on bands),
-    draw-side profiling (`?prof=1`, and each depth item's kind timed), and PROGRESS.md's M8-M12 evidence.
+- **M8, at its last step:** all 14 missions and the side content are in and pass through the bot on seeds 1-3 (96/96)
+  and through a pad (32/32) (parts 1-3c); parts 4a-4d fixed what the bot campaign and the full validations found
+  (D27; part 4d: crossfire spares the player, the police nab on the player's level, the bot waits for no cop, the
+  campaign's rescue, the bot's retries). What is left is the bot campaign to 100% (`tools/bot-campaign.mjs --seed 1
+  --verbose`; the last full run, on part 4d before its last fixes, reached 54.8% and stopped on a bug of the tool's
+  own, fixed: run it again on this head), then M8's acceptance.
+- **The work in flight (2026-10-22):** this tree holds M13's second batch, uncommitted (`git stash list`:
+  `m13-part2-wip` if it is still stashed): the respray's bay at the curb in front of Spray & Pray (D20's carried map
+  fix: a car's turning circle off Canal Street never brought it within reach of the door), the streetlamps' sodium
+  orange (PLAN.md 10), and their tests. The validation tree `/home/user/gtm-m9` (branch `m11-attract`) is where the
+  bot runs go: `node tools/bot.mjs --all --seeds 1,2,3 --par 3`, then `--all --pad --seeds 1 --par 3`, then the bot
+  gym both ways (`docs/handoff/m8-a2/tools/botgym.mjs`, copied to `tools/_botgym.mjs`), and the campaign; `npm test`
+  runs alone (never beside the bot runs: the container was restarted once under that load).
 - **Then M13** (PLAN.md 13): the perf pass (ISO about 11.4 ms against 10.4, MODE 7 about 18 against 12.7: D20's levers;
   measured so far, under load: in MODE 7 the textured faces cost about 6 ms of a 25 ms frame, the bodies about 5, the
   cars 2, the deck cells 2; three levers tried did not pay and were dropped: the fog folded into the face textures, the

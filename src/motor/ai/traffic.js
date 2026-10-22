@@ -160,9 +160,12 @@ export class Traffic {
   release(c) { if (!c || !c.duty) return; c.duty = null; c.v.duty = null; c.v.siren = false; c.v.owner = 'world'; c.brain.siren = false; c.brain.setRoute(null); }
   /** a unit nobody will drive again (its crew dead): out of the traffic, the car left standing where it is */
   abandon(c) { if (!c || !this.cars.includes(c)) return; if (c.duty) c.duty.lost = true; c.v.duty = null; c.v.siren = false; this._drop(c, false); }
-  // a new car somewhere in the annulus, on a lane, with room, of a definition the neighbourhood and the hour allow
+  /** the traffic within r of (x, y) taken off the road at once (a race's marshals clearing its grid): never a unit on a
+   *  call; how many went. (The player's own car is never traffic: a car taken leaves it.) */
+  clear(x, y, r) { let n = 0; for (const c of [...this.cars]) { if (c.duty || Math.hypot(c.v.x - x, c.v.y - y) > r) continue; this._drop(c, false, true); n++; } return n; }
   /** cars put down anywhere on the lanes, in sight or not, until there are n (the stress pad's); how many there are */
   fill(n, ctx = {}) { for (let k = 0; k < n * 3 && this.cars.length < n; k++) this._spawn(ctx, 0); return this.cars.length; }
+  // a new car somewhere in the annulus, on a lane, with room, of a definition the neighbourhood and the hour allow
   _spawn(ctx, inR = TUNE.fpSpawnIn) {
     const fp = this.fp, outR = TUNE.fpSpawnOut, cand = [];
     for (const p of this.points) { const d = Math.hypot(p.x - fp.x, p.y - fp.y); if (d >= inR && d <= outR && !(p.lane.bridge && ctx.bridgeUp && ctx.bridgeUp(p.lane.bridge))) cand.push(p); }

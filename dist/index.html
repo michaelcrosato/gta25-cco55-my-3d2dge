@@ -16816,18 +16816,21 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var THROW_MIN = 70;
   var THROW_MAX = 230;
   var THROW_EVERY = 6;
+  var BLAST = 110;
   var FIGHT = { range: 0.45, burst: 0.7, pause: 0.6, aimOff: 0.08, kite: 0 };
   var Fighter = class {
     /** ped: its Ped; o: { walks (Sidewalks), map (the TileMap: lines of fire), fleet (the cars in the way), rng, profile
      *  ({ range, burst, pause, aimOff }: numbers, or functions of nothing for TUNE knobs), refill (false: no ammo given:
      *  the mission bot fights with what the player carries), noSelect (true: the weapon it wants is left in want, for
      *  its owner to step to: the pad pilot's), best (true: the gun with the most damage a second that has ammo, not the
-     *  first carried) } */
+     *  first carried), spare (() -> [bodies and vehicles]: whom its fire must never reach, the player and their car to a
+     *  gang not after them: crossfire in its fights with others had wrecked a job's car) } */
     constructor(ped, o = {}) {
       this.noSelect = !!o.noSelect;
       this.want = null;
       this.careful = !!o.careful;
       this.pedsNear = o.pedsNear || null;
+      this.spare = o.spare || null;
       this.ped = ped;
       this.S = o.walks || null;
       this.map = o.map || null;
@@ -16875,17 +16878,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return typeof v === "function" ? v() : v;
     }
     /** the weapon in hand for a fight at distance d: a throw now and then, else the gun, else the bat */
-    _arm(d, dt) {
+    _arm(d, dt, tgt) {
       const inv = this.ped.inv;
       this.throwT -= dt;
       if (this.thrown && this.ped.throwing) return this.thrown;
-      if (this.thrown && inv.rounds(this.thrown) && inv.rounds(this.thrown).total > 0 && this.throwT <= 0 && d > THROW_MIN && d < THROW_MAX) return this.thrown;
+      if (this.thrown && inv.rounds(this.thrown) && inv.rounds(this.thrown).total > 0 && this.throwT <= 0 && d > THROW_MIN && d < THROW_MAX) {
+        if (!this._sparedNear(tgt, (inv.spec(this.thrown).splash || 40) + 30)) return this.thrown;
+        this.throwT = 1;
+      }
       return this.gun || this.melee;
     }
     /** fight the target ({ x, y, z, ... a body, or a vehicle it drives }): close in, then shoot, swing or throw */
     attack(dt, I, tgt) {
       this.t += dt;
-      const p = this.ped, d = Math.hypot(tgt.x - p.x, tgt.y - p.y), w8 = this._arm(d, dt), spec = p.inv.spec(w8);
+      const p = this.ped, d = Math.hypot(tgt.x - p.x, tgt.y - p.y), w8 = this._arm(d, dt, tgt), spec = p.inv.spec(w8);
       if (p.inv.current !== w8) {
         if (this.noSelect) this.want = w8;
         else p.inv.select(w8);
@@ -16941,13 +16947,43 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (fire && p.inv.loaded()) I.down.attack = true;
       else if (fire) I.tap.reload = true;
     }
-    /** the line of fire to the target (chest to chest), looked at a few times a second: lineOfFire's */
+    /** the line of fire to the target (chest to chest), looked at a few times a second: lineOfFire's; and every step,
+     *  whether someone it spares is where its shots could go (a car moves through a line in a moment) */
     _lineTo(tgt) {
-      if (this._lineT > this.t && this._lineFor === tgt) return this._line;
-      this._lineT = this.t + 0.25;
-      this._lineFor = tgt;
-      const line = lineOfFire(this.ped, tgt, this.map, this.fleet);
-      return this._line = line !== "wall" && line !== "car" && this.careful && this._peopleIn(tgt) ? "car" : line;
+      if (!(this._lineT > this.t && this._lineFor === tgt)) {
+        this._lineT = this.t + 0.25;
+        this._lineFor = tgt;
+        const line = lineOfFire(this.ped, tgt, this.map, this.fleet);
+        this._line = line !== "wall" && line !== "car" && this.careful && this._peopleIn(tgt) ? "car" : line;
+      }
+      return this._line === true && this._spares(tgt) ? "car" : this._line;
+    }
+    // whom it spares, but the target (and the target's car): none for most
+    _spared(tgt) {
+      const S5 = this.spare ? this.spare() : null;
+      return S5 && S5.length ? S5.filter((q) => q && q !== tgt && !(tgt.seat && q === tgt.seat.vehicle)) : null;
+    }
+    // one it spares where its shots could go: by the line of fire, as wide as the gun's spread (moving) makes it, and on
+    // past the target; a car where it is and where it will be in a moment
+    _spares(tgt) {
+      const S5 = this._spared(tgt);
+      if (!S5 || !S5.length) return false;
+      if (tgt.hl !== void 0 && this._sparedNear(tgt, BLAST)) return true;
+      const p = this.ped, dx = tgt.x - p.x, dy = tgt.y - p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, spec = p.inv.spec(this.gun);
+      const wide = 10 + (d + 60) * Math.tan(Math.min(30, (spec && spec.spread || 2) * (TUNE.moveSpread || 1.5)) * Math.PI / 180);
+      for (const q of S5) {
+        const car4 = !!q.body && q.hl !== void 0, r7 = car4 ? Math.max(q.hl, q.hw) : 6;
+        for (const k of car4 ? [0, 0.4] : [0]) {
+          const x = q.x + (car4 ? q.body.vx * k : 0) - p.x, y = q.y + (car4 ? q.body.vy * k : 0) - p.y, along2 = x * ux + y * uy;
+          if (along2 > -r7 && along2 < d + 60 + r7 && Math.abs(y * ux - x * uy) < wide + r7) return true;
+        }
+      }
+      return false;
+    }
+    // one it spares within r of the target (a throw's splash, and its miss)
+    _sparedNear(tgt, r7) {
+      const S5 = this._spared(tgt);
+      return !!S5 && S5.some((q) => Math.hypot(q.x - tgt.x, q.y - tgt.y) - (q.body && q.hl !== void 0 ? q.hl : 0) < r7);
     }
     // someone not in the fight between it and the target, near the line of fire
     _peopleIn(tgt) {
@@ -21119,6 +21155,26 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     truce(gang) {
       this.ally(gang);
+    }
+    /** the city's traffic within r of at taken off the road (a race's marshals clearing its grid: done as the player is
+     *  put on it, so nothing is seen to go); how many went */
+    clearTraffic(at, r7) {
+      const T20 = this.W.life && this.W.life.traffic, q = this.at(at);
+      return T20 && q ? T20.clear(q[0], q[1], r7) : 0;
+    }
+    /** the vehicles left standing within r of at (parked or abandoned: nobody in them, none of the job's own) towed away
+     *  at once: a door the stage needs kept clear (a car left on the bank's door step had held H4's lobby shut for good,
+     *  a player as much as the bot); how many went */
+    clearSpot(at, r7) {
+      const q = this.at(at), F = this.fleet;
+      if (!q || !F) return 0;
+      let n = 0;
+      for (const v of F.near(q[0], q[1], r7 + 40)) {
+        if (v.owner === "mission" || v.seats.some((p) => p && !p.dead) || v.speed > 2 || boxDistance(v, q[0], q[1]) > r7) continue;
+        F.remove(v);
+        n++;
+      }
+      return n;
     }
     /** the city's own service of a kind ('fire' | 'medic' | 'police') takes no new calls while the run lasts: a job that is
      *  that service (Firefighter: the player's the engine on call, and the city's own would come to the same fires) */
@@ -25355,12 +25411,23 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       c.v.siren = false;
       this._drop(c, false);
     }
-    // a new car somewhere in the annulus, on a lane, with room, of a definition the neighbourhood and the hour allow
+    /** the traffic within r of (x, y) taken off the road at once (a race's marshals clearing its grid): never a unit on a
+     *  call; how many went. (The player's own car is never traffic: a car taken leaves it.) */
+    clear(x, y, r7) {
+      let n = 0;
+      for (const c of [...this.cars]) {
+        if (c.duty || Math.hypot(c.v.x - x, c.v.y - y) > r7) continue;
+        this._drop(c, false, true);
+        n++;
+      }
+      return n;
+    }
     /** cars put down anywhere on the lanes, in sight or not, until there are n (the stress pad's); how many there are */
     fill(n, ctx = {}) {
       for (let k = 0; k < n * 3 && this.cars.length < n; k++) this._spawn(ctx, 0);
       return this.cars.length;
     }
+    // a new car somewhere in the annulus, on a lane, with room, of a definition the neighbourhood and the hour allow
     _spawn(ctx, inR = TUNE.fpSpawnIn) {
       const fp = this.fp, outR = TUNE.fpSpawnOut, cand = [];
       for (const p of this.points) {
@@ -27367,6 +27434,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var CAR_REACH = 140;
   var NODE_NEAR2 = 9;
   var FINAL = 170;
+  var JACK = 60;
+  var occupied = (v) => v.seats.some((q) => q && !q.dead);
   var OFF_LIMITS = /* @__PURE__ */ new Set(["police", "medic", "fire", "service"]);
   var pickable = (v) => !v.wrecked && !v.locked && v.cls !== "heli" && v.cls !== "boat" && v.cls !== "rail" && v.owner !== "service" && !OFF_LIMITS.has(v.def.role);
   function segBox2(x0, y0, x1, y1, bx, by2, hx, hy) {
@@ -27437,12 +27506,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.state = "board";
       this.path = null;
       this.car = v;
-      this.tried.clear();
       this.esc = null;
       this.wedge = null;
       this._dropBrain();
       return this;
     }
+    // (the cars given up on are kept: the mission bot's, one it could not reach, had come back after the next and the next, round and round)
     /** a new goal point for the trip under way (a moving target): re-routed only when it moved more than o.slack (24) */
     retarget(x, y, o = {}) {
       const g = this.goal;
@@ -27598,14 +27667,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const open = near3.slice(0, 8).filter((q) => this._line(p.x, p.y, q[1].x, q[1].y)), list = open.length ? open : near3;
       return list.length ? list[k % list.length][1] : null;
     }
-    // the nearest vehicle to take: unlocked, standing, nobody in it but traffic's driver (a carjack, as a player would)
+    // the nearest vehicle to take: unlocked, standing, nobody in it but traffic's driver (a carjack, as a player would);
+    // one parked and empty before one with someone in it unless that one is JACK nearer (a carjack is a crime: the
+    // witnesses phone it in, and the trip goes on with a star)
     _pickCar(p) {
-      let best = null, bd = CAR_REACH;
+      let best = null, bd = CAR_REACH + JACK;
       for (const v of this.fleet.near(p.x, p.y, CAR_REACH)) {
         if (this.tried.has(v.id) || !pickable(v) || v.speed > 30) continue;
-        const d = Math.hypot(v.x - p.x, v.y - p.y);
-        if (d < bd) {
-          bd = d;
+        const d = Math.hypot(v.x - p.x, v.y - p.y), k = d + (occupied(v) ? JACK : 0);
+        if (d < CAR_REACH && k < bd) {
+          bd = k;
           best = v;
         }
       }
@@ -27715,13 +27786,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this._dropBrain();
         const st = STYLES2[g.style] || STYLES2.player;
         this.brain = new DriverBrain(v, this.G, { junctions: this.J, personality: st, siren: !!st.assertive });
-        const av = this.avoid, tz = g.z || 0, base3 = this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, { z: v.z, tz });
-        const alt = av && av.size ? this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, { z: v.z, tz, avoid: (L18) => av.has(L18.id) }) : null, r7 = alt && (!base3 || alt.cost <= base3.cost * 1.6 + 10) ? alt : base3;
+        const plan2 = (o) => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
+        const av = this.avoid, tz = g.z || 0, base3 = plan2({ z: v.z, tz });
+        const alt = av && av.size ? plan2({ z: v.z, tz, avoid: (L18) => av.has(L18.id) }) : null, r7 = alt && (!base3 || alt.cost <= base3.cost * 1.6 + 10) ? alt : base3;
         if (r7) this.brain.setRoute(r7.lanes, { lane: r7.to.lane.id, s: r7.to.s });
         this.state = "drive";
       }
       const b = this.brain;
-      const P17 = this.prog || (this.prog = { best: d, t: 0, n: 0, at: [v.x, v.y] });
       const jam = b.cause === "exit" && v.speed < 3;
       this.exitHeld = jam ? (this.exitHeld || 0) + dt : Math.max(0, (this.exitHeld || 0) - dt * 0.5);
       if (jam && b.exitConn) this._jam = b.exitConn;
@@ -27731,14 +27802,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this._dropBrain();
         return clearIntent(this.I);
       }
-      if (d < P17.best - 30 || Math.hypot(v.x - P17.at[0], v.y - P17.at[1]) > 80) {
-        P17.best = Math.min(P17.best, d);
-        P17.at = [v.x, v.y];
-        P17.t = 0;
-      } else if ((P17.t += dt) > 15) {
-        P17.t = 0;
-        P17.best = d;
-        P17.n++;
+      if (this._stalled(dt, v, d)) {
+        const P17 = this.prog;
         if (this._jam) this._keepOff(this._jam);
         {
           const cur = b.path[b.i], nx = b.path[b.i + 1], c = cur && cur.k === "conn" ? this.G.conns[cur.id] : nx && nx.k === "conn" ? this.G.conns[nx.id] : null;
@@ -27845,6 +27910,25 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (v.speed < 35) I.throttle = 0.6;
       return I;
     }
+    // no nearer the goal (d) and no farther on for 15 s: a stall (true once, then the clock starts again), counted in
+    // prog.n; the count starts again once the last stall is left 300 behind (a jam up on a deck and another across town
+    // are not one jam: the third would have put it out of a race's car the moment it was down the ramp)
+    _stalled(dt, v, d) {
+      const P17 = this.prog || (this.prog = { best: d, t: 0, n: 0, at: [v.x, v.y], jam: null });
+      if (d < P17.best - 30 || Math.hypot(v.x - P17.at[0], v.y - P17.at[1]) > 80) {
+        P17.best = Math.min(P17.best, d);
+        P17.at = [v.x, v.y];
+        P17.t = 0;
+        if (P17.n && P17.jam && Math.hypot(v.x - P17.jam[0], v.y - P17.jam[1]) > 300) P17.n = 0;
+        return false;
+      }
+      if ((P17.t += dt) <= 15) return false;
+      P17.t = 0;
+      P17.best = d;
+      P17.n++;
+      P17.jam = [v.x, v.y];
+      return true;
+    }
     // the point dist farther along brain b's path (null: none)
     _ahead(b, dist) {
       if (!b || !b.path || !b.path.length) return null;
@@ -27929,23 +28013,26 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // someone on foot where the car is about to go (dir 1 ahead, -1 behind), within its length and a stride and across
     // its width and a stride: the unstick moves look before they back off or swing out (a cop by a cruiser parked at a
-    // scene stands in the lane beside it)
+    // scene stands in the lane beside it). Wanted, a cop on foot is no one to wait for (they come for the door: a player
+    // held still for them is NABBED), and with one closing on the car nobody is: off at once, as a player floors it
     _footIn(v, dir) {
       const w8 = this._w;
       if (!w8 || !w8.pedsNear) return false;
+      const chased = !!(w8.wanted && w8.wanted.stars > 0);
+      if (chased && this._copAt(v, w8.police, 45)) return false;
       const c = Math.cos(v.heading) * dir, s = Math.sin(v.heading) * dir, reach = v.hl + 30;
       for (const p of w8.pedsNear(v.x + c * reach / 2, v.y + s * reach / 2, reach)) {
-        if (p.dead || p.floored || p.seat || Math.abs((p.z || 0) - (v.z || 0)) > 14) continue;
+        if (p.dead || p.floored || p.seat || Math.abs((p.z || 0) - (v.z || 0)) > 14 || chased && p.faction === "police") continue;
         const dx = p.x - v.x, dy = p.y - v.y, along2 = dx * c + dy * s, off2 = Math.abs(dy * c - dx * s);
         if (along2 > 0 && along2 < reach && off2 < v.hw + 10) return true;
       }
       return false;
     }
-    // a cop on foot near the car (police: the Police, its cops), or null
-    _copAt(v, police) {
+    // a cop on foot within r of the car, on its level (police: the Police, its cops), or null
+    _copAt(v, police, r7 = 80) {
       for (const c of police && police.cops || []) {
         const q = c.ped;
-        if (!q.dead && !q.seat && !q.floored && Math.hypot(q.x - v.x, q.y - v.y) < 80 && Math.abs((q.z || 0) - (v.z || 0)) < 14) return q;
+        if (!q.dead && !q.seat && !q.floored && Math.hypot(q.x - v.x, q.y - v.y) < r7 && Math.abs((q.z || 0) - (v.z || 0)) < 14) return q;
       }
       return null;
     }
@@ -28020,6 +28107,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** the stars lost in free roam, as a player loses them (the bot campaign's, between jobs): in a car, away from the
      *  police. w: as update's */
     evade(dt, p, w8 = {}) {
+      this.t += dt;
       if (p !== this.ped) {
         this.ped = p;
         this.auto.goal = null;
@@ -28229,31 +28317,33 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (!A.goal || A.goal.board !== v) A.board(v);
       return A.update(dt, p, w8);
     }
-    // a vehicle to drive: the nearest one that would do (the AutoPlayer's pick), boarded
+    // a vehicle to drive: the nearest one that would do (the AutoPlayer's pick), boarded (not in it in 12 s, the scene's
+    // walks to a door it can't reach among them: another)
     _car(dt, p, w8) {
-      if (this.car && this.car === this._carFor && (this._carT = (this._carT || 0) + dt) > 12 && !(p.seat && p.seat.vehicle === this.car)) {
+      if (this.car && this.car === this._carFor && this.t - this._carAt > 12 && !(p.seat && p.seat.vehicle === this.car)) {
         this.auto.tried.add(this.car.id);
         this.car = null;
       }
       if (this.car !== this._carFor) {
         this._carFor = this.car;
-        this._carT = 0;
+        this._carAt = this.t;
       }
       if (!this.car || this.car.wrecked || this.auto.tried.has(this.car.id) || Math.hypot(this.car.x - p.x, this.car.y - p.y) > CAR_NEAR * 1.5 || this.car.driver && this.car.driver !== p && this.car.driver.owner === "mission") this.car = this.auto._pickCar(p) || this._anyCar(p);
       return this.car ? this._board(dt, p, this.car, w8) : null;
     }
     _anyCar(p) {
-      let best = null, bd = CAR_NEAR * 3;
-      for (const v of this.fleet.near(p.x, p.y, bd)) {
+      let best = null, bd = CAR_NEAR * 3 + 60;
+      for (const v of this.fleet.near(p.x, p.y, CAR_NEAR * 3)) {
         if (!pickable(v) || this.auto.tried.has(v.id)) continue;
-        const d = Math.hypot(v.x - p.x, v.y - p.y);
-        if (d < bd) {
-          bd = d;
+        const d = Math.hypot(v.x - p.x, v.y - p.y), k = d + (v.seats.some((q) => q && !q.dead) ? 60 : 0);
+        if (d < CAR_NEAR * 3 && k < bd) {
+          bd = k;
           best = v;
         }
       }
       return best;
     }
+    // (an empty one before a carjack, as the AutoPlayer's pick)
     _goto(dt, p, R3, h, w8) {
       const at = h.at || h.route && h.route[0];
       if (h.vehicle) {
@@ -29835,14 +29925,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return;
       }
       const reach = TUNE.arrestReach, able = (c) => !c.ped.dead && !c.ped.floored && !c.ped.seat && !c.ped.boarding && c.ped.vitals.stun <= 0;
+      const level = (c, z) => Math.abs((c.ped.z || 0) - (z || 0)) < 12;
       if (!car4 && !P17.seat && !P17.boarding) {
         const spec = P17.inv.spec(), unarmed = !spec || spec.projectile === "melee", slow = Math.hypot(P17.mover.vx, P17.mover.vy) < TUNE.slowSpeed;
-        const cop = this.cops.find((c) => able(c) && Math.hypot(c.ped.x - P17.x, c.ped.y - P17.y) < reach && Math.abs((c.ped.z || 0) - (P17.z || 0)) < 12);
+        const cop = this.cops.find((c) => able(c) && Math.hypot(c.ped.x - P17.x, c.ped.y - P17.y) < reach && level(c, P17.z));
         this.cuffT = cop && (unarmed || slow) ? this.cuffT + dt : Math.max(0, this.cuffT - dt * 2);
         if (cop && this.cuffT >= TUNE.arrestTime) this._bust(cop.ped, "cuffed");
         this.doorT = 0;
       } else if (car4) {
-        const door2 = doorOf(car4), cop = car4.speed < 4 && this.cops.find((c) => able(c) && Math.hypot(c.ped.x - door2[0], c.ped.y - door2[1]) < reach + 4);
+        const door2 = doorOf(car4), cop = car4.speed < 4 && this.cops.find((c) => able(c) && Math.hypot(c.ped.x - door2[0], c.ped.y - door2[1]) < reach + 4 && level(c, car4.z));
         this.doorT = cop ? this.doorT + dt : 0;
         if (cop && this.doorT >= TUNE.doorTime) this._bust(cop.ped, "door");
         this.cuffT = 0;
@@ -29963,6 +30054,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var WAR_AGAIN = 45;
   var SMALL2 = 10;
   var NOAIM5 = { candidates: [], level: "off" };
+  var NONE = [];
   var PROFILE2 = { range: 0.5, burst: 0.6, pause: 0.8, aimOff: 0.1 };
   var Gangs = class {
     /** o: { life (CityLife: crowd, traffic, walks), city, fleet, combat, footprint, respect ({ gang: value }: the save's,
@@ -30101,11 +30193,19 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         C8.release(m);
       }
       if (this.combat && !this.combat.bodies.includes(ped)) this.combat.add(ped);
-      f = { ped, gang: ped.gang, arch: ped.archetype, target, war: war2, brain: new Fighter(ped, { walks: this.life.walks, map: this.city.map, fleet: this.fleet, rng: this.rng, profile: PROFILE2 }), lostT: 0, deadT: 0 };
+      f = { ped, gang: ped.gang, arch: ped.archetype, target, war: war2, brain: new Fighter(ped, { walks: this.life.walks, map: this.city.map, fleet: this.fleet, rng: this.rng, profile: PROFILE2, spare: () => this._spare(ped.gang) }), lostT: 0, deadT: 0 };
       ped.lazyRig = true;
       ped.coast = false;
       this.fighters.push(f);
       return f;
+    }
+    // whom a member's fire must never reach in a fight with someone else: the player and their car, unless its gang is
+    // after the player (hostile, and no truce). A gang that isn't had shot a job's car to a wreck in its turf wars.
+    _spare(g) {
+      const P17 = this.player;
+      if (!P17 || P17.dead || this.stance(g) === "hostile" && !this.allies.has(g)) return NONE;
+      const v = P17.seat && P17.seat.vehicle;
+      return v ? [P17, v] : [P17];
     }
     /** a gang member out of its car (pulled out by the player, rammed, or getting out to fight): on foot, in the fight */
     adopt(ped, why, by2) {
@@ -30205,7 +30305,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       const T20 = this.life.traffic;
       if (T20 && P17 && !P17.dead) for (const c of T20.cars) {
-        if (!c.gang || c.out || c.v.kinematic || this.stance(c.gang) !== "hostile") continue;
+        if (!c.gang || c.out || c.v.kinematic || this.allies.has(c.gang) || this.stance(c.gang) !== "hostile") continue;
         const v = c.v;
         if (Math.hypot(P17.x - v.x, P17.y - v.y) > 140 || this.turfAt(v.x, v.y) !== c.gang) continue;
         if (map.ray({ x: v.x, y: v.y, z: v.z }, P17, { eye: 14, target: 14 }).clear) {
@@ -30266,7 +30366,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           const foes = this.fighters.filter((q) => q.war === f.war && q.gang !== f.gang && !q.ped.dead).map((q) => q.ped);
           tg = f.target = foes.length ? nearest(p, foes) : null;
         }
-        if (!tg || tg.dead) f.done = true;
+        if (!tg || tg.dead || !f.war && tg === P17 && this.allies.has(f.gang)) f.done = true;
         else {
           const far = Math.hypot(tg.x - p.x, tg.y - p.y) > LOSE_R || !sameLevel(p, tg);
           f.lostT = far ? f.lostT + dt : 0;
@@ -34760,6 +34860,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     m.place("player", { in: b });
     return b;
   }
+  var neutral2 = (m) => {
+    for (const g of ["saints", "rats", "gnomes"]) m.truce(g);
+  };
   function drop(m, at, text) {
     return Object.assign(m.waitUntil((mm) => onBike(mm) && Math.hypot(mm.mover.x - at[0], mm.mover.y - at[1]) < R && mm.mover.speed < 30), {
       nav: () => at,
@@ -34773,6 +34876,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     id: "drop" + (k + 1),
     setup(m) {
       if (k >= count2(m)) return;
+      neutral2(m);
       ride(m);
       dropFor(m, k);
       m.failIf((mm) => !onBike(mm) && !mm.one("ride"), "the bike's a wreck");
@@ -34798,6 +34902,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     bonus: [{ id: "spare", text: "Every drop with 10 s to spare", check: (m) => (m.data.spare ?? 0) >= 10 }],
     stages: [
       { id: "call", setup(m) {
+        neutral2(m);
         ride(m);
       }, *run(m) {
         yield m.say([`Lowtown Express. ${count2(m)} parcels in your box.`, "The clock starts when you see the address. Go."], BOSS);
@@ -34888,7 +34993,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     mm.wanted.clear();
     mm.wanted.cap(0);
   }, end: (mm) => mm.wanted.clear() });
-  var neutral2 = (m) => {
+  var neutral3 = (m) => {
     for (const g of ["saints", "rats", "gnomes"]) m.truce(g);
   };
   var BOXED = 200;
@@ -34935,7 +35040,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const tries = m.data.tries || (m.data.tries = {});
       tries[k] = (tries[k] || 0) + 1;
       const B2 = tries[k] > 1 && m.data.circuits && m.data.circuits[k], beat = B2 && [B2[0][0] + (B2[1][0] - B2[0][0]) * 2 / 3, B2[0][1] + (B2[1][1] - B2[0][1]) * 2 / 3];
-      neutral2(m);
+      neutral3(m);
       const c = cruiser(m, beat);
       tow(m, k);
       unstick(m, c);
@@ -34979,7 +35084,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     } }],
     stages: [
       { id: "call", setup(m) {
-        neutral2(m);
+        neutral3(m);
         cruiser(m);
       }, *run(m) {
         yield m.first([onDuty(m), m.say(["Dispatch to the new unit: we're short tonight.", "Joyriders in stolen cars out there. Stop them."], MPD)]);
@@ -35235,15 +35340,6 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const q = spot2(m, x), r7 = RACERS[i];
     return m.ensure.vehicle("grid" + i, r7.def, q, { heading: q.heading, color: r7.color, driver: r7.driver });
   }
-  function toSlot(m, at) {
-    return Object.assign(m.waitUntil((mm) => inCar(mm) && Math.hypot(mm.mover.x - at[0], mm.mover.y - at[1]) < 40 && mm.mover.speed < 12), {
-      nav: () => at,
-      start: (mm) => {
-        mm.objective("Into the grid on Canal Street: the empty slot behind the leader", { hint: { kind: "goto", at, radius: 30, vehicle: mm.one("mine") ? "mine" : null } });
-        mm.marker(at, { color: "#5af0ff", r: 20 });
-      }
-    });
-  }
   defActivity("race_harbor_hustle", {
     title: "Harbor Hustle",
     kind: "race",
@@ -35254,15 +35350,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     stages: [
       {
         id: "grid",
-        // the leader waits at the front of the grid; the player pulls in behind it (a deep link: a loaner in the slot)
+        // the race starts on its grid: the marshals clear Canal Street's stretch of traffic (a racer parked in a live lane
+        // jams it, and nobody could drive up into the slot), the leader waits at the front, and the race's setup puts the
+        // player's car in the slot behind it
         setup(m) {
+          m.clearTraffic([LEAD[0] + GAP * 4, LEAD[1]], GAP * 5);
           const G2 = spots(m);
           car(m);
           gridCar(m, 0, G2.lead);
         },
         *run(m) {
-          const at = pt(spot2(m, spots(m).slot));
-          if (m.dist(at) > 40) yield toSlot(m, at);
+          yield m.say(["Into your slot behind the leader. Canal Street's closed for us."], MC);
         }
       },
       {
@@ -35270,6 +35368,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         // the grid: the player's car in its slot (a retry, a deep link: put back there), the leader ahead, the other two
         // behind
         setup(m) {
+          m.clearTraffic([LEAD[0] + GAP * 4, LEAD[1]], GAP * 5);
           const G2 = spots(m), c = car(m), q = spot2(m, G2.slot);
           if (Math.hypot(c.x - q.x, c.y - q.y) > 60) m.place(c, [q.x, q.y], { heading: q.heading });
           gridCar(m, 0, G2.lead);
@@ -35368,15 +35467,6 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const q = spot3(m, x), r7 = RACERS2[i];
     return m.ensure.vehicle("grid" + i, r7.def, q, { heading: q.heading, color: r7.color, driver: r7.driver });
   }
-  function toSlot2(m, at) {
-    return Object.assign(m.waitUntil((mm) => inCar2(mm) && onDeck(mm.mover) && Math.hypot(mm.mover.x - at[0], mm.mover.y - at[1]) < 40 && mm.mover.speed < 12), {
-      nav: () => at,
-      start: (mm) => {
-        mm.objective("Up onto the Loop and into the grid: the empty slot behind the leader", { hint: { kind: "goto", at, radius: 30, vehicle: mm.one("mine") ? "mine" : null } });
-        mm.marker(at, { color: "#ff5ad8", r: 20 });
-      }
-    });
-  }
   defActivity("race_loop_sprint", {
     title: "Loop Sprint",
     kind: "race",
@@ -35387,16 +35477,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     stages: [
       {
         id: "grid",
-        // the leader waits at the front of the grid; the player drives up into the slot behind it (a deep link: a
-        // loaner in the slot already)
+        // the race starts on its grid: the marshals clear the deck's stretch of traffic (a racer parked in a live lane jams
+        // it, and nobody could drive up into the slot), the leader waits at the front, and the race's setup puts the
+        // player's car in the slot behind it
         setup(m) {
+          m.clearTraffic([LEAD2[0] + GAP2 * 4, LEAD2[1]], GAP2 * 5);
           const G2 = spots2(m);
           car2(m);
           gridCar2(m, 0, G2.lead);
         },
         *run(m) {
-          const at = pt2(spot3(m, spots2(m).slot));
-          if (!(onDeck(m.mover) && m.dist(at) < 40)) yield toSlot2(m, at);
+          yield m.say(["Into your slot behind the leader. On the deck, engines on."], MC2);
         }
       },
       {
@@ -35404,6 +35495,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         // the grid: the player's car in its slot (a retry, a deep link: put back there), the leader ahead, the other two
         // behind it
         setup(m) {
+          m.clearTraffic([LEAD2[0] + GAP2 * 4, LEAD2[1]], GAP2 * 5);
           const G2 = spots2(m), c = car2(m), q = spot3(m, G2.slot);
           if (!onDeck(c) || Math.hypot(c.x - q.x, c.y - q.y) > 60) m.place(c, [q.x, q.y], { z: DECK, heading: q.heading });
           gridCar2(m, 0, G2.lead);
@@ -37851,7 +37943,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
   var go = (m, word, text, path) => m.parallel([m.say([word], DEX), sneak(m, text, path)]);
   function door(m, text, at, inside) {
-    const q = m.at(at), o = m.waitUntil((mm) => !!mm.inside === inside);
+    let tow3 = 0;
+    const q = m.at(at), o = m.waitUntil((mm) => {
+      if (inside && !mm.inside && mm.stageTime >= tow3) {
+        tow3 = mm.stageTime + 1;
+        mm.clearSpot(q, 10);
+      }
+      return !!mm.inside === inside;
+    });
     return { ...o, start: (mm) => {
       mm.objective(text, { hint: { kind: "goto", at: q, interact: true, foot: true } });
       mm.marker(q, { color: "#ffe066", r: 10 });
@@ -38378,6 +38477,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       stayOut(m);
       if (m.inside) m.outside();
       stand(m, "viv", [1830, 812], 60);
+      m.clearSpot("bank-door", 10);
       m.wanted.clear();
     },
     *run(m) {
@@ -38386,7 +38486,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const door2 = m.at("bank-door");
       m.objective("Storm the bank", { hint: { kind: "goto", at: door2, radius: 16, foot: true, interact: true } });
       m.marker(door2, { color: "#ffe066", r: 12 });
-      yield m.waitUntil((mm) => !!mm.inside);
+      let tow3 = 0;
+      yield m.waitUntil((mm) => {
+        if (!mm.inside && mm.stageTime >= tow3) {
+          tow3 = mm.stageTime + 1;
+          mm.clearSpot(door2, 10);
+        }
+        return !!mm.inside;
+      });
       m.loadout({ select: "buzzsaw" });
       const P0 = [m.player.x, m.player.y], hint = { kind: "goto", at: P0, radius: 600, spray: [P0[0], P0[1] - 60], reach: 640 };
       m.objective("Take out the guards", { hint });
@@ -39417,6 +39524,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var REACH5 = 240;
   var GONE_R = 420;
   var JAM_T = 20;
+  var QUIET_T = 45;
   var LOST = "you lost the booth";
   var DEAD = "Father Fender is dead";
   var WRECK = "the booth went up";
@@ -39501,6 +39609,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var doneFor = (v) => v.wrecked || smoking(v) || !v.driver || v.driver.dead;
   function rats(m, dt) {
     const R3 = roster(m), P17 = m.player, live = R3.filter((r7) => r7.id !== null && !r7.out).length, next = R3.findIndex((r7) => r7.id === null);
+    const close = R3.some((r7) => {
+      const v = !r7.out && ratCar(m, r7);
+      return !!v && Math.hypot(v.x - P17.x, v.y - P17.y) < REACH5 * 1.5;
+    });
+    m.data.quietT = close ? 0 : (m.data.quietT || 0) + dt;
+    if (m.data.quietT > QUIET_T) {
+      for (const r7 of R3) r7.out = true;
+      return;
+    }
     if (next >= 0 && live < AT_ONCE && (!live || m.stageTime - (m.data.spawnT ?? -1e9) > NEXT_T)) {
       const q = behind2(m);
       if (q) ratAt(m, next, q);
@@ -39633,6 +39750,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             m.data.rats = null;
             m.data.spawnT = null;
           }
+          m.data.quietT = 0;
         },
         *run(m) {
           m.failIf((mm) => !boothOk(mm), WRECK);
@@ -40676,7 +40794,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   knob("Economy", "cabBase", "Cab flag fall", 20, 0, 500, 5, "What a cab costs to start ($)");
   knob("Economy", "cabRate", "Cab fare per 100 u", 4, 0, 100, 1, "What a cab costs per 100 units of the trip ($)");
   knob("Missions", "giverReach", "Giver reach", 18, 6, 60, 1, "How near a mission's marker you walk to be offered the job (u)");
-  knob("Missions", "botRetries", "Bot retries", 2, 0, 10, 1, "How many times the bot retries a failed stage before it quits");
+  knob("Missions", "botRetries", "Bot retries", 4, 0, 10, 1, "How many times the bot retries a failed stage before it quits (as a player plays it again)");
   var MEDAL = { gold: "#ffd23a", silver: "#d8dce8", bronze: "#d08a4a" };
   var REASON = { wrecked: "YOU WERE WRECKED", busted: "YOU WERE NABBED", time: "OUT OF TIME" };
   var SHOP_R = 20;
@@ -43872,7 +43990,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   // src/game/reels/joyride.js
   var T16 = 16;
   var C6 = (x, y, z) => z === void 0 ? [x * T16 + 8, y * T16 + 8] : [x * T16 + 8, y * T16 + 8, z];
-  var JACK = C6(6, 100);
+  var JACK2 = C6(6, 100);
   var STREET3 = [C6(6, 82)];
   var DECK5 = [C6(30, 80, 64), C6(32, 86, 64)];
   var GAP_IN = C6(26, 91, 64);
@@ -43890,7 +44008,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           m.as("dex");
           m.time(17.5);
           m.weather("clear");
-          const q = m.lane(JACK, -Math.PI / 2);
+          const q = m.lane(JACK2, -Math.PI / 2);
           m.spawn.vehicle("zephyr", [q.x, q.y], { tag: "ride", heading: q.heading, driver: "office", color: "#d23a3a" });
           const side = q.heading + Math.PI / 2;
           m.place("player", [q.x + Math.cos(side) * 26, q.y + Math.sin(side) * 26]);

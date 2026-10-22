@@ -237,6 +237,7 @@ const loudLobby = {
     stayOut(m);
     if (m.inside) m.outside();
     stand(m, 'viv', [1830, 812], 60);
+    m.clearSpot('bank-door', 10);   // (a car left on the door step: towed)
     m.wanted.clear();
   },
   *run(m) {
@@ -245,7 +246,8 @@ const loudLobby = {
     const door = m.at('bank-door');
     m.objective('Storm the bank', { hint: { kind: 'goto', at: door, radius: 16, foot: true, interact: true } });
     m.marker(door, { color: '#ffe066', r: 12 });
-    yield m.waitUntil(mm => !!mm.inside);
+    let tow = 0;   // (and one left there while she walks up: looked for once a second)
+    yield m.waitUntil(mm => { if (!mm.inside && mm.stageTime >= tow) { tow = mm.stageTime + 1; mm.clearSpot(door, 10); } return !!mm.inside; });
     m.loadout({ select: 'buzzsaw' });   // (in through the door, the gun put away: out again, and the CCTV's alarm with it)
     // the guards come for her: the hint's point follows the nearest one still up (the bot holds the trigger on it, from
     // inside the doors)

@@ -51,6 +51,47 @@ test('hostility: at -19 a Saint in Neon lets the player be; at -20 it and its ma
   }
 });
 
+test('a truce (a job\'s): hostile members already coming for the player stand down, and none start; lifted, they come again (D27)', async () => {
+  const { game, gtm } = await at(120, 60), G = gtm.life.gangs, P = gtm.crew.ped;
+  quiet(gtm); game.advance(.5);
+  G.respect.saints = -60; member(gtm, 'saints', 70); member(gtm, 'saints', 90);
+  game.advance(2);
+  assert.ok(G.fighters.filter(f => f.target === P && !f.done).length >= 2, 'hostile: they come for the player');
+  G.allies.add('saints'); game.advance(1);
+  assert.equal(G.fighters.filter(f => f.target === P && !f.done && !f.gone).length, 0, 'the truce: they stand down');
+  member(gtm, 'saints', 70); game.advance(2);
+  assert.equal(G.fighters.filter(f => f.target === P && !f.done && !f.gone).length, 0, 'and none start');
+  G.allies.clear(); member(gtm, 'saints', 70); game.advance(2);
+  assert.ok(G.fighters.some(f => f.target === P && !f.done), 'lifted: hostile again');
+});
+
+test('crossfire: a gang that isn\'t after the player holds its fire while the player stands where its shots could go; a hostile one fires through them (D27)', async () => {
+  for (const [rats, want] of [[0, false], [-60, true]]) {
+    const { game, gtm } = await at(120, 60), G = gtm.life.gangs, P = gtm.crew.ped, C = gtm.life.crowd, map = gtm.city.map;
+    quiet(gtm); game.advance(.5);
+    G.respect.rats = rats;
+    // a Saint, and a Rat across open ground from it (100-180 away, a clear line), the player standing halfway between
+    const s = member(gtm, 'saints', 70);
+    const [m] = C.group({ n: 1, arch: [gtm.motor.get('gangs', 'rats').peds.enforcer], rIn: 0, where: q => { const d = Math.hypot(q.x - s.x, q.y - s.y); return d > 100 && d < 180 && map.ray({ x: s.x, y: s.y, z: 0 }, { x: q.x, y: q.y, z: 0 }, { eye: 18, target: 18 }).clear; }, tag: ped => { ped.gang = 'rats'; } });
+    assert.ok(m, 'a Rat across the way'); const r = m.ped;
+    gtm.teleport((s.x + r.x) / 2, (s.y + r.y) / 2); game.advance(.1);
+    const log = listen(gtm.BUS, ['hit']);
+    G._fight(r, s, null); G._fight(s, r, null);
+    for (let k = 0; k < 50; k++) { game.advance(.1); if (P.health < P.maxHealth * .5) break; }
+    const onP = log.filter(e => e.target === P.id && e.damage > 0).length;
+    if (want) { assert.ok(onP > 0, `rats ${rats} (hostile): the Rat's fire goes through the player (${onP} hits)`); continue; }
+    assert.equal(onP, 0, `rats ${rats}: nobody's fire reaches the player`);
+    assert.ok(G.fighters.some(f => f.ped === s && !f.done) && G.fighters.some(f => f.ped === r && !f.done), 'still in their fight, holding their fire');
+    // the player steps out of it (well off the line between them): the shots fly
+    const mx = (s.x + r.x) / 2, my = (s.y + r.y) / 2, L = Math.hypot(r.x - s.x, r.y - s.y), nx = -(r.y - s.y) / L, ny = (r.x - s.x) / L, T = gtm.city.T;
+    const off = [160, -160, 220, -220, 130, -130].map(k => [mx + nx * k, my + ny * k]).find(([x, y]) => gtm.city.walkable(Math.floor(x / T), Math.floor(y / T)));
+    assert.ok(off, 'somewhere off the line to stand'); gtm.teleport(off[0], off[1]);
+    for (let k = 0; k < 80 && !log.some(e => (e.target === s.id || e.target === r.id) && e.damage > 0); k++) game.advance(.1);
+    assert.ok(log.some(e => (e.target === s.id || e.target === r.id) && e.damage > 0), 'out of the way: the fight goes on');
+    assert.equal(log.filter(e => e.target === P.id && e.damage > 0).length, 0, 'and still nothing reaches the player');
+  }
+});
+
 test('friendly: at 40 a Saint lets one punch go, not two, and its gang goes for whoever goes for the player; at 39 the first punch starts a fight', async () => {
   for (const resp of [40, 39]) {
     const { game, gtm } = await at(120, 60), G = gtm.life.gangs, P = gtm.crew.ped;

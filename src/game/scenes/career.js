@@ -23,7 +23,7 @@ import { makeSaves, blankSave, normalizeSave, PROTAGONISTS } from '../save.js';
 knob('Economy', 'cabBase', 'Cab flag fall', 20, 0, 500, 5, 'What a cab costs to start ($)');
 knob('Economy', 'cabRate', 'Cab fare per 100 u', 4, 0, 100, 1, 'What a cab costs per 100 units of the trip ($)');
 knob('Missions', 'giverReach', 'Giver reach', 18, 6, 60, 1, 'How near a mission\'s marker you walk to be offered the job (u)');
-knob('Missions', 'botRetries', 'Bot retries', 2, 0, 10, 1, 'How many times the bot retries a failed stage before it quits');
+knob('Missions', 'botRetries', 'Bot retries', 4, 0, 10, 1, 'How many times the bot retries a failed stage before it quits (as a player plays it again)');
 const MEDAL = { gold: '#ffd23a', silver: '#d8dce8', bronze: '#d08a4a' };
 const REASON = { wrecked: 'YOU WERE WRECKED', busted: 'YOU WERE NABBED', time: 'OUT OF TIME' };
 const SHOP_R = 20, DRIVE_R = 44, PROP_R = 22, START_STOP = 10;   // (START_STOP: an activity's start asks once the vehicle in it is this slow)

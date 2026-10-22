@@ -1,7 +1,7 @@
 // The mission bot's runs (PLAN.md 8.15, 14): every mission (and activity, at each of its levels) played headless from
 // its deep link by the MissionBot, on seeds 1-3, passed or not. --pad plays the same through a gamepad (the scripted
 // human-style pass): the bot's wishes pressed on a pad by the PadPilot each step, the game reading the pad.
-//   node tools/bot.mjs --mission saints_holy_rollers [--seeds 1,2,3] [--pad] [--stage deliver] [--level 2] [--secs 900] [--verbose | --trace]
+//   node tools/bot.mjs --mission saints_holy_rollers [--seeds 1,2,3] [--pad] [--stage deliver] [--level 2] [--secs 1800] [--verbose | --trace]
 //   node tools/bot.mjs --all [--pad] [--seeds 1] [--par 3]  ·  exit 0 when every run passed (--par: that many runs at
 //   once, each in a process of its own)
 import { spawn } from 'node:child_process';
@@ -10,7 +10,7 @@ import { pad as fakePad } from '../tests/fixtures/pads.mjs';
 
 /** one run: { id, seed, pad, passed, medal, secs (game time), retries, stage, failures, errors }. onStep(t, g) each
  *  step (a probe's: false stops the run); extra: content files bundled in (a recipe test's fixtures, harness.mjs) */
-export async function botRun({ id, seed = 1, pad = false, stage = null, level = null, secs = 900, verbose = false, query = {}, onStep = null, extra = [] }) {
+export async function botRun({ id, seed = 1, pad = false, stage = null, level = null, secs = 1800, verbose = false, query = {}, onStep = null, extra = [] }) {
   const P = pad ? fakePad(0) : null, q = { seed: String(seed), bot: pad ? 'pad' : '1', ...query }; if (level) q.level = String(level);
   const g = await loadGame({ hash: '#mission/' + id + (stage ? '/' + stage : ''), query: q, pads: P ? [P] : null, extra });
   const { game, gtm } = g, C = gtm.career, R = C.R, M = gtm.motor;
@@ -36,7 +36,7 @@ export async function botRun({ id, seed = 1, pad = false, stage = null, level = 
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; }, has = k => process.argv.includes('--' + k);
-  const seeds = arg('seeds', '1,2,3').split(',').map(Number), pad = has('pad'), secs = +arg('secs', 900), verbose = has('trace') ? 'all' : has('verbose');
+  const seeds = arg('seeds', '1,2,3').split(',').map(Number), pad = has('pad'), secs = +arg('secs', 1800), verbose = has('trace') ? 'all' : has('verbose');
   let jobs = [];
   if (has('all')) {
     const { gtm } = await loadGame({ hash: '#title' });

@@ -2,16 +2,19 @@
 // officers (cop.js) and the gangs' members (gangs.js) are fighters.
 //   - a gun (a pistol, the SMG, the shotgun): it closes to its range (a share of the weapon's) and a clear line of fire
 //     (round a wall's corner; a step aside when a car stands in the way, or, for a careful fighter, the player's, anyone
-//     not in the fight), stops, and fires in bursts at the target's chest, each burst a little off;
+//     not in the fight; a fighter with someone to spare, a gang's member not after the player, steps aside while the
+//     player or their car is anywhere its shots could go), stops, and fires in bursts at the target's chest, each burst
+//     a little off;
 //   - a bat, or bare fists: it runs in and swings;
-//   - a Molotov or a grenade: now and then, at a throw's distance, one goes where the target stands;
+//   - a Molotov or a grenade: now and then, at a throw's distance, one goes where the target stands (never with someone
+//     it spares near there);
 //   - blocked by a wall on its way, it takes the sidewalk graph round.
 // Deterministic: its share of its owner's RNG stream.
 //   class CopBrain extends Fighter  ·  const F = new Fighter(ped, { walks, rng, profile });  I = F.attack(dt, I, target)
 import { TUNE } from '../core/tune.js';
 import { makeIntent } from '../sim/intent.js';
 
-const NODE_NEAR = 9, THROW_MIN = 70, THROW_MAX = 230, THROW_EVERY = 6;
+const NODE_NEAR = 9, THROW_MIN = 70, THROW_MAX = 230, THROW_EVERY = 6, BLAST = 110;
 /** how a fighter fights: its range (a share of its gun's), bursts and pauses (s), aim (radians off at most), and kite
  *  (a share of that range: closer than it, it backs off as it fires; 0: it stands) */
 export const FIGHT = { range: .45, burst: .7, pause: .6, aimOff: .08, kite: 0 };
@@ -21,9 +24,11 @@ export class Fighter {
    *  ({ range, burst, pause, aimOff }: numbers, or functions of nothing for TUNE knobs), refill (false: no ammo given:
    *  the mission bot fights with what the player carries), noSelect (true: the weapon it wants is left in want, for
    *  its owner to step to: the pad pilot's), best (true: the gun with the most damage a second that has ammo, not the
-   *  first carried) } */
+   *  first carried), spare (() -> [bodies and vehicles]: whom its fire must never reach, the player and their car to a
+   *  gang not after them: crossfire in its fights with others had wrecked a job's car) } */
   constructor(ped, o = {}) {
     this.noSelect = !!o.noSelect; this.want = null; this.careful = !!o.careful; this.pedsNear = o.pedsNear || null;   // (careful: holds its fire over people in the way: pedsNear(x, y, r))
+    this.spare = o.spare || null;
     this.ped = ped; this.S = o.walks || null; this.map = o.map || null; this.fleet = o.fleet || null; this.rng = o.rng; this.I = makeIntent(); this.profile = { ...FIGHT, ...(o.profile || {}) };
     this.side = this.rng && this.rng.next() < .5 ? -1 : 1; this.stepT = 0;
     this.burst = 0; this.pause = this.rng ? this.rng.next() * .5 : 0; this.off = 0; this.throwT = 2 + (this.rng ? this.rng.next() * THROW_EVERY : 0);
@@ -40,16 +45,19 @@ export class Fighter {
   }
   _p(k) { const v = this.profile[k]; return typeof v === 'function' ? v() : v; }
   /** the weapon in hand for a fight at distance d: a throw now and then, else the gun, else the bat */
-  _arm(d, dt) {
+  _arm(d, dt, tgt) {
     const inv = this.ped.inv;
     this.throwT -= dt;
     if (this.thrown && this.ped.throwing) return this.thrown;   // (mid-throw: the bottle in hand till it's gone)
-    if (this.thrown && inv.rounds(this.thrown) && inv.rounds(this.thrown).total > 0 && this.throwT <= 0 && d > THROW_MIN && d < THROW_MAX) return this.thrown;
+    if (this.thrown && inv.rounds(this.thrown) && inv.rounds(this.thrown).total > 0 && this.throwT <= 0 && d > THROW_MIN && d < THROW_MAX) {
+      if (!this._sparedNear(tgt, (inv.spec(this.thrown).splash || 40) + 30)) return this.thrown;
+      this.throwT = 1;   // (someone it spares too near where it would land: not now)
+    }
     return this.gun || this.melee;
   }
   /** fight the target ({ x, y, z, ... a body, or a vehicle it drives }): close in, then shoot, swing or throw */
   attack(dt, I, tgt) {
-    this.t += dt; const p = this.ped, d = Math.hypot(tgt.x - p.x, tgt.y - p.y), w = this._arm(d, dt), spec = p.inv.spec(w);
+    this.t += dt; const p = this.ped, d = Math.hypot(tgt.x - p.x, tgt.y - p.y), w = this._arm(d, dt, tgt), spec = p.inv.spec(w);
     if (p.inv.current !== w) { if (this.noSelect) this.want = w; else p.inv.select(w); }
     if (!spec || spec.projectile === 'melee') {   // in close, then the swings (a press each beat: the combo chains them)
       if (d > 16) return this._go(dt, I, tgt.x, tgt.y, true, 'target');
@@ -79,13 +87,36 @@ export class Fighter {
     I.aim = [Math.cos(a), Math.sin(a)]; I.aimPoint = [p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, tgt.z || 0]; I.down.aim = true;
     if (fire && p.inv.loaded()) I.down.attack = true; else if (fire) I.tap.reload = true;
   }
-  /** the line of fire to the target (chest to chest), looked at a few times a second: lineOfFire's */
+  /** the line of fire to the target (chest to chest), looked at a few times a second: lineOfFire's; and every step,
+   *  whether someone it spares is where its shots could go (a car moves through a line in a moment) */
   _lineTo(tgt) {
-    if (this._lineT > this.t && this._lineFor === tgt) return this._line;
-    this._lineT = this.t + .25; this._lineFor = tgt;
-    const line = lineOfFire(this.ped, tgt, this.map, this.fleet);
-    return (this._line = line !== 'wall' && line !== 'car' && this.careful && this._peopleIn(tgt) ? 'car' : line);   // (someone in the way: stepped round, as a car)
+    if (!(this._lineT > this.t && this._lineFor === tgt)) {
+      this._lineT = this.t + .25; this._lineFor = tgt;
+      const line = lineOfFire(this.ped, tgt, this.map, this.fleet);
+      this._line = line !== 'wall' && line !== 'car' && this.careful && this._peopleIn(tgt) ? 'car' : line;   // (someone in the way: stepped round, as a car)
+    }
+    return this._line === true && this._spares(tgt) ? 'car' : this._line;
   }
+  // whom it spares, but the target (and the target's car): none for most
+  _spared(tgt) { const S = this.spare ? this.spare() : null; return S && S.length ? S.filter(q => q && q !== tgt && !(tgt.seat && q === tgt.seat.vehicle)) : null; }
+  // one it spares where its shots could go: by the line of fire, as wide as the gun's spread (moving) makes it, and on
+  // past the target; a car where it is and where it will be in a moment
+  _spares(tgt) {
+    const S = this._spared(tgt); if (!S || !S.length) return false;
+    if (tgt.hl !== undefined && this._sparedNear(tgt, BLAST)) return true;   // (a car shot at may blow up: not with one it spares by it)
+    const p = this.ped, dx = tgt.x - p.x, dy = tgt.y - p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, spec = p.inv.spec(this.gun);
+    const wide = 10 + (d + 60) * Math.tan(Math.min(30, (spec && spec.spread || 2) * (TUNE.moveSpread || 1.5)) * Math.PI / 180);
+    for (const q of S) {
+      const car = !!q.body && q.hl !== undefined, r = car ? Math.max(q.hl, q.hw) : 6;
+      for (const k of car ? [0, .4] : [0]) {
+        const x = q.x + (car ? q.body.vx * k : 0) - p.x, y = q.y + (car ? q.body.vy * k : 0) - p.y, along = x * ux + y * uy;
+        if (along > -r && along < d + 60 + r && Math.abs(y * ux - x * uy) < wide + r) return true;
+      }
+    }
+    return false;
+  }
+  // one it spares within r of the target (a throw's splash, and its miss)
+  _sparedNear(tgt, r) { const S = this._spared(tgt); return !!S && S.some(q => Math.hypot(q.x - tgt.x, q.y - tgt.y) - (q.body && q.hl !== undefined ? q.hl : 0) < r); }
   // someone not in the fight between it and the target, near the line of fire
   _peopleIn(tgt) {
     const p = this.ped, N = this.pedsNear; if (!N) return false;

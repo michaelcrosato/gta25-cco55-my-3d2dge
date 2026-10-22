@@ -20,7 +20,8 @@ import { inReach, boardingFor } from '../actors/boarding.js';
 
 knob('AutoPlayer', 'autoDriveFrom', 'Drives beyond', 420, 0, 3000, 10, 'The AutoPlayer takes a vehicle for a trip longer than this (u)');
 knob('AutoPlayer', 'autoArrive', 'Arrives within', 14, 2, 80, 1, 'How near its goal the AutoPlayer stops (u)');
-const CAR_REACH = 140, NODE_NEAR = 9, FINAL = 170;
+const CAR_REACH = 140, NODE_NEAR = 9, FINAL = 170, JACK = 60;
+const occupied = v => v.seats.some(q => q && !q.dead);
 const OFF_LIMITS = new Set(['police', 'medic', 'fire', 'service']);
 /** a vehicle a player would take for a ride: on the road (no helicopter, boat or train), not locked or wrecked, not the
  *  city's (a works van) or the emergency services' (a cruiser, an ambulance, a fire engine: a crime of its own) */
@@ -58,7 +59,7 @@ export class AutoPlayer {
     return this;
   }
   /** get into this vehicle (out of another first) */
-  board(v) { this.goal = { x: v.x, y: v.y, board: v }; this.state = 'board'; this.path = null; this.car = v; this.tried.clear(); this.esc = null; this.wedge = null; this._dropBrain(); return this; }
+  board(v) { this.goal = { x: v.x, y: v.y, board: v }; this.state = 'board'; this.path = null; this.car = v; this.esc = null; this.wedge = null; this._dropBrain(); return this; }   // (the cars given up on are kept: the mission bot's, one it could not reach, had come back after the next and the next, round and round)
   /** a new goal point for the trip under way (a moving target): re-routed only when it moved more than o.slack (24) */
   retarget(x, y, o = {}) { const g = this.goal; if (!g || g.board || Math.hypot(g.x - x, g.y - y) > (o.slack ?? 24)) return this.goto(x, y, { foot: g ? g.foot : false, stay: g ? g.stay : false, style: g ? g.style : 'player', radius: g ? g.radius : 0, hold: g ? g.hold : false, keep: !!g && !g.board, ...o }); return this; }
   get arrived() { return this.state === 'arrived'; }
@@ -133,12 +134,14 @@ export class AutoPlayer {
     const open = near.slice(0, 8).filter(q => this._line(p.x, p.y, q[1].x, q[1].y)), list = open.length ? open : near;   // (one it can walk to straight: not one behind a wall)
     return list.length ? list[k % list.length][1] : null;
   }
-  // the nearest vehicle to take: unlocked, standing, nobody in it but traffic's driver (a carjack, as a player would)
+  // the nearest vehicle to take: unlocked, standing, nobody in it but traffic's driver (a carjack, as a player would);
+  // one parked and empty before one with someone in it unless that one is JACK nearer (a carjack is a crime: the
+  // witnesses phone it in, and the trip goes on with a star)
   _pickCar(p) {
-    let best = null, bd = CAR_REACH;
+    let best = null, bd = CAR_REACH + JACK;
     for (const v of this.fleet.near(p.x, p.y, CAR_REACH)) {
       if (this.tried.has(v.id) || !pickable(v) || v.speed > 30) continue;
-      const d = Math.hypot(v.x - p.x, v.y - p.y); if (d < bd) { bd = d; best = v; }
+      const d = Math.hypot(v.x - p.x, v.y - p.y), k = d + (occupied(v) ? JACK : 0); if (d < CAR_REACH && k < bd) { bd = k; best = v; }
     }
     return best;
   }
@@ -179,20 +182,23 @@ export class AutoPlayer {
       this.brain = new DriverBrain(v, this.G, { junctions: this.J, personality: st, siren: !!st.assertive });
       // (round a jammed exit only when that way costs not much more: else it waits, as a U-turn at the map's edge in a
       // lorry is worse than the jam)
-      const av = this.avoid, tz = g.z || 0, base = this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, { z: v.z, tz });
-      const alt = av && av.size ? this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, { z: v.z, tz, avoid: L => av.has(L.id) }) : null, r = alt && (!base || alt.cost <= base.cost * 1.6 + 10) ? alt : base;
+      // (no way there along the lane it faces, a one-way that leads off it: after a U-turn, else from the nearest lane
+      // whichever way it runs; a car left with no route at all wanders the lanes, and that's how a short trip went round
+      // the city)
+      const plan = o => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
+      const av = this.avoid, tz = g.z || 0, base = plan({ z: v.z, tz });
+      const alt = av && av.size ? plan({ z: v.z, tz, avoid: L => av.has(L.id) }) : null, r = alt && (!base || alt.cost <= base.cost * 1.6 + 10) ? alt : base;
       if (r) this.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s });
       this.state = 'drive';
     }
     const b = this.brain;
-    // no nearer the goal and no farther on for 20 s (a jam, a gridlocked box): a fresh route from here; three times, out
-    // (at street level). An exit jammed past the brain's wait: a fresh route that keeps off that lane
-    const P = this.prog || (this.prog = { best: d, t: 0, n: 0, at: [v.x, v.y] });
+    // stalled (a jam, a gridlocked box): a fresh route from here; three times, out (at street level). An exit jammed
+    // past the brain's wait: a fresh route that keeps off that lane
     const jam = b.cause === 'exit' && v.speed < 3; this.exitHeld = jam ? (this.exitHeld || 0) + dt : Math.max(0, (this.exitHeld || 0) - dt * .5);
     if (jam && b.exitConn) this._jam = b.exitConn;
     if (this.exitHeld > 8 && this._jam) { this.exitHeld = 0; this._keepOff(this._jam); this._dropBrain(); return clearIntent(this.I); }
-    if (d < P.best - 30 || Math.hypot(v.x - P.at[0], v.y - P.at[1]) > 80) { P.best = Math.min(P.best, d); P.at = [v.x, v.y]; P.t = 0; } else if ((P.t += dt) > 15) {
-      P.t = 0; P.best = d; P.n++; if (this._jam) this._keepOff(this._jam);
+    if (this._stalled(dt, v, d)) {
+      const P = this.prog; if (this._jam) this._keepOff(this._jam);
       { const cur = b.path[b.i], nx = b.path[b.i + 1], c = cur && cur.k === 'conn' ? this.G.conns[cur.id] : nx && nx.k === 'conn' ? this.G.conns[nx.id] : null; if (c) this._keepOff(c); }   // (the turn it can't make, a long truck at a corner's post: the next route another way)
       if (P.n >= 3 && v.z < 10) { P.n = 0; if (!g.hold) return this._bail(v); this.esc = { to: this._ahead(b, 180) || [g.x, g.y], t: 0, slow: 0, back: 0, side: -1 }; this._dropBrain(); return this._escape(dt, v); }   // (a job's own car: off the road round it again, the other way)
       if (P.n === 2 && v.z < 10) { this.esc = { to: this._ahead(b, 180) || [g.x, g.y], t: 0, slow: 0, back: 0, side: 1 }; this._dropBrain(); return this._escape(dt, v); }   // (the second time: off the road round it)
@@ -237,6 +243,19 @@ export class AutoPlayer {
     if (X.slow > 1.2) { X.slow = 0; X.back = 1; X.side = da > 0 ? 1 : -1; return I; }
     I.steer = Math.max(-1, Math.min(1, da * 2)); if (v.speed < 35) I.throttle = .6; return I;
   }
+  // no nearer the goal (d) and no farther on for 15 s: a stall (true once, then the clock starts again), counted in
+  // prog.n; the count starts again once the last stall is left 300 behind (a jam up on a deck and another across town
+  // are not one jam: the third would have put it out of a race's car the moment it was down the ramp)
+  _stalled(dt, v, d) {
+    const P = this.prog || (this.prog = { best: d, t: 0, n: 0, at: [v.x, v.y], jam: null });
+    if (d < P.best - 30 || Math.hypot(v.x - P.at[0], v.y - P.at[1]) > 80) {
+      P.best = Math.min(P.best, d); P.at = [v.x, v.y]; P.t = 0;
+      if (P.n && P.jam && Math.hypot(v.x - P.jam[0], v.y - P.jam[1]) > 300) P.n = 0;
+      return false;
+    }
+    if ((P.t += dt) <= 15) return false;
+    P.t = 0; P.best = d; P.n++; P.jam = [v.x, v.y]; return true;
+  }
   // the point dist farther along brain b's path (null: none)
   _ahead(b, dist) {
     if (!b || !b.path || !b.path.length) return null;
@@ -272,20 +291,22 @@ export class AutoPlayer {
   }
   // someone on foot where the car is about to go (dir 1 ahead, -1 behind), within its length and a stride and across
   // its width and a stride: the unstick moves look before they back off or swing out (a cop by a cruiser parked at a
-  // scene stands in the lane beside it)
+  // scene stands in the lane beside it). Wanted, a cop on foot is no one to wait for (they come for the door: a player
+  // held still for them is NABBED), and with one closing on the car nobody is: off at once, as a player floors it
   _footIn(v, dir) {
     const w = this._w; if (!w || !w.pedsNear) return false;
+    const chased = !!(w.wanted && w.wanted.stars > 0); if (chased && this._copAt(v, w.police, 45)) return false;
     const c = Math.cos(v.heading) * dir, s = Math.sin(v.heading) * dir, reach = v.hl + 30;
     for (const p of w.pedsNear(v.x + c * reach / 2, v.y + s * reach / 2, reach)) {
-      if (p.dead || p.floored || p.seat || Math.abs((p.z || 0) - (v.z || 0)) > 14) continue;
+      if (p.dead || p.floored || p.seat || Math.abs((p.z || 0) - (v.z || 0)) > 14 || (chased && p.faction === 'police')) continue;
       const dx = p.x - v.x, dy = p.y - v.y, along = dx * c + dy * s, off = Math.abs(dy * c - dx * s);
       if (along > 0 && along < reach && off < v.hw + 10) return true;
     }
     return false;
   }
-  // a cop on foot near the car (police: the Police, its cops), or null
-  _copAt(v, police) {
-    for (const c of (police && police.cops) || []) { const q = c.ped; if (!q.dead && !q.seat && !q.floored && Math.hypot(q.x - v.x, q.y - v.y) < 80 && Math.abs((q.z || 0) - (v.z || 0)) < 14) return q; }
+  // a cop on foot within r of the car, on its level (police: the Police, its cops), or null
+  _copAt(v, police, r = 80) {
+    for (const c of (police && police.cops) || []) { const q = c.ped; if (!q.dead && !q.seat && !q.floored && Math.hypot(q.x - v.x, q.y - v.y) < r && Math.abs((q.z || 0) - (v.z || 0)) < 14) return q; }
     return null;
   }
   // stopped where it is: braked against the way it rolls (the brake backs it up from a standstill, the throttle drives

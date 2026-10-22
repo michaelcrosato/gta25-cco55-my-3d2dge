@@ -68,13 +68,6 @@ function spots(m) {
 const spot = (m, x) => deck(m, [x, LEAD[1]], W);
 // a grid car (a racer at its wheel, going nowhere till the green)
 function gridCar(m, i, x) { const g = m.one('grid' + i); if (g) return g; const q = spot(m, x), r = RACERS[i]; return m.ensure.vehicle('grid' + i, r.def, q, { heading: q.heading, color: r.color, driver: r.driver }); }
-// into the grid's slot, in a car, and stopped there
-function toSlot(m, at) {
-  return Object.assign(m.waitUntil(mm => inCar(mm) && onDeck(mm.mover) && Math.hypot(mm.mover.x - at[0], mm.mover.y - at[1]) < 40 && mm.mover.speed < 12), {
-    nav: () => at,
-    start: mm => { mm.objective('Up onto the Loop and into the grid: the empty slot behind the leader', { hint: { kind: 'goto', at, radius: 30, vehicle: mm.one('mine') ? 'mine' : null } }); mm.marker(at, { color: '#ff5ad8', r: 20 }); },
-  });
-}
 
 defActivity('race_loop_sprint', {
   title: 'Loop Sprint', kind: 'race', start: { at: 'kwik-lux-neon', vehicle: ['car', 'truck', 'bike'], radius: 80 },
@@ -84,16 +77,18 @@ defActivity('race_loop_sprint', {
   stages: [
     {
       id: 'grid',
-      // the leader waits at the front of the grid; the player drives up into the slot behind it (a deep link: a
-      // loaner in the slot already)
-      setup(m) { const G = spots(m); car(m); gridCar(m, 0, G.lead); },
-      *run(m) { const at = pt(spot(m, spots(m).slot)); if (!(onDeck(m.mover) && m.dist(at) < 40)) yield toSlot(m, at); },
+      // the race starts on its grid: the marshals clear the deck's stretch of traffic (a racer parked in a live lane jams
+      // it, and nobody could drive up into the slot), the leader waits at the front, and the race's setup puts the
+      // player's car in the slot behind it
+      setup(m) { m.clearTraffic([LEAD[0] + GAP * 4, LEAD[1]], GAP * 5); const G = spots(m); car(m); gridCar(m, 0, G.lead); },
+      *run(m) { yield m.say(['Into your slot behind the leader. On the deck, engines on.'], MC); },
     },
     {
       id: 'race',
       // the grid: the player's car in its slot (a retry, a deep link: put back there), the leader ahead, the other two
       // behind it
       setup(m) {
+        m.clearTraffic([LEAD[0] + GAP * 4, LEAD[1]], GAP * 5);
         const G = spots(m), c = car(m), q = spot(m, G.slot);
         if (!onDeck(c) || Math.hypot(c.x - q.x, c.y - q.y) > 60) m.place(c, [q.x, q.y], { z: DECK, heading: q.heading });
         gridCar(m, 0, G.lead); G.rest.forEach((x, i) => gridCar(m, i + 1, x));

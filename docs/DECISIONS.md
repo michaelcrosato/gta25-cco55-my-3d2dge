@@ -1032,12 +1032,71 @@ and where it landed.
     stopped there before the run (a car still turning as it floors it misses a three-cell kicker); a car the player
     can't reach (one parked up on the Loop, walked to from the street under it) is passed over for the next; and each
     failure says what hurt the player and their vehicle, by source.
+- **Calls (part 4d),** from the next campaign:
+  - **A truce holds for the ones already coming:** a hostile gang's car that sees the player drives on in a truce (its
+    driver no longer gets out to fight), and a member already going for the player stands down when one starts. Before,
+    the truce only stopped new fights, so S1's Saints, hostile by then, kept coming at the player doing their own job.
+  - **The Moto Courier rides in a truce with all three gangs** (as the other jobs do with theirs): a parcel van's rider
+    is nobody's business, and a level-3 route across hostile turf was a gunfight on a bike.
+  - **The races start on their grid** (`m.clearTraffic(at, r)`: the city's traffic within r of a point taken off the
+    road at once, never a unit on a call): the marshals clear the grid's stretch, the leader waits at its front, and the
+    race's setup puts the player's car in its slot. The old way in (drive up into the empty slot) jammed: a racer parked
+    in a live lane stopped the traffic behind it, and nobody, player or bot, could get by it into the slot.
+  - **The AutoPlayer routes from where it is, whichever way it faces:** no route along the lane it faces (a one-way
+    leading off it) is tried after a U-turn, then from the nearest lane either way. A car left with no route wandered
+    the lanes: a short trip went round the city. A car it gives up on stays given up on while the trip lasts
+    (`board()` had forgotten them: the mission bot, given up on one it could not reach, had come back to it after the
+    next, round and round).
+  - **Crossfire spares the player** (the `Fighter`'s `spare`): a gang's member whose gang isn't after the player (not
+    hostile to them, or in a truce) holds its fire while the player or their car is anywhere its shots could go (by its
+    line of fire, as wide as its gun's spread makes it and on past its target; a moving car where it will be in a
+    moment), throws nothing that would land near them, and shoots at no car beside them (a car shot at may blow up).
+    S1's cars had been shot to wrecks driving past fights that weren't the player's: a turf war between the Rats and
+    the Saints, and a Saint fighting a friendly Gnome by the player's car. A hostile gang's crossfire still flies.
+  - **A door the stage needs is kept clear** (`m.clearSpot(at, r)`: a car left standing on a spot, nobody in it and not
+    the job's own, towed at once): H4's lobby and H2's front door clear the bank's door step as the stage starts and
+    once a second while the player walks up. The campaign's H4 had stood 40 minutes at the bank: a car left on the door
+    step kept Viv out of the door's reach, as it would have kept a player out.
+  - **S2's fight can always end:** the last Rats are called off once 45 s have gone by with none of them within the
+    booth window's reach (the convoy jammed, no lane behind it clear for the next Brute: the fight could never end, for a
+    player too).
+  - **The police nab on the player's level:** the arrest at a stopped car's door took a cop at the door's x and y,
+    whatever the height, so a cop on the street under the Loop arrested a player stopped on the ramp above (S1's first
+    bust in the validation); both arrests (at the door, and cuffed on foot) now want the cop within 12 of the player's
+    level.
+  - **Wanted, the bot waits for no cop:** the AutoPlayer's unstick moves (back off, swing out, off the road) never wait
+    for a cop on foot in their way while the player is wanted, and with one within 45 of the car they wait for nobody:
+    they had held the car still for a bystander, or for the cop himself, while the cop walked up to the door.
+  - **A jam left behind is forgotten:** the AutoPlayer's stall count (three stalls and it gets out, at street level)
+    starts again once the last stall is 300 behind. Drag Mass's race car had been left the moment it came down the
+    ramp, the stalls up on the deck counted against it.
+  - **A car it can't get into is given up on by the clock:** the mission bot's 12 s for getting into the car it picked
+    count the scene's walks to a door it can't reach (they had stopped the count: the campaign's bot stood 8 minutes by
+    a parked Brute's door).
+  - **An empty car before a carjack:** the AutoPlayer and the mission bot take an empty, parked car before one with
+    someone in it, unless that one is 60 nearer: a carjack is a crime the witnesses phone in, and S1's trips had gone on
+    with a star.
+  - **The campaign's tool:** a long mission's state every 5 minutes in its log; a teleport takes the player out of a car
+    first (campaign4 had sat an hour at one spot, every teleport after failing); an activity's start is driven to in the
+    car the roads bring there quickest; items started on the way to another are quit. **A rescue:** a car two minutes
+    within 40 u at the bot's wheel is put back on the nearest lane that leads on, facing its way, and the bot's route
+    made afresh: a hauler in the north edge's dead-end stub, or wedged among the Loop's pillars at its south-west
+    corner, which a player backs out of and the bot's driving can't. Each rescue is logged and counted in the result.
+    The per-mission runs (`tools/bot.mjs`) have no rescue: each mission passes there on its own.
+  - **The bot retries as a player does:** a failed stage is played again up to 4 times (`TUNE.botRetries`, 2 before),
+    and a run in `tools/bot.mjs` has 1,800 s of game (900 before). The bot is a weaker driver than a player in a tight
+    spot, and it doesn't defend itself on foot: a few runs failed three times in a row on what a later try gets past.
+    S1 on seed 2 spent its 900 s on one long attempt (two Rats its driving had provoked beat it on foot by the Fish
+    Market) and passes on its fifth; Firefighter's level 2 on seed 1 lost three quick calls in one jam of its own making
+    (its Pumper had shoved a parked car into the street to the fire) and passes on its fourth. The retries are in each
+    run's line of the log, so a mission that needs them is seen; a run that passes within two plays the same as before
+    (the runs are deterministic, and the retries come only after a failure).
 - **CI: the push is refused.** Since the run resumed on 2026-10-21, every push to the branch is refused with a 403 (the
   Claude GitHub App has no access to the repository for the owner's organization). PLAN.md 6.1's fallback, taken: the
   gate is `npm test` and `npm run test:full` run here, their evidence in PROGRESS.md; the commits wait locally, and the
   owner is told how to restore the access (install the app for the organization, or reconnect GitHub in claude.ai's
   settings), after which one push carries them all.
-- **Answered:** no. **Landed in:** M8 (part 4c).
+- **Answered:** no. **Landed in:** M8 (parts 4c and 4d).
 
 ## D28 · 2026-10-22 · M13: the controller's rumble, the knob list as a doc, where a frame goes, the look notes
 - **Principle:** PLAN.md 13's M13 (polish, performance, FAN-OUT B, the writing, the release) and 15 (the Definition of

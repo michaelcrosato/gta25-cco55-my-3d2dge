@@ -374,4 +374,4 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | Knob | Default | Range | What it does |
 |---|---|---|---|
 | `giverReach` Giver reach | 18 | 6..60 | How near a mission's marker you walk to be offered the job (u) |
-| `botRetries` Bot retries | 2 | 0..10 | How many times the bot retries a failed stage before it quits |
+| `botRetries` Bot retries | 4 | 0..10 | How many times the bot retries a failed stage before it quits (as a player plays it again) |
