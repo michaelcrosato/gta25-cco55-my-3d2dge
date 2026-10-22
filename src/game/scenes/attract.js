@@ -118,7 +118,7 @@ def('scenes', 'attract', {
           const a = Math.min(1, C.t * 3, Math.max(0, (C.title ? 3.2 : 3.6) - C.t) * 2), y = Math.round(P.H * .3), sc = C.title ? 3 : 2, sub = C.sub ? C.sub.toUpperCase() : '';
           if (a > 0) {
             const w = Math.max(P.width(C.text, sc), sub ? P.width(sub) : 0) + 20, h = 7 * sc + (sub ? 20 : 0) + 10;
-            P.fill(cx - w / 2, y - 5, w, h, '#05030c', .55 * a);
+            P.fill(cx - w / 2, y - 5, w, h, '#05030c', .72 * a);   // (dark enough that a billboard's neon behind it doesn't read through)
             g.globalAlpha = a; P.text(C.text, cx, y, C.title ? '#ffe066' : UI.ink, { align: 'center', scale: sc }); if (sub) P.text(sub, cx, y + 7 * sc + 6, UI.dim, { align: 'center' }); g.globalAlpha = 1;
           }
         }

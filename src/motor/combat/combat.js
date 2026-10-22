@@ -145,7 +145,7 @@ export class Combat {
     const at = t.vitals || !t.hl ? [t.x, t.y, t.z + CHEST * .9] : nearestOnBox(t, a.x, a.y, (t.z || 0) + CHEST * .6);   // (a car: dented where the bat met it)
     const r = this.hurt(t, { amount, kind: 'melee', by: a.id, knock: TUNE.meleeKnock * k * (ab ? ab.knockback : 1), knockdown: floors || (ab && ab.knockback > 1 && k >= 1.25), dir: [dx / d, dy / d], at });
     if (r) { a.stats.did('meleeHit'); if (ab) ab.feed('meleeHit'); BUS.emit('crime', { type: t.vitals ? 'assault' : 'vandalism', x: t.x, y: t.y, by: a.id, victim: t.id, severity: 1, lawful: a.faction === 'police' }); }   // (a car dented: vandalism)
-    if (this.game && this.game.hitFx) this.game.hitFx(at[0], at[1], at[2], { power: k, sound: spec.id === 'slugger' ? 'kick' : 'punch' });
+    if (this.game && this.game.hitFx) this.game.hitFx(at[0], at[1], at[2], { power: k, sound: spec.id === 'slugger' ? 'kick' : 'punch', rumble: false });   // (the rumble is input/rumble.js's: never in the demo)
   }
   swing(p, spec) { this._sfx(spec.id === 'slugger' ? 'swing' : 'whoosh', { vol: .5 }); }
   /** throw a Molotov or a grenade from a ped's hand toward its aim */

@@ -8,13 +8,13 @@
   * Initial Date: 2026-10-17 (UTC): the first prompt of the planning session
   * SOURCE: Grand Theft Auto 2 (PC, 1999; DMA Design / Rockstar Games), with depth, features and gameplay drawn from Grand Theft Auto V (2013; Rockstar North); my-3D2dge 2D pixel style; views isometric (primary), top-down (secondary) and side scrolling with depth (Mode 7)
   * GAME ENGINE: my-3D2dge v0.46.1, commit cfa866aa45474868350cad1a7fc015e612f9305f (2026-10-15), https://github.com/michaelcrosato/my-3d2dge (MIT), vendored and extended by MOTOR
-  * Environment: Claude Code in Anthropic's managed cloud environment (claude.ai/code remote session, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22; headless Chromium 141 (Playwright) for tests; the game targets desktop browsers
-  * Model and Effort Level: AI lab: Anthropic. Planning effort: max. Implementation effort: recorded in each run's chat report, which also names the exact model (this environment keeps model identifiers out of repository files)
+  * Environment: Claude Code (2.1.302 when the run began, 2.1.308 at its end) in Anthropic's managed cloud environment (claude.ai/code remote sessions, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22.22.0; headless Chromium 141 (Playwright 1.56.1) for the tests; the game targets desktop browsers
+  * Model and Effort Level: AI lab: Anthropic. Effort: max, for the planning and every implementation session (M0-M13), with ultracode for the fan-outs. The exact model is named in each session's chat report (this environment keeps model identifiers out of repository files)
 
   GAME ENGINE ANALYSIS (summary; the full analysis is docs/ENGINE-ANALYSIS.md in the repository)
-  - Used: the fixed-step loop, scenes and boot; the isometric view and TileMap walls, facades and heights; the depth-sorted renderer; Humanoid rigs and mocap; Mover, actions and perception; bullets, particles and lighting; the chip synth; saves and settings; session replay and the check, filmstrip and replay tools; the stress test's side scrolling with depth (Mode 7) and the shooter kit's one-point lean, generalized by MOTOR.
-  - Not used: the agent edition, the 3D engine, the side-scroller kit, the whole-map floor bake, the HTML menus (not TV-scaled), the orthographic top-down view, circle bodies for cars, music() for the radio.
-  - One change: make the world scale - a chunked, streamed TileMap (floors baked per chunk on demand, walls culled to the view, cells with space under bridges).
+  - Used: the exact fixed-step loop and headless stepping (every test runs the real game in Node); scenes and fades; the pixel primitives, colours, textures and font; TileMap for the buildings; the depth-sorted renderer and the iso view; canvas lighting; particles; Humanoid rigs with mocap, Mover and ACTIONS; sees, hears and Suspicion; Bullets, Attack and Combo; the input with DualSense detection and rumble; ChipAudio; store and settings; the session recorder and the checker. The stress test's side scrolling with depth became MODE 7, and the shooter kit's one-point lean became TOP-DOWN.
+  - Not used: the agent edition, the 3D engine, the platformer kit, the whole-map floor bake, E.Shell and the HTML menus (not readable at 10 feet), the orthographic top-down view, circle bodies for cars, music() for the radio, GPU lighting. Seven patches, each recorded with its upstream issue text.
+  - One change: make the world scale - a chunked, streamed TileMap (floors baked per chunk on demand, walls found within the view, bounded caches, solids indexed by place, cells with space under bridges). Four of the seven patches exist only because the map is a city.
 -->
 <html lang="en">
 <head>
@@ -10035,6 +10035,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     Radio: () => Radio,
     RailLine: () => RailLine,
     RoadGraph: () => RoadGraph,
+    Rumble: () => Rumble,
     SAFE: () => SAFE,
     SCORES: () => SCORES,
     SETTING_TABS: () => SETTING_TABS,
@@ -10487,7 +10488,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return o;
   }
   function tuningMarkdown() {
-    let md = "# Tuning\n\nEvery gameplay number is a knob in `src/game/tune.js`, live in the dev menu (`?dev=1`). This file is generated (`node tools/tuning-doc.mjs`).\n";
+    let md = "# Tuning\n\nEvery gameplay number is a knob, declared beside the code that reads it (MOTOR's in `src/motor`, the game's in `src/game/tune.js`) and live in the dev menu's TUNING pages (`?dev=1`). Overrides are kept apart from the save. This file is generated from the knob list (`node tools/tuning-doc.mjs`; `npm test` checks it is current).\n";
     for (const s of sections()) {
       md += `
 ## ${s}
@@ -11456,16 +11457,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             if (d12 <= d02) continue;
             if (d02 > this.farClip) break;
             const u0 = mod(cAlong + b, PER) + (d02 - b);
-            items.push({ k: d12, fn: (g) => this._face(g, d02, d12, side, side, h, cv, u0, col) });
+            items.push({ k: d12, kind: "side", fn: (g) => this._face(g, d02, d12, side, side, h, cv, u0, col) });
           }
         }
         if (Dn >= NEAR_D) {
           const sh = shadeOf(-a.f[0], -a.f[1]), cv = faceTexture(s.id, s.t, h, sh, v, night3), col = faceColor(s.t, sh), u0 = mod(cAcross + La, PER);
-          items.push({ k: Dn, fn: (g) => this._face(g, Dn, Dn, La, Lb, h, cv, u0, col) });
+          items.push({ k: Dn, kind: "front", fn: (g) => this._face(g, Dn, Dn, La, Lb, h, cv, u0, col) });
         }
         if (this.h > h + 1) {
           const d02 = Math.max(NEAR_D, Dn);
-          items.push({ k: d02, fn: (g) => {
+          items.push({ k: d02, kind: "top", fn: (g) => {
             const fog = this.fogAt(d02), [fr, fg, fb] = this.fogRGB;
             this.stats.quads += texturedFace(g, (u, t) => this._q(Df + (d02 - Df) * t, La + (Lb - La) * u, h), null, 0, 0, 1, 1, s.t.top, fog > 0.02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
           } });
@@ -12067,6 +12068,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  depth cameras; o.player [x, y, z] (the focus by default) is who the cut-away keeps in sight. Presentation only:
      *  the simulation never reads it */
     begin(r7, o = {}) {
+      this._t0 = typeof performance !== "undefined" ? performance.now() : 0;
       this.r = r7;
       this.items.length = 0;
       this.lamps.length = 0;
@@ -12400,7 +12402,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         });
         return;
       }
-      this.items.push({ k: d.depth(x, y) - 0.01, fn: (g) => {
+      this.items.push({ k: d.depth(x, y) - 0.01, kind: "glow", fn: (g) => {
         const q = d.proj(x, y, z);
         if (q) this._glowAt(g, draw, q);
       } });
@@ -12430,7 +12432,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }, null]);
         return;
       }
-      this.items.push({ k: Math.min(d.depth(a[0], a[1]), d.depth(b[0], b[1])) - 0.02, fn: (g) => {
+      this.items.push({ k: Math.min(d.depth(a[0], a[1]), d.depth(b[0], b[1])) - 0.02, kind: "glow", fn: (g) => {
         const A = d.proj(a[0], a[1], a[2]), B2 = d.proj(b[0], b[1], b[2]);
         if (A && B2) draw(g, A, B2, A[2]);
       } });
@@ -12462,7 +12464,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           return q ? [q[0], q[1]] : [-9999, -9999];
         },
         visible: (x, y, z) => self.onScreen(x, y, z, z, 12),
-        queue: (x, y, z, fn, o) => self.items.push({ k: d.depth(x, y) - (o && o.bias || 0) * 0.01, fn }),
+        queue: (x, y, z, fn, o) => self.items.push({ k: d.depth(x, y) - (o && o.bias || 0) * 0.01, kind: "fx", fn }),
         decal: (fn) => self.floorFx.push((g) => fn(g)),
         overlay: (fn) => r7.overlay(fn),
         groundRing() {
@@ -12661,7 +12663,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const q = kept2 && d.proj(x, y, z), big = q && kept2.r * q[2] > KEPT_MAX;
       let k = d.depth(x, y) - (o && o.bias || 0);
       if (d === this.top && o && o.wall) k = Math.min(k, this._spanKey(o.wall[0], o.wall[1], k));
-      this.items.push({ k, fn: kept2 && !big ? (g) => this._keptShape(g, d, d.view(1), x, y, z, draw, kept2) : (g) => draw(g, d) });
+      this.items.push({ k, kind: o && o.kind || "shape", fn: kept2 && !big ? (g) => this._keptShape(g, d, d.view(1), x, y, z, draw, kept2) : (g) => draw(g, d) });
     }
     // a kept shape: its image, redrawn when the view, its size on screen (depth views) or the frame's skew changed
     _keptShape(g, P17, view, x, y, z, draw, kp) {
@@ -12716,7 +12718,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (!p) return;
       const spr = p.frames[0];
       if (o.light && p.light) this.lamps.push([x, y, z, o.lightRadius || 70]);
-      this.items.push({ k: d.depth(x, y), fn: (g) => {
+      this.items.push({ k: d.depth(x, y), kind: "prop", fn: (g) => {
         const q = d.proj(x, y, z);
         if (!q) return;
         const s = q[2] / Math.SQRT2, w8 = spr.w * s, h = spr.h * s;
@@ -12796,16 +12798,28 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       g.save();
       g.imageSmoothingEnabled = false;
       d.stats.quads = 0;
+      const flush = this.profFlush ? () => g.getImageData(0, 0, 1, 1) : () => {
+      };
+      const clock5 = typeof performance !== "undefined" ? () => performance.now() : () => 0;
+      flush();
+      const T20 = [clock5()], mark = () => {
+        flush();
+        T20.push(clock5());
+      };
+      const queued = this._t0 ? T20[0] - this._t0 : 0;
       let spans = [];
       if (d === this.side7) {
         d.drawSky(g, Math.max(0, d.P.hy), W26.backdrop, r7);
+        mark();
         if (W26.floor) {
           const [i0, j0, i1, j1] = d.wedge(S5);
           for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W26.floor.canvas(i, j);
           W26.floor.pump(d.x, d.y);
           d.drawFloor(g, W26.floor);
         }
+        mark();
         this._floorFx(g, d, Math.max(0, Math.floor(d.P.hy)));
+        mark();
         if (this.spans) {
           const [i0, j0, i1, j1] = d.wedge(S5);
           spans = this.spans.range(i0, j0, i1, j1);
@@ -12814,13 +12828,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       } else {
         g.fillStyle = d.bg || "#0a0812";
         g.fillRect(0, 0, r7.bw, r7.bh);
+        mark();
         if (W26.floor) {
           const [i0, j0, i1, j1] = d.range(S5, S5 / 2);
           for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W26.floor.canvas(i, j);
           W26.floor.pump(d.x, d.y);
           d.drawFloor(g, W26.floor);
         }
+        mark();
         this._floorFx(g, d, 0);
+        mark();
         if (this.spans) {
           const [i0, j0, i1, j1] = d.range(S5);
           spans = this.spans.range(i0, j0, i1, j1);
@@ -12828,14 +12845,39 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
       }
       this._depthParticles(d);
+      mark();
       this.items.sort((a, b) => b.k - a.k || (a.actor ? 1 : 0) - (b.actor ? 1 : 0));
-      let actors = 0;
+      let actors = 0, ta = 0;
+      const each2 = !!this.profFlush, by2 = each2 ? d.stats.byKind ||= {} : null;
       for (const it of this.items) {
-        it.fn(g);
-        if (it.actor) actors++;
+        if (each2) {
+          const t = clock5();
+          it.fn(g);
+          flush();
+          const dt = clock5() - t, kd = it.actor ? "actor" : it.kind || "other";
+          by2[kd] = (by2[kd] || 0) + dt;
+          by2[kd + "#"] = (by2[kd + "#"] || 0) + 1;
+          if (it.actor) {
+            ta += dt;
+            actors++;
+          }
+        } else {
+          it.fn(g);
+          if (it.actor) actors++;
+        }
       }
+      mark();
       if (this.game.lights && this.game.lights.enabled) this._depthLight(g, d);
+      mark();
       if (this.skyNow) this.wfx.draw(g, d, r7.bw, r7.bh, this.skyNow);
+      mark();
+      const M2 = d.stats.ms || (d.stats.ms = { frames: 0, queue: 0, sky: 0, floor: 0, floorFx: 0, spans: 0, items: 0, light: 0, weather: 0 });
+      M2.frames++;
+      M2.queue += queued;
+      M2.actors = (M2.actors || 0) + ta;
+      ["sky", "floor", "floorFx", "spans", "items", "light", "weather"].forEach((k, i) => {
+        M2[k] += T20[i + 1] - T20[i];
+      });
       this.fade.draw(g, this._dt);
       for (const f of this.marks) f();
       g.restore();
@@ -19484,11 +19526,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (Math.abs(mx - fx7) > radius + 160 || Math.abs(my - fy) > radius + 160) continue;
         for (const l7 of b.leaves) {
           const G2 = b.leafGeom(l7), ns = b.axis === "y", along2 = G2.a + G2.dir * G2.c / 2, across2 = (G2.u0 + G2.u1) / 2, cx5 = ns ? across2 : along2, cy = ns ? along2 : across2;
-          if (stage.onScreen(cx5, cy, 0, G2.h + 8, Math.max(G2.L, G2.u1 - G2.u0) / 2)) stage.shape(cx5, cy, G2.h / 2, (g, P17) => drawLeaf(g, P17, b, l7, this.city.painter.leafTexture(l7.rect)));
+          if (stage.onScreen(cx5, cy, 0, G2.h + 8, Math.max(G2.L, G2.u1 - G2.u0) / 2)) stage.shape(cx5, cy, G2.h / 2, (g, P17) => drawLeaf(g, P17, b, l7, this.city.painter.leafTexture(l7.rect)), { kind: "leaf" });
         }
         if (b.closed) for (const end2 of [-1, 1]) {
           const ns = b.axis === "y", gy = ns ? end2 < 0 ? y0 * T20 - 6 : (y1 + 1) * T20 + 6 : my, gx2 = ns ? mx : end2 < 0 ? x0 * T20 - 6 : (x1 + 1) * T20 + 6;
-          if (stage.onScreen(gx2, gy, 0, 14, 80)) stage.shape(gx2, gy, 0, (g, P17) => drawGate(g, P17, b, gx2, gy));
+          if (stage.onScreen(gx2, gy, 0, 14, 80)) stage.shape(gx2, gy, 0, (g, P17) => drawGate(g, P17, b, gx2, gy), { kind: "gate" });
         }
       }
       const glints = [];
@@ -19502,7 +19544,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       for (const s of this.signs) if (Math.abs(s.x - fx7) < radius && Math.abs(s.y - fy) < radius && stage.onScreen(s.x, s.y, s.z, s.z, 48)) {
         const [wx2, wy] = WALL_IN[s.side] || [0, 0];
-        for (const [ax, ay, i, n2] of signSlices(stage.projector(), s, night3)) stage.shape(ax, ay, 0, (g, P17) => drawSign(g, P17, s, night3, i, n2), { bias: 0.01, wall: [ax + wx2, ay + wy] });
+        for (const [ax, ay, i, n2] of signSlices(stage.projector(), s, night3)) stage.shape(ax, ay, 0, (g, P17) => drawSign(g, P17, s, night3, i, n2), { bias: 0.01, wall: [ax + wx2, ay + wy], kind: "sign" });
         if (night3) stage.glow(s.x, s.y, s.z, (g, sx, sy, k) => {
           const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * 0.75)), true);
           g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2));
@@ -19525,15 +19567,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     _prop(stage, p, night3) {
       if (p.kind === "pillar") {
-        stage.shape(p.x, p.y, 0, (g, P17) => drawBoxModel(g, P17, PILLAR(p.top), p.x, p.y, 0, 0));
+        stage.shape(p.x, p.y, 0, (g, P17) => drawBoxModel(g, P17, PILLAR(p.top), p.x, p.y, 0, 0), { kind: "pillar" });
         return;
       }
       if (p.broken) {
         const B2 = p.broken, m2 = BROKEN[p.kind] || PROP_MODELS[p.kind], a = p.kind === "lamp" ? B2.dir : p.facing || 0;
         if (p.kind === "lamp") {
           const f = Math.min(1, B2.t / 0.45);
-          stage.shape(p.x, p.y, 0, (g, P17) => drawBoxModel(g, P17, m2, p.x, p.y, 0, a, { pitch: -(1 - f) * Math.PI / 2 * 0.98 }));
-        } else if (m2) stage.shape(p.x, p.y, 0, (g, P17) => drawBoxModel(g, P17, m2, p.x, p.y, 0, a, { roll: p.kind === "bin" ? Math.PI / 2 : 0 }));
+          stage.shape(p.x, p.y, 0, (g, P17) => drawBoxModel(g, P17, m2, p.x, p.y, 0, a, { pitch: -(1 - f) * Math.PI / 2 * 0.98 }), { kind: "prop3d" });
+        } else if (m2) stage.shape(p.x, p.y, 0, (g, P17) => drawBoxModel(g, P17, m2, p.x, p.y, 0, a, { roll: p.kind === "bin" ? Math.PI / 2 : 0 }), { kind: "prop3d" });
         return;
       }
       const spr = SPRITES[p.kind];
@@ -19545,15 +19587,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       if (p.roof && this.city.cutaway && this.city.cutaway.cut.has(p.lot)) return;
       const m = p.kind === "container" ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind];
-      if (m) stage.shape(p.x, p.y, p.z || 0, (g, P17) => drawBoxModel(g, P17, m, p.x, p.y, p.z || 0, p.facing || 0));
+      if (m) stage.shape(p.x, p.y, p.z || 0, (g, P17) => drawBoxModel(g, P17, m, p.x, p.y, p.z || 0, p.facing || 0), { kind: "prop3d" });
     }
     _deck(stage, { d, c, map }, fade) {
       const x = (c.cx + 0.5) * T2, y = (c.cy + 0.5) * T2, z = Math.max(c.z0, c.z1);
       const near3 = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72, a = near3 ? 0.3 : 1;
       const D = stage.depth, q = D && D.proj(x, y, z), small = !!(q && q[2] * T2 < DECK_SMALL);
-      stage.shape(x, y, z, (g, P17) => drawDeckCell(g, P17, d, c, map, a, small), { hides: true });
+      stage.shape(x, y, z, (g, P17) => drawDeckCell(g, P17, d, c, map, a, small), { hides: true, kind: "deck" });
       if (d.railing !== false && !small) {
-        for (const e of EDGES) if (!map.has(c.cx + e[0] + "," + (c.cy + e[1]))) stage.shape(x + e[0] * T2 * 1.1, y + e[1] * T2 * 1.1, z, (g, P17) => drawDeckRail(g, P17, d, c, e, a), { hides: true });
+        for (const e of EDGES) if (!map.has(c.cx + e[0] + "," + (c.cy + e[1]))) stage.shape(x + e[0] * T2 * 1.1, y + e[1] * T2 * 1.1, z, (g, P17) => drawDeckRail(g, P17, d, c, e, a), { hides: true, kind: "rail" });
       }
     }
   };
@@ -22265,10 +22307,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           }
         }
         if (F.perf && o.stats) {
-          const s = o.stats, y = Math.round(r7.bh * 0.42);
-          E.ui.box(g, 4, y, 128, 22, { alpha: 0.75 });
-          E.font.text(g, `DRAW ${(+s.renderMs || 0).toFixed(1)} MS  UPD ${(+s.updateMs || 0).toFixed(2)}`, 8, y + 4, "#ffe066");
-          E.font.text(g, `ITEMS ${s.items || 0}`, 8, y + 12, "#d8e4f0");
+          const s = o.stats, y = Math.round(r7.bh * 0.42), x = r7.bw - 132;
+          E.ui.box(g, x, y, 128, 22, { alpha: 0.75 });
+          E.font.text(g, `DRAW ${(+s.renderMs || 0).toFixed(1)} MS  UPD ${(+s.updateMs || 0).toFixed(2)}`, x + 4, y + 4, "#ffe066");
+          E.font.text(g, `ITEMS ${s.items || 0}`, x + 4, y + 12, "#d8e4f0");
         }
         g.restore();
         g._c = null;
@@ -31314,7 +31356,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (ab) ab.feed("meleeHit");
         BUS.emit("crime", { type: t.vitals ? "assault" : "vandalism", x: t.x, y: t.y, by: a.id, victim: t.id, severity: 1, lawful: a.faction === "police" });
       }
-      if (this.game && this.game.hitFx) this.game.hitFx(at[0], at[1], at[2], { power: k, sound: spec.id === "slugger" ? "kick" : "punch" });
+      if (this.game && this.game.hitFx) this.game.hitFx(at[0], at[1], at[2], { power: k, sound: spec.id === "slugger" ? "kick" : "punch", rumble: false });
     }
     swing(p, spec) {
       this._sfx(spec.id === "slugger" ? "swing" : "whoosh", { vol: 0.5 });
@@ -33088,6 +33130,90 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
   };
 
+  // src/motor/input/rumble.js
+  var NEAR3 = 320;
+  var Rumble = class {
+    /** game: the E.Game; o.player(): the possessed ped; o.off(): true while it mustn't rumble (the attract mode) */
+    constructor(game2, o = {}) {
+      this.game = game2;
+      this.player = o.player || (() => null);
+      this.off = o.off || (() => false);
+      this.unsub = [];
+      this.beatT = 0;
+      this.dub = 0;
+      this.air = false;
+      this.played = [];
+    }
+    /** a shake of strength k (0..1) for secs; false when nothing could rumble */
+    shake(k, secs) {
+      const G2 = this.game;
+      if (G2.headless || this.off() || !G2.input || !G2.input.rumble || !(k > 0)) return false;
+      this.played.push([+k.toFixed(2), +secs.toFixed(2)]);
+      if (this.played.length > 16) this.played.shift();
+      return G2.input.rumble(Math.min(1, k), secs);
+    }
+    /** listen to the game's events (the scene's scope: gone with the scene) */
+    attach() {
+      const on = (ev, fn) => this.unsub.push(BUS.on(ev, fn, "scene")), me = () => this.player();
+      const mine = (id) => {
+        const p = me();
+        if (!p) return false;
+        const v = p.seat && p.seat.vehicle;
+        return id === p.id || !!v && id === v.id;
+      };
+      on("vehicleDamage", (e) => {
+        const n = e.amount || 0;
+        if (mine(e.vehicle) && n > 2) this.shake(0.25 + Math.min(0.75, n / 40), 0.1 + Math.min(0.25, n / 160));
+      });
+      on("crime", (e) => {
+        const p = me();
+        if (e.type !== "shooting" || !p || e.by !== p.id) return;
+        const s = p.inv && p.inv.spec();
+        if (s && s.rumble > 0) this.shake(s.rumble, 0.05 + s.rumble * 0.1);
+      });
+      on("hit", (e) => {
+        const p = me();
+        if (p && e.by === p.id && e.kind === "melee" && e.damage > 0) this.shake(0.2 + Math.min(0.4, e.damage / 60), 0.06);
+      });
+      on("explode", (e) => {
+        const p = me();
+        if (!p) return;
+        const d = Math.hypot(e.x - p.x, e.y - p.y);
+        if (d < NEAR3) this.shake((1 - d / NEAR3) * Math.min(1, 0.5 + (e.power || 50) / 150), 0.2 + (1 - d / NEAR3) * 0.3);
+      });
+      return this;
+    }
+    /** each frame: the heartbeat and the landings */
+    frame(dt) {
+      const p = this.player();
+      if (!p) return;
+      const V = p.vitals, low2 = V && !V.dead && V.health > 0 && V.health / (V.maxHealth || 100) < 0.25;
+      if (low2) {
+        this.beatT -= dt;
+        if (this.beatT <= 0) {
+          this.beatT = 0.9;
+          this.dub = 0.18;
+          this.shake(0.22, 0.06);
+        }
+        if (this.dub > 0 && (this.dub -= dt) <= 0) this.shake(0.12, 0.05);
+      } else {
+        this.beatT = 0;
+        this.dub = 0;
+      }
+      const v = p.seat && p.seat.vehicle, b = v && v.body, air = !!(b && b.airborne);
+      if (air) this.fall = Math.max(this.fall || 0, -(b.vz || 0));
+      else {
+        if (this.air && b && this.fall > 60) this.shake(Math.min(1, 0.25 + this.fall / 400), 0.12 + Math.min(0.2, this.fall / 1200));
+        this.fall = 0;
+      }
+      this.air = air;
+    }
+    dispose() {
+      for (const u of this.unsub) u();
+      this.unsub = [];
+    }
+  };
+
   // src/motor/render/vehicle-draw.js
   var SKID_LIFE = 40;
   var HEADING_STEP = Math.PI / 90;
@@ -33154,7 +33280,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const moving = plain && !still && !stage.depth && v.cls !== "bike";
     const sig = still ? `${b.heading.toFixed(3)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}|${doorSig}|${v.color}|${b.steerAngle.toFixed(2)}` : moving ? `m${Math.round(b.heading / HEADING_STEP)}|${Math.round(look3.roll / 0.03)}|${Math.round(look3.pitch / 0.02)}|${Math.round(b.steerAngle / 0.1)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}${v.lights.reverse ? 1 : 0}|${doorSig}|${v.color}|${wreck ? 1 : 0}` : "";
     const draw = (g, P17) => drawBoxModel(g, P17, v.model, b.x, b.y, z, b.heading, opts);
-    stage.shape(b.x, b.y, z, draw, still || moving ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig } } : void 0);
+    stage.shape(b.x, b.y, z, draw, still || moving ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig }, kind: "car" } : { kind: "car" });
     if (v.cls === "heli") drawHeliExtras(stage, v, o);
     if (o.night && !wreck) drawNightLights(stage, v, z);
     if (siren !== void 0) {
@@ -33262,7 +33388,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   function drawTrain(stage, tr, model, o = {}) {
     for (const c of tr.cars) {
       const m = model, color = o.color || "#9aa2aa";
-      stage.shape(c.x, c.y, c.z, (g, P17) => drawBoxModel(g, P17, m, c.x, c.y, c.z, c.heading, { paint: color, lit: o.night }));
+      stage.shape(c.x, c.y, c.z, (g, P17) => drawBoxModel(g, P17, m, c.x, c.y, c.z, c.heading, { paint: color, lit: o.night }), { kind: "car" });
       if (o.night) {
         stage.light(c.x, c.y, c.z + 10, 70, 0.6);
       }
@@ -34352,13 +34478,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     ["Initial Date", "2026-10-17 (UTC): the first prompt of the planning session"],
     ["SOURCE", "Grand Theft Auto 2 (PC, 1999; DMA Design / Rockstar Games), with depth, features and gameplay drawn from Grand Theft Auto V (2013; Rockstar North); my-3D2dge 2D pixel style; views isometric (primary), top-down (secondary) and side scrolling with depth (Mode 7)"],
     ["GAME ENGINE", "my-3D2dge v0.46.1, commit cfa866aa45474868350cad1a7fc015e612f9305f (2026-10-15), https://github.com/michaelcrosato/my-3d2dge (MIT), vendored and extended by MOTOR"],
-    ["Environment", "Claude Code in Anthropic's managed cloud environment (claude.ai/code remote session, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22; headless Chromium 141 (Playwright) for tests; the game targets desktop browsers"],
-    ["Model and Effort Level", "AI lab: Anthropic. Planning effort: max. Implementation effort: recorded in each run's chat report, which also names the exact model (this environment keeps model identifiers out of repository files)"]
+    ["Environment", "Claude Code (2.1.302 when the run began, 2.1.308 at its end) in Anthropic's managed cloud environment (claude.ai/code remote sessions, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22.22.0; headless Chromium 141 (Playwright 1.56.1) for the tests; the game targets desktop browsers"],
+    ["Model and Effort Level", "AI lab: Anthropic. Effort: max, for the planning and every implementation session (M0-M13), with ultracode for the fan-outs. The exact model is named in each session's chat report (this environment keeps model identifiers out of repository files)"]
   ];
   var ENGINE_SUMMARY = [
-    "Used: the fixed-step loop, scenes and boot; the isometric view and TileMap walls, facades and heights; the depth-sorted renderer; Humanoid rigs and mocap; Mover, actions and perception; bullets, particles and lighting; the chip synth; saves and settings; session replay and the check, filmstrip and replay tools; the stress test's side scrolling with depth (Mode 7) and the shooter kit's one-point lean, generalized by MOTOR.",
-    "Not used: the agent edition, the 3D engine, the side-scroller kit, the whole-map floor bake, the HTML menus (not TV-scaled), the orthographic top-down view, circle bodies for cars, music() for the radio.",
-    "One change: make the world scale - a chunked, streamed TileMap (floors baked per chunk on demand, walls culled to the view, cells with space under bridges)."
+    "Used: the exact fixed-step loop and headless stepping (every test runs the real game in Node); scenes and fades; the pixel primitives, colours, textures and font; TileMap for the buildings; the depth-sorted renderer and the iso view; canvas lighting; particles; Humanoid rigs with mocap, Mover and ACTIONS; sees, hears and Suspicion; Bullets, Attack and Combo; the input with DualSense detection and rumble; ChipAudio; store and settings; the session recorder and the checker. The stress test's side scrolling with depth became MODE 7, and the shooter kit's one-point lean became TOP-DOWN.",
+    "Not used: the agent edition, the 3D engine, the platformer kit, the whole-map floor bake, E.Shell and the HTML menus (not readable at 10 feet), the orthographic top-down view, circle bodies for cars, music() for the radio, GPU lighting. Seven patches, each recorded with its upstream issue text.",
+    "One change: make the world scale - a chunked, streamed TileMap (floors baked per chunk on demand, walls found within the view, bounded caches, solids indexed by place, cells with space under bridges). Four of the seven patches exist only because the map is a city."
   ];
   var ENGINE_CREDIT = [
     "my-3D2dge v0.46.1 by Michael Crosato: https://github.com/michaelcrosato/my-3d2dge. Vendored in vendor/my-3d2dge, patched only where vendor/my-3d2dge/PATCHES.md says, and extended by MOTOR, this game's own layer.",
@@ -36615,7 +36741,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var CROOK = { name: "Getaway driver", color: "#c8c8d0" };
   var ESCAPE = 900;
   var REACH2 = 72;
-  var NEAR3 = 200;
+  var NEAR4 = 200;
   var BEHIND = 56;
   var AHEAD = 150;
   var inJunction = (city, x, y) => city.intersections.some((n) => x >= (n.rect[0] - 1) * city.T && x < (n.rect[2] + 2) * city.T && y >= (n.rect[1] - 1) * city.T && y < (n.rect[3] + 2) * city.T);
@@ -36655,7 +36781,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var smashed = (v) => !v || v.wrecked || !!(v.damage && (v.damage.burning || v.damage.share < 0.5));
   function caught(m) {
     const g = m.tagged("getaway")[0];
-    if (!g || m.dist(g) > NEAR3) return false;
+    if (!g || m.dist(g) > NEAR4) return false;
     return smashed(g) || (g.speed || 0) < 10 && m.dist(g) < REACH2 && m.stageTime - (m.data.t0 ?? 0) > 3;
   }
   var stopIt = (m) => op((mm) => caught(mm) ? { value: true } : void 0, {
@@ -41550,7 +41676,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       });
       const tips = new Onboarding(game2, TIPS2);
       let playT = 0, wheelT = 0;
-      let radio = null, sound = null, sfx = null, crowdNear = 0, crowdT = 0, lastF = 0;
+      let radio = null, sound = null, sfx = null, rumble = null, crowdNear = 0, crowdT = 0, lastF = 0;
       let pilot = null;
       let slow = 1;
       const saves = makeSaves();
@@ -41992,6 +42118,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           sirens: near3.filter((v) => v.siren).map((v) => ({ id: v.id, x: v.x, y: v.y, vx: v.body ? v.body.vx : 0, vy: v.body ? v.body.vy : 0, kind: v.def.role === "police" ? "two" : "wail" }))
         } });
         const T20 = city.T, sp = Math.hypot(p.mover.vx, p.mover.vy);
+        rumble.frame(dt);
         sfx.frame(dt, {
           steps: !pv && !p.dead && !inside ? { speed: sp, surface: city.surfaceAt(Math.floor(p.x / T20), Math.floor(p.y / T20)), wet: weather.wet > 0.3 } : !pv && inside ? { speed: sp, surface: "plaza" } : null,
           horns: near3.filter((v) => v.horn).map((v) => ({ id: v.id, x: v.x, y: v.y, kind: v.def.horn })),
@@ -42078,6 +42205,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (Q("bridge") === "up") bridges.forEach((b) => b.raiseNow());
           tour = Q("tour") === "1" && city.tour.length ? { leg: 0, at: [...city.tour[0]] } : null;
           rec = Q("perf") === "1" ? { update: [], render: [], frames: 0 } : null;
+          stage.profFlush = Q("prof") === "1";
           crowd = Q("crowd") === "1" ? standIns() : null;
           const route2 = !demo && data && data.route || [], into = route2[0] === "interior" ? get("interiors", route2[1] || "bank") : null;
           const slot2 = !demo && data && data.load || Q("load"), loaded = slot2 ? saves.read(slot2).data : null;
@@ -42139,6 +42267,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             const v = fleet.vehicles.find((q) => q.id === id);
             return v ? [v.x, v.y] : null;
           } }).attach();
+          if (rumble) rumble.dispose();
+          rumble = new Rumble(game2, { player: () => crew && crew.ped, off: () => !!demo }).attach();
           career.start({ loaded: !!loaded, newGame: !!(data && data.newGame), mission: route2[0] === "mission" ? route2[1] : null, stage: route2[0] === "mission" ? route2[2] : void 0, level: +links2.query.get("level") || void 0 });
           expose("career", career);
           expose("pilot", (f) => {
@@ -42223,6 +42353,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (sfx) {
             sfx.dispose();
             sfx = null;
+          }
+          if (rumble) {
+            rumble.dispose();
+            rumble = null;
           }
           if (career) {
             career.dispose();
@@ -42550,6 +42684,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             P17.fill(0, 0, P17.W, P17.H, D.tint[0], D.tint[1]);
             P17.fill(0, 0, P17.W, L17.sy0 + 8, "#05030c");
             P17.fill(0, L17.sy1 - 8, P17.W, P17.H - L17.sy1 + 8, "#05030c");
+            P17.fill(0, P17.H / 2 - 24, P17.W, 50, "#05030c", 0.66);
             P17.text(D.text, cx5, P17.H / 2 - 16, D.color, { align: "center", scale: 3 });
             P17.text(down2.kind === "nabbed" ? `BAIL $${TUNE.bailFee}  •  THE GUNS ARE GONE` : `THE HOSPITAL BILL  $${TUNE.hospitalFee}`, cx5, P17.H / 2 + 12, "#f0ecff", { align: "center" });
           }
@@ -43935,10 +44070,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return { y, moto, motoY, tagY, menu: tagY + 18 };
   }
   function drawLogo(P17, top2) {
-    const cx5 = P17.W / 2, Lg = logo(P17, top2);
+    const cx5 = P17.W / 2, Lg = logo(P17, top2), tag = GAME.tagline.toUpperCase(), tw = P17.width(tag), w8 = Math.max(tw, 150) + 28;
+    P17.fill(cx5 - w8 / 2, Lg.y - 6, w8, Lg.tagY + 13 - (Lg.y - 6), "#05030c", 0.62);
     P17.title("GRAND THEFT", cx5, Lg.y, { scale: 2, colors: ["#f4f0ff", "#b8b0d8"], align: "center" });
     P17.title("MOTO", cx5, Lg.motoY, { scale: Lg.moto, colors: ["#ffe066", "#ff7a2a", "#d0306a"], align: "center", depth: 3, depthColor: "#2a0a2a" });
-    P17.text(GAME.tagline.toUpperCase(), cx5, Lg.tagY, UI.dim, { align: "center" });
+    P17.fill(cx5 - tw / 2 - 6, Lg.tagY - 3, tw + 12, 13, "#05030c", 0.5);
+    P17.text(tag, cx5, Lg.tagY, UI.dim, { align: "center" });
     return Lg;
   }
   def("scenes", "title", {
@@ -44312,7 +44449,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             const a = Math.min(1, C8.t * 3, Math.max(0, (C8.title ? 3.2 : 3.6) - C8.t) * 2), y = Math.round(P17.H * 0.3), sc = C8.title ? 3 : 2, sub2 = C8.sub ? C8.sub.toUpperCase() : "";
             if (a > 0) {
               const w8 = Math.max(P17.width(C8.text, sc), sub2 ? P17.width(sub2) : 0) + 20, h = 7 * sc + (sub2 ? 20 : 0) + 10;
-              P17.fill(cx5 - w8 / 2, y - 5, w8, h, "#05030c", 0.55 * a);
+              P17.fill(cx5 - w8 / 2, y - 5, w8, h, "#05030c", 0.72 * a);
               g.globalAlpha = a;
               P17.text(C8.text, cx5, y, C8.title ? "#ffe066" : UI.ink, { align: "center", scale: sc });
               if (sub2) P17.text(sub2, cx5, y + 7 * sc + 6, UI.dim, { align: "center" });

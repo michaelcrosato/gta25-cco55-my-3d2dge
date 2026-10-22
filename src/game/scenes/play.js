@@ -28,7 +28,7 @@
 import { E, def, get, all, expose, BUS, RNG, TUNE, knob, FloorChunks, WorldClock, Weather, Drawbridge, skyAt, indoorSky, InteriorRun, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
   Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, boxDistance, stationLabel, modelOf, SpeedZoom, CityLife, AutoPlayer, roadsOf,
-  Radar, drawWanted, hudLayout, drawSubtitle, setting, toggled, DIFFICULTY, Onboarding, Radio, AudioDirector, SfxMap, PhotoMode, Overlays, devScreen, WEATHERS } from '../../motor/index.js';
+  Radar, drawWanted, hudLayout, drawSubtitle, setting, toggled, DIFFICULTY, Onboarding, Radio, AudioDirector, SfxMap, Rumble, PhotoMode, Overlays, devScreen, WEATHERS } from '../../motor/index.js';
 import { VIGNETTE_PROPS } from '../characters/vignette-props.js';
 import { Career } from './career.js';
 import { cityFor, citySeed } from './lowtown.js';
@@ -77,7 +77,7 @@ export const PLAY = {
     const tips = new Onboarding(game, TIPS); let playT = 0, wheelT = 0;   // (the first-time hints; seconds of play, and at the wheel)
     // the sound (M10, presentation): the radio's stations as timelines (the same each seed), the director playing what
     // the possessed one's vehicle is tuned to and a job's score, the continuous voices and the SFX map; fed each frame
-    let radio = null, sound = null, sfx = null, crowdNear = 0, crowdT = 0, lastF = 0;
+    let radio = null, sound = null, sfx = null, rumble = null, crowdNear = 0, crowdT = 0, lastF = 0;
     let pilot = null;   // (tests and tools: a function (dt, ped) -> Intent in place of the player's controller)
     let slow = 1;   // (a job's slow motion: m.slowmo)
     const saves = makeSaves();
@@ -289,6 +289,7 @@ export const PLAY = {
         vehicles: near.filter(v => v.speed > 5 || v === mine).map(v => ({ id: v.id, x: v.x, y: v.y, speed: v.speed, slip: v.body && v.body.felt ? Math.abs(v.body.felt.slip) * (v.speed > 60 ? 1 : 0) : 0, mine: v === mine })),
         sirens: near.filter(v => v.siren).map(v => ({ id: v.id, x: v.x, y: v.y, vx: v.body ? v.body.vx : 0, vy: v.body ? v.body.vy : 0, kind: v.def.role === 'police' ? 'two' : 'wail' })) } });
       const T = city.T, sp = Math.hypot(p.mover.vx, p.mover.vy);
+      rumble.frame(dt);
       sfx.frame(dt, { steps: !pv && !p.dead && !inside ? { speed: sp, surface: city.surfaceAt(Math.floor(p.x / T), Math.floor(p.y / T)), wet: weather.wet > .3 } : !pv && inside ? { speed: sp, surface: 'plaza' } : null,
         horns: near.filter(v => v.horn).map(v => ({ id: v.id, x: v.x, y: v.y, kind: v.def.horn })),
         rings: inside || career.R.active ? [] : career.available().filter(m => m.giver && m.giver.phone).map(m => { const at = career.giverOf(m); return at && Math.hypot(at[0] - fx0, at[1] - fy0) < 320 ? { x: at[0], y: at[1], gang: m.giver.phone } : null; }).filter(Boolean) });
@@ -326,7 +327,7 @@ export const PLAY = {
         bridges = city.drawbridges.map(b => new Drawbridge(b, city)); cityR.bridges = bridges;
         if (Q('bridge') === 'up') bridges.forEach(b => b.raiseNow());
         tour = Q('tour') === '1' && city.tour.length ? { leg: 0, at: [...city.tour[0]] } : null;
-        rec = Q('perf') === '1' ? { update: [], render: [], frames: 0 } : null;
+        rec = Q('perf') === '1' ? { update: [], render: [], frames: 0 } : null; stage.profFlush = Q('prof') === '1';   // (?prof=1: the depth views' sections timed with their raster: tools/_prof)
         crowd = Q('crowd') === '1' ? standIns() : null;
         const route = (!demo && data && data.route) || [], into = route[0] === 'interior' ? get('interiors', route[1] || 'bank') : null;   // (#interior/bank: in at its first door)
         const slot = (!demo && data && data.load) || Q('load'), loaded = slot ? saves.read(slot).data : null;
@@ -351,6 +352,7 @@ export const PLAY = {
         radio ||= new Radio({ stations: all('stations'), ads: Object.fromEntries(all('radioAds').map(a => [a.id, a])), seed: app.seed });
         if (sound) sound.dispose(); sound = new AudioDirector(game, { radio });
         if (sfx) sfx.dispose(); sfx = new SfxMap(game, () => { const q = hero(), v = q.seat && q.seat.vehicle; return v ? [v.x, v.y] : [q.x, q.y]; }, { isPlayer: id => !!crew.ped && crew.ped.id === id, where: id => { const v = fleet.vehicles.find(q => q.id === id); return v ? [v.x, v.y] : null; } }).attach();
+        if (rumble) rumble.dispose(); rumble = new Rumble(game, { player: () => crew && crew.ped, off: () => !!demo }).attach();   // (the controller's: never in the demo)
         career.start({ loaded: !!loaded, newGame: !!(data && data.newGame), mission: route[0] === 'mission' ? route[1] : null, stage: route[0] === 'mission' ? route[2] : undefined, level: +links.query.get('level') || undefined });
         expose('career', career); expose('pilot', f => { pilot = f || null; }); expose('sound', sound); expose('radio', radio);
         expose('snapshot', () => { const p = hero(), v = p.seat && p.seat.vehicle; return { scene: 'play', view: views.active, hero: [p.x, p.y, p.z].map(v => Math.round(v)), hood: hoodName, time: clock.label(), weather: weather.state,
@@ -367,7 +369,7 @@ export const PLAY = {
         game.stateHash = () => [...crew.order.flatMap(id => { const p = crew.member(id).ped, at = inside && inside.run.player === p ? inside.back : p; return [Math.round(at.x * 8), Math.round(at.y * 8), Math.round(at.z * 8), Math.round(p.health * 10)]; }),
           crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash(), fleet.hash(), ...(life ? life.hash() : []), ...(inside ? inside.run.hash() : []), crew.fund, ...(career ? career.hash() : [])];
       },
-      exit() { photo.exit(); if (sound) { sound.dispose(); sound = null; } if (sfx) { sfx.dispose(); sfx = null; } if (career) { career.dispose(); career = null; } game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (inside) { inside.run.dispose(); inside = null; BUS.unmute('world'); } if (life) { life.dispose(); life = null; } if (auto) { auto.dispose(); auto = null; } for (const u of unsub) u(); unsub = []; },
+      exit() { photo.exit(); if (sound) { sound.dispose(); sound = null; } if (sfx) { sfx.dispose(); sfx = null; } if (rumble) { rumble.dispose(); rumble = null; } if (career) { career.dispose(); career = null; } game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (inside) { inside.run.dispose(); inside = null; BUS.unmute('world'); } if (life) { life.dispose(); life = null; } if (auto) { auto.dispose(); auto = null; } for (const u of unsub) u(); unsub = []; },
       update(dt) {
         const real = dt / Math.max(.05, game.timeScale);
         if (photo.active) {   // photo mode: the world held still, the camera free (nothing below runs: no clock, no traffic, no job)
@@ -539,6 +541,7 @@ export const PLAY = {
         if (toast) P.text(toast.text, cx, L.sy0 + 38, '#ffe066', { align: 'center' });
         if (down && down.t > .6) {   // WRECKED and NABBED: the tint, the bands, the word, what it costs
           const D = DOWN[down.kind]; P.fill(0, 0, P.W, P.H, D.tint[0], D.tint[1]); P.fill(0, 0, P.W, L.sy0 + 8, '#05030c'); P.fill(0, L.sy1 - 8, P.W, P.H - L.sy1 + 8, '#05030c');
+          P.fill(0, P.H / 2 - 24, P.W, 50, '#05030c', .66);   // (a band behind the word and the bill: the street's own signs read through nothing)
           P.text(D.text, cx, P.H / 2 - 16, D.color, { align: 'center', scale: 3 });
           P.text(down.kind === 'nabbed' ? `BAIL $${TUNE.bailFee}  •  THE GUNS ARE GONE` : `THE HOSPITAL BILL  $${TUNE.hospitalFee}`, cx, P.H / 2 + 12, '#f0ecff', { align: 'center' });
         }

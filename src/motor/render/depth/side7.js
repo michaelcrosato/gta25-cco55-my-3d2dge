@@ -207,16 +207,16 @@ export class Side7View {
         for (let b = Dn; b < Df; b += T) {   // tile edges along the rail
           const d0 = Math.max(b, NEAR_D), d1 = Math.min(Df, b + T); if (d1 <= d0) continue; if (d0 > this.farClip) break;
           const u0 = mod(cAlong + b, PER) + (d0 - b);   // the texture's phase: windows stay on their tiles
-          items.push({ k: d1, fn: g => this._face(g, d0, d1, side, side, h, cv, u0, col) });
+          items.push({ k: d1, kind: 'side', fn: g => this._face(g, d0, d1, side, side, h, cv, u0, col) });
         }
       }
       if (Dn >= NEAR_D) {   // the front face, toward the camera
         const sh = shadeOf(-a.f[0], -a.f[1]), cv = faceTexture(s.id, s.t, h, sh, v, night), col = faceColor(s.t, sh), u0 = mod(cAcross + La, PER);
-        items.push({ k: Dn, fn: g => this._face(g, Dn, Dn, La, Lb, h, cv, u0, col) });
+        items.push({ k: Dn, kind: 'front', fn: g => this._face(g, Dn, Dn, La, Lb, h, cv, u0, col) });
       }
       if (this.h > h + 1) {   // the top, seen from above
         const d0 = Math.max(NEAR_D, Dn);
-        items.push({ k: d0, fn: g => {
+        items.push({ k: d0, kind: 'top', fn: g => {
           const fog = this.fogAt(d0), [fr, fg, fb] = this.fogRGB;
           this.stats.quads += texturedFace(g, (u, t) => this._q(Df + (d0 - Df) * t, La + (Lb - La) * u, h), null, 0, 0, 1, 1, s.t.top, fog > .02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
         } });

@@ -1038,3 +1038,21 @@ and where it landed.
   owner is told how to restore the access (install the app for the organization, or reconnect GitHub in claude.ai's
   settings), after which one push carries them all.
 - **Answered:** no. **Landed in:** M8 (part 4c).
+
+## D28 · 2026-10-22 · M13: the controller's rumble, the knob list as a doc, where a frame goes, the look notes
+- **Principle:** PLAN.md 13's M13 (polish, performance, FAN-OUT B, the writing, the release) and 15 (the Definition of
+  Done); 8.1 (the rumble profiles), 7.4 (TUNE: every knob listed), 7.11 (budgets come from measurement), D10 and D20.
+- **Calls:**
+  - **The rumble profiles were never wired** (8.1 lists them; nothing played them): `input/rumble.js` plays them
+    through the engine's `input.rumble`, scaled by the Vibration setting: a crash by how hard, the player's own shots
+    by the weapon (each weapon's `rumble`), a blow the player lands, a blast by its nearness and size, a heartbeat
+    under a quarter of the health, a landing by how hard. Only the player's; never headless; never in the attract mode
+    (a demo would buzz a pad left on the table). The engine's own `hitFx` rumble is off: it can't tell the demo.
+  - **`docs/TUNING.md` is the knob list, generated** (`tools/tuning-doc.mjs`), and `npm test` fails when it is stale
+    (the step "tuning current"), as "dist current" does for the build.
+  - **Draw-side profiling** (`?prof=1`): each section of a depth view's frame, and each kind of item (faces, bodies,
+    cars, deck cells, glows...), timed with its raster paid where it is drawn. Only with the flag: a clock read an
+    item costs.
+  - **The look notes:** the title's tagline and the attract mode's captions on bands (the signs behind them ran into
+    the words); WRECKED and NABBED on a band of their own (a world label showed through the big word).
+- **Answered:** no. **Landed in:** M13 (part 1).

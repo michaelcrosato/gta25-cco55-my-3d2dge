@@ -1,66 +1,52 @@
-# Handoff: GRAND THEFT MOTO in the middle of M8
+# Handoff: GRAND THEFT MOTO at the end of M8
 
 This is where a fresh session picks up the run. `PLAN.md` is still the contract and `GOAL.md` is the prompt that
 started the run. This page says where the run stands, how the repository is worked, and what to watch for. The
-`/goal` prompt that continues the run is at the end. The run paused here at the weekly usage limit (DECISIONS D21,
-its last bullet), with every task it had started either finished or saved.
+`/goal` prompt that continues the run is at the end. It is kept current as the run goes, so a session that stops
+anywhere can resume from it: the work in flight is listed with where it lives.
 
 ## Where it stands
 
-- **Done: M0-M7** (`PROGRESS.md` has each milestone's evidence: commits, tests, shots and verdicts, perf):
-  - the core, input and attract loop; the three views (ISO, TOP-DOWN, SIDE-SCROLL MODE 7) and the Stage; Lowtown with
-    its clock, weather and drawbridge;
-  - the crew on foot, combat and the wheels; the vehicles (7 classes, 13 models, 19 definitions);
-  - the roads and traffic, the crowd on the sidewalks, the emergency services, the AutoPlayer (M5);
-  - crimes and the wanted level, the police by tier, NABBED and WRECKED, the respray and bribes, the gangs with
-    respect and turf (M6);
-  - the view manager, MODE 7's lenses and Auto-rail, the bank with its guards, CCTV and takedowns (M7).
+- **Done: M0-M7 and M9-M12** (`PROGRESS.md` has each milestone's evidence: commits, tests, shots and verdicts, perf):
+  - M0-M7: the core, input and attract loop; the three views and the Stage; Lowtown; the crew on foot, combat and the
+    vehicles; the roads, traffic, crowds and emergency services; the wanted level, police and gangs; the bank;
+  - M9: the 10-foot UI on MOTOR's own layer (D23); M10: sound and the radio (D24); M11: the attract mode, kiosk and
+    phone (D25); M12: the Proving Ground, photo mode, the dev tools, the 15 content recipes and District 2 (D26).
+- **M8, at its last step:** all 14 missions and the side content are in and pass through the bot on seeds 1-3 and
+  through a pad (parts 1-3c); parts 4a-4c fixed what the bot campaign and the full validations found (D27). What is
+  left is the bot campaign to 100% (`tools/bot-campaign.mjs`: 71% in part 4c's run, 57.6% in the run on part 4d's
+  first batch, which the batch below fixes), then M8's acceptance.
+- **The work in flight (2026-10-22), in two worktrees:**
+  - `/home/user/gtm-m9` (branch `m11-attract`, at `e323867` = this branch's head) holds part 4d, uncommitted (D27's
+    "part 4d" calls): a truce reaches every way a gang goes for the player; **crossfire spares the player** (a gang not
+    after them holds its fire and its throws: S1's cars had been shot to wrecks in fights that weren't the player's);
+    **`m.clearSpot`** keeps the bank's door step clear for H2 and H4 (a car left on it had held H4's lobby shut for
+    40 minutes); the AutoPlayer keeps the cars it gave up on (`board()` had forgotten them) and plans a U-turn route
+    when the lane it faces leads nowhere; S2's last Rats are called off when the convoy is jammed with no lane behind it
+    (a softlock); Moto Courier has the other jobs' truce; both races start on their grids (`m.clearTraffic`); and the
+    campaign's tool says where a long mission stands every 5 minutes, takes the player out of a car its teleport can't
+    get them out of, and picks a car the roads take to a start the short way. It is under validation in that tree:
+    `node tools/bot.mjs --all --seeds 1,2,3 --par 3`, then `--all --pad --seeds 1 --par 3`, then the bot gym both ways
+    (`docs/handoff/m8-a2/tools/botgym.mjs`, copied to `tools/_botgym.mjs`), and `node tools/bot-campaign.mjs --seed 1
+    --verbose`; then `npm test` alone (never beside the bot runs: the container was restarted once under that load),
+    the commit "M8 (part 4d)" by its paths, and a fast-forward here. A session that finds this tree gone: the batch is
+    lost with it; start part 4d again from D27's list.
+  - this tree holds M13's first work, uncommitted: the controller's rumble profiles (`input/rumble.js`, PLAN.md 8.1:
+    they had never been wired), `docs/ENGINE-ANALYSIS.md` and `docs/FEEDBACK-FOR-ENGINE.md` (final drafts), `README.md`
+    and `src/about.js` final drafts, `docs/QA-DUALSENSE.md`, `docs/TUNING.md` with `tools/tuning-doc.mjs` (a new
+    `npm test` step), the look notes fixed (the title's tagline, the attract captions, WRECKED and NABBED on bands),
+    draw-side profiling (`?prof=1`, and each depth item's kind timed), and PROGRESS.md's M8-M12 evidence.
+- **Then M13** (PLAN.md 13): the perf pass (ISO about 11.4 ms against 10.4, MODE 7 about 18 against 12.7: D20's levers;
+  measured so far, under load: in MODE 7 the textured faces cost about 6 ms of a 25 ms frame, the bodies about 5, the
+  cars 2, the deck cells 2; three levers tried did not pay and were dropped: the fog folded into the face textures, the
+  floor as one raster, and bodies' kept images scaled between redraws), the shots matrix with a verdict per row,
+  FAN-OUT B's eight reviewers (PLAN.md 13's areas, read-only, each returning failing tests or repro scripts), test:full,
+  the release docs and the Definition of Done.
 - **The pull requests:** michaelcrosato/gta25-cco55-my-3d2dge#1 carried M0-M4 and was merged into `main`. M5 onward is
-  on `claude/compassionate-shannon-h7k7zk`, in the draft michaelcrosato/gta25-cco55-my-3d2dge#2. Keep working there
-  and keep its CI green.
-- **M8, in progress** (missions and the economy; PLAN.md M8, accepted by 8.15 and 8.16):
-  - **part 1:** the staged mission runtime and its ops; the mission bot and the pad pass; the economy (shops,
-    properties, completion); the activity frameworks (jobs, races, MAYHEM, tokens, stunt jumps, hold-ups, random
-    events); the career's interim cards; saves; S1 (Holy Rollers), the reference mission;
-  - **part 1b:** the career's screens read at 10 feet (`docs/media/m8/`);
-  - **part 1c:** the bot campaign (`tools/bot-campaign.mjs`), and `tools/bot.mjs --par`;
-  - **part 2a:** the Harbor Rats chain (R1-R3) from FAN-OUT A2, and the 14 MOTOR bugs that it and its re-runs found;
-  - **part 2b:** the heist finale (H4) and the Lawn Gnomes chain (G1-G3), merged as written; the handoff;
-  - **part 3a** (2026-10-21, D22): the H4 and Gnomes workers' MOTOR backlog applied and validated, H13, G9 and J1
-    done, G5 and G7 settled in content; what the validation turned up fixed with tests (the pad's aim in MODE 7, a
-    pressed trigger's travel, a calm driver's patience with a crowd, a fighter stuck on a parked car, a police car
-    abandoned in the lane, the bot's ram round a queue); four small m pieces for the rest of A2;
-  - **part 3b** (D22): the heist setups H1-H3 merged with the worker's seven requests settled (H14-H20: the bot's
-    brake on a car rolling back, a hooked tow held, `m.inside.run.watch()` and `pass()`, a leash, the stealth bot
-    backing off when seen; H2's bribe is the janitor's staff pass);
-  - **part 3c** (D22): the rest of A2 merged: the jobs, races and MAYHEMs, the tokens, stunt jumps and random
-    events, S2, S3 and the prologue; their 34 requests done or settled (`docs/handoff/m8-a2/motor-requests.md`); a
-    gridlock breaker in traffic; free roam's offers asked only of a stopped car and a marker left once; H4's getaway
-    lane cleared of the alarm's police cars; Firefighter's burning cars proof against a street fight's strays. Every
-    run passed: 96 of 96 on seeds 1-3, 32 of 32 through the pad, the gym 13 of 13 both ways.
-  - **M9, M10 and M11 are done on a side branch**: `m11-attract` in the worktree `/home/user/gtm-m9` (`b1ff7bb` M9,
-    `b2ea884` M10, `86f1852` part 3b merged in, `52b3980` M11; its `npm test` passed at each). It merges into this
-    branch after M8 closes, with every merged mission re-run. Never `git add -A` there: `node_modules` is a symlink.
-
-  **All 14 missions are in:** P0, S1-S3, R1-R3, G1-G3 and H1-H4, with the 6 activities (12 job, race and MAYHEM
-  levels), the 4 random events, 25 tokens and 5 stunt jumps.
-- **Next: finish M8.** `docs/handoff/m8-a2/README.md` is the plan, in five steps:
-  1. ~~the MOTOR backlog from the H4 and Gnomes workers~~ (done in part 3a: `motor-patch.py` applied, D22);
-  2. ~~the groups still to do~~ (all merged in parts 3b and 3c: H1-H3, the jobs, races and MAYHEMs, S2 and S3, P0,
-     the tokens, stunts and random events);
-  3. every merged mission re-run after each MOTOR change (last: part 3c, all green);
-  4. the bot campaign brought to 100%;
-  5. M8's acceptance and evidence.
-- **Remaining fan-out points** (PLAN.md 16): the rest of **A2** at M8, **C** at M9 (the UI screens, optional) and
-  **B** at M13 (the adversarial verification).
-- **Carried to M13** (D20): ISO's and MODE 7's frame-time medians (about 11.4 against 10.4 ms, and about 18 against
-  12.7). D20 lists the levers to pull. D16's three carried reactions all landed (M5, M6, M8).
-- **Checked on 2026-10-21, before the run resumed** (a fresh cloud session, nothing built on it):
-  - the SessionStart hook's setup is complete: Node 22.22.0, the pinned devDependencies, Chromium 141 at
-    `CHROMIUM_PATH`, Python 3 for `motor-patch.py`, and ffmpeg for M11's captures;
-  - `npm test` exits 0 at `54dfabe`: 243 unit and sim tests, 1 skipped as expected;
-  - PR 2's CI is green, and the branch is level with `main` (14 ahead, none behind);
-  - `motor-patch.py` still applies cleanly: a dry run on a copy of `src/` changed its 9 files.
+  on `claude/compassionate-shannon-h7k7zk`, in the draft michaelcrosato/gta25-cco55-my-3d2dge#2. Since 2026-10-21 every
+  push is refused with a 403 (the Claude GitHub App has no access for the owner's organization): the commits wait
+  locally, PLAN.md 6.1's fallback stands in for CI (D27), and one push carries them all once access is back.
+- **Remaining fan-out point** (PLAN.md 16): **B** at M13 (the adversarial review).
 
 ## Read first
 

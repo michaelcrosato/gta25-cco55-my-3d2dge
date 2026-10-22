@@ -105,6 +105,7 @@ export { Radio, stationTimeline } from './audio/radio.js';
 export { AudioX } from './audio/audiox.js';
 export { AudioDirector } from './audio/director.js';
 export { SfxMap, SOUNDS } from './audio/sfxmap.js';
+export { Rumble } from './input/rumble.js';
 export { drawVehicle, drawTrain, VehicleFX, easeLook } from './render/vehicle-draw.js';
 export { CombatFX } from './render/combat-fx.js';
 export { Wheel } from './ui/wheel.js';

@@ -92,11 +92,11 @@ export class CityRenderer {
       if (Math.abs(mx - fx) > radius + 160 || Math.abs(my - fy) > radius + 160) continue;
       for (const l of b.leaves) {
         const G = b.leafGeom(l), ns = b.axis === 'y', along = G.a + G.dir * G.c / 2, across = (G.u0 + G.u1) / 2, cx = ns ? across : along, cy = ns ? along : across;
-        if (stage.onScreen(cx, cy, 0, G.h + 8, Math.max(G.L, G.u1 - G.u0) / 2)) stage.shape(cx, cy, G.h / 2, (g, P) => drawLeaf(g, P, b, l, this.city.painter.leafTexture(l.rect)));
+        if (stage.onScreen(cx, cy, 0, G.h + 8, Math.max(G.L, G.u1 - G.u0) / 2)) stage.shape(cx, cy, G.h / 2, (g, P) => drawLeaf(g, P, b, l, this.city.painter.leafTexture(l.rect)), { kind: 'leaf' });
       }
       if (b.closed) for (const end of [-1, 1]) {
         const ns = b.axis === 'y', gy = ns ? (end < 0 ? y0 * T - 6 : (y1 + 1) * T + 6) : my, gx = ns ? mx : (end < 0 ? x0 * T - 6 : (x1 + 1) * T + 6);
-        if (stage.onScreen(gx, gy, 0, 14, 80)) stage.shape(gx, gy, 0, (g, P) => drawGate(g, P, b, gx, gy));
+        if (stage.onScreen(gx, gy, 0, 14, 80)) stage.shape(gx, gy, 0, (g, P) => drawGate(g, P, b, gx, gy), { kind: 'gate' });
       }
     }
     // the water's glints: blinking highlights on the floor, before anything stands on it
@@ -107,7 +107,7 @@ export class CityRenderer {
       // the door is drawn over the board wherever along it they stand, the wall behind never covers it, and a lamp
       // beside it no longer lifts it over everything)
       const [wx, wy] = WALL_IN[s.side] || [0, 0];   // (the wall behind the board: TOP-DOWN draws the board after its building)
-      for (const [ax, ay, i, n] of signSlices(stage.projector(), s, night)) stage.shape(ax, ay, 0, (g, P) => drawSign(g, P, s, night, i, n), { bias: .01, wall: [ax + wx, ay + wy] });
+      for (const [ax, ay, i, n] of signSlices(stage.projector(), s, night)) stage.shape(ax, ay, 0, (g, P) => drawSign(g, P, s, night, i, n), { bias: .01, wall: [ax + wx, ay + wy], kind: 'sign' });
       if (night) stage.glow(s.x, s.y, s.z, (g, sx, sy, k) => { const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * .75)), true); g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2)); }, { iso: true });   // (neon: lit after the dark)
     }
   }
@@ -120,11 +120,11 @@ export class CityRenderer {
     return dMin < fd - 4 && lMin < fl + 40 && lMax > fl - 40;
   }
   _prop(stage, p, night) {
-    if (p.kind === 'pillar') { stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, PILLAR(p.top), p.x, p.y, 0, 0)); return; }
+    if (p.kind === 'pillar') { stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, PILLAR(p.top), p.x, p.y, 0, 0), { kind: 'pillar' }); return; }
     if (p.broken) {   // knocked over by a vehicle (actors/fleet.js): a lamp lies along the way it was hit, its light out
       const B = p.broken, m = BROKEN[p.kind] || PROP_MODELS[p.kind], a = p.kind === 'lamp' ? B.dir : p.facing || 0;
-      if (p.kind === 'lamp') { const f = Math.min(1, B.t / .45); stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, 0, a, { pitch: -(1 - f) * Math.PI / 2 * .98 })); }
-      else if (m) stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, 0, a, { roll: p.kind === 'bin' ? Math.PI / 2 : 0 }));
+      if (p.kind === 'lamp') { const f = Math.min(1, B.t / .45); stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, 0, a, { pitch: -(1 - f) * Math.PI / 2 * .98 }), { kind: 'prop3d' }); }
+      else if (m) stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, 0, a, { roll: p.kind === 'bin' ? Math.PI / 2 : 0 }), { kind: 'prop3d' });
       return;
     }
     const spr = SPRITES[p.kind];
@@ -134,16 +134,16 @@ export class CityRenderer {
       return;
     }
     if (p.roof && this.city.cutaway && this.city.cutaway.cut.has(p.lot)) return;   // (a building the cut-away drops takes its roof with it)
-    const m = p.kind === 'container' ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0));
+    const m = p.kind === 'container' ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0), { kind: 'prop3d' });
   }
   _deck(stage, { d, c, map }, fade) {
     const x = (c.cx + .5) * T, y = (c.cy + .5) * T, z = Math.max(c.z0, c.z1);
     const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72, a = near ? .3 : 1;
     // (far down a depth view a cell is a few pixels across: its top flat, no railings; ISO's are all near)
     const D = stage.depth, q = D && D.proj(x, y, z), small = !!(q && q[2] * T < DECK_SMALL);
-    stage.shape(x, y, z, (g, P) => drawDeckCell(g, P, d, c, map, a, small), { hides: true });   // (the player shows through it, x-rayed)
+    stage.shape(x, y, z, (g, P) => drawDeckCell(g, P, d, c, map, a, small), { hides: true, kind: 'deck' });   // (the player shows through it, x-rayed)
     // its railings sort on their own, just outside their edge: drawn with the cell, the next cell's top cut them to teeth
-    if (d.railing !== false && !small) for (const e of EDGES) if (!map.has((c.cx + e[0]) + ',' + (c.cy + e[1]))) stage.shape(x + e[0] * T * 1.1, y + e[1] * T * 1.1, z, (g, P) => drawDeckRail(g, P, d, c, e, a), { hides: true });
+    if (d.railing !== false && !small) for (const e of EDGES) if (!map.has((c.cx + e[0]) + ',' + (c.cy + e[1]))) stage.shape(x + e[0] * T * 1.1, y + e[1] * T * 1.1, z, (g, P) => drawDeckRail(g, P, d, c, e, a), { hides: true, kind: 'rail' });
   }
 }
 const WALL_IN = { s: [0, -10], n: [0, 10], e: [-10, 0], w: [10, 0] };   // (from a sign on a building's side to inside its wall)

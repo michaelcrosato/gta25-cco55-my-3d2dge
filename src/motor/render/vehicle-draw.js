@@ -66,7 +66,7 @@ export function drawVehicle(stage, v, o = {}) {
   const sig = still ? `${b.heading.toFixed(3)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}|${doorSig}|${v.color}|${b.steerAngle.toFixed(2)}`
     : moving ? `m${Math.round(b.heading / HEADING_STEP)}|${Math.round(look.roll / .03)}|${Math.round(look.pitch / .02)}|${Math.round(b.steerAngle / .1)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}${v.lights.reverse ? 1 : 0}|${doorSig}|${v.color}|${wreck ? 1 : 0}` : '';
   const draw = (g, P) => drawBoxModel(g, P, v.model, b.x, b.y, z, b.heading, opts);
-  stage.shape(b.x, b.y, z, draw, still || moving ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig } } : undefined);
+  stage.shape(b.x, b.y, z, draw, still || moving ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig }, kind: 'car' } : { kind: 'car' });
   if (v.cls === 'heli') drawHeliExtras(stage, v, o);
   if (o.night && !wreck) drawNightLights(stage, v, z);
   if (siren !== undefined) {   // the bar's lamps: alternating red and blue glows, and a light either side
@@ -119,7 +119,7 @@ function drawHeliExtras(stage, v, o) {
 export function drawTrain(stage, tr, model, o = {}) {
   for (const c of tr.cars) {
     const m = model, color = o.color || '#9aa2aa';
-    stage.shape(c.x, c.y, c.z, (g, P) => drawBoxModel(g, P, m, c.x, c.y, c.z, c.heading, { paint: color, lit: o.night }));
+    stage.shape(c.x, c.y, c.z, (g, P) => drawBoxModel(g, P, m, c.x, c.y, c.z, c.heading, { paint: color, lit: o.night }), { kind: 'car' });
     if (o.night) { stage.light(c.x, c.y, c.z + 10, 70, .6); }
   }
 }

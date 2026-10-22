@@ -52,7 +52,7 @@ export class Overlays {
         if (o.fleet) for (const v of o.fleet.vehicles) if (near(v.x, v.y) && v.toWorld) { const z = (v.z || 0) + 1, q = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([a, b]) => { const w = v.toWorld(a * v.hl, b * v.hw); return pt(w[0], w[1], z); }); for (let i = 0; i < 4; i++) line(q[i], q[(i + 1) % 4], '#ff5ac8'); }
         if (o.bodies) for (const p of o.bodies) if (!p.dead && near(p.x, p.y)) { const r0 = p.r || 6, z = (p.z || 0) + 1, q = []; for (let k = 0; k <= 8; k++) q.push(pt(p.x + Math.cos(k * Math.PI / 4) * r0, p.y + Math.sin(k * Math.PI / 4) * r0, z)); for (let k = 0; k < 8; k++) line(q[k], q[k + 1], '#5ab0ff'); }
       }
-      if (F.perf && o.stats) { const s = o.stats, y = Math.round(r.bh * .42); E.ui.box(g, 4, y, 128, 22, { alpha: .75 }); E.font.text(g, `DRAW ${(+s.renderMs || 0).toFixed(1)} MS  UPD ${(+s.updateMs || 0).toFixed(2)}`, 8, y + 4, '#ffe066'); E.font.text(g, `ITEMS ${s.items || 0}`, 8, y + 12, '#d8e4f0'); }   // (the left edge, clear of the HUD's corners)
+      if (F.perf && o.stats) { const s = o.stats, y = Math.round(r.bh * .42), x = r.bw - 132; E.ui.box(g, x, y, 128, 22, { alpha: .75 }); E.font.text(g, `DRAW ${(+s.renderMs || 0).toFixed(1)} MS  UPD ${(+s.updateMs || 0).toFixed(2)}`, x + 4, y + 4, '#ffe066'); E.font.text(g, `ITEMS ${s.items || 0}`, x + 4, y + 12, '#d8e4f0'); }   // (the right edge between the stars and the vehicle's panel, clear of the HUD's corners and the radar)
       g.restore(); g._c = null;
     });
   }

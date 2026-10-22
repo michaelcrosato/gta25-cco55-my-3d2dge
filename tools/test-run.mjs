@@ -13,6 +13,7 @@ const STEPS = [
   ['vendor', 'node', ['tools/vendor-check.mjs']],
   ['goal-sync', 'node', ['tools/goal-sync.mjs']],
   ['dist current', 'node', ['tools/build.mjs', '--check']],
+  ['tuning current', 'node', ['tools/tuning-doc.mjs', '--check']],   // (docs/TUNING.md is the knob list's)
   ['unit + sim', 'node', ['--test', 'tests/unit/**/*.test.mjs', 'tests/sim/**/*.test.mjs']],
   ['recipes', 'node', ['--test', 'tests/recipes/*.test.mjs']],   // (PLAN.md M12: each docs/CONTENT-GUIDE.md recipe followed to the letter, about a minute)
   ['e2e smoke', 'node', ['tests/e2e/smoke.mjs']],

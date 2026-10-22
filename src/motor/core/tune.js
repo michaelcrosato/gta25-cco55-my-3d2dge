@@ -33,7 +33,7 @@ export function tuneLoad() { const o = E.store.get(KEY, {}) || {}; for (const [i
 export function tuneSave() { const o = {}; for (const k of KNOBS.values()) if (TUNE[k.id] !== k.def) o[k.id] = TUNE[k.id]; E.store.set(KEY, o); return o; }
 /** docs/TUNING.md: one table per section */
 export function tuningMarkdown() {
-  let md = '# Tuning\n\nEvery gameplay number is a knob in `src/game/tune.js`, live in the dev menu (`?dev=1`). This file is generated (`node tools/tuning-doc.mjs`).\n';
+  let md = '# Tuning\n\nEvery gameplay number is a knob, declared beside the code that reads it (MOTOR\'s in `src/motor`, the game\'s in `src/game/tune.js`) and live in the dev menu\'s TUNING pages (`?dev=1`). Overrides are kept apart from the save. This file is generated from the knob list (`node tools/tuning-doc.mjs`; `npm test` checks it is current).\n';
   for (const s of sections()) {
     md += `\n## ${s}\n\n| Knob | Default | Range | What it does |\n|---|---|---|---|\n`;
     for (const k of knobs(s)) md += `| \`${k.id}\` ${k.label} | ${k.def} | ${k.min}..${k.max} | ${k.about} |\n`;

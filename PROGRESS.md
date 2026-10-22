@@ -1,22 +1,20 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M8 is under way again (resumed 2026-10-21 from `docs/HANDOFF.md`). These parts are in:
-- the staged runtime and its ops, the mission bot and the pad pass, the economy, the activity frameworks, and the
-  career's cards and saves (part 1);
-- the career's screens (1b) and the bot campaign (1c);
-- 8 of the 14 missions: S1, the Harbor Rats' R1-R3 (2a), the heist's finale H4 and the Lawn Gnomes' G1-G3 (2b).
-  Each passes through the bot on seeds 1-3 and through a pad;
-- the H4 and Gnomes workers' MOTOR requests, validated, and the four open ones settled (3a, D22).
+Now: M8's last step (2026-10-22). Everything M8 builds is in: the runtime, the economy, the activity frameworks, the
+career's screens and saves, all 14 missions and the side content (FAN-OUT A2, parts 1-3c), every one passing through
+the bot on seeds 1-3 and through a pad. M9-M12 are done (the 10-foot UI, sound and the radio, the attract mode, the
+Proving Ground with photo mode, the dev tools and the content recipes) and merged.
 
 Next:
-- the rest of FAN-OUT A2 (part 3b): H1-H3 and the jobs from their saved work in progress; S2-S3, P0 and the side
-  content;
-- the bot campaign to 100%, then M8's acceptance.
+- the bot campaign to 100% (part 4: what it found so far is fixed and under validation; it stood at 69% in its last
+  full run, with S1 and the level-3 jobs left);
+- M8's acceptance; then M13 (the perf pass, the polish pass, FAN-OUT B, the release docs).
 
-`docs/handoff/m8-a2/README.md` says how. Blockers: none (pushing to GitHub is refused with a 403 since the session
-resumed: the commits wait locally until the owner restores the Claude GitHub App's access). The run started inside the planning session (DECISIONS D5).
-At M4's close it was handed off (D16), and the next session carried it from M5 on the branch
-`claude/compassionate-shannon-h7k7zk` (draft PR 2). A new session picks it up from `docs/HANDOFF.md`'s `/goal`.
+Blockers: pushing to GitHub is refused with a 403 (the Claude GitHub App has no access to the repository for the
+owner's organization) since the session resumed on 2026-10-21: the commits wait locally, and PLAN.md 6.1's fallback
+stands in for CI (DECISIONS D27). The run started inside the planning session (DECISIONS D5). At M4's close it was
+handed off (D16), and the next sessions carried it from M5 on the branch `claude/compassionate-shannon-h7k7zk`
+(draft PR 2). A new session picks it up from `docs/HANDOFF.md`'s `/goal`.
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
@@ -28,12 +26,12 @@ At M4's close it was handed off (D16), and the next session carried it from M5 o
 | M5 Roads, traffic, peds | done | the roads and the traffic (`6e94f04`); the sidewalks, the crowd, its reactions and witnesses, the emergency services, the Marching Mimes, the AutoPlayer core, the soaks and the evidence (this commit) · 184 unit + sim tests, 3 e2e suites, the 10-minute city soak in test:full · ISO at the gate 12-23% faster than M4's build, TOP-DOWN and MODE 7 the same, interleaved (measured with M5's tour stuck at its start: corrected at M6) · `docs/media/m5/` (13 filmstrips, 5 shots) |
 | M6 Wanted, police, gangs | done | the crimes and the wanted level, the police by tier with the Eye, roadblocks and spikes, NABBED and WRECKED, the respray and the bribes, the gangs with respect, turf, cars and turf wars, the radar (`a1a65cb`); what the 10-minute city soak found with gangs and police about, and the gate (this commit) · 201 unit + sim tests (wanted 11, gangs 5), 3 e2e suites, the 5-minute gang sim and both city soaks pass in test:full · ISO and TOP-DOWN the same as M5's build, MODE 7 within the tolerance, interleaved (the tour fixed in both) · `docs/media/m6/` (10 filmstrips) |
 | M7 TOP + SIDE7 + bank | done | the view manager, MODE 7's lens, Auto-rail and sky, the camera rig (`a856add`); the bank with its guards, CCTV, doors and takedowns, the indoor cut-aways, the occluder fixture, the draw levers and the acceptance (this commit) · 220 unit + sim tests (the bank 9), 3 e2e suites (the occluder's self-test), `check.mjs` on `#interior/bank` · TOP-DOWN inside its gate; ISO (about 11.4 against 10.4) and MODE 7 (about 18 against 12.7) carried to M13 (D20) · `docs/media/m7/` (16 shots, the chase strip) |
-| M8 Missions + economy | in progress (paused) | the runtime and its ops, the mission bot and the pad pilot, the economy, the activity frameworks, the career's cards and saves, S1 (`e88f1e2`); the screens at 10 feet (`ddab2bf`); the bot campaign and `--par` (`571b184`); FAN-OUT A2's R1-R3 and the 14 MOTOR fixes they found (`eaf255b`); H4 and G1-G3, the handoff (this commit) · 243 unit + sim tests (1 waiting for the content) · 8 of the 14 missions through the bot on seeds 1-3 and through the pad; the bot gym's 13 hint kinds pass both ways · `docs/media/m8/` (8 shots) |
-| M9 10-foot UI | | |
-| M10 Audio + radio | | |
-| M11 Attract + kiosk | | |
-| M12 Proving Ground, docs | | |
-| M13 Polish + release | | |
+| M8 Missions + economy | in progress | the runtime and its ops, the mission bot and the pad pilot, the economy, the activity frameworks, the career's cards and saves, S1 (`e88f1e2`); the screens at 10 feet (`ddab2bf`); the bot campaign and `--par` (`571b184`); FAN-OUT A2: the Rats (`eaf255b`), H4 and the Gnomes (`4d51758`), the MOTOR backlog (`b4a2344`), H1-H3 (`7e10815`), the jobs, races, MAYHEMs, tokens, stunts, events, S2, S3 and P0 (`5550aad`); the campaign's fixes (`e8a38a7`, `047726b`) · 312 unit + sim tests · all 14 missions and every activity level through the bot on seeds 1-3 (96/96) and through the pad (32/32); the bot gym 13/13 both ways · `docs/media/m8/` (8 shots) · the campaign to 100%: under way |
+| M9 10-foot UI | done | the UI layer and kit, the HUD on it, every screen of 8.18, our own pause, settings that reach play, onboarding, the audit (`b1ff7bb`, D23) · `tools/ui-audit.mjs` 238/238 stops at 1080p and 720p by pad, keyboard and mouse · 268 unit + sim tests (ui 8 + 5) · `docs/media/m9/` (18 shots) · perf: M13's pass, interleaved |
+| M10 Audio + radio | done | GTM-PATCH 5 (the buses), MOTOR's sequencer, composer, radio and voices, four stations, the score cues (`b2ea884`, D24) · unit audio, sim audio (the hash the same with sound), e2e audio (each station's RMS, the music bus, mute, a bounded soak) · 277 tests |
+| M11 Attract + kiosk | done | the Director and its five reels, cards, the camera plan, the watchdog, leaving on any input, the kiosk and phone (`52b3980`, D25) · the soak 30 min x seeds 1-3 headless and 5 min drawn, all pass · director 4, attract sim 18, attract e2e 24 checks · `docs/media/m11/` (11 shots, the Joyride MP4 and GIF) |
+| M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
+| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, D28) · 320 unit + sim tests, 15 recipes |
 
 ## Acceptance log
 
@@ -849,3 +847,229 @@ At M4's close it was handed off (D16), and the next session carried it from M5 o
     test's ped at a curb is deaf to the street now: on the moved city a crime nearby had sent it off before its wait was
     up).
   - Verdict: the eight merged missions play both ways on the fixed MOTOR; the rest of A2 starts from here.
+- **M8 · FAN-OUT A2, the heist's setups (part 3b)** (`src/game/missions/h1-getaway.js`, `h2-blueprints.js`,
+  `h3-big-drill.js`, finished from the `heist-setups` worker's saved work in `docs/handoff/m8-a2/wip/`):
+  - **The missions:** H1 Getaway (the Saints' Zephyr GT out of Club Chrome's window and into the garage; H4 drives
+    it), H2 Blueprints (the vault's plans photographed in the bank's records office, quietly or with the janitor's
+    mop: a staff pass, in and out with no takedown, the bribe PLAN.md 9.4 offers), H3 The Big Drill (the Drill Rig
+    towed from the Construction Site to the Brickyard).
+  - **The worker's seven requests (H14-H20),** each in MOTOR with a test: the bot's idle stop and the AutoPlayer's
+    arrival never hold the brake on a car rolling back; a hooked tow is held through a jam, its end chosen by the
+    parked cars; `m.inside.run.watch()` (a copy of the guards' rounds and the CCTV's sweep) and `pass()`; a leash for
+    a mission's enemies and guards; the stealth bot backs off when an uneasy guard sees it. H2 and H4 read the
+    interior through `watch()`.
+  - **The runs:** H1-H3 gold on seeds 1-3 and through the pad; H2's bribe on seeds 1-3. Every merged mission again:
+    33/33 on seeds 1-3, 11/11 through the pad, the bot gym 13/13 both ways.
+  - Verdict: the heist plays from its first setup to its finale.
+- **M8 · the rest of FAN-OUT A2 (part 3c)** (`src/game/activities/`, `collectibles/`, `stunts/`, `events/`,
+  `missions/s2-confession-booth.js`, `s3-drag-mass.js`, `p0-prologue.js`, from the `jobs`, `saints`, `prologue` and
+  `extras` workers):
+  - **The content:** the jobs at three levels each (Moto Courier, Vigilante, Firefighter), the races (Loop Sprint,
+    Harbor Hustle), the three MAYHEMs, the 25 tokens, the 5 stunt jumps, the 4 random events, S2 Confession Booth
+    (Fender's booth escorted from the club to the chapel), S3 Drag Mass (twice round the Loop in Fender's Zephyr GT)
+    and P0 Two Wheels, No Brakes (Gus's lunch on a borrowed moped: the tutorial).
+  - **Their 34 MOTOR requests,** each done with a test or settled (`motor-requests.md`, D22), among them: a mission
+    point with no height is the ground's; a route's point off the lanes counts, once stopped, as near as the lanes
+    go; `drive.siren`; a spawned car's crew rides in its seats; `place` into another seat; fire's vigor and spread;
+    `kill`'s vehicle hint; `aimable: false`; curb `within`; stunt ramps as landmark decks (kind `ramp`, no lanes);
+    the bot's drive-bys only with a clear line, one press a beat at a prompt, saves kept in memory headless; a
+    gridlock breaker for rings of stopped drivers (`TUNE.gridlock`); free roam's offers only to a slow car, never for
+    the marker the player starts in; H4's getaway lane cleared of the alarm's parked police cars; Firefighter's
+    burning cars take no hurt while their call runs (a turf war's strays had set one off, and the blast chained into
+    the engine).
+  - **The runs** (`node tools/bot.mjs --all`): 96/96 on seeds 1-3 (the 14 missions, the 9 job levels, the 2 races,
+    the 3 MAYHEMs and the 4 events), 32/32 through the pad, the bot gym 13/13 both ways.
+  - **The gate:** `npm test` passes every step, 266 unit and sim tests.
+  - Verdict: the slice's content is all in, and every piece plays both ways.
+- **M8 · the campaign's diagnostics (part 4a):** the bot campaign reached 59.8% on the full content. What held it
+  back, found with a new `--only` filter (those items alone, every mission done) and each run's stage failures in its
+  log, each fixed:
+  - the vehicle pick scored a far Pumper below the starting best, so Firefighter never started, and passed over the
+    player's own vehicle, so its second level found no Pumper either;
+  - a drive-in shop's card (stopping at Spray & Pray) kept the phone shut;
+  - a stealth stage left the player crouched (a toggle), and a crouched ped climbs nothing: 13 roof and ledge tokens
+    were never reached, and the MAYHEMs played crouched. The mission bot stands up once the stealth is over;
+  - a stunt or race with no car near its start takes one from anywhere.
+- **M8 · M9-M12 (part 1) merged in (`4074245`):** two conflicts (the built page, rebuilt; career.js's constants). On
+  another district than Lowtown (the Proving Ground, District 2) the career offers no missions and no activity
+  starts: the prologue's giver stands at a point named `safehouse`, which the Proving Ground's town has too, and the
+  mission bench's bot had walked into it between jobs. `npm test` passes every step with the twelve Proving Ground
+  self-tests.
+- **M8 · a driverless car in the lane, the jobs' clocks, H4's truces (part 4b):**
+  - the DriverBrain goes round a car nobody drives in its lane (a unit whose crew never came back, a wreck) even
+    where the pass runs on through the junction's box beside it, as an assertive driver goes round a unit parked at
+    its scene; with no way round at all it shoves the car aside at a creep after 4 × `TUNE.gridlock` seconds (a sim
+    test covers both);
+  - Moto Courier's level 3 has one red light's grace (22 s); Firefighter's level 3 has level 2's grace;
+  - The Big Withdrawal holds a truce with the three gangs through every stage (a bumped Saints car no longer brings
+    their guns on the Hookline);
+  - the Proving Ground's mission bench: each job takes its car away when it passes (the next job's car had spawned
+    on top of it), the evade job drives across town before its star, the town has its four corners as points of
+    interest, and the bench holds the traffic at 14 cars (no queue at a light with a cop at the door).
+
+  `npm test` passes every step. The full validation after it (`p4b`) failed four runs: S1 on seeds 2 and 3 and S2
+  on seed 2 (the getaway car wrecked) and the bot gym's `follow` through the pad. Part 4c is about them.
+
+- **M8 · a bot with manners, a gang's own job in peace (part 4c, `e323867`, D27):** what the validation after part 4b
+  and the next bot campaigns found, each fixed with a test:
+  - the AutoPlayer looks before it backs or swings out (never into someone on foot), and at a star or more pulls away
+    from a cop on foot at its stopped car (S1 and S2 had been busted in their queues);
+  - wedged 5 s with nothing to wait for, it goes round off the road (H4's Hookline sat 50 s in a corner through the
+    pad);
+  - a delivery that must arrive whole is driven with care, and the bot holds its fire with a bystander in its line;
+  - a car nobody drives gives when the gridlock breaker shoves it (a car parked broadside had stood like a wall), but
+    never a job's car (H4's roadblock, shoved off its lane, had put the Hookline's hook-up point off the Loop's deck);
+  - a mission's own gang leaves the player be while it runs (the campaign reaches S1 with the Saints hostile);
+  - `m.standDown('fire')`: Firefighter holds the city's own engine off (it had come to the same fires and jammed the
+    street with the player's);
+  - the campaign's tool: a mission past its cap is quit (it had run on into the next item), and each failure says
+    what hurt the player and their vehicle, by source.
+
+  The runs on this MOTOR: 96/96 on seeds 1-3, 32/32 through the pad, the bot gym 13/13 both ways; `npm test`: 319
+  unit and sim tests, 15 recipes, every step passed. The campaign on it reached 71% (S1 against the hostile Saints, the
+  level-3 jobs, the races and two stunts left: part 4d).
+
+- **M9 · section 8.18, the UI layer and the kit (`b1ff7bb`, D23):** the HUD and every menu draw on MOTOR's own
+  canvas (`#ui`) at the HUD size's scale (Standard is the game's S, Large S + 1, Huge S + 2, never under 320 × 180 UI
+  pixels), in the 5 × 7 font only, inside the 5% safe area. The kit: Pen (recorded for the audit), List (6 a page at
+  most, paged "2/4"), Tabs (L1/R1), Cards, toggle, slider and choice rows, the focus frame (2 px, pulsing, lifted),
+  the glyph legends, a sound on move, confirm, back and error. Verdict: one kit for every screen.
+- **M9 · the screens:** the title over a live night fly-over of Lowtown (CONTINUE, NEW GAME, LOAD, SETTINGS, EXTRAS
+  with the Proving Ground, Credits & About and the field guide); the pause (MAP, BRIEF, STATS, SETTINGS, HELP; ○
+  resumes; QUIT asks first); the big map (pan, zoom, the legend, a waypoint, the filter; the GPS line on the radar);
+  the settings in five tabs (paged rebinding per context with capture, the layout in glyphs, Sharp MODE 7, the HUD
+  size, subtitles, colourblind markers, the speedometer, difficulty, aim assist, autosave, hold or toggle); load and
+  save as slot cards; the phone (CONTACTS, TEXTS, JOBS, SNAP, SETTINGS); the shops, the job card, JOB DONE (the medal
+  and the cash big) and JOB BLOWN; NABBED and WRECKED; Credits & About (the Source Information, the engine analysis,
+  the engine's credit and MIT notice); first-time hints for 13 verbs. Our own pause is read in the step (the hash
+  stands still under it) and the engine's auto-pause is handed to it.
+- **M9 · the audit** (`node tools/ui-audit.mjs`, `docs/ui-audit.md`): 238 stops, 238 pass: 51 by pad, 51 by keyboard
+  and 17 by mouse at each of 1920 × 1080 and 1280 × 720 (the focus seen, 6 items a page at most, scale 1 or more,
+  every glyph resolved, inside the safe area). Verdict: the audit is clean at 1080p and 720p, and the controller-only,
+  keyboard-only and mouse-only passes reach every screen.
+- **M9 · the tests:** `tests/unit/ui.test.mjs` (8), `tests/sim/ui.test.mjs` (5); `npm test` passes every step, 268
+  tests with 1 skipped until the content.
+- **M9 · the shots** (`docs/media/m9/`, 18, from `dist/index.html`):
+  - `title-1080p.png`, `title-720p.png`: the logo and the menu over the fly-over, legible at both sizes. Look note
+    (M13): the tagline has no backing, and a neon sign in the fly-over runs into its end;
+  - `hud-car-gps-1080p.png`, `hud-huge-1080p.png`: the HUD in a Medic with five stars, the GPS line on the radar; the
+    Huge size keeps every corner inside the safe area;
+  - `pause-map-1080p.png`, `pause-map-720p.png`, `pause-map-zoom-mouse-1080p.png`: the big map with its legend and
+    the glyphs of each device (the mouse shot zoomed to 150%);
+  - `pause-stats-1080p.png`: the stats as cards (shot before the content: it says MISSIONS 0/8; M13 re-shoots it);
+  - `settings-display-1080p.png`, `rebind-capture-1080p.png`, `save-1080p.png`: the tabs and rows, the capture
+    prompt with its cancel, three slot cards;
+  - `phone-1080p.png`, `phone-720p.png`, `shop-1080p.png`, `job-done-1080p.png`, `weapon-wheel-1080p.png`,
+    `wrecked-1080p.png`, `side7-sharp-1080p.png`: the phone, a diner's menu with FULL beside each row, the medal and
+    the bonus objectives, the wheel's eight slots, WRECKED with the hospital bill, Sharp MODE 7 at night. Look note
+    (M13): a world label (SAFEHOUSE) shows over WRECKED.
+
+  Verdict: every screen reads at 10 feet; the two look notes go to M13's polish pass.
+- **M10 · section 8.17, audio and radio (`b2ea884`, D24):** GTM-PATCH 5 hands MOTOR the engine's music, sfx and
+  master buses (`audio.bus`, in PATCHES.md and PATCHES.json, tested), so the volume settings and mute hold for every
+  sound. MOTOR's audio: the note syntax, a look-ahead sequencer on any audio context (per-sequence timelines, a voice
+  cap), the composer (each station's genre and each score cue from a seed: the same songs every game), the radio's
+  timelines on the save's play clock (songs, DJ lines, ads, jingles, the talk show's calls, as subtitles), the
+  continuous voices (engines, sirens, the rain and the street), the director (the station and a job's score on the
+  music bus, the radio ducked under a cue), the SFX map from the BUS. The content: four stations (CRASH FM, WHEELZ,
+  NEON DRIVE and LOWDOWN TALK) with their songs, DJs, six ads and jingles; the title's theme; chase and
+  tension cues in R1, R2, G2 and H4.
+- **M10 · the tests:** `tests/unit/audio.test.mjs` (notes, the composer, the radio, the sequencer, the SFX map);
+  `tests/sim/audio.test.mjs` (headless hears nothing; the hash is the same with sound); `tests/e2e/audio.mjs` in
+  Chromium: each station's first 10 s rendered offline is not silent (RMS: CRASH FM 0.078, WHEELZ 0.078, NEON DRIVE
+  0.034, LOWDOWN TALK 0.048), the radio is heard on the engine's music bus (peak RMS 0.075), mute silences the master bus,
+  the radio's own volume holds (0.0001 at 0), the live voices stay bounded over 20 s (7-8 voices, none dropped, the
+  same count in both halves); `test:full` adds a 10-minute soak. `npm test`: 277 tests, 1 skipped. Verdict: every
+  station plays, and all sound goes through the engine's buses.
+- **M11 · section 8.20, the attract mode (`52b3980`, D25):**
+  - **In:** 9.9 s idle on the title stays, 10.0 s goes; a menu opened from the title counts as activity, a rebind
+    waiting for its button doesn't. A kiosk or a phone goes at once.
+  - **Out, within one step, on any input:** a key, an unbound key, a click, a mouse move, the wheel, a pad's button,
+    a stick, a trigger (in the sim with the raw state; in Chromium with real events and a stand-in pad). The title's
+    idle clock restarts, and what woke it does nothing there.
+  - **The show:** MOTOR's Director plays the five reels (Joyride, Hot Pursuit, Turf War, Switch!, Heist Tease), each
+    in a fresh world and played by the mission bot, with a card every two or three (the title, HOW TO PLAY on a
+    DualSense with every button's job, LOWTOWN'S MOST WANTED), a camera plan over the three views and the bank,
+    captions, the DEMO bug and PRESS ANY BUTTON; a watchdog cuts a stalled reel.
+  - **The soak** (`node tools/attract-soak.mjs`), 30 virtual minutes a seed, headless:
+
+    | Seed | Reels | Ended / cut (at its time, stalled or failed) | Views, bank | Stars, explosions, switches | Cards | Heap growth |
+    |---|---|---|---|---|---|---|
+    | 1 | 79 (15-16 of each) | 68 / 10 | all three, yes | 4, 61, 46 | 31 | 5.9% |
+    | 2 | 80 (16 of each) | 62 / 17 | all three, yes | 5, 75, 48 | 31 | 4.5% |
+    | 3 | 74 (14-15 of each) | 58 / 15 | all three, yes | 4, 47, 45 | 29 | 2.4% |
+
+    And 5 minutes drawn in Chromium (`--chromium`): 15 reels (3 of each), 12 ended and 2 cut, all three views and the
+    bank, 3 stars, 11 explosions, 6 switches, 5 cards, heap growth 3.9%, no errors. Its first run found a draw crash
+    (an interior lot's flat walls with no rect), fixed in MOTOR before the commit.
+  - **Kiosk and mobile** (`tests/e2e/attract.mjs`, a 390 × 844 phone at 3x with touch): it boots into the demo; no
+    touch controls; a MENU button opens sound, the volume, the view and About; taps never leave; a controller or a
+    key opens the title.
+  - **The tests:** `tests/unit/director.test.mjs` (4), `tests/sim/attract.test.mjs` (18), `tests/e2e/attract.mjs`
+    (24 checks); `test:full` runs both soaks. `npm test`: 297 tests, 1 skipped.
+  - **Capture:** `tools/record-attract.mjs` (ffmpeg): `docs/media/m11/attract-joyride.mp4` and `.gif`.
+  - **The shots** (`docs/media/m11/`, 11): the three cards (`card-title`, `card-howto`, `card-wanted`), a frame of
+    each reel (`joyride-deck`: MODE 7 on the Loop's deck; `pursuit-respray`: three stars at night in the rain;
+    `turf-shootout`; `switch-viv`: TOP-DOWN with Viv's line as a subtitle; `heist-getaway`), and the phone
+    (`phone-street`, `phone-kiosk`, `phone-menu`). Look note (M13): a reel's caption has no backing, and a
+    billboard runs into TURF WAR. Verdict: the show reads as the game playing itself, every view and the bank in it.
+- **M12 · section 8.22, photo mode (part 1, `13af740`, D26):** a free camera off the simulation, the Snap's frame for
+  `m.photo`, a PNG saved; sim tests (the world held still while the camera pans, zooms and turns through the views, then
+  all of it put back; a photo completes a photo objective; the phone's SNAP opens it) and a Chromium e2e (Space
+  saves a PNG). `photo-mode.png`: the legend (SNAP, ZOOM, VIEW, BACK) over a park, the HUD gone.
+  Verdict: works.
+- **M12 · the dev tools:** the dev menu (`?dev=1`, the backquote, the pause's DEV row): TUNING pages (every knob a
+  slider), OVERLAYS (lanes, junctions, sidewalks, minds, boxes, perf), WORLD (hour, weather, stars, teleport, spawn),
+  GO (any mission at a stage, an activity at a level, a zone). Shots: `dev-tuning.png` (the camera page), and
+  `dev-overlays-iso.png` and `-side7.png` (the lanes and the perf box, which part 2 moved to the right edge, off
+  the radar). Verdict: works.
+- **M12 · section 8.23, the Proving Ground** (`tests/e2e/selftest.mjs`, each zone's `?selftest=1`):
+
+  | Zone | Its self-test |
+  |---|---|
+  | the handling ground (a district of its own) | stops from 180 lengthen dry to ice (33 < 42 < 55 < 65 < 124 < 193 u); the skidpad (17); the slalom clean; off the kicker at 16 u and landed on its wheels; the boat 182 u in 3 s |
+  | the traffic and crowd lab | 8 cars moving, 49 on the sidewalks, 9 junctions crossed |
+  | the combat range | each weapon's damage a second as specified (fists 1.03, the slugger 1.06, the rest 1.00); 9 dummies; a lane target in reach |
+  | the wanted sandbox | two stars bring 2 units; cleared, the sirens go off |
+  | the mission bench | one job per objective kind, 13/13 passed (reach, enter, deliver, follow, chase, kill, protect, collect, photo, evade, race, timer, choice) |
+  | the stress pad | 45 cars in traffic, a crowd of 268, 52 vehicles; draw 12.7 ms, update 3.9 ms (medians) |
+  | the UI gallery and jukebox | 31 screens × 4 glyph sets audited, 124/124 clean; 4 stations, 31 segments with music; 9 songs; 50/50 effects |
+  | the views, the garage, the occluder, the scale yard, the pad | each view draws its bodies; all 19 vehicles sound and within spec; MODE 7's block hides the marker whole; a lap of 1,573 u, 35 chunks, draw 10.2 ms; the pad 1,650 u at up to 226 u/s, in one piece |
+
+  The shots (`docs/media/m12/`): `handling-skidpad`, `handling-strips`, `handling-slalom-top`, `handling-boat`,
+  `traffic-junctions`, `range`, `wanted`, `bench`, `stress`, `ui-gallery`, `views-iso`, `views-side7`, `garage`,
+  `scale`, each with its zone's panel (the zone, draw and update, its counts). Verdict: every zone works and says
+  what it is testing.
+- **M12 · the handoff docs and District 2 (part 2, `d5fd83a`, D26):**
+  - **The recipes:** `docs/CONTENT-GUIDE.md` has one per content type (vehicle, variant, weapon, ped, outfit, gang,
+    mission, activity, station, song, shop, property, interior, reel, district), each naming its test. Each
+    `tests/recipes/<type>.test.mjs` follows its recipe to the letter: its fixture is the one file the recipe
+    describes, bundled in as if at the path the recipe names (`loadGame` and the bundle take `extra`; nothing else is
+    edited), and the test proves it in play (the fleet drives the new car, the bot passes the new mission and both
+    levels of the new job, Threads sells the new outfit, the new district loads...). 15/15 pass in `npm test`.
+  - **What the recipes needed:** songs are content (`def('songs')` in the note syntax, played on their station);
+    a prop may be painted (`paint`) and a district may hang a sign on a wall (`signs`, drawn only: the simulation is
+    the same), so Lowtown has its "BRIDGE CLOSED: GNOMES ON STRIKE" at Loop Avenue's west end (PLAN.md 9.1).
+  - **District 2:** the block behind the closed bridge (48 × 40: the bridge's barricaded span with its parapets and
+    the strikers' hoarding, Loop Avenue on the west, four streets, three doors), loaded only with `?dev=1` (the dev
+    menu's GO, or `&district=district2`); `tests/sim/dev.test.mjs` covers it. Shots: `district2-bridge-iso.png`,
+    `district2-bridge-side7.png` (the span, the sign, the hoarding) and `lowtown-closed-bridge.png` (the sign on
+    Lowtown's side). Verdict: a new district is content.
+  - **The gate:** `npm test` passes every step, 312 unit and sim tests, 15 recipes, the twelve self-tests.
+- **M13 · the rumble, the knob list, where a frame goes, the look notes (part 1, D28):**
+  - **The rumble profiles** of PLAN.md 8.1 play through the engine's `input.rumble` (`src/motor/input/rumble.js`):
+    a crash by how hard, the player's shots by the weapon, a blow landed, a blast by its nearness, a heartbeat under a
+    quarter of the health, a landing; scaled by the Vibration setting; never headless or in the attract mode
+    (`tests/unit/rumble.test.mjs`).
+  - **`docs/TUNING.md`:** every knob, generated by `tools/tuning-doc.mjs`; `npm test`'s "tuning current" fails when it
+    is stale.
+  - **`?prof=1`:** a depth view's frame timed by section and by kind of item (faces, bodies, cars, deck cells,
+    glows), for the perf pass.
+  - **The look notes from M9 and M11:** the title's tagline and the attract mode's captions on bands; WRECKED and
+    NABBED on a band of their own.
+  - **The docs begun:** `docs/ENGINE-ANALYSIS.md`, `docs/FEEDBACK-FOR-ENGINE.md` (the engine's FEEDBACK-LOG format),
+    `docs/QA-DUALSENSE.md` (the 15-minute checklist with a real pad), README.md's Source Information and the engine
+    analysis in a section of its own, the Credits & About screen's text (`src/about.js`).
+  - **The gate:** `npm test` passes every step: 320 unit and sim tests, 15 recipes, the e2e suites, the engine's
+    check outdoors and in the bank.
+

@@ -95,6 +95,7 @@ export class Stage {
    *  depth cameras; o.player [x, y, z] (the focus by default) is who the cut-away keeps in sight. Presentation only:
    *  the simulation never reads it */
   begin(r, o = {}) {
+    this._t0 = typeof performance !== 'undefined' ? performance.now() : 0;   // (draw-side profiling: the scene's queuing, begin to end)
     this.r = r; this.items.length = 0; this.lamps.length = 0; this.glows.length = 0; this.floorFx.length = 0; this.marks.length = 0; this.focus = o.focus || null; this.isoP = null; this.frameNo++;
     const now = this.game.real, dt = E.clamp(now - (this.last || now), 0, .1); this.last = now; this._dt = dt;
     const d = this.depth, W = this.world, sky = this.skyNow;
@@ -272,7 +273,7 @@ export class Stage {
     if (!d) { this.glows.push([x, y, z, draw, o.reflect || null, !!o.always]); return; }
     if (o.iso) return;
     if (o.always) { this.marks.push(() => { const q = d.proj(x, y, z); if (q) this._glowAt(this.r.ctx, draw, q); }); return; }
-    this.items.push({ k: d.depth(x, y) - .01, fn: g => { const q = d.proj(x, y, z); if (q) this._glowAt(g, draw, q); } });
+    this.items.push({ k: d.depth(x, y) - .01, kind: 'glow', fn: g => { const q = d.proj(x, y, z); if (q) this._glowAt(g, draw, q); } });
   }
   // a glow at its screen point; under Sharp MODE 7 drawn px times over (its pixels the game's size on screen)
   _glowAt(g, draw, q) {
@@ -284,7 +285,7 @@ export class Stage {
   glowLine(a, b, draw) {
     const d = this.depth;
     if (!d) { this.glows.push([a[0], a[1], a[2], (g, sx, sy, k) => { const B = this.r.w(b[0], b[1], b[2]); draw(g, [sx, sy], B, k); }, null]); return; }
-    this.items.push({ k: Math.min(d.depth(a[0], a[1]), d.depth(b[0], b[1])) - .02, fn: g => { const A = d.proj(a[0], a[1], a[2]), B = d.proj(b[0], b[1], b[2]); if (A && B) draw(g, A, B, A[2]); } });
+    this.items.push({ k: Math.min(d.depth(a[0], a[1]), d.depth(b[0], b[1])) - .02, kind: 'glow', fn: g => { const A = d.proj(a[0], a[1], a[2]), B = d.proj(b[0], b[1], b[2]); if (A && B) draw(g, A, B, A[2]); } });
   }
   /** a light this frame (a muzzle flash, a fire, a room's lamp): the engine's canvas lights in ISO (o: its options:
    *  { color }), MOTOR's pools in TOP and MODE 7 */
@@ -300,7 +301,7 @@ export class Stage {
     const fake = { view: { scale, pitchDeg: 10, isTop: false }, ix: 0, iy: 0, bw: r.bw, bh: r.bh,
       w: (x, y, z) => { const q = d.proj(x, y, z); return q ? [q[0], q[1]] : [-9999, -9999]; },
       visible: (x, y, z) => self.onScreen(x, y, z, z, 12),
-      queue: (x, y, z, fn, o) => self.items.push({ k: d.depth(x, y) - ((o && o.bias) || 0) * .01, fn }),
+      queue: (x, y, z, fn, o) => self.items.push({ k: d.depth(x, y) - ((o && o.bias) || 0) * .01, kind: 'fx', fn }),
       decal: fn => self.floorFx.push(g => fn(g)), overlay: fn => r.overlay(fn), groundRing() {} };
     this._partDraw(fake);
   }
@@ -420,7 +421,7 @@ export class Stage {
     const q = kept && d.proj(x, y, z), big = q && kept.r * q[2] > KEPT_MAX;
     let k = d.depth(x, y) - (o && o.bias || 0);
     if (d === this.top && o && o.wall) k = Math.min(k, this._spanKey(o.wall[0], o.wall[1], k));   // (TOP-DOWN: a sign drawn after the building it hangs on)
-    this.items.push({ k, fn: kept && !big ? g => this._keptShape(g, d, d.view(1), x, y, z, draw, kept) : g => draw(g, d) });
+    this.items.push({ k, kind: (o && o.kind) || 'shape', fn: kept && !big ? g => this._keptShape(g, d, d.view(1), x, y, z, draw, kept) : g => draw(g, d) });
   }
   // a kept shape: its image, redrawn when the view, its size on screen (depth views) or the frame's skew changed
   _keptShape(g, P, view, x, y, z, draw, kp) {
@@ -449,7 +450,7 @@ export class Stage {
     const p = E.prop(name, o.size ? { size: o.size } : undefined); if (!p) return;
     const spr = p.frames[0];
     if (o.light && p.light) this.lamps.push([x, y, z, o.lightRadius || 70]);
-    this.items.push({ k: d.depth(x, y), fn: g => {
+    this.items.push({ k: d.depth(x, y), kind: 'prop', fn: g => {
       const q = d.proj(x, y, z); if (!q) return;
       const s = q[2] / Math.SQRT2, w = spr.w * s, h = spr.h * s; if (h < 1) return;   // (sprites are drawn for ISO's sqrt 2 pixels a unit)
       g.drawImage(spr.cv, Math.round(q[0] - w / 2), Math.round(q[1] - h), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
@@ -491,24 +492,34 @@ export class Stage {
     const d = this.depth; if (!d) return;
     const r = this.r, g = r.ctx, W = this.world, S = W.floor ? W.floor.size : 256;
     g.save(); g.imageSmoothingEnabled = false; d.stats.quads = 0;
+    const flush = this.profFlush ? () => g.getImageData(0, 0, 1, 1) : () => {};   // (?prof=1: each section's raster paid where it is drawn, not at the present)
+    const clock = typeof performance !== 'undefined' ? () => performance.now() : () => 0; flush();
+    const T = [clock()], mark = () => { flush(); T.push(clock()); };   // (where the frame goes: draw-side profiling, read by tools/perf.mjs)
+    const queued = this._t0 ? T[0] - this._t0 : 0;
     let spans = [];
     if (d === this.side7) {
-      d.drawSky(g, Math.max(0, d.P.hy), W.backdrop, r);
+      d.drawSky(g, Math.max(0, d.P.hy), W.backdrop, r); mark();
       if (W.floor) { const [i0, j0, i1, j1] = d.wedge(S); for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W.floor.canvas(i, j); W.floor.pump(d.x, d.y); d.drawFloor(g, W.floor); }
-      this._floorFx(g, d, Math.max(0, Math.floor(d.P.hy)));
+      mark(); this._floorFx(g, d, Math.max(0, Math.floor(d.P.hy))); mark();
       if (this.spans) { const [i0, j0, i1, j1] = d.wedge(S); spans = this.spans.range(i0, j0, i1, j1); d.spanItems(spans, this.items, this.focus, W.night); }
     } else {
-      g.fillStyle = d.bg || '#0a0812'; g.fillRect(0, 0, r.bw, r.bh);
+      g.fillStyle = d.bg || '#0a0812'; g.fillRect(0, 0, r.bw, r.bh); mark();
       if (W.floor) { const [i0, j0, i1, j1] = d.range(S, S / 2); for (let j = Math.max(0, j0); j <= j1; j++) for (let i = Math.max(0, i0); i <= i1; i++) W.floor.canvas(i, j); W.floor.pump(d.x, d.y); d.drawFloor(g, W.floor); }
-      this._floorFx(g, d, 0);
+      mark(); this._floorFx(g, d, 0); mark();
       if (this.spans) { const [i0, j0, i1, j1] = d.range(S); spans = this.spans.range(i0, j0, i1, j1); d.spanItems(spans, this.items, W.night); }
     }
-    this._depthParticles(d);
+    this._depthParticles(d); mark();
     // far to near; at equal keys the actor last (it stands in front of the face it touches)
     this.items.sort((a, b) => b.k - a.k || (a.actor ? 1 : 0) - (b.actor ? 1 : 0));
-    let actors = 0; for (const it of this.items) { it.fn(g); if (it.actor) actors++; }
-    if (this.game.lights && this.game.lights.enabled) this._depthLight(g, d);
-    if (this.skyNow) this.wfx.draw(g, d, r.bw, r.bh, this.skyNow);
+    let actors = 0, ta = 0; const each = !!this.profFlush, by = each ? (d.stats.byKind ||= {}) : null;   // (each item timed by its kind only when profiling: a clock call an item costs)
+    for (const it of this.items) {
+      if (each) { const t = clock(); it.fn(g); flush(); const dt = clock() - t, kd = it.actor ? 'actor' : it.kind || 'other'; by[kd] = (by[kd] || 0) + dt; by[kd + '#'] = (by[kd + '#'] || 0) + 1; if (it.actor) { ta += dt; actors++; } }
+      else { it.fn(g); if (it.actor) actors++; }
+    }
+    mark(); if (this.game.lights && this.game.lights.enabled) this._depthLight(g, d);
+    mark(); if (this.skyNow) this.wfx.draw(g, d, r.bw, r.bh, this.skyNow); mark();
+    const M = d.stats.ms || (d.stats.ms = { frames: 0, queue: 0, sky: 0, floor: 0, floorFx: 0, spans: 0, items: 0, light: 0, weather: 0 });
+    M.frames++; M.queue += queued; M.actors = (M.actors || 0) + ta; ['sky', 'floor', 'floorFx', 'spans', 'items', 'light', 'weather'].forEach((k, i) => { M[k] += T[i + 1] - T[i]; });
     this.fade.draw(g, this._dt);   // (the last view dissolving: over the world, under the marks and the HUD)
     for (const f of this.marks) f();   // (glows that always show: a lock-on's mark, over the dark and the weather)
     g.restore(); g._c = null;

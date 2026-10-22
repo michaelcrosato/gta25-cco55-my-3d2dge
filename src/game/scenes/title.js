@@ -20,10 +20,14 @@ function logo(P, top = P.safe[1] + 4) {
 }
 /** the logo, GRAND THEFT over MOTO and the line under it, from y = top (the title's; the attract mode's title card) */
 export function drawLogo(P, top) {
-  const cx = P.W / 2, Lg = logo(P, top);
+  const cx = P.W / 2, Lg = logo(P, top), tag = GAME.tagline.toUpperCase(), tw = P.width(tag), w = Math.max(tw, 150) + 28;
+  // (the logo on a dark panel, the line under it darker still: the fly-over's neon signs, drawn there in the city,
+  // never run into the words)
+  P.fill(cx - w / 2, Lg.y - 6, w, Lg.tagY + 13 - (Lg.y - 6), '#05030c', .62);
   P.title('GRAND THEFT', cx, Lg.y, { scale: 2, colors: ['#f4f0ff', '#b8b0d8'], align: 'center' });
   P.title('MOTO', cx, Lg.motoY, { scale: Lg.moto, colors: ['#ffe066', '#ff7a2a', '#d0306a'], align: 'center', depth: 3, depthColor: '#2a0a2a' });
-  P.text(GAME.tagline.toUpperCase(), cx, Lg.tagY, UI.dim, { align: 'center' });
+  P.fill(cx - tw / 2 - 6, Lg.tagY - 3, tw + 12, 13, '#05030c', .5);
+  P.text(tag, cx, Lg.tagY, UI.dim, { align: 'center' });
   return Lg;
 }
 
