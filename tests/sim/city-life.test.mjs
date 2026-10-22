@@ -224,3 +224,15 @@ test('a car the player got out of is towed once out of sight: one parked when th
   const again = F.vehicles.filter(v => v.home && v !== parked && !v.driver)[0]; BUS.emit('vehicleExit', { vehicle: again.id, actor: P.id, seat: 0 }); BUS.emit('vehicleEnter', { vehicle: again.id, actor: P.id, seat: 0 });
   assert.equal(again.leftT, undefined, 'got back into: the tow\'s clock off');
 });
+
+test('a far car that runs past its goal on its way\'s last lane stops there, arrived: it never stands at the lane\'s end with its speed running on (a Medic braking for its stop behind a car had, and the soak\'s queue behind it stood for good)', async () => {
+  const { game, gtm } = await play('greasy-spoke'), T = gtm.life.traffic, M = gtm.motor, fp = T.fp, G = gtm.life.graph;
+  const c = T.cars.find(q => q.v.kinematic && !q.duty && q.brain.here && q.brain.here.k === 'lane' && G.lanes[q.brain.here.id].len > 200 && q.brain.s > 60 && q.brain.s < G.lanes[q.brain.here.id].len - 120 && fp.d(q.v.x, q.v.y) > M.TUNE.fpFull + 80 && fp.d(q.v.x, q.v.y) < M.TUNE.fpSpawnIn - 60);
+  assert.ok(c, 'a far car mid-lane');
+  const b = c.brain, lane = b.here.id, L = G.lanes[lane], s0 = b.s;
+  b.reset(L, s0); b.setRoute([lane], { lane, s: s0 - 20 }); b.speed = 80;   // (its stop 20 behind it, the lane the end of its way)
+  for (let k = 0; k < 6 * 120; k++) game.advance(1 / 120);
+  assert.ok(b.arrived, 'arrived');
+  assert.ok(c.v.speed < 1 && b.speed < 1, `stopped (${b.speed.toFixed(1)})`);
+  assert.ok(b.s <= L.len + .01, `not run off its lane (${b.s.toFixed(0)} of ${L.len.toFixed(0)})`);
+});

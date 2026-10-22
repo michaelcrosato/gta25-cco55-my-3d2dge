@@ -19541,7 +19541,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           const e = this.path[j];
           if (e.k === "lane" && e.id === this.goal.lane) {
             const gg = d + this.goal.s - (e.s0 || 0);
-            if (gg >= -1 || j > this.i) {
+            if (gg >= -1 || j > this.i || j === this.path.length - 1) {
               goalGap = Math.max(0, gg);
               break;
             }
@@ -19747,6 +19747,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.speed = E.clamp(this.speed + acc * dt, 0, 400);
       this._advance(this.speed * dt, 0, 0);
       this._grow();
+      const end2 = this.path[this.path.length - 1];
+      if (this.i === this.path.length - 1 && this.s >= end2.len) {
+        this.s = end2.len;
+        this.speed = 0;
+      }
       const a = this.ahead(0);
       if (!a) return;
       const side = this.pass ? this.pass.off * E.clamp(this.pass.d / 24, 0, 1) * E.clamp((this.pass.end - this.pass.d) / 24, 0, 1) : 0;

@@ -444,7 +444,7 @@ export class DriverBrain {
     let goalGap = null;   // (from our centre to where the goal wants it)
     if (this.goal) {
       let d = -this.s;
-      for (let j = this.i; j < this.path.length; j++) { const e = this.path[j]; if (e.k === 'lane' && e.id === this.goal.lane) { const gg = d + this.goal.s - (e.s0 || 0); if (gg >= -1 || j > this.i) { goalGap = Math.max(0, gg); break; } } d += e.len; }   // (the goal behind us on this lane: the next time round)
+      for (let j = this.i; j < this.path.length; j++) { const e = this.path[j]; if (e.k === 'lane' && e.id === this.goal.lane) { const gg = d + this.goal.s - (e.s0 || 0); if (gg >= -1 || j > this.i || j === this.path.length - 1) { goalGap = Math.max(0, gg); break; } } d += e.len; }   // (the goal behind us on this lane: the next time round; on the way's last lane, passed: here will do. A unit braking for its stop behind a car had run past it, and with nowhere on stood at its lane's end for good, its speed running on)
       if (goalGap !== null && goalGap < 8 && sp < 8) this.arrived = true;
     }
     if (this.pass) { this.pass.d += sp * dt; if (this.pass.d >= this.pass.end) this.pass = null; }
@@ -553,6 +553,7 @@ export class DriverBrain {
     const acc = look ? (this._acc = this._think(dt * 3, w)) : Math.min(this._acc, this._think0(dt));
     this.speed = E.clamp(this.speed + acc * dt, 0, 400);
     this._advance(this.speed * dt, 0, 0); this._grow();
+    const end = this.path[this.path.length - 1]; if (this.i === this.path.length - 1 && this.s >= end.len) { this.s = end.len; this.speed = 0; }   // (at the very end of its way, nowhere on: stopped there, not running on the spot)
     const a = this.ahead(0); if (!a) return;
     // (going round something: beside its path by the pass's offset, as a near car steers it, never through it)
     const side = this.pass ? this.pass.off * E.clamp(this.pass.d / 24, 0, 1) * E.clamp((this.pass.end - this.pass.d) / 24, 0, 1) : 0;
