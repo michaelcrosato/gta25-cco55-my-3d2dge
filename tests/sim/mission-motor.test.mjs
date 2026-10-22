@@ -41,15 +41,18 @@ test('a car spawned at a deck\'s point stands on the deck; a crew with no orders
   assert.ok(Math.abs(p.z - (go.z + 6)) < 2, 'at a seated height');
 });
 
-test('the deliver hint keeps its tow, the kill hint its done; done counts a target before it dies', async () => {
+test('the deliver hint keeps its tow, the kill hint its done, a reach in a vehicle its inVehicle; done counts a target before it dies', async () => {
   const g = await world(), { R } = g;
   let killed = false;
   const m = g.fixture('fx_hints', mm => { mm.spawn.vehicle('saint', mm.curb('greasy-spoke'), { tag: 'mark' }); mm.spawn.vehicle('hookline', mm.curb('safehouse'), { tag: 'truck' }); }, function* (mm) {
     yield mm.first([mm.deliver({ what: 'mark', to: 'gnomes-hq', tow: 'truck' }), mm.wait(.5)]);
+    yield mm.first([mm.reach('gnomes-hq', { inVehicle: true, radius: 70 }), mm.wait(.5)]);
     yield mm.kill('mark', { done: a => !!a.smashed }); killed = true; yield mm.wait(600);
   });
   assert.equal(R.objective.hint.kind, 'deliver'); assert.equal(R.objective.hint.tow, 'truck', 'the tow tag in the hint');
-  g.game.advance(1);
+  g.game.advance(.75);
+  assert.equal(R.objective.hint.kind, 'goto'); assert.equal(R.objective.hint.inVehicle, true, 'in a vehicle: the bot holds the one it drives (H4\'s getaway: "Dex left the getaway car")');
+  g.game.advance(.75);
   assert.equal(R.objective.hint.kind, 'kill'); assert.equal(typeof R.objective.hint.done, 'function', 'the done predicate in the hint');
   m.one('mark').smashed = true; g.game.advance(.1);
   assert.ok(killed, 'the target counted once done said so (alive and unburnt)');

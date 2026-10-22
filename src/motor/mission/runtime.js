@@ -415,7 +415,7 @@ export class MissionContext {
       return within(to, m.mover.x, m.mover.y, m.mover.z, r) && (!o.stopped || (m.mover.speed || 0) < 10);
     };
     return op(m => (ok(m) ? { value: true } : undefined), { nav: () => to,
-      start: m => { m.objective(o.text || 'Go there', { hint: { kind: 'goto', at: to, radius: r, foot: !!o.foot, vehicle: o.vehicle || null } }); m.marker(to, { color: o.color || '#ffe066', r: Math.min(r, 24) }); } });
+      start: m => { m.objective(o.text || 'Go there', { hint: { kind: 'goto', at: to, radius: r, foot: !!o.foot, vehicle: o.vehicle || null, inVehicle: !!o.inVehicle } }); m.marker(to, { color: o.color || '#ffe066', r: Math.min(r, 24) }); } });
   }
   /** get into a tagged vehicle (at the wheel, unless o.driver is false); its loss fails the stage */
   enter(tag, o = {}) {

@@ -15473,7 +15473,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   // src/motor/mission/dsl.js
   var HINTS = {
     goto: ["at"],
-    // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); interact (△ there);
+    // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); inVehicle (in one, never left); interact (△ there);
     // spray: [x, y] (within reach, aimed there, the fire button held: a fire hose's, a gun's); reach
     enterVehicle: ["vehicle"],
     // vehicle: a tag
@@ -22086,7 +22086,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return op((m) => ok(m) ? { value: true } : void 0, {
         nav: () => to,
         start: (m) => {
-          m.objective(o.text || "Go there", { hint: { kind: "goto", at: to, radius: r7, foot: !!o.foot, vehicle: o.vehicle || null } });
+          m.objective(o.text || "Go there", { hint: { kind: "goto", at: to, radius: r7, foot: !!o.foot, vehicle: o.vehicle || null, inVehicle: !!o.inVehicle } });
           m.marker(to, { color: o.color || "#ffe066", r: Math.min(r7, 24) });
         }
       });
@@ -29069,7 +29069,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
         return I;
       }
-      return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2] }, w8);
+      return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat }, w8);
     }
     _deliver(dt, p, R3, h, w8) {
       const what = R3.actors.tagged(h.what).find(alive2), v = p.seat && p.seat.vehicle;

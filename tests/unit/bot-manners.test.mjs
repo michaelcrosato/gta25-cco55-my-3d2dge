@@ -130,3 +130,12 @@ test('the player\'s fighter, a car in its line of fire: steps aside, and when 3 
   assert.ok(c.slice(190).every(toward), 'then: round it, toward the target');
   assert.ok(run(false).every(sideways), 'a gang\'s or a cop\'s fighter (not careful) keeps to its steps aside');
 });
+
+test('the mission bot to a point to be reached in a vehicle (m.reach inVehicle): it holds the vehicle, never out of it in a jam; on foot or on a plain goto, not', async () => {
+  const { MissionBot } = await import('../../src/motor/ai/missionbot.js');
+  const B = Object.assign(Object.create(MissionBot.prototype), { t: 0, I: makeIntent() }); B._go = (dt, p, x, y, o) => o;
+  const seated = { x: 0, y: 0, seat: { vehicle: {} } }, foot = { x: 0, y: 0, seat: null }, h = o => ({ kind: 'goto', at: [500, 0], radius: 70, ...o });
+  assert.equal(B._goto(1 / 60, seated, null, h({ inVehicle: true }), {}).hold, true, 'in a car, to be got there in one: held');
+  assert.equal(B._goto(1 / 60, seated, null, h({}), {}).hold, false, 'a plain goto: a car given up in a jam, as before');
+  assert.equal(B._goto(1 / 60, foot, null, h({ inVehicle: true }), {}).hold, false, 'on foot: nothing to hold yet');
+});

@@ -1212,3 +1212,39 @@ and where it landed.
     16-pixel steps, and one taller than 160 pixels on screen is drawn directly; the floor chunks are trimmed to their
     cap every frame; floor marks and wakes are cut to the buffer before their pixels are stepped.
 - **Answered:** the owner's two directions (2026-10-22). **Landed in:** M13 (part 4).
+
+## D30 · 2026-10-22 · M13's part 5: the bot after FAN-OUT B, the campaign's stalls, the look pass on the matrix
+- **Principle:** D21's rule (a MOTOR, bot or map change re-runs every merged mission and activity, both ways, and the bot
+  gym); PLAN.md 15.4 (the campaign to 100%) as D29 has it played (god); PLAN.md 10's matrix, a verdict a row, every
+  look note fixed. A stall the campaign finds is fixed where it lives (MOTOR, the content, or the campaign's tool), with
+  a test.
+- **Calls:**
+  - **The pull-away is from a cop coming for the door** (the AutoPlayer: close, or closing on the car), not from any
+    cop within 80: one holding off at range and shooting had it backing and swinging out round and round (H4 seed 3
+    failed at the ram; in god mode Bingo Night stood still at three stars, for ever).
+  - **The Eye is lost under a deck.** It sees all round from above (police.js), so no drive away loses three stars
+    and a respray is never reached unseen: the mission bot's evade, with the Eye up, drives under the L or the Loop
+    and holds there while the stars flash out; seen there, on to another stretch away from the police. The free-roam
+    evade (the campaign's between jobs) now retargets as the mission evade does.
+  - **The player's fighter goes round a car that blocks its shot** once 3 s of steps aside clear nothing (the gym's
+    kill: two Rats behind a parked truck). Only the careful fighter, the mission bot's: the gangs' and the police's keep
+    their steps.
+  - **A wedged far car is put back on its path.** A car off its line can't go over to the far LOD (snap), so one
+    wedged out of the full simulation stayed wedged: a long truck turned across Dock Road at the Loop's foot held a
+    queue a thousand units long, and H1's bike ride with it, for good. After 8 s barely moving it is put down at the
+    first place ahead on its path with room (WEDGED, `DriverBrain.unwedge`).
+  - **A point to be reached in a vehicle is driven to in it, never out of it** (`m.reach`'s `inVehicle` reaches the bot's
+    hint: the AutoPlayer holds the car through a jam, as it does a job's own): H4's getaway failed on "Dex left the
+    getaway car" when a jam made the bot give the car up.
+  - **Content:** a retry of H1's garage stage puts Dex beside Lefty (it had put him the far side of where the Loop's
+    ramp meets the sidewalk, with no way round on foot).
+  - **The campaign's tool:** a stunt's line-up stops against the way the car rolls (holding the brake while it backed
+    drove it back faster, into the canal behind the Canal's run-up); a failed jump says why.
+  - **The look pass:** the flat roofs' clutter (a stair hut, skylights, a duct, a chimney on brick, an aerial or a dish
+    on the tall, more units) on the builder's own stream (`roofs+`), none of it solid; a style's neon (`style.neon`:
+    tubes up its street corners, more shop signs; Neon Mile's); TOP-DOWN draws a thing standing on a roof after the
+    roof. Accepted as at M2 (D11): the night light field's soft dark between the lamps' pools.
+  - **The gym's kill fixture on seed 1** (two armed Rats, the police joining at three stars, then a detour round a
+    jammed exit) fails with the bot and passes through the pad; seeds 2 and 3 pass with the bot. A fixture of the
+    gym's, not content: recorded, not tuned to pass.
+- **Landed in:** M13 (part 5: `9843969`, `6efaf9c`, `409e551`, `1805e75` and after).
