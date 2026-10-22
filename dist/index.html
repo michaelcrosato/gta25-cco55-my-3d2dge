@@ -19761,6 +19761,35 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       v.ctlNow = { throttle: acc > 0 ? 0.5 : 0, brake: acc < -20 ? 0.6 : 0, steer: 0, handbrake: false };
     }
     /** snap onto the path where the vehicle is (before going kinematic): false when it is too far off it */
+    /** a car off its line and wedged there, out of the full simulation (a long truck turned across its lane at a post,
+     *  nothing behind it it could back into): put back on its path at the first place ahead with room for it, facing its
+     *  way, stopped (true: put). The far LOD takes it from there (snap) */
+    unwedge(fleet) {
+      const v = this.v, b = v.body;
+      if (!b || this.over || this.lost || !this.path.length) return false;
+      for (let d = 0; d <= 300; d += 30) {
+        const a = this.ahead(d);
+        if (!a) return false;
+        const [x, y, z = 0] = a.p;
+        if (fleet && fleet.near(x, y, 80).some((o) => o !== v && o.body && Math.abs((o.z || 0) - z) < 12 && Math.hypot(o.x - x, o.y - y) < o.hl + v.hl + 4)) continue;
+        b.x = x;
+        b.y = y;
+        b.z = z;
+        b.heading = Math.atan2(a.t[1], a.t[0]);
+        b.u = b.v = b.w = 0;
+        b.vz = 0;
+        b.airborne = false;
+        v.asleep = false;
+        this.i = a.j;
+        this.s = a.s;
+        this.speed = 0;
+        this.pass = null;
+        this.pinned = 0;
+        this.unstick = 0;
+        return true;
+      }
+      return false;
+    }
     snap() {
       const v = this.v, here = this.here;
       if (!here || !v.body || this.over) return false;
@@ -25912,6 +25941,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   knob("Traffic", "panicRange", "Panics within", 220, 0, 800, 10, "A shot, blast or killing scares drivers this near (u)");
   knob("Traffic", "rammedOut", "Gets out when rammed", 0.55, 0, 1, 0.05, "The chance a driver the player rams hard gets out (angry or scared)");
   var LOD_IN = 20;
+  var WEDGED = 8;
   var SPAWN_EVERY = 0.25;
   var SAMPLE3 = 40;
   var FILL_IN = 100;
@@ -26041,6 +26071,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           v.kinematic = false;
           v.body.setVelocity(Math.cos(v.heading) * b.speed, Math.sin(v.heading) * b.speed);
         } else if (!v.kinematic && d > TUNE.fpFull + LOD_IN && b.snap()) v.kinematic = true;
+        if (!v.kinematic && d > TUNE.fpFull + LOD_IN && v.speed < 3 && !b.over) {
+          c.wedgeT = (c.wedgeT || 0) + dt;
+          if (c.wedgeT > WEDGED) {
+            c.wedgeT = 0;
+            b.unwedge(this.fleet);
+          }
+        } else c.wedgeT = 0;
         if (!c.duty && v.bumpedBy && v.bumpT === this.fleet.t && ctx.player && v.bumpedBy === ctx.player && v.bumpDv > 40) {
           b.crashed(1.6);
           if (this.rng.next() < TUNE.rammedOut && this.onDriverOut) {
@@ -38624,7 +38661,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           m.as("dex");
           lefty(m);
           if (m.garaged("getaway")) {
-            if (m.dist(m.one("lefty")) > 300) m.place("player", by(spot8(m, "curb", GARAGE), -40, 30));
+            if (m.dist(m.one("lefty")) > 300) m.place("player", by(spot8(m, "curb", GARAGE), 10, 40));
             return;
           }
           const v = zephyr(m, m.curb("saints-hq"), null);

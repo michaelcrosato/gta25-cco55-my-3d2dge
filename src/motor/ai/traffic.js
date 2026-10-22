@@ -37,6 +37,7 @@ knob('Traffic', 'trafficRain', 'Rain traffic', .8, 0, 1.5, .05, 'Traffic density
 knob('Traffic', 'panicRange', 'Panics within', 220, 0, 800, 10, 'A shot, blast or killing scares drivers this near (u)');
 knob('Traffic', 'rammedOut', 'Gets out when rammed', .55, 0, 1, .05, 'The chance a driver the player rams hard gets out (angry or scared)');
 const LOD_IN = 20;   // hysteresis either side of fpFull (u)
+const WEDGED = 8;   // s a far car off its line may stand barely moving before it is put back on its path
 const SPAWN_EVERY = .25, SAMPLE = 40, FILL_IN = 100, SPAWN_SHORT = 40, TOW_AFTER = 10, PARK_BEHIND = 72, PASS_ROOM = 92;   // (FILL_IN: the nearest a car is put when the disc fills; SPAWN_SHORT: how far short of a stop line; TOW_AFTER: s an abandoned car stands before the tow; PARK_BEHIND: the room a unit standing at a call leaves behind it past its lane's clearS, a car's length and its gap; PASS_ROOM: past its front, short of the stop line, for a car to go round it, a car's length and the pass's margin)
 
 export class Traffic {
@@ -103,6 +104,9 @@ export class Traffic {
       // near and far (with a little hysteresis); a car pushed off its lane stays physical until it is back on one
       if (v.kinematic && d < TUNE.fpFull - LOD_IN) { v.kinematic = false; v.body.setVelocity(Math.cos(v.heading) * b.speed, Math.sin(v.heading) * b.speed); }
       else if (!v.kinematic && d > TUNE.fpFull + LOD_IN && b.snap()) v.kinematic = true;
+      // (one off its line can't go over: wedged there, WEDGED s barely moving, it is put back on its path. A long truck
+      // turned across Dock Road at the Loop's foot had held a queue a thousand units long, for good)
+      if (!v.kinematic && d > TUNE.fpFull + LOD_IN && v.speed < 3 && !b.over) { c.wedgeT = (c.wedgeT || 0) + dt; if (c.wedgeT > WEDGED) { c.wedgeT = 0; b.unwedge(this.fleet); } } else c.wedgeT = 0;
       // a hard knock from the player's vehicle: a pause, maybe out of the car
       if (!c.duty && v.bumpedBy && v.bumpT === this.fleet.t && ctx.player && v.bumpedBy === ctx.player && v.bumpDv > 40) {
         b.crashed(1.6);

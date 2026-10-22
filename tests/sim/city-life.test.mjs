@@ -189,3 +189,18 @@ test('a car nobody drives in the lane: a pass round it may run on through the bo
   assert.equal(brain({ blocked: long })._shoves(L({ ...abandoned, owner: 'mission' }), true), false, 'never a job\'s car (H4\'s roadblock: D27)');
 });
 
+
+test('a far car knocked off its line and wedged there is put back on its path after 8 s, and goes over to the far LOD (a truck turned across Dock Road had held a queue a thousand units long, for good)', async () => {
+  const { game, gtm } = await play('greasy-spoke'), T = gtm.life.traffic, M = gtm.motor, fp = T.fp;
+  const c = T.cars.find(q => q.v.kinematic && !q.duty && q.brain.path.length && q.brain.speed > 20 && !q.brain.leader && fp.d(q.v.x, q.v.y) > M.TUNE.fpFull + 80 && fp.d(q.v.x, q.v.y) < M.TUNE.fpSpawnIn - 60);
+  assert.ok(c, 'a far car on the move, nobody ahead');
+  const v = c.v, b = v.body, idle = M.makeIntent(); c.brain.update = () => M.clearIntent(idle);   // (its driver does nothing: wedged)
+  v.kinematic = false; b.x -= Math.sin(b.heading) * 36; b.y += Math.cos(b.heading) * 36; b.heading += 1.3; b.u = b.v = 0;
+  const off = () => { const e = c.brain.here, p = c.brain._point(e, c.brain._project(e, v.x, v.y)); return Math.hypot(p[0] - v.x, p[1] - v.y); };
+  assert.ok(off() > 30, 'knocked 36 off its line');
+  game.advance(6);
+  assert.ok(!v.kinematic && off() > 30, 'still wedged at 6 s: no faster than WEDGED');
+  game.advance(4);
+  assert.ok(v.kinematic, 'back in the far LOD');
+  assert.ok(off() < 2, `on its line again (${off().toFixed(1)} off)`);
+});

@@ -74,7 +74,7 @@ defMission('heist_getaway', {
       setup(m) {
         m.as('dex');
         lefty(m);
-        if (m.garaged('getaway')) { if (m.dist(m.one('lefty')) > 300) m.place('player', by(spot(m, 'curb', GARAGE), -40, 30)); return; }   // (a retry once it is kept: the keys to Lefty)
+        if (m.garaged('getaway')) { if (m.dist(m.one('lefty')) > 300) m.place('player', by(spot(m, 'curb', GARAGE), 10, 40)); return; }   // (a retry once it is kept: the keys to Lefty, beside him: 40 back along the curb the Loop's ramp comes down between, and on foot there was no way round)
         const v = zephyr(m, m.curb('saints-hq'), null);
         if (m.vehicle !== v && m.dist(v) > 240) m.place('player', { in: v });   // (a deep link: in the car, at Club Chrome)
       },

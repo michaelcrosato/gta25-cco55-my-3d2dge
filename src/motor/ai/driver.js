@@ -561,6 +561,21 @@ export class DriverBrain {
     v.ctlNow = { throttle: acc > 0 ? .5 : 0, brake: acc < -20 ? .6 : 0, steer: 0, handbrake: false };
   }
   /** snap onto the path where the vehicle is (before going kinematic): false when it is too far off it */
+  /** a car off its line and wedged there, out of the full simulation (a long truck turned across its lane at a post,
+   *  nothing behind it it could back into): put back on its path at the first place ahead with room for it, facing its
+   *  way, stopped (true: put). The far LOD takes it from there (snap) */
+  unwedge(fleet) {
+    const v = this.v, b = v.body; if (!b || this.over || this.lost || !this.path.length) return false;
+    for (let d = 0; d <= 300; d += 30) {   // (none with room: tried again a while later, the queue it stands in moved on)
+      const a = this.ahead(d); if (!a) return false;
+      const [x, y, z = 0] = a.p;
+      if (fleet && fleet.near(x, y, 80).some(o => o !== v && o.body && Math.abs((o.z || 0) - z) < 12 && Math.hypot(o.x - x, o.y - y) < o.hl + v.hl + 4)) continue;
+      b.x = x; b.y = y; b.z = z; b.heading = Math.atan2(a.t[1], a.t[0]); b.u = b.v = b.w = 0; b.vz = 0; b.airborne = false; v.asleep = false;
+      this.i = a.j; this.s = a.s; this.speed = 0; this.pass = null; this.pinned = 0; this.unstick = 0;
+      return true;
+    }
+    return false;
+  }
   snap() {
     const v = this.v, here = this.here; if (!here || !v.body || this.over) return false;   // (pulled over for a siren: physical until back in its lane)
     const pr = this._project(here, v.x, v.y), p = this._point(here, pr);
