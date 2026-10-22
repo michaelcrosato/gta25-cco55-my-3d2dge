@@ -218,7 +218,7 @@ export class AutoPlayer {
     if (this.round) return this._round(dt, v);
     // at a star or more, standing still with a cop on foot coming for the door (NABBED there in a moment): off at once,
     // as a player floors it: round whatever holds it, away from the cop (backing first only when the cop is ahead)
-    const cop = w.wanted && w.wanted.stars > 0 && v.speed < 6 ? this._copAt(v, w.police) : null;
+    const cop = w.wanted && w.wanted.stars > 0 && v.speed < 6 ? this._copComing(v, w.police) : null;
     if (cop) {
       const c = Math.cos(v.heading), s = Math.sin(v.heading), dx = cop.x - v.x, dy = cop.y - v.y;
       this.round = { t: dx * c + dy * s > 0 ? 0 : 1.1, side: c * dy - s * dx > 0 ? -1 : 1 }; return this._round(dt, v);
@@ -307,6 +307,17 @@ export class AutoPlayer {
   // a cop on foot within r of the car, on its level (police: the Police, its cops), or null
   _copAt(v, police, r = 80) {
     for (const c of (police && police.cops) || []) { const q = c.ped; if (!q.dead && !q.seat && !q.floored && Math.hypot(q.x - v.x, q.y - v.y) < r && Math.abs((q.z || 0) - (v.z || 0)) < 14) return q; }
+    return null;
+  }
+  // a cop on foot coming for the car's door: within 80, and already close or closing on it. One who holds off at range
+  // (shooting, from two stars) is no reason to back off and swing out: it was done again and again, the car never off
+  _copComing(v, police) {
+    for (const c of (police && police.cops) || []) {
+      const q = c.ped; if (q.dead || q.seat || q.floored || Math.abs((q.z || 0) - (v.z || 0)) >= 14) continue;
+      const dx = v.x - q.x, dy = v.y - q.y, d = Math.hypot(dx, dy); if (d >= 80) continue;
+      const m = q.mover, closing = m && d > 0 ? (m.vx * dx + m.vy * dy) / d : 0;
+      if (d < 30 || closing > 10) return q;
+    }
     return null;
   }
   // stopped where it is: braked against the way it rolls (the brake backs it up from a standstill, the throttle drives

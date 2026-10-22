@@ -212,6 +212,33 @@ export function buildDistrict(spec, o = {}) {
       }
     }
   }
+  // the look pass (M13): busier flat roofs (a stair hut, skylights, a duct, a chimney on brick, an aerial or a dish on
+  // the tall, more units), and a style's neon (style.neon: { tubes, signs }: a tube of light up a building's street
+  // corners at that chance each, a shop sign on that share more of its lots). Their own stream after everything above,
+  // so nothing above shifts; none of it is solid (the look only: the simulation never sees it)
+  const rl = stream(seed, 'roofs+');
+  for (const lot of C.lots) {
+    if (lot.kind !== 'building' || !lot.typeId) continue;
+    const t = types[lot.typeId], [x0, y0, x1, y1] = lot.rect, w = x1 - x0 + 1, d = y1 - y0 + 1, area = (w - 2) * (d - 2);
+    if (t.roof !== 'tiles' && t.texture !== true && area > 0) {
+      const busy = new Set(props.filter(p => p.roof && p.lot === lot.index).map(p => Math.floor(p.x / T) + ',' + Math.floor(p.y / T)));
+      const put = kind => { for (let k = 0; k < 8; k++) { const cx = rl.int(x0 + 1, x1 - 1), cy = rl.int(y0 + 1, y1 - 1), key = cx + ',' + cy; if (busy.has(key)) continue; busy.add(key); addProp(kind, (cx + .5) * T, (cy + .5) * T, { z: t.h, lot: lot.index, facing: rl.pick([0, Math.PI / 2]), roof: true }); return; } };
+      if (area >= 4) put('hatch');
+      for (let k = 0, n = Math.min(4, Math.floor(area / 12)); k < n; k++) put('skylight');
+      if (area >= 9 && rl.chance(.6)) put('duct');
+      if (/brick/.test(t.face || '') && rl.chance(.7)) put('chimney');
+      if (t.h >= 72 && rl.chance(.7)) put(rl.chance(.5) ? 'aerial' : 'dish');
+      for (let k = 0, n = Math.floor(area / 10); k < n; k++) put(rl.pick(['ac', 'vent', 'ac', 'vent', 'tank']));
+    }
+    const st = (spec.styles || {})[(C.hoods.find(h => h.id === lot.hood) || {}).style || 'default'], N = st && st.neon;
+    if (!N || lot.landmark) continue;
+    const street = (x, y) => inside(x, y) && (C.surface[I(x, y)] === SURF.walk || C.surface[I(x, y)] === SURF.road || C.surface[I(x, y)] === SURF.plaza);
+    for (const [cx, cy, ox, oy] of [[x0, y0, -1, -1], [x1, y0, 1, -1], [x0, y1, -1, 1], [x1, y1, 1, 1]]) {
+      if (!(street(cx + ox, cy) || street(cx, cy + oy)) || !rl.chance(N.tubes || 0)) continue;
+      const h = Math.max(12, t.h - 10); addProp('neon', (cx + .5 + ox * .5) * T + ox, (cy + .5 + oy * .5) * T + oy, { z: 6, tube: h, top: h, color: rl.pick(NEON), roof: true, lot: lot.index });
+    }
+    if (!lot.sign && rl.chance(N.signs || 0)) lot.sign = { text: rl.pick(shops), color: rl.pick(NEON), low: true };
+  }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {   // bollards on the quay's edge, every few tiles
     if (C.surface[I(x, y)] !== SURF.quay || (x + y) % 4 || cells[I(x, y)]) continue;
     const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => inside(x + dx, y + dy) && water[I(x + dx, y + dy)]);

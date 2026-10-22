@@ -25,6 +25,22 @@ test('the same seed builds the same Lowtown; another seed refills the blocks rou
   for (const p of a.pois) { const q = c.poi(p.id); assert.ok(q && q.x === p.x && q.y === p.y, 'landmark points stay put: ' + p.id); }
 });
 
+test('the look pass (M13): busy flat roofs (a stair hut on each big one, skylights, aerials), Neon Mile\'s tubes at its street corners and only there; none of it solid', async () => {
+  const { M } = await motor();
+  const C = M.buildCity('lowtown', 1999), roof = C.props.filter(p => p.roof), kinds = new Set(roof.map(p => p.kind));
+  for (const k of ['ac', 'vent', 'tank', 'hatch', 'skylight', 'duct', 'chimney', 'aerial', 'dish', 'neon']) assert.ok(kinds.has(k), 'a roof ' + k);
+  assert.ok(roof.every(p => !p.solid), 'nothing on the roofs is solid');
+  assert.ok(C.map.solids.every(s => !s.prop || !s.prop.roof), 'and none of it is in the map\'s solids');
+  const big = C.lots.filter(l => l.kind === 'building' && (l.rect[2] - l.rect[0] - 1) * (l.rect[3] - l.rect[1] - 1) >= 4 && C.types[l.typeId] && C.types[l.typeId].roof !== 'tiles' && C.types[l.typeId].texture !== true);
+  const huts = new Set(roof.filter(p => p.kind === 'hatch').map(p => p.lot));
+  assert.ok(huts.size >= big.length * .9, `a stair hut on ${huts.size} of ${big.length} big flat roofs`);
+  const tubes = C.props.filter(p => p.kind === 'neon');
+  assert.ok(tubes.length > 20, tubes.length + ' tubes');
+  for (const p of tubes) assert.equal(C.lots[p.lot].hood, 'neon', 'a tube in Neon Mile only');
+  const share = hood => { const lots = C.lots.filter(l => l.kind === 'building' && l.hood === hood && !l.landmark); return lots.filter(l => l.sign).length / lots.length; };
+  assert.ok(share('neon') > share('palm') * 1.5, `a sign on ${(share('neon') * 100).toFixed(0)}% of Neon Mile's lots, ${(share('palm') * 100).toFixed(0)}% of Palm Terraces'`);
+});
+
 test('the validator finds no errors: every point of interest stands on open ground, reachable on foot and by road', async () => {
   const { M } = await motor();
   for (const seed of [1999, 7, 42]) {

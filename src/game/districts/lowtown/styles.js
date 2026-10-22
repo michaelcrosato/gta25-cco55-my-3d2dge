@@ -1,6 +1,7 @@
 // Lowtown's four neighbourhoods (PLAN.md 9.1, 10): who owns them, their palettes (sidewalks, lots, grass), and the
 // buildings each fills its blocks with: lot kinds (widths, depths, storeys, weights) and looks (the engine's wall-type
-// options: face and roof materials, windows, shutters, balconies, doors), and the floor a cut-away shows inside them.
+// options: face and roof materials, windows, shutters, balconies, doors), the floor a cut-away shows inside them, and
+// a style's neon (tubes up its street corners and more shop signs: MOTOR's builder, style.neon).
 // One storey is 24 units.
 //   Neon Mile: magenta and cyan neon on deep blue; towers.   Palm Terraces: pastel stucco, palm green, warm.
 //   Brickyard: rust, brick and soot; warehouses.             Harborfront: teal water, yellow cranes, grey concrete.
@@ -44,7 +45,7 @@ export const STYLES = {
     row: { kind: 'building', w: [3, 5], d: [6, 9], storeys: [2, 3] },
     shop: { kind: 'building', w: [4, 7], d: [4, 6], storeys: [1, 2] },
     apartment: { kind: 'building', w: [6, 9], d: [6, 9], storeys: [3, 4] } } },
-  neon: { kinds: { tower: 3, midrise: 3, club: 1 }, looks: neonLooks, alleys: .25, filler: 'plaza', floor: '#7a7488', lots: {
+  neon: { kinds: { tower: 3, midrise: 3, club: 1 }, looks: neonLooks, alleys: .25, filler: 'plaza', floor: '#7a7488', neon: { tubes: .55, signs: .5 }, lots: {
     tower: { kind: 'building', w: [6, 10], d: [6, 10], storeys: [5, 8] },
     midrise: { kind: 'building', w: [5, 8], d: [5, 8], storeys: [3, 5] },
     club: { kind: 'building', w: [4, 6], d: [4, 6], storeys: [1, 2] } } },

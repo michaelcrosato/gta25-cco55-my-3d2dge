@@ -43,6 +43,15 @@ export const PROP_MODELS = {
   tank: { parts: [box(-6, -6, 0, -4.5, -4.5, 8, '#3a3028'), box(4.5, -6, 0, 6, -4.5, 8, '#3a3028'), box(-6, 4.5, 0, -4.5, 6, 8, '#3a3028'), box(4.5, 4.5, 0, 6, 6, 8, '#3a3028'),
     box(-7, -7, 8, 7, 7, 22, '#7a5a3a'), box(-7.5, -7.5, 22, 7.5, 7.5, 24, '#5a4430', 'cabin')] },
   vent: { parts: [box(-2.5, -2.5, 0, 2.5, 2.5, 6, '#9a9ea4'), box(-3.5, -3.5, 6, 3.5, 3.5, 7, '#6a6e74', 'cabin')] },
+  // (the look pass's: a stair hut with its door, a skylight, a duct with its elbow, a chimney, an aerial with a red
+  // lamp on top, a dish on a post)
+  hatch: { parts: [box(-7, -6, 0, 7, 6, 16, '#8a8478'), box(-7.5, -6.5, 16, 7.5, 6.5, 17.5, '#5a5650', 'cabin'), box(7, -2.5, 0, 7.6, 2.5, 12, '#4a3a30', 'trim')] },
+  skylight: { parts: [box(-9, -5, 0, 9, 5, 2, '#6a6e74'), box(-8, -4, 2, 8, 4, 3.5, '#8ab8d8', 'glass')] },
+  duct: { parts: [box(-15, -2.5, 0, 13, 2.5, 5, '#9a9ea4'), box(13, -2.5, 0, 15.5, 2.5, 10, '#9a9ea4'), box(12.5, -3.2, 10, 16, 3.2, 11, '#6a6e74', 'cabin')] },
+  chimney: { parts: [box(-3, -3, 0, 3, 3, 14, '#8a4a3a'), box(-3.6, -3.6, 14, 3.6, 3.6, 15.5, '#4a3e3a', 'cabin')] },
+  aerial: { parts: [box(-2, -2, 0, 2, 2, 2, '#4a4a52'), box(-.5, -.5, 2, .5, .5, 36, '#9a9aa2', 'trim'), box(-6, -.4, 24, 6, .4, 25, '#9a9aa2', 'trim'),
+    box(-4.5, -.4, 30, 4.5, .4, 31, '#9a9aa2', 'trim'), box(-.9, -.9, 36, .9, .9, 38, '#ff3a2a', 'neon')] },
+  dish: { parts: [box(-1, -1, 0, 1, 1, 6, '#6a6e74'), box(-1, -5, 5, .6, 5, 13, '#e0e0e4', 'cabin'), box(.6, -.4, 8.5, 4, .4, 9.5, '#6a6e74', 'trim')] },
   // yards and quays
   crate: { parts: [box(-5, -5, 0, 5, 5, 9, '#9a7448'), box(-5.2, -1, 0, 5.2, 1, 9.2, '#7a5a36', 'cabin')] },
   pallet: { parts: [box(-7, -5, 0, 7, 5, 2, '#8a6a42'), box(-5, -3, 2, 5, 3, 7, '#c8c0a8', 'cabin')] },
@@ -64,6 +73,20 @@ function tinted(kind, paint) {
   if (!m && PROP_MODELS[kind]) { m = { parts: PROP_MODELS[kind].parts.map(q => ({ ...q, color: q.role === 'body' ? paint : E.shade(paint, -.18) })) }; TINTED.set(key, m); }
   return m || null;
 }
+const TUBES = new Map();
+/** a neon tube up a building's corner, h tall, in a colour (one model per colour and height) */
+function tubeModel(color, h) {
+  const key = color + h; let m = TUBES.get(key);
+  if (!m) { m = { parts: [box(-1, -1, 0, 1, 1, h, color, 'neon'), box(-1.6, -1.6, h, 1.6, 1.6, h + 1.2, '#2a2a30', 'cabin')] }; TUBES.set(key, m); }   // (its cap)
+  return m;
+}
+/** a tube's light at night, from its foot to its top (a glow line: the screen points of its middle and its top) */
+const tubeLight = color => (g, A, B, k) => {
+  const x0 = 2 * A[0] - B[0], y0 = 2 * A[1] - B[1];   // (its foot: as far below the middle as the top is above it)
+  g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round'; g.strokeStyle = color;
+  for (const [a, w] of [[.12, 7], [.25, 3.5], [.9, 1.2]]) { g.globalAlpha = a; g.lineWidth = Math.max(1, w * k * .7); g.beginPath(); g.moveTo(x0, y0); g.lineTo(B[0], B[1]); g.stroke(); }
+  g.restore(); g._c = null;
+};
 const CONTAINERS = new Map();
 /** a shipping container in a colour (one model per colour) */
 function containerModel(color) {
@@ -150,6 +173,12 @@ export class CityRenderer {
       return;
     }
     if (p.roof && this.city.cutaway && this.city.cutaway.cut.has(p.lot)) return;   // (a building the cut-away drops takes its roof with it)
+    if (p.kind === 'neon') {   // (a tube up a corner: lit after the dark at night)
+      const m = tubeModel(p.color, p.tube), z = p.z || 0;
+      stage.shape(p.x, p.y, z, (g, P) => drawBoxModel(g, P, m, p.x, p.y, z, 0), { kind: 'prop3d', kept: keptProp(stage, m, 0), reach: reachOf(m, z) });
+      if (night) stage.glowLine([p.x, p.y, z + p.tube / 2], [p.x, p.y, z + p.tube], tubeLight(p.color));
+      return;
+    }
     const m = p.kind === 'container' ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0), { kind: 'prop3d', kept: keptProp(stage, m, p.facing), reach: reachOf(m, p.z || 0) });
   }
   _deck(stage, { d, c, map }, fade) {

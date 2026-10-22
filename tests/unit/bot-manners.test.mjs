@@ -46,6 +46,16 @@ test('the AutoPlayer at a star: a cop on foot near its stopped car is found (the
   assert.equal(A._copAt(v, null), null);
 });
 
+test('the AutoPlayer pulls away only from a cop coming for the door: close, or closing on it; one holding off at range shooting is not (god mode: backed and swung out round and round, never off)', () => {
+  const v = car(), A = auto([]), cop = (x, y, vx = 0, vy = 0) => ({ ped: someone(x, y, { mover: { vx, vy } }) });
+  assert.ok(A._copComing(v, { cops: [cop(120, 115)] }), 'at the door (25 off)');
+  assert.ok(A._copComing(v, { cops: [cop(160, 140, -30, -20)] }), 'running at the car from 72 off');
+  assert.equal(A._copComing(v, { cops: [cop(150, 140)] }), null, 'standing 64 off (shooting): no');
+  assert.equal(A._copComing(v, { cops: [cop(150, 140, 30, 20)] }), null, 'backing off: no');
+  assert.equal(A._copComing(v, { cops: [cop(200, 200, -40, -40)] }), null, 'beyond 80: no');
+  assert.equal(A._copComing(v, null), null);
+});
+
 test('the bot\'s fighter holds its fire while someone not in the fight is in the line of fire; a foe there is fair game', () => {
   const me = someone(0, 0), tgt = someone(200, 0);
   const F = people => Object.assign(Object.create(Fighter.prototype), { ped: me, careful: true, pedsNear: () => people });
@@ -88,4 +98,21 @@ test('the AutoPlayer\'s car: an empty one parked before a carjack, unless the oc
   assert.equal(pick([v(1, 20, { driver: true }), v(2, 130)]).id, 1, 'the empty one 110 farther: the carjack');
   assert.equal(pick([v(1, 50, { driver: true })]).id, 1, 'only an occupied one: taken');
   assert.equal(pick([v(1, 50, { driver: true }), v(2, 90, { locked: true })]).id, 1, 'a locked one is no choice');
+});
+
+test('the mission bot, the Eye up: under a deck out of its sight (the road under a high cell), the stretch away from the police; seen there 3 s, another', async () => {
+  const { MissionBot } = await import('../../src/motor/ai/missionbot.js');
+  // a deck high over a road at x 20-21 (cells), y 0-60; one low cell (a ramp's foot) and one over a sidewalk too
+  const cells = []; for (let cy = 0; cy <= 60; cy++) cells.push({ cx: 20, cy, z0: 64, z1: 64 });
+  cells.push({ cx: 30, cy: 5, z0: 10, z1: 20 }, { cx: 40, cy: 5, z0: 64, z1: 64 });
+  const city = { T: 16, decks: [{ cells }], surfaceAt: (cx) => (cx === 40 ? 'walk' : 'road') };
+  const B = Object.assign(Object.create(MissionBot.prototype), { city, t: 0 });
+  const v = { x: 20 * 16, y: 30 * 16, z: 0 }, unit = (x, y) => ({ car: { v: { x, y } } });
+  const q = B._cover(v, { wanted: { seen: true }, police: { units: [unit(v.x, v.y - 200)] } });
+  assert.equal(B.covers.length, 61, 'the road under the high cells only');
+  assert.ok(q && q[1] > v.y, 'the stretch away from the unit to the north');
+  B.t = 1; assert.equal(B._cover(v, { wanted: { seen: true }, police: { units: [] } }), q, 'kept while it is driven to');
+  const W = { wanted: { seen: true }, police: { units: [unit(v.x, v.y - 200)] } }, at = { x: q[0], y: q[1], z: 0 };
+  B.t = 2; B._cover(at, W); B.t = 4; B._cover(at, W); B.t = 6; const r = B._cover(at, W);
+  assert.ok(r !== q && Math.hypot(r[0] - q[0], r[1] - q[1]) >= 160, 'seen there 3 s: another stretch, away from it');
 });

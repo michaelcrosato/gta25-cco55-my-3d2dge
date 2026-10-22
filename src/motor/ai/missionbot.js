@@ -8,7 +8,7 @@
 //   - kill: the nearest living target: a vehicle rammed from the wheel, or shot (beaten, with only a bat) on foot; a
 //     ped fought on foot (the fighter brain, ai/fighter.js, with the player's own guns and ammo); far, driven to first;
 //   - evade: in a vehicle, away to the point of interest farthest from the police (another when there), until the
-//     stars are gone;
+//     stars are gone; with the Eye up, under a deck instead, held there while the stars flash out;
 //   - follow: in a vehicle, after the target, held back to its distance;
 //   - race: the course's next checkpoint, in the racing style;
 //   - photo: on foot to where it is taken from, the Snap in hand (the weapon steps), aimed, the shutter;
@@ -42,8 +42,8 @@ export class MissionBot {
   /** the stars lost in free roam, as a player loses them (the bot campaign's, between jobs): in a car, away from the
    *  police. w: as update's */
   evade(dt, p, w = {}) {
-    this.t += dt;
-    if (p !== this.ped) { this.ped = p; this.auto.goal = null; this.car = null; this.dest = null; }
+    this.t += dt; this.re -= dt;   // (the retarget's clock too: without it a goal that moved was followed once, never again)
+    if (p !== this.ped) { this.ped = p; this.auto.goal = null; this.car = null; this.dest = null; this.cover = null; }
     if (p.dead || p.held || p.floored) return clearIntent(this.I);
     if (p.boarding) { this.auto.update(dt, p, w); return clearIntent(this.I); }
     return this._evade(dt, p, null, w);
@@ -312,10 +312,36 @@ export class MissionBot {
     if (job && (!p.seat || p.seat.vehicle !== job)) return this._board(dt, p, job, w);
     if (!p.seat) { const I = this._car(dt, p, w); if (I) return I; }
     const v = p.seat && p.seat.vehicle, P = v || p;
+    // the Eye up (three stars and more): it sees all round from above, so no drive away loses it, and a respray is
+    // never reached unseen. Under a deck (the L, the Loop) it sees nothing (police.js _sees): there, and held there
+    // while the stars flash out; seen there by a ground unit, on to another stretch, away from them
+    const q = v && (v.z || 0) < 10 && w.police && w.police.heli ? this._cover(v, w) : null;
+    if (q) return this._go(dt, p, q[0], q[1], { stay: true, style, radius: 14, slack: 40, z: 0, hold: !!job }, w);
     // out of their sight in a car, a respray within reach (and the fee in hand): there, before they find it again
     if (v && w.respray && !W.seen && Math.hypot(w.respray[0] - v.x, w.respray[1] - v.y) < 1200) return this._go(dt, p, w.respray[0], w.respray[1], { stay: true, style, radius: 18, slack: 30, hold: !!job }, w);
     if (!this.dest || Math.hypot(this.dest[0] - P.x, this.dest[1] - P.y) < 80) this.dest = this._far(P, w);
     return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style, slack: 80, hold: !!job }, w);
+  }
+  // a spot on the road under a deck, out of the Eye's sight (null: none within 1200): the road cells under the decks'
+  // high cells, worked out once; of them the one best away from the police's cars and near. Kept till it is reached
+  // and a unit still sees the car there for 3 s (then another), or a minute has gone by without it
+  _cover(v, w) {
+    if (!this.covers) {
+      const C = this.city, T = C.T; this.covers = [];
+      for (const d of C.decks || []) for (const c of d.cells) if (Math.min(c.z0, c.z1) > 30 && C.surfaceAt(c.cx, c.cy) === 'road') this.covers.push([(c.cx + .5) * T, (c.cy + .5) * T]);
+    }
+    const W = w.wanted, K = this.cover, d = K ? Math.hypot(K.at[0] - v.x, K.at[1] - v.y) : 0;
+    if (K) { K.seenT = d < 40 && W && W.seen ? K.seenT + (this.t - K.last) : 0; K.last = this.t; }
+    if (K && this.t - K.t < 60 && K.seenT < 3) return K.at;
+    const units = w.police && w.police.units ? w.police.units.filter(u => !u.gone && u.car && u.car.v).map(u => u.car.v) : [];
+    let best = null, bd = -Infinity;
+    for (const q of this.covers) {
+      const dv = Math.hypot(q[0] - v.x, q[1] - v.y); if (dv > 1200 || (K && Math.hypot(q[0] - K.at[0], q[1] - K.at[1]) < 160)) continue;   // (not the stretch it was seen at)
+      let du = 400; for (const u of units) du = Math.min(du, Math.hypot(q[0] - u.x, q[1] - u.y));
+      const s = du - dv * .6; if (s > bd) { bd = s; best = q; }
+    }
+    this.cover = best ? { at: best, t: this.t, last: this.t, seenT: 0 } : null;
+    return best;
   }
   // the point of interest farthest from the police round the player (or from the player, with none about), past 500
   _far(P, w) {

@@ -14658,7 +14658,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           }
           const ry = fy * cr - nz * sr, rz = fy * sr + nz * cr, mx = fx7 * cp + rz * sp, mz = -fx7 * sp + rz * cp;
           const wx2 = mx * c - ry * s, wy = mx * s + ry * c, lit = wx2 * LIGHT2[0] + wy * LIGHT2[1] + mz * LIGHT2[2];
-          g.fillStyle = shadeFor(color, mz > 0.7 ? 0.14 : lit > 0.2 ? 0.06 : lit < -0.2 ? -0.28 : -0.1);
+          g.fillStyle = shadeFor(color, role === "neon" ? mz > 0.7 ? 0.2 : 0.08 : mz > 0.7 ? 0.14 : lit > 0.2 ? 0.06 : lit < -0.2 ? -0.28 : -0.1);
           g.beginPath();
           g.moveTo(Math.round(A[0]), Math.round(A[1]));
           g.lineTo(Math.round(B2[0]), Math.round(B2[1]));
@@ -19851,6 +19851,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       box(-7.5, -7.5, 22, 7.5, 7.5, 24, "#5a4430", "cabin")
     ] },
     vent: { parts: [box(-2.5, -2.5, 0, 2.5, 2.5, 6, "#9a9ea4"), box(-3.5, -3.5, 6, 3.5, 3.5, 7, "#6a6e74", "cabin")] },
+    // (the look pass's: a stair hut with its door, a skylight, a duct with its elbow, a chimney, an aerial with a red
+    // lamp on top, a dish on a post)
+    hatch: { parts: [box(-7, -6, 0, 7, 6, 16, "#8a8478"), box(-7.5, -6.5, 16, 7.5, 6.5, 17.5, "#5a5650", "cabin"), box(7, -2.5, 0, 7.6, 2.5, 12, "#4a3a30", "trim")] },
+    skylight: { parts: [box(-9, -5, 0, 9, 5, 2, "#6a6e74"), box(-8, -4, 2, 8, 4, 3.5, "#8ab8d8", "glass")] },
+    duct: { parts: [box(-15, -2.5, 0, 13, 2.5, 5, "#9a9ea4"), box(13, -2.5, 0, 15.5, 2.5, 10, "#9a9ea4"), box(12.5, -3.2, 10, 16, 3.2, 11, "#6a6e74", "cabin")] },
+    chimney: { parts: [box(-3, -3, 0, 3, 3, 14, "#8a4a3a"), box(-3.6, -3.6, 14, 3.6, 3.6, 15.5, "#4a3e3a", "cabin")] },
+    aerial: { parts: [
+      box(-2, -2, 0, 2, 2, 2, "#4a4a52"),
+      box(-0.5, -0.5, 2, 0.5, 0.5, 36, "#9a9aa2", "trim"),
+      box(-6, -0.4, 24, 6, 0.4, 25, "#9a9aa2", "trim"),
+      box(-4.5, -0.4, 30, 4.5, 0.4, 31, "#9a9aa2", "trim"),
+      box(-0.9, -0.9, 36, 0.9, 0.9, 38, "#ff3a2a", "neon")
+    ] },
+    dish: { parts: [box(-1, -1, 0, 1, 1, 6, "#6a6e74"), box(-1, -5, 5, 0.6, 5, 13, "#e0e0e4", "cabin"), box(0.6, -0.4, 8.5, 4, 0.4, 9.5, "#6a6e74", "trim")] },
     // yards and quays
     crate: { parts: [box(-5, -5, 0, 5, 5, 9, "#9a7448"), box(-5.2, -1, 0, 5.2, 1, 9.2, "#7a5a36", "cabin")] },
     pallet: { parts: [box(-7, -5, 0, 7, 5, 2, "#8a6a42"), box(-5, -3, 2, 5, 3, 7, "#c8c0a8", "cabin")] },
@@ -19874,6 +19888,33 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     return m || null;
   }
+  var TUBES = /* @__PURE__ */ new Map();
+  function tubeModel(color, h) {
+    const key = color + h;
+    let m = TUBES.get(key);
+    if (!m) {
+      m = { parts: [box(-1, -1, 0, 1, 1, h, color, "neon"), box(-1.6, -1.6, h, 1.6, 1.6, h + 1.2, "#2a2a30", "cabin")] };
+      TUBES.set(key, m);
+    }
+    return m;
+  }
+  var tubeLight = (color) => (g, A, B2, k) => {
+    const x0 = 2 * A[0] - B2[0], y0 = 2 * A[1] - B2[1];
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    g.lineCap = "round";
+    g.strokeStyle = color;
+    for (const [a, w8] of [[0.12, 7], [0.25, 3.5], [0.9, 1.2]]) {
+      g.globalAlpha = a;
+      g.lineWidth = Math.max(1, w8 * k * 0.7);
+      g.beginPath();
+      g.moveTo(x0, y0);
+      g.lineTo(B2[0], B2[1]);
+      g.stroke();
+    }
+    g.restore();
+    g._c = null;
+  };
   var CONTAINERS = /* @__PURE__ */ new Map();
   function containerModel(color) {
     let m = CONTAINERS.get(color);
@@ -19994,6 +20035,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return;
       }
       if (p.roof && this.city.cutaway && this.city.cutaway.cut.has(p.lot)) return;
+      if (p.kind === "neon") {
+        const m2 = tubeModel(p.color, p.tube), z = p.z || 0;
+        stage.shape(p.x, p.y, z, (g, P17) => drawBoxModel(g, P17, m2, p.x, p.y, z, 0), { kind: "prop3d", kept: keptProp(stage, m2, 0), reach: reachOf(m2, z) });
+        if (night3) stage.glowLine([p.x, p.y, z + p.tube / 2], [p.x, p.y, z + p.tube], tubeLight(p.color));
+        return;
+      }
       const m = p.kind === "container" ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind];
       if (m) stage.shape(p.x, p.y, p.z || 0, (g, P17) => drawBoxModel(g, P17, m, p.x, p.y, p.z || 0, p.facing || 0), { kind: "prop3d", kept: keptProp(stage, m, p.facing), reach: reachOf(m, p.z || 0) });
     }
@@ -25087,6 +25134,38 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
       }
     }
+    const rl = stream2(seed, "roofs+");
+    for (const lot of C8.lots) {
+      if (lot.kind !== "building" || !lot.typeId) continue;
+      const t = types[lot.typeId], [x0, y0, x1, y1] = lot.rect, w8 = x1 - x0 + 1, d = y1 - y0 + 1, area = (w8 - 2) * (d - 2);
+      if (t.roof !== "tiles" && t.texture !== true && area > 0) {
+        const busy = new Set(props.filter((p) => p.roof && p.lot === lot.index).map((p) => Math.floor(p.x / T20) + "," + Math.floor(p.y / T20)));
+        const put3 = (kind) => {
+          for (let k = 0; k < 8; k++) {
+            const cx5 = rl.int(x0 + 1, x1 - 1), cy = rl.int(y0 + 1, y1 - 1), key = cx5 + "," + cy;
+            if (busy.has(key)) continue;
+            busy.add(key);
+            addProp(kind, (cx5 + 0.5) * T20, (cy + 0.5) * T20, { z: t.h, lot: lot.index, facing: rl.pick([0, Math.PI / 2]), roof: true });
+            return;
+          }
+        };
+        if (area >= 4) put3("hatch");
+        for (let k = 0, n = Math.min(4, Math.floor(area / 12)); k < n; k++) put3("skylight");
+        if (area >= 9 && rl.chance(0.6)) put3("duct");
+        if (/brick/.test(t.face || "") && rl.chance(0.7)) put3("chimney");
+        if (t.h >= 72 && rl.chance(0.7)) put3(rl.chance(0.5) ? "aerial" : "dish");
+        for (let k = 0, n = Math.floor(area / 10); k < n; k++) put3(rl.pick(["ac", "vent", "ac", "vent", "tank"]));
+      }
+      const st = (spec.styles || {})[(C8.hoods.find((h) => h.id === lot.hood) || {}).style || "default"], N7 = st && st.neon;
+      if (!N7 || lot.landmark) continue;
+      const street = (x, y) => inside(x, y) && (C8.surface[I(x, y)] === SURF.walk || C8.surface[I(x, y)] === SURF.road || C8.surface[I(x, y)] === SURF.plaza);
+      for (const [cx5, cy, ox, oy] of [[x0, y0, -1, -1], [x1, y0, 1, -1], [x0, y1, -1, 1], [x1, y1, 1, 1]]) {
+        if (!(street(cx5 + ox, cy) || street(cx5, cy + oy)) || !rl.chance(N7.tubes || 0)) continue;
+        const h = Math.max(12, t.h - 10);
+        addProp("neon", (cx5 + 0.5 + ox * 0.5) * T20 + ox, (cy + 0.5 + oy * 0.5) * T20 + oy, { z: 6, tube: h, top: h, color: rl.pick(NEON), roof: true, lot: lot.index });
+      }
+      if (!lot.sign && rl.chance(N7.signs || 0)) lot.sign = { text: rl.pick(shops), color: rl.pick(NEON), low: true };
+    }
     for (let y = 0; y < H18; y++) for (let x = 0; x < W26; x++) {
       if (C8.surface[I(x, y)] !== SURF.quay || (x + y) % 4 || cells[I(x, y)]) continue;
       const wet = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => inside(x + dx, y + dy) && water2[I(x + dx, y + dy)]);
@@ -28391,7 +28470,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return I2;
       }
       if (this.round) return this._round(dt, v);
-      const cop = w8.wanted && w8.wanted.stars > 0 && v.speed < 6 ? this._copAt(v, w8.police) : null;
+      const cop = w8.wanted && w8.wanted.stars > 0 && v.speed < 6 ? this._copComing(v, w8.police) : null;
       if (cop) {
         const c = Math.cos(v.heading), s = Math.sin(v.heading), dx = cop.x - v.x, dy = cop.y - v.y;
         this.round = { t: dx * c + dy * s > 0 ? 0 : 1.1, side: c * dy - s * dx > 0 ? -1 : 1 };
@@ -28579,6 +28658,19 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       return null;
     }
+    // a cop on foot coming for the car's door: within 80, and already close or closing on it. One who holds off at range
+    // (shooting, from two stars) is no reason to back off and swing out: it was done again and again, the car never off
+    _copComing(v, police) {
+      for (const c of police && police.cops || []) {
+        const q = c.ped;
+        if (q.dead || q.seat || q.floored || Math.abs((q.z || 0) - (v.z || 0)) >= 14) continue;
+        const dx = v.x - q.x, dy = v.y - q.y, d = Math.hypot(dx, dy);
+        if (d >= 80) continue;
+        const m = q.mover, closing = m && d > 0 ? (m.vx * dx + m.vy * dy) / d : 0;
+        if (d < 30 || closing > 10) return q;
+      }
+      return null;
+    }
     // stopped where it is: braked against the way it rolls (the brake backs it up from a standstill, the throttle drives
     // it on), the handbrake once still
     _hold(v, I) {
@@ -28651,11 +28743,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  police. w: as update's */
     evade(dt, p, w8 = {}) {
       this.t += dt;
+      this.re -= dt;
       if (p !== this.ped) {
         this.ped = p;
         this.auto.goal = null;
         this.car = null;
         this.dest = null;
+        this.cover = null;
       }
       if (p.dead || p.held || p.floored) return clearIntent(this.I);
       if (p.boarding) {
@@ -29203,9 +29297,42 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (I) return I;
       }
       const v = p.seat && p.seat.vehicle, P17 = v || p;
+      const q = v && (v.z || 0) < 10 && w8.police && w8.police.heli ? this._cover(v, w8) : null;
+      if (q) return this._go(dt, p, q[0], q[1], { stay: true, style, radius: 14, slack: 40, z: 0, hold: !!job3 }, w8);
       if (v && w8.respray && !W26.seen && Math.hypot(w8.respray[0] - v.x, w8.respray[1] - v.y) < 1200) return this._go(dt, p, w8.respray[0], w8.respray[1], { stay: true, style, radius: 18, slack: 30, hold: !!job3 }, w8);
       if (!this.dest || Math.hypot(this.dest[0] - P17.x, this.dest[1] - P17.y) < 80) this.dest = this._far(P17, w8);
       return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style, slack: 80, hold: !!job3 }, w8);
+    }
+    // a spot on the road under a deck, out of the Eye's sight (null: none within 1200): the road cells under the decks'
+    // high cells, worked out once; of them the one best away from the police's cars and near. Kept till it is reached
+    // and a unit still sees the car there for 3 s (then another), or a minute has gone by without it
+    _cover(v, w8) {
+      if (!this.covers) {
+        const C8 = this.city, T20 = C8.T;
+        this.covers = [];
+        for (const d2 of C8.decks || []) for (const c of d2.cells) if (Math.min(c.z0, c.z1) > 30 && C8.surfaceAt(c.cx, c.cy) === "road") this.covers.push([(c.cx + 0.5) * T20, (c.cy + 0.5) * T20]);
+      }
+      const W26 = w8.wanted, K2 = this.cover, d = K2 ? Math.hypot(K2.at[0] - v.x, K2.at[1] - v.y) : 0;
+      if (K2) {
+        K2.seenT = d < 40 && W26 && W26.seen ? K2.seenT + (this.t - K2.last) : 0;
+        K2.last = this.t;
+      }
+      if (K2 && this.t - K2.t < 60 && K2.seenT < 3) return K2.at;
+      const units = w8.police && w8.police.units ? w8.police.units.filter((u) => !u.gone && u.car && u.car.v).map((u) => u.car.v) : [];
+      let best = null, bd = -Infinity;
+      for (const q of this.covers) {
+        const dv = Math.hypot(q[0] - v.x, q[1] - v.y);
+        if (dv > 1200 || K2 && Math.hypot(q[0] - K2.at[0], q[1] - K2.at[1]) < 160) continue;
+        let du = 400;
+        for (const u of units) du = Math.min(du, Math.hypot(q[0] - u.x, q[1] - u.y));
+        const s = du - dv * 0.6;
+        if (s > bd) {
+          bd = s;
+          best = q;
+        }
+      }
+      this.cover = best ? { at: best, t: this.t, last: this.t, seenT: 0 } : null;
+      return best;
     }
     // the point of interest farthest from the police round the player (or from the player, with none about), past 500
     _far(P17, w8) {
@@ -36396,7 +36523,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       shop: { kind: "building", w: [4, 7], d: [4, 6], storeys: [1, 2] },
       apartment: { kind: "building", w: [6, 9], d: [6, 9], storeys: [3, 4] }
     } },
-    neon: { kinds: { tower: 3, midrise: 3, club: 1 }, looks: neonLooks, alleys: 0.25, filler: "plaza", floor: "#7a7488", lots: {
+    neon: { kinds: { tower: 3, midrise: 3, club: 1 }, looks: neonLooks, alleys: 0.25, filler: "plaza", floor: "#7a7488", neon: { tubes: 0.55, signs: 0.5 }, lots: {
       tower: { kind: "building", w: [6, 10], d: [6, 10], storeys: [5, 8] },
       midrise: { kind: "building", w: [5, 8], d: [5, 8], storeys: [3, 5] },
       club: { kind: "building", w: [4, 6], d: [4, 6], storeys: [1, 2] }
