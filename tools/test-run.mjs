@@ -18,6 +18,8 @@ const STEPS = [
   ['e2e selftests', 'node', ['tests/e2e/selftest.mjs']],
   ['e2e audio', 'node', ['tests/e2e/audio.mjs']],
   ['e2e attract', 'node', ['tests/e2e/attract.mjs']],
+  ['e2e photo', 'node', ['tests/e2e/photo.mjs']],
+  ['e2e dev', 'node', ['tests/e2e/dev.mjs']],
   ['engine check', 'node', ['vendor/my-3d2dge/tools/check.mjs', 'dist/index.html', '--seconds', '3', '--out', 'check-output']],
   ['engine check (bank)', 'node', ['vendor/my-3d2dge/tools/check.mjs', 'dist/index.html#interior/bank', '--seconds', '3', '--out', 'check-output/bank']],
 ];

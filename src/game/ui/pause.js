@@ -35,6 +35,7 @@ export function pauseScreen(app, w, o = {}) {
     { label: 'RESUME', act: () => S.closeAll() },
     ...(C.R.active ? [{ label: 'QUIT THE JOB', act: () => S.open(confirmScreen(S, { title: 'QUIT THE JOB?', lines: ['It can be started again from its ring'], yes: 'QUIT IT', onYes: () => { S.closeAll(); C.R.quit('player'); } })) }] : []),
     { label: 'QUIT TO TITLE', act: () => S.open(confirmScreen(S, { title: 'QUIT TO THE TITLE?', lines: ['Anything since the last save is lost'], yes: 'QUIT', onYes: () => w.quitToTitle() })) },
+    ...(w.dev ? [{ label: 'DEV MENU', color: UI.pink, help: 'Tuning, overlays, the world, any job or zone (?dev=1)', act: () => w.dev() }] : []),
   ];
   const brief = {
     w: 380, list: new List({ id: 'brief', items: briefItems() }), enter() { brief.list.set(briefItems()); },

@@ -3,7 +3,7 @@
 //   - the focus is visible wherever a list or cards are shown;
 //   - six items a page at most;
 //   - no text under the UI layer's own scale (scale >= 1; the 3 x 5 font never reaches the UI layer);
-//   - every glyph token resolves to a button of the device in use;
+//   - every glyph token resolves to a button of the device in use, and none is drawn as plain text ('{interact}');
 //   - nothing (text, prompt, panel, card, focus) outside the 5% safe area.
 // At 1920 x 1080 and 1280 x 720, a screenshot at each stop (--shots). Then the same walk by the keyboard alone, and a
 // walk by the mouse alone (hover, click, the wheel, a right click to go back). Exit 0 when every stop passed.
@@ -14,6 +14,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT } from './build.mjs';
+import { auditRecord } from '../src/motor/ui/record.js';
 
 const args = process.argv.slice(2), arg = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; }, has = k => args.includes('--' + k);
 const PAGE = resolve(arg('page', join(ROOT, 'dist/index.html'))), SIZES = arg('sizes', '1920x1080,1280x720').split(',').map(s => s.split('x').map(Number));
@@ -26,19 +27,8 @@ const KEYS = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'Arro
 // a save in slot 1 and the autosave, so CONTINUE and LOAD have something to show
 const SAVE = { schema: 1, game: 'GrandTheftMoto-5S', slot: '1', label: 'Lowtown', playtime: 3723, gameDay: 2, completion: 12.5, savedAt: 1700000000000 };
 
-/** the rules, on one frame's record: a list of what broke */
-export function auditRecord(R) {
-  const bad = [], [x0, y0, x1, y1] = R.safe, out = b => b.x < x0 - .5 || b.y < y0 - .5 || b.x + b.w > x1 + .5 || b.y + b.h > y1 + .5, at = b => `${Math.round(b.x)},${Math.round(b.y)} ${Math.round(b.w)}x${Math.round(b.h)}`;
-  if (R.lists.some(l => l.live !== false && l.shown > 0) && !R.focus.length) bad.push('no focus on a screen with a list');
-  for (const l of R.lists) if (l.shown > 6) bad.push(`list ${l.id}: ${l.shown} items on a page`);
-  for (const t of R.texts) if (!(t.scale >= 1)) bad.push(`"${t.s}" at scale ${t.scale}`);
-  for (const q of R.prompts) if (q.unresolved) bad.push(`"${q.s}": ${q.unresolved} glyph token(s) unresolved`);
-  for (const t of R.texts) if (out(t)) bad.push(`"${t.s}" outside the safe area (${at(t)})`);
-  for (const q of R.prompts) if (out(q)) bad.push(`prompt "${q.s}" outside the safe area (${at(q)})`);
-  for (const r of R.rects) if (out(r)) bad.push(`${r.kind} outside the safe area (${at(r)})`);
-  for (const f of R.focus) if (out(f)) bad.push(`the focus outside the safe area (${at(f)})`);
-  return bad;
-}
+/** the rules, on one frame's record: a list of what broke (MOTOR's: the Proving Ground's UI gallery checks the same) */
+export { auditRecord };
 
 async function session(size, pass) {
   const browser = await chromium.launch({ executablePath: EXE, args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });

@@ -34,7 +34,7 @@ export class Career {
    *  too), saves (a SaveStore), bot, demo (the attract mode's: the reels its bot plays, no offers, no random events, no
    *  hold-ups, no cards, nothing ever written) } */
   constructor(o) {
-    this.app = o.app; this.W = o.world; this.save = o.save || normalizeSave(blankSave()); this.saves = o.saves || makeSaves(); this.demo = !!o.demo;
+    this.app = o.app; this.W = o.world; this.save = o.save || normalizeSave(blankSave()); this.saves = o.saves || makeSaves(); this.demo = !!o.demo; this.lab = !!o.lab;   // (lab: a district not Lowtown's, the Proving Ground's lab or District 2: free roam alone, no tokens, hold-ups or random events)
     const W = this.W, fund = { get: () => W.crew.fund, add: (n, why) => { W.crew.fund = Math.max(0, W.crew.fund + n); BUS.emit('cash', { amount: n, reason: why }); } };
     this.econ = new Economy({ save: this.save, fund });
     this.R = new MissionRuntime({ world: () => W, save: this.save, onEnd: r => this._ended(r) });
@@ -50,10 +50,10 @@ export class Career {
   start(o = {}) {
     const W = this.W, S = this.save;
     W.crew.fund = S.crewFund;
-    this.tokens = new Collectibles({ combat: W.combat, save: S }).place();
+    this.tokens = this.lab ? null : new Collectibles({ combat: W.combat, save: S }).place();
     this.garage = {};   // (the stashed vehicles: back where they were left)
     for (const q of S.garage) { if (!q || !q.id || !q.def || !Array.isArray(q.at)) continue; const v = W.fleet.spawn(q.def, q.at[0], q.at[1], q.at[2] || 0, { color: q.color, mods: q.mods, owner: 'world' }); v.stashed = q.id; this.garage[q.id] = v; }
-    this.holdups = new Holdups({ city: W.city, combat: W.combat, rng: RNG.stream('shops') });
+    this.holdups = this.lab ? null : new Holdups({ city: W.city, combat: W.combat, rng: RNG.stream('shops') });
     if (o.loaded) this._apply(S);
     for (const u of this.unsub) u();
     this.unsub = [BUS.on('busted', () => { if (this.R.state === 'running') this.R.fail('busted'); }, 'scene')];
@@ -106,14 +106,14 @@ export class Career {
     if (this.R.state === 'failed' && !ctx.down && !this.card) this._blown();
     if (this.R.state === 'passed' && !this.card) this._jobDone();
     if (this.R.choosing && !this.card && !this.R.picked) this._choice();
-    this.events.update(dt, { free: !this.R.active && !ctx.inside && !this.card, player: p });
+    if (!this.lab) this.events.update(dt, { free: !this.R.active && !ctx.inside && !this.card, player: p });
     // free roam: the givers, the starts, the shops, the properties, the safehouse; the stunts and the tokens always
     const v = p.seat && p.seat.vehicle;
     const st = this.stunts.update(dt, v && v.driver === p ? v : null);
     if (st && st.ok) { if (st.reward) this.econ.fund.add(st.reward, 'stunt'); this.pop(`${st.first ? 'UNIQUE STUNT' : 'STUNT'}  ${st.name.toUpperCase()}`, st.reward ? '+$' + st.reward : st.score + ' PTS', '#5af0ff'); }
     this.prompt = null;
     if (!ctx.inside && !ctx.down && !ctx.busy && !this.card && !p.dead) {
-      const hu = this.holdups.update(dt, p, { hours: this.hours, crime: e => { const w = W.wanted(); if (w) w.crime(e); } });
+      const hu = this.holdups && this.holdups.update(dt, p, { hours: this.hours, crime: e => { const w = W.wanted(); if (w) w.crime(e); } });
       if (hu) this.pop('HOLD-UP  ' + hu.name.toUpperCase(), '+$' + hu.cash + ' ON THE COUNTER', '#ff8a5a');
       if (!this.R.active) this._free(p, v, I);
       else { const h = this.R.objective && this.R.objective.hint; if (h && h.kind === 'goto' && h.interact && !v) this._doors(p, h.at); }   // (a job's own △ at a door: the prologue's save)
@@ -156,7 +156,7 @@ export class Career {
   garaged(id) { const v = this.garage && this.garage[id]; return v && !v.wrecked && this.W.fleet.vehicles.includes(v) ? v : null; }
   /** a pickup walked over: a Moto Token or a mission's item (true: used); null: not the career's */
   take(p, k) {
-    if (k.kind === 'token') { const f = this.tokens.found(k); if (!f) return true; if (f.reward) this.econ.fund.add(f.reward, 'token'); if (f.all) this.econ.fund.add(f.all, 'tokens'); this.pop(`MOTO TOKEN  ${f.of - f.left}/${f.of}`, '+$' + (f.reward + f.all), '#ff7ac8'); return true; }
+    if (k.kind === 'token') { const f = this.tokens && this.tokens.found(k); if (!f) return true; if (f.reward) this.econ.fund.add(f.reward, 'token'); if (f.all) this.econ.fund.add(f.all, 'tokens'); this.pop(`MOTO TOKEN  ${f.of - f.left}/${f.of}`, '+$' + (f.reward + f.all), '#ff7ac8'); return true; }
     if (k.kind === 'item') { BUS.emit('pickup', { item: k.item, by: p.id }); return true; }
     return null;
   }
@@ -366,9 +366,11 @@ export class Career {
   hud(P, o = {}) {
     const R = this.R, t = this.W.game.real || 0, L = hudLayout(P), cx = P.W / 2, fw = footWidth(P);
     if (R.state === 'running' && R.objective && !this.card && !this.demo) {   // (on a band of its own: over a busy street it had blurred into the scene)
-      const rows = wrapLines(P, R.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map(r => P.width(r))) + 14), y = L.sy1 - 78;
+      // (a control named in it, '{interact} to hop on': drawn in the player's own glyphs)
+      const tok = r => /\{[a-zA-Z]+(:[a-zA-Z]+)?\}/.test(r), wd = r => (tok(r) ? P.promptWidth(r) : P.width(r));
+      const rows = wrapLines(P, R.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map(wd)) + 14), y = L.sy1 - 78;
       P.fill(cx - bw / 2, y - 3, bw, rows.length * 10 + 5, '#05030c', .6);
-      rows.forEach((r, i) => P.text(r, cx, y + i * 10, '#f0ecff', { align: 'center' }));
+      rows.forEach((r, i) => (tok(r) ? P.prompt(r, cx, y + i * 10, { align: 'center', color: '#f0ecff' }) : P.text(r, cx, y + i * 10, '#f0ecff', { align: 'center' })));
     }
     if (R.timer && R.state === 'running' && !this.demo) { const s = Math.ceil(R.timer.left), txt = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; P.text((R.timer.label ? R.timer.label + ' ' : '') + txt, L.timer[0], L.timer[1], s <= 10 && Math.floor(t * 3) % 2 ? '#ff5a4a' : '#ffe066', { align: 'right', scale: 2 }); }
     if (R.course && R.state === 'running' && !this.demo) P.text(`CHECKPOINT ${R.checkpoint + 1 + R.lap * R.course.length}/${R.course.length * (R.laps || 1)}`, L.timer[0], L.timer[1] + (R.timer ? 18 : 0), '#5af0ff', { align: 'right' });

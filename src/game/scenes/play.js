@@ -28,10 +28,10 @@
 import { E, def, get, all, expose, BUS, RNG, TUNE, knob, FloorChunks, WorldClock, Weather, Drawbridge, skyAt, indoorSky, InteriorRun, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
   Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, boxDistance, stationLabel, modelOf, SpeedZoom, CityLife, AutoPlayer, roadsOf,
-  Radar, drawWanted, hudLayout, drawSubtitle, setting, toggled, DIFFICULTY, Onboarding, Radio, AudioDirector, SfxMap } from '../../motor/index.js';
+  Radar, drawWanted, hudLayout, drawSubtitle, setting, toggled, DIFFICULTY, Onboarding, Radio, AudioDirector, SfxMap, PhotoMode, Overlays, devScreen, WEATHERS } from '../../motor/index.js';
 import { VIGNETTE_PROPS } from '../characters/vignette-props.js';
 import { Career } from './career.js';
-import { lowtown, citySeed } from './lowtown.js';
+import { cityFor, citySeed } from './lowtown.js';
 import { pauseScreen } from '../ui/pause.js';
 import { TIPS } from '../ui/tips.js';
 import { makeSaves, blankSave, normalizeSave } from '../save.js';
@@ -59,15 +59,21 @@ const DOWN = { wrecked: { text: 'WRECKED', color: '#ff3a3a', tint: ['#280000', .
 const DOOR_R = 22, DOOR_FADE = .3;   // (how near a door's spot you stand to go through it; each half of its fade, s)
 
 export const PLAY = {
-  /** demo: the attract mode's ({ seed() -> the world's seed }), or null */
-  make(app, demo = null) {
+  /** demo: the attract mode's ({ seed() -> the world's seed }), or null; opts.district: a district other than Lowtown
+   *  (one of the Proving Ground's; else ?dev=1&district=<id>, District 2), played as free roam alone; opts.bot: the career's
+   *  bot plays what it starts (the mission bench) */
+  make(app, demo = null, opts = {}) {
     const { game, views, human, footprint, links, stage, bindings: B } = app;
     let city, map, cityR, floor, clock, weather, bridges = [], hoodName = '', tour = null, rec = null, crowd = null;
     let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, down = null, prevView = null, mouse0 = null, radar = null, inShop = false, lastCause = null;
     let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null, life = null, unsub = [], auto = null;
     let inside = null, transit = null, door = null, takedown = null;   // (the interior the player is in; a door's fade; the door or the guard the prompt offers)
+    let district = 'lowtown';   // (the district played: Lowtown's, a Proving Ground one, District 2's)
     let career = null, save = null;   // (M8: the career on top of free roam, and the save it plays)
     let switchLatch = false;   // (the character wheel opened by a press, Settings, ACCESS)
+    // photo mode (PLAN.md 8.22): the world stands still while the camera roams; a photo frames the bodies and the cars
+    const photo = new PhotoMode({ game, stage, views, bindings: B, canvas: () => (typeof document !== 'undefined' ? document.getElementById('game') || document.querySelector('canvas') : null),
+      bodies: () => (inside ? inside.run.combat.bodies : combat ? combat.bodies : []), vehicles: () => (inside || !fleet ? [] : fleet.vehicles) });
     const tips = new Onboarding(game, TIPS); let playT = 0, wheelT = 0;   // (the first-time hints; seconds of play, and at the wheel)
     // the sound (M10, presentation): the radio's stations as timelines (the same each seed), the director playing what
     // the possessed one's vehicle is tuned to and a job's score, the continuous voices and the SFX map; fed each frame
@@ -161,6 +167,22 @@ export const PLAY = {
       });
       return { items, sel: Math.max(0, crew.order.indexOf(crew.active)) };
     }
+    // the dev menu and its overlays (?dev=1; PLAN.md 8.23): ` or the pause's DEV MENU
+    const devOn = links.query.get('dev') === '1', overlays = new Overlays(); let devKey0 = false;
+    function openDev() {
+      const S = app.ui.screens; if (!devOn || demo || S.top) return false;
+      S.open(devScreen(app, { overlays, toast: s => { toast = { text: s, t: 2 }; },
+        world: { hour: () => clock.hour, setHour: h => clock.set(h), weather: () => weather.state || 'clear', weathers: WEATHERS, setWeather: s => weather.set(s),
+          stars: () => stars(), setStars: n => { const w = life && life.wanted; if (w) { if (n) w.set(n, 'dev'); else w.clear(); } },
+          pois: city.pois.filter(q => q.kind !== 'door').map(q => q.id), teleport: id => { const q = city.poi(id); if (q) { const n = roadsOf(city).walks.nearestNode(q.x, q.y, 400); hero().place(n ? n.x : q.x, n ? n.y : q.y); game.cam.snap = true; } },
+          vehicles: all('vehicles').map(d => d.id), spawn: id => { const p = hero(), v = fleet.spawn(id, p.x + 40, p.y, 0, { owner: 'world' }); if (v) fleet.wake(v); } },
+        go: { missions: all('missions').map(m => ({ id: m.id, title: (m.title || m.id).toUpperCase(), stages: (m.stages || []).map(s => s.id) })), activities: all('activities').map(a => ({ id: a.id, title: (a.title || a.id).toUpperCase(), levels: a.levels || 1 })),
+          start: (id, q) => career.startMission(id, q), zones: all('provingZones').map(z => z.id), zone: id => game.go('proving', { route: ['proving', id] }),
+          district2: get('districts', 'district2') ? () => game.go('play', { route: ['play', 'district2'] }) : null } }));
+      return true;
+    }
+    // into photo mode, when free to (not in the demo, a card, a wheel, the switch, a fade, WRECKED or NABBED)
+    function enterPhoto() { if (demo || !crew || crew.switching || (career && career.busy) || weaponWheel.open || switchWheel.open || transit || down) return false; return photo.enter(hero()); }
     function trySwitch(id, forced = false, free = false) {   // (free: a reel's switch, as a player's but in its job)
       const r = crew.request(id, forced ? { forced: true, H0: stage.top.H || 320 } : { wanted: stars(), mission: !free && career && career.running ? career.R.spec : null, H0: stage.top.H || 320, vignetteAt: who => { const v = chOf(who).vignette, q = v && city.poi(v.poi); return q ? [q.x, q.y] : null; } },
         (m, fresh, at) => { if (fresh && at) m.ped.place(at[0], at[1], 0); });
@@ -240,6 +262,7 @@ export const PLAY = {
       stash: (v, id, at) => career && career.stash(v, id, at),
       garaged: id => (career ? career.garaged(id) : null),
       slowmo: k => { slow = Math.max(.1, Math.min(1, +k || 1)); },
+      photo: () => enterPhoto(),   // (the phone's SNAP)
       endMission: () => {},
     };
     const subtitle = (P, name, color, line, y) => { if (setting(game, 'subtitles', true)) drawSubtitle(P, name, color, line, y); };
@@ -274,13 +297,15 @@ export const PLAY = {
     const U = app.ui.screens;
     const pauseView = { get city() { return city; }, get career() { return career; }, get crew() { return crew; }, get save() { return save; }, get turf() { return turfOf(); },
       player: () => { const p = hero(), v = p.seat && p.seat.vehicle; return v ? { x: v.x, y: v.y, facing: v.heading } : { x: p.x, y: p.y, facing: p.mover.facing }; },
-      quitToTitle: () => { U.closeAll(); game.go('title'); } };
+      quitToTitle: () => { U.closeAll(); game.go('title'); },
+      get dev() { return devOn && !demo ? () => { U.closeAll(); openDev(); } : null; } };
     function openPause(reason, tab) { if (demo || U.isOpen || !career) return false; U.open(pauseScreen(app, pauseView, { reason, tab })); return true; }
     return {
       // (the engine pauses on its own only for what it alone sees: the page hidden, the window left, a controller
       // unplugged; the pause button is ours, read in the step, so a pause is a step's input like any other)
       get pausable() { return !demo && !U.isOpen && !(career && career.busy) && !game.input.pressed('pause'); },
       openPause: reason => openPause(reason),
+      pauseScreen: tab => pauseScreen(app, pauseView, { tab }),   // (the pause as a screen, for the Proving Ground's UI gallery)
       // (the attract mode's hold on it: the career, where the camera looks, the stars, the interior)
       get career() { return career; },
       focus() { const p = hero(), v = p.seat && p.seat.vehicle, h = stage.top.hold; return h ? [h.x, h.y] : v ? [v.x, v.y] : [p.x, p.y]; },
@@ -288,7 +313,9 @@ export const PLAY = {
       inside: () => !!inside,
       enter(data) {
         if (demo) RNG.seed(demo.seed());   // (the attract mode: a fresh world from its seed, every stream from the start)
-        ({ city, render: cityR } = lowtown(citySeed(links)));
+        const dq = !demo && links.query.get('dev') === '1' ? links.query.get('district') : null;   // (?dev=1&district=<id>)
+        district = opts.district || (dq && get('districts', dq) ? dq : 'lowtown');
+        ({ city, render: cityR } = cityFor(district, district === 'lowtown' ? citySeed(links) : get('districts', district).seed));
         if (!demo) { const dv = links.query.get('view') || setting(game, 'defaultView', 'iso'); if (game.views.includes(dv) && views.active !== dv) game.setView(dv); }   // (Settings, Display: the view a game starts in; the attract's are its director's)
         map = city.map;
         floor = new FloorChunks({ w: map.w * map.T, h: map.h * map.T, paint: (g, x0, y0, x1, y1) => city.painter.paint(g, x0, y0, x1, y1) });
@@ -320,7 +347,7 @@ export const PLAY = {
         if (!game.headless) floor.warm(hero().x, hero().y, 420);
         if (into) goInside(city.poi(into.doors[0].from));
         if (career) career.dispose();
-        career = demo ? new Career({ app, world, save, saves, bot: true, demo: true }) : new Career({ app, world, save, saves, bot: links.query.get('bot') === 'pad' ? 'pad' : links.query.get('bot') === '1' });
+        career = demo ? new Career({ app, world, save, saves, bot: true, demo: true }) : new Career({ app, world, save, saves, bot: opts.bot || (links.query.get('bot') === 'pad' ? 'pad' : links.query.get('bot') === '1'), lab: district !== 'lowtown' });
         radio ||= new Radio({ stations: all('stations'), ads: Object.fromEntries(all('radioAds').map(a => [a.id, a])), seed: app.seed });
         if (sound) sound.dispose(); sound = new AudioDirector(game, { radio });
         if (sfx) sfx.dispose(); sfx = new SfxMap(game, () => { const q = hero(), v = q.seat && q.seat.vehicle; return v ? [v.x, v.y] : [q.x, q.y]; }, { isPlayer: id => !!crew.ped && crew.ped.id === id, where: id => { const v = fleet.vehicles.find(q => q.id === id); return v ? [v.x, v.y] : null; } }).attach();
@@ -331,6 +358,8 @@ export const PLAY = {
           vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake, traffic: life && life.traffic ? life.traffic.count : 0, peds: life && life.crowd ? life.crowd.count : 0,
           stars: stars(), down: down ? down.kind : null, interior: inside ? inside.id : null, alarm: inside ? !!inside.run.alarm : false, door: door ? door.id || door.label : null, career: career ? career.debug() : null }; });
         expose('teleport', (x, y) => { hero().place(x, y); game.cam.snap = true; });
+        expose('photo', photo);   // (photo mode: tests, the e2e's PNG)
+        expose('overlays', overlays);   // (the dev overlays: the e2e draws them in every view)
         expose('interior', () => inside); expose('views', views); expose('stage', stage); expose('life', life); expose('auto', auto); expose('city', city); expose('clock', clock); expose('weather', weather); expose('bridges', bridges); expose('crew', crew); expose('combat', combat); expose('fleet', fleet); expose('fleetCount', fleetCount);
         expose('perf', () => ({ ...rec, floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length, depth: stage.depth ? { ...stage.depth.stats } : null }));
         // (indoors the city's part stands as it was at the door: the possessed one counted where it went in; the interior's
@@ -338,9 +367,16 @@ export const PLAY = {
         game.stateHash = () => [...crew.order.flatMap(id => { const p = crew.member(id).ped, at = inside && inside.run.player === p ? inside.back : p; return [Math.round(at.x * 8), Math.round(at.y * 8), Math.round(at.z * 8), Math.round(p.health * 10)]; }),
           crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash(), fleet.hash(), ...(life ? life.hash() : []), ...(inside ? inside.run.hash() : []), crew.fund, ...(career ? career.hash() : [])];
       },
-      exit() { if (sound) { sound.dispose(); sound = null; } if (sfx) { sfx.dispose(); sfx = null; } if (career) { career.dispose(); career = null; } game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (inside) { inside.run.dispose(); inside = null; BUS.unmute('world'); } if (life) { life.dispose(); life = null; } if (auto) { auto.dispose(); auto = null; } for (const u of unsub) u(); unsub = []; },
+      exit() { photo.exit(); if (sound) { sound.dispose(); sound = null; } if (sfx) { sfx.dispose(); sfx = null; } if (career) { career.dispose(); career = null; } game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (inside) { inside.run.dispose(); inside = null; BUS.unmute('world'); } if (life) { life.dispose(); life = null; } if (auto) { auto.dispose(); auto = null; } for (const u of unsub) u(); unsub = []; },
       update(dt) {
         const real = dt / Math.max(.05, game.timeScale);
+        if (photo.active) {   // photo mode: the world held still, the camera free (nothing below runs: no clock, no traffic, no job)
+          photo.update(real); game.timeScale = 1;
+          stage.update(real, { vehicle: false, vel: null }); if (stage.rig) game.focus(stage.rig.x, stage.rig.y, 16);
+          return;
+        }
+        if (!demo && !app.ui.took && (B.tap('photo', 'onFoot') || B.tap('photo', 'vehicle')) && enterPhoto()) return;   // (Create / B)
+        if (devOn) { const k = B.codeValue('Backquote') > 0; if (k && !devKey0 && openDev()) { devKey0 = k; return; } devKey0 = k; }   // (`: the dev menu)
         if (!demo && !app.ui.took && !career.busy && (B.tap('pause', 'onFoot') || game.input.pressed('pause') || B.tap('map', 'onFoot'))) { const map = B.tap('map', 'onFoot'); if (openPause(null, map ? 'map' : null)) return; }   // (Options, Esc, P: the pause; the touchpad, M, Tab: its map)
         if (transit) { transit.t += dt; if (!transit.done && transit.t >= DOOR_FADE) { transit.done = true; transit.go(); } if (transit.t >= DOOR_FADE * 2) transit = null; }
         if (!inside) {   // (indoors the city stands still: its clock, its weather, its bridges)
@@ -435,7 +471,7 @@ export const PLAY = {
       },
       draw(r) {
         if (rec) { const st = game.stats; rec.update.push(+st.updateMs.toFixed(3)); rec.render.push(+st.renderMs.toFixed(3)); rec.frames++; }
-        const p = hero(), hold = stage.top.hold, pv = p.seat && p.seat.vehicle, fx0 = hold ? hold.x : pv ? pv.x : p.x, fy0 = hold ? hold.y : pv ? pv.y : p.y;
+        const p = hero(), hold = stage.top.hold, pv = p.seat && p.seat.vehicle, pr = photo.active ? photo.rig : null, fx0 = pr ? pr.x : hold ? hold.x : pv ? pv.x : p.x, fy0 = pr ? pr.y : hold ? hold.y : pv ? pv.y : p.y;
         stage.setSky(inside ? indoorSky(clock.hour) : skyAt(clock.hour, weather));
         stage.begin(r, { focus: [fx0, fy0], vel: hold ? [0, 0] : pv ? [pv.body.vx, pv.body.vy] : [p.mover.vx, p.mover.vy], speed01: pv ? Math.min(1, pv.speed / 300) : 0, vehicle: !!pv, player: [p.x, p.y, p.z] });
         const vg = crew.vignette;
@@ -468,6 +504,7 @@ export const PLAY = {
         fx.draw(stage, combat, [fx0, fy0]);
         if (!crew.switching) drawAimMarks(stage, p, game.real);
         stage.end();
+        if (overlays.any) { const rd = roadsOf(city); overlays.draw(stage, r, { graph: rd.graph, junctions: life ? life.junctions : null, walks: rd.walks, fleet, bodies: combat.bodies, focus: [fx0, fy0], reach: 500, stats: { ...game.stats } }); }
         }
         feedSound(p, pv, fx0, fy0);
       },
@@ -476,6 +513,7 @@ export const PLAY = {
       // left, the vehicle at the bottom right, the prompts, the objective and the subtitles at the foot, the wheels,
       // the toasts and pops; then WRECKED or NABBED, then a door's fade over all of it
       hud(P) {
+        if (photo.active) { photo.legend(P); return; }   // (photo mode: the HUD off, the legend only, never in the picture)
         const p = hero(), pv = p.seat && p.seat.vehicle, hold = stage.top.hold, fx0 = hold ? hold.x : pv ? pv.x : p.x, fy0 = hold ? hold.y : pv ? pv.y : p.y;
         const L = hudLayout(P), ch = chOf(crew.active), t = game.real, cx = P.W / 2, vg = crew.vignette;
         if (!demo) P.text((hoodName || 'LOWTOWN').toUpperCase() + '  •  ' + clock.label() + '  •  ' + (views.spec.label || views.active).toUpperCase(), L.sx0, L.sy0, '#ffe066');   // (the attract mode's bug stands there)

@@ -13,7 +13,7 @@ knob('Combat', 'rainDamp', 'Rain damping', 2.5, 0, 10, .1, 'How much faster fire
 knob('Combat', 'fireHop', 'Fire vigour per hop', .62, 0, 1, .02, 'The vigour a cell lit by a neighbour keeps (1: it spreads without end)');
 /** how well each surface burns (0 never .. 1 well) and the seconds of its own fuel once lit */
 export const FLAMMABLE = { grass: [1, 7], park: [1, 7], dirt: [.25, 2], sand: [.05, 1], pier: [.9, 10], lot: [.3, 3], yard: [.3, 3], walk: [.12, 1.5], plaza: [.12, 1.5],
-  road: [.08, 1.2], alley: [.2, 2], bridge: [.08, 1.2], quay: [.1, 1.5], rail: [.15, 2], curb: [.1, 1], water: [0, 0], deep: [0, 0] };
+  road: [.08, 1.2], alley: [.2, 2], bridge: [.08, 1.2], quay: [.1, 1.5], rail: [.15, 2], curb: [.1, 1], water: [0, 0], deep: [0, 0], wet: [.02, .5], oil: [.9, 6], ice: [0, 0] };
 
 export class Fire {
   /** city: a CityMap (surfaceAt, w, h, T) */

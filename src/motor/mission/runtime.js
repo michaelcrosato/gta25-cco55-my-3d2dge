@@ -51,14 +51,14 @@ export class MissionRuntime {
    *  deep link), o.level (an activity's), o.data (m.data's start: a random event's spot) */
   start(id, o = {}) {
     if (this.active) this.quit('replaced');
-    const kind = o.reel ? 'reel' : o.activity ? 'activity' : 'mission';
-    const spec = get(kind === 'reel' ? 'reels' : kind === 'activity' ? 'activities' : 'missions', id); if (!spec) throw new Error('MOTOR: no ' + kind + ' "' + id + '"');
+    const kind = o.reel ? 'reel' : o.bench ? 'bench' : o.activity ? 'activity' : 'mission';   // (bench: the Proving Ground's mission bench, def('bench', ...): a reel's terms, paid and kept nowhere)
+    const spec = get(kind === 'reel' ? 'reels' : kind === 'bench' ? 'bench' : kind === 'activity' ? 'activities' : 'missions', id); if (!spec) throw new Error('MOTOR: no ' + kind + ' "' + id + '"');
     const k = typeof o.stage === 'number' ? o.stage : o.stage ? spec.stages.findIndex(s => s.id === o.stage) : 0;
     if (k < 0 || k >= spec.stages.length) throw new Error('MOTOR: ' + id + ' has no stage "' + o.stage + '"');
     this.id = id; this.spec = spec; this.kind = kind; this.level = Math.max(1, Math.min(spec.levels || 1, o.level || 1));
     this.rng = RNG.stream('mission:' + id); this.t = 0; this.retries = 0; this.result = null; this.failure = null; this.data = { ...(o.data || {}) }; this.startedAt = k;
     this.actors = new MissionActors(this.world(), this);
-    if (kind !== 'reel') BUS.emit(kind === 'activity' ? 'activityStart' : 'missionStart', kind === 'activity' ? { id, level: this.level } : { id });
+    if (kind !== 'reel' && kind !== 'bench') BUS.emit(kind === 'activity' ? 'activityStart' : 'missionStart', kind === 'activity' ? { id, level: this.level } : { id });
     this.state = 'running'; this._stage(k);
     return this;
   }
@@ -157,11 +157,11 @@ export class MissionRuntime {
   pass() {
     if (this.state !== 'running') return;
     const S = this.spec, bonus = (S.bonus || []).map(b => ({ id: b.id, text: b.text, ok: !!safe(() => b.check(this.m)) })), medal = grade(bonus, this.retries);
-    const W = this.world(), rw = this.kind === 'reel' ? {} : (this.kind === 'activity' && S.rewardsFor ? S.rewardsFor(this.level, this.m) : S.rewards) || {};   // (a reel pays nothing)
+    const W = this.world(), rw = this.kind === 'reel' || this.kind === 'bench' ? {} : (this.kind === 'activity' && S.rewardsFor ? S.rewardsFor(this.level, this.m) : S.rewards) || {};   // (a reel pays nothing)
     if (rw.cash && W.cash) W.cash(rw.cash, this.kind + ':' + this.id);
     for (const [g, d] of Object.entries(rw.respect || {})) if (W.respect) W.respect(g, d, this.kind + ':' + this.id);
     this.result = { id: this.id, kind: this.kind, level: this.level, passed: true, medal, bonus, elapsed: this.t, retries: this.retries, rewards: rw, title: S.title };
-    if (this.save && this.kind !== 'reel') {   // (nor is it recorded)
+    if (this.save && this.kind !== 'reel' && this.kind !== 'bench') {   // (nor is it recorded)
       if (this.kind === 'mission') { const M = this.save.missions; if (!M.done.includes(this.id)) M.done.push(this.id); if (!M.medals[this.id] || MEDALS.indexOf(medal) > MEDALS.indexOf(M.medals[this.id])) M.medals[this.id] = medal; }
       else if (S.record !== false && S.kind !== 'event') { const A = this.save.activities; A[this.id] = Math.max(A[this.id] || 0, this.level); }
     }
@@ -450,12 +450,19 @@ export class MissionContext {
       { nav: m => { const P = m.mover; let b = null, bd = 1e9; for (const a of m.tagged(tag)) if (!isDone(a)) { const d = Math.hypot(a.x - P.x, a.y - P.y); if (d < bd) { bd = d; b = a; } } return b; },
         start: m => { m.objective(o.text || 'Take them out', { hint: { kind: 'kill', targets: tag, done: o.done || null } }); for (const a of m.tagged(tag)) if (alive(a) && o.mark !== false) m.marker(a, { color: '#ff5a4a', ring: false }); } });
   }
-  /** pick up the mission pickups tagged tag (all of them, or o.count) */
+  /** pick up the mission pickups tagged tag (all of them, or o.count); the hint goes on to the nearest one left as each
+   *  is taken */
   collect(tag, o = {}) {
     const left = m => m.tagged(tag).filter(k => !k.taken);
-    return op(m => (m.tagged(tag).length - left(m).length >= (o.count || m.tagged(tag).length) ? { value: true } : undefined), {
-      nav: m => { const P = m.mover; let b = null, bd = 1e9; for (const k of left(m)) { const d = Math.hypot(k.x - P.x, k.y - P.y); if (d < bd) { bd = d; b = [k.x, k.y]; } } return b; },
-      start: m => { const k = left(m)[0]; m.objective(o.text || 'Pick it up', { hint: { kind: 'goto', at: k ? [k.x, k.y] : m.at([m.player.x, m.player.y]), foot: true } }); for (const q of left(m)) m.marker([q.x, q.y], { color: '#7aff8a', r: 10 }); } });
+    const near = m => { const P = m.mover; let b = null, bd = 1e9; for (const k of left(m)) { const d = Math.hypot(k.x - P.x, k.y - P.y); if (d < bd) { bd = d; b = [k.x, k.y]; } } return b; };
+    let hint = null;
+    return op(m => {
+      if (m.tagged(tag).length - left(m).length >= (o.count || m.tagged(tag).length)) return { value: true };
+      const n = hint && near(m); if (n && (n[0] !== hint.at[0] || n[1] !== hint.at[1])) hint.at = n;
+      return undefined;
+    }, {
+      nav: near,
+      start: m => { const k = left(m)[0]; hint = { kind: 'goto', at: k ? [k.x, k.y] : m.at([m.player.x, m.player.y]), foot: true }; m.objective(o.text || 'Pick it up', { hint }); for (const q of left(m)) m.marker([q.x, q.y], { color: '#7aff8a', r: 10 }); } });
   }
   /** a photo (the Snap) of a tagged ped, or of a point (o.range, 160: within it and facing it); o.from: where to take
    *  it from (the bot's) */
@@ -469,6 +476,7 @@ export class MissionContext {
         un = BUS.on('photo', e => {
           const P = m.player; if (e.by !== P.id) return;
           if (typeof target === 'string') { got = m.tagged(target).some(a => e.targets.includes(a.id)); return; }
+          if (e.frame) { got = Math.hypot(pt[0] - e.x, pt[1] - e.y) < e.frame; return; }   // (photo mode's: the point near the picture's middle)
           const dx = pt[0] - e.x, dy = pt[1] - e.y, d = Math.hypot(dx, dy), dir = e.dir || [Math.cos(P.facing), Math.sin(P.facing)];
           got = d < range && (dx * dir[0] + dy * dir[1]) / (d || 1) > .8;
         }, m.R.scope);

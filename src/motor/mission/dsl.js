@@ -73,6 +73,12 @@ declare('reels', (spec, id) => [...reelShape(spec, id), ...checkStages(spec.stag
 /** register a reel: defReel(id, { title, shows, views, time (s: the most it may run), stages: [{ id, view, caption,
  *  setup(m), *run(m) }] }) */
 export const defReel = (id, spec) => def('reels', id, spec);
+// (M12) the Proving Ground's mission bench (PLAN.md 8.23): one tiny job per kind of objective, staged as a mission and
+// played by the bot in the lab; like a reel it pays nothing and is never recorded
+const benchShape = shape({ title: { type: 'string', req: true }, op: { type: 'string', req: true }, time: { type: 'number', def: 120, min: 10 }, stages: { type: 'array', req: true } });
+declare('bench', (spec, id) => [...benchShape(spec, id), ...checkStages(spec.stages)]);
+/** register a mission bench job: defBench(id, { title, op (the objective it proves), time (s), stages }) */
+export const defBench = (id, spec) => def('bench', id, spec);
 /** register a mission: defMission(id, { title, giver, gang, tier, requires, brief, rewards, bonus, stages }) */
 export const defMission = (id, spec) => def('missions', id, spec);
 /** register a repeatable activity in the same staged form: defActivity(id, { title, kind, start, levels, stages,

@@ -3,7 +3,7 @@
 // barriers, the lamps and the parked cars, drift round the skidpad, climb the curb, cross grass and dirt. Since M4 the
 // cars are Fleet vehicles (dents, smoke, skid marks) and a driver sits at the wheel. ?wet=1 wets the road; ?mode=auto
 // drives a lap of the pad by itself (screenshots, perf). The ISO camera zooms out with speed (SpeedZoom); ?zoom=.8
-// holds one zoom; ?car=<vehicle id> drives another definition.
+// holds one zoom; ?car=<vehicle id> drives another definition. ?selftest=1 drives the lap and checks it went round whole.
 import { E, def, get, FloorChunks, Fleet, Ped, Combat, VehicleFX, drawVehicle, SpeedZoom, makeIntent, clearIntent } from '../../motor/index.js';
 import { drawLamp } from './city-zones.js';
 
@@ -61,6 +61,14 @@ def('provingZones', 'pad', {
       perf() { return { floor: { ...floor.stats }, walls: map.wallCache(), cars: fleet.vehicles.length }; },
       stateHash() { return [fleet.hash(), ...fleet.vehicles.flatMap(v => [Math.round(v.x * 8), Math.round(v.y * 8), Math.round(v.heading * 1000)])]; },
       handle() { return { map, floor, car, cars: fleet.vehicles, fleet, driver }; },
+      // ?selftest=1: the lap driven by itself (?mode=auto's), 600 frames: round the pad, still in one piece
+      selftest(st) {
+        if (st.frame === 0) { auto = true; st.d = 0; st.last = [car.x, car.y]; st.top = 0; }
+        st.d += Math.hypot(car.x - st.last[0], car.y - st.last[1]); st.last = [car.x, car.y]; st.top = Math.max(st.top, car.speed);
+        if (st.frame < 600) return null;
+        const checks = [{ check: 'driven', value: Math.round(st.d) + ' u', ok: st.d > 1000 }, { check: 'top speed', value: Math.round(st.top) + ' u/s', ok: st.top > 100 }, { check: 'in one piece', value: car.damage.state, ok: !car.damage.wrecked }];
+        return { ok: checks.every(c => c.ok), checks };
+      },
     };
   },
 });

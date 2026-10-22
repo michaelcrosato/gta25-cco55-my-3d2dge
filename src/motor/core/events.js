@@ -35,7 +35,8 @@ export const EVENTS = {
   kill: 'target, by, kind',
   explode: 'x, y, z, r, by, power',
   fire: 'x, y, r, by',
-  photo: 'by, x, y, targets, dir',              // the Snap (M3: a photo objective's shutter; dir, M8: where it pointed)
+  photo: 'by, x, y, targets, dir, frame',       // the Snap (M3: a photo objective's shutter; dir, M8: where it pointed); frame, M12: photo mode's (how near the picture's middle counts)
+  photoMode: 'on',                              // photo mode entered or left (M12)
   // vehicles
   vehicleEnter: 'vehicle, actor, seat',
   vehicleExit: 'vehicle, actor, seat',
