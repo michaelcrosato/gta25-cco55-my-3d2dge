@@ -1,16 +1,16 @@
 # Progress: GRAND THEFT MOTO
 
 Now: M13 (2026-10-22). Everything M8 to M12 builds is in and merged; M13's polish (parts 1-2), its perf levers
-(part 3) and FAN-OUT B (part 4: eight adversarial reviewers, 47 findings, each a test under `tests/review/` now in
-`npm test`, every one fixed, D29) are in. The owner's directions of 2026-10-22 (D29): performance leaves the
-Definition of Done (the hardware is unlimited; FPS targets and optimization come later), and the bots may play
-invulnerable (the campaign plays `--god`; the mission bot's runs stay mortal).
+(part 3), FAN-OUT B (part 4: eight adversarial reviewers, 47 findings, each a test under `tests/review/` now in
+`npm test`, every one fixed, D29) and part 5 (the bot after FAN-OUT B; the shots matrix with a verdict a row and its
+look pass) are in. The owner's directions of 2026-10-22 (D29): performance leaves the Definition of Done (the hardware
+is unlimited; FPS targets and optimization come later), and the bots may play invulnerable (the campaign plays
+`--god`; the mission bot's runs stay mortal).
 
 Next:
-- after FAN-OUT B's MOTOR changes, every merged mission and activity through the mission bot again (seeds 1-3, the pad,
-  the bot gym), then the bot campaign to 100% (god) and M8's acceptance with its evidence;
-- test:full; the shots matrix and its look pass; the release docs (README, ENGINE-ANALYSIS, HANDOFF, PATCHES); the
-  Definition of Done check.
+- part 5's bot changes through every merged mission and activity (seeds 1-3, the pad, the bot gym), then the bot
+  campaign to 100% (god) and M8's acceptance with its evidence;
+- test:full; the release docs (README, ENGINE-ANALYSIS, HANDOFF, PATCHES); the Definition of Done check.
 
 Blockers: none. (The 403 on pushing, D27, is gone: the branch takes pushes again since M13's part 3.) The run started
 inside the planning session (DECISIONS D5). At M4's close it was handed off (D16), and the next sessions carried it
@@ -32,7 +32,7 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
 | M10 Audio + radio | done | GTM-PATCH 5 (the buses), MOTOR's sequencer, composer, radio and voices, four stations, the score cues (`b2ea884`, D24) · unit audio, sim audio (the hash the same with sound), e2e audio (each station's RMS, the music bus, mute, a bounded soak) · 277 tests |
 | M11 Attract + kiosk | done | the Director and its five reels, cards, the camera plan, the watchdog, leaving on any input, the kiosk and phone (`52b3980`, D25) · the soak 30 min x seeds 1-3 headless and 5 min drawn, all pass · director 4, attract sim 18, attract e2e 24 checks · `docs/media/m11/` (11 shots, the Joyride MP4 and GIF) |
 | M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
-| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, D29) · 328 unit + sim tests, 77 review tests (`tests/review/`), 15 recipes |
+| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts (part 5) · 332 unit + sim tests, 77 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
 
 ## Acceptance log
 
@@ -1168,3 +1168,54 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
     test:full; `tools/perf.mjs` stays); the bots may play invulnerable: `?god=1` / `--god` (the crew and their rides
     take no harm, the gun in hand stays full); the campaign plays god, the mission bot's runs stay mortal.
 
+- **M13 · the bot after FAN-OUT B, the shots matrix and its look pass (part 5):**
+  - **Every merged mission and activity through the mission bot on FAN-OUT B's MOTOR** (`7b1980f`, seeds 1-3): 95 of
+    96 passed. H4 on seed 3 failed at the ram ("Gus left the Hookline" four times, then NABBED): the AutoPlayer's
+    pull-away from a cop on foot had come to fire for any cop within 80, also one holding off at range and shooting,
+    and backed and swung the Hookline out round and round. It now pulls away only from a cop coming for the door
+    (close, or closing on the car: `tests/unit/bot-manners.test.mjs`); H4 seed 3 passes again. **On part 5's bot
+    (`9843969`): 96 of 96** on seeds 1-3 (H4 seed 3 silver, once NABBED at the ram).
+  - **The campaign at three stars:** god mode showed the same loop with no end (the crew can't die, so the police's
+    guns never close it): Bingo Night's escape stood still at three stars. With the Eye up, no drive away loses it, so
+    the mission bot's evade now goes under a deck (the L, the Loop), out of the Eye's sight, and holds there while the
+    stars flash out; seen there, on to another stretch away from the police (`_cover`, tested). Four starts with three
+    and four stars lost them in 51-154 s. The free-roam evade (the campaign's between jobs) never moved its goal after
+    the first change of it: its retarget clock now runs.
+  - **The stunts in the campaign:** "Back Across the Canal" never landed: the runner's stop, lining up, held the brake
+    while the car rolled back, which in this engine drives it back, at 80 u/s into the canal behind the run-up. It
+    stops against the way it rolls now, and the canal lands. A failed jump now says why (how it came down, or that it
+    never left the ground in its circle).
+  - **The shots** (`tools/shot-matrix.mjs`, PLAN.md 10's matrix): `docs/media/shots/`: the 4 neighbourhoods by day,
+    dusk and night in ISO (`<hood>-<time>-iso.png`) and every view on the contact sheets (`sheet-iso-clear.jpg`,
+    `sheet-top-clear.jpg`, `sheet-side7-clear.jpg`, and ISO in rain, `sheet-iso-rain.jpg`); the bank's lobby in each
+    view (`bank-iso.png`, `bank-top.png`, `bank-side7.png`, `--bank`). The UI screens are the UI audit's (M9's
+    `docs/media/m9/`, the audit's 238 stops). The notes the review raised, and what was done:
+    - the big flat roofs (the Brickyard's warehouses, Neon Mile's) were bare slabs: they now carry a stair hut,
+      skylights, a duct, a chimney on brick, an aerial or a dish on the tall ones and more units (the builder's own
+      stream: nothing else shifts; none of it solid);
+    - Neon Mile's neon was thin (M2's note): a style's neon (`style.neon`) puts tubes of light up its street corners
+      (in ISO lit after the dark at night) and a shop sign on half its lots more;
+    - TOP-DOWN drew every roof's clutter under its roof (each roof prop keyed by its own distance, the roof by its
+      nearest edge, so the roof came after): a thing standing on a roof is now drawn after it, as a body up there
+      already was (`tests/unit/depth.test.mjs`);
+    - accepted, as at M2 (D11's known gap): at night the light field's dark lies in soft shapes between the lamps'
+      pools (high roofs, open quays).
+  - **Verdicts against PLAN.md 10** (each neighbourhood by day · dusk · night):
+
+    | | ISO | TOP-DOWN | MODE 7 |
+    |---|---|---|---|
+    | Palm Terraces | pass · pass · pass | pass · pass · pass | pass · pass · pass |
+    | Neon Mile | pass · pass · pass | pass · pass · pass | pass · pass · pass |
+    | Brickyard | pass · pass · pass | pass · pass · pass | pass · pass · pass |
+    | Harborfront | pass · pass · pass | pass · pass · pass | pass · pass · pass |
+    | The bank (23:00) | pass | pass | pass |
+
+    - **Palm Terraces:** pastel stucco and balconies, the red Gas'n'Sip, palms on every walk, billboards, roof
+      clutter; sodium pools at dusk and night; rain streaks and the wet street's sheen.
+    - **Neon Mile:** lit towers, tubes of neon at the corners, shop signs, the Hotel Marquee's sign, the busy roofs;
+      MODE 7 looks up its lit facades.
+    - **Brickyard:** brick warehouses with tanks, skylights and stair huts on their roofs, the Boom Box and the
+      Gutterball signs, the Loop on its pillars overhead.
+    - **Harborfront:** the cranes, containers, crates and pallets in the yards, the quay's bollards, the Loop's ramp,
+      the glinting water.
+    - **The bank:** the lobby's marble and benches, its guard, the cut-away indoors in each view.

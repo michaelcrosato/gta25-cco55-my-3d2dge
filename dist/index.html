@@ -12792,6 +12792,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const q = kept2 && d.proj(x, y, z), big = q && kept2.r * q[2] > KEPT_MAX;
       let k = d.depth(x, y) - (o && o.bias || 0);
       if (d === this.top && o && o.wall) k = Math.min(k, this._spanKey(o.wall[0], o.wall[1], k));
+      else if (d === this.top && z > 2 && this.spans) {
+        const s = this.spans.at(x, y);
+        if (s && s.h <= z + 2) k = Math.min(k, this._spanKey(x, y, k));
+      }
       const it = { k, kind: o && o.kind || "shape", fn: kept2 && !big ? (g) => this._keptShape(g, d, d.view(1), x, y, z, draw, kept2) : (g) => draw(g, d) };
       if (d === this.side7 && o && o.reach) this._reachBox(d, it, x, y, o.reach);
       this.items.push(it);
@@ -22679,7 +22683,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const s = J.s, dist = Math.hypot(b.x - J.x, b.y - J.y);
       const landed = s.landing ? Math.hypot(s.landing.at[0] - b.x, s.landing.at[1] - b.y) < (s.landing.r || 80) : dist >= s.minDist;
       if (!landed || J.t < s.minAir || b.flipped || v.wrecked) {
-        this.last = { id: s.id, ok: false, dist, air: J.t };
+        this.last = { id: s.id, ok: false, dist, air: J.t, flipped: !!b.flipped, wrecked: !!v.wrecked };
         return null;
       }
       const score = Math.round(dist + (J.top - J.z) * 2 + Math.floor(J.roll / Math.PI) * 100), first = !this.save.stunts.includes(s.id);

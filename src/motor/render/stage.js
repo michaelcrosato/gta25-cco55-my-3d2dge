@@ -444,6 +444,7 @@ export class Stage {
     const q = kept && d.proj(x, y, z), big = q && kept.r * q[2] > KEPT_MAX;
     let k = d.depth(x, y) - (o && o.bias || 0);
     if (d === this.top && o && o.wall) k = Math.min(k, this._spanKey(o.wall[0], o.wall[1], k));   // (TOP-DOWN: a sign drawn after the building it hangs on)
+    else if (d === this.top && z > 2 && this.spans) { const s = this.spans.at(x, y); if (s && s.h <= z + 2) k = Math.min(k, this._spanKey(x, y, k)); }   // (and a thing on a roof after the roof: under it, every roof's clutter was hidden)
     const it = { k, kind: (o && o.kind) || 'shape', fn: kept && !big ? g => this._keptShape(g, d, d.view(1), x, y, z, draw, kept) : g => draw(g, d) };
     if (d === this.side7 && o && o.reach) this._reachBox(d, it, x, y, o.reach);   // (o.reach: [r, z0, z1], what the walls may hide)
     this.items.push(it);

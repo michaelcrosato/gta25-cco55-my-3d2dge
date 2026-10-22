@@ -196,19 +196,24 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
           else { I.steer = Math.max(-1, Math.min(1, ang(ahead(c, 45) - c.heading) * 2.5)); if (c.speed < 18) I.throttle = .45; else I.brake = .4; return I; }
         }
         if (phase === 'back') { if (along(c) <= 0) phase = 'stop'; else { I.brake = .6; I.steer = Math.max(-1, Math.min(1, -dh * 1.5)); return I; } }   // (reversing: the wheel the other way holds the line)
-        if (c.speed > 2) I.brake = 1; else phase = 'set';
+        if (c.speed > 2) { if (c.body.vx * Math.cos(c.heading) + c.body.vy * Math.sin(c.heading) > 0) I.brake = 1; else I.throttle = 1; } else phase = 'set';   // (stopped against the way it rolls: the brake held while it backs drives it back faster, into the canal behind the Canal's run-up)
         return I;
       }, 30, () => phase === 'set');
       const b = bridgeOf(s); if (b) { const d = Math.hypot(tx - v.x, ty - v.y); lift(b, Math.max(0, .5 - d / 160 * (1 / Math.max(.1, M.TUNE.drawbridgeRaise))) + (n - 1) * .08); }
       // the run: flat out along the line at the takeoff (held straight once over it), the nitro if fitted
-      let over = false, h = 0;
+      let over = false, h = 0, top = 0; const C0 = C().stunts; if (C0) C0.last = null;
       pilot((dt, p) => {
         const I = M.clearIntent(idle), c = p.seat && p.seat.vehicle; if (!c) return I;
+        top = Math.max(top, c.speed);
         if (!over && Math.hypot(tx - c.x, ty - c.y) < 20) { over = true; h = c.heading; }
         const da = ang((over ? h : ahead(c, 80)) - c.heading);
         I.steer = Math.max(-1, Math.min(1, da * 2)); I.throttle = 1; I.down.nitro = true; return I;
       }, 25, () => S().stunts.includes(s.id));
       ok = S().stunts.includes(s.id);
+      // (why not: how the last jump came down, or that it never left the ground in the circle)
+      const J = C().stunts && C().stunts.last, c = P().seat && P().seat.vehicle;
+      if (!ok) why = J && J.id === s.id ? `in the ${v.def.id} at ${Math.round(top)} u/s: down ${Math.round(J.dist)} on after ${J.air.toFixed(2)} s in the air${J.flipped ? ', on its roof' : ''}${J.wrecked ? ', wrecked' : ''} (it needs ${s.minDist} and ${s.minAir} s)`
+        : `in the ${v.def.id} at ${Math.round(top)} u/s: never off the ground in the takeoff circle (it ended at ${c ? [c.x, c.y, c.z || 0].map(Math.round) : 'on foot'})`;
     }
     steps.push({ what: 'stunt', id: s.id, ok, secs: Math.round(t - t0), why: ok ? '' : why }); say(`stunt ${s.id}: ${ok ? 'landed' : 'NOT landed (' + why + ')'}`);
     return ok;

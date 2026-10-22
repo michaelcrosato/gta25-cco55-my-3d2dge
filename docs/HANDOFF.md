@@ -12,20 +12,23 @@ anywhere can resume from it: the work in flight is listed with where it lives.
     vehicles; the roads, traffic, crowds and emergency services; the wanted level, police and gangs; the bank;
   - M9: the 10-foot UI on MOTOR's own layer (D23); M10: sound and the radio (D24); M11: the attract mode, kiosk and
     phone (D25); M12: the Proving Ground, photo mode, the dev tools, the 15 content recipes and District 2 (D26).
-- **M13, parts 1-4 in** (D28, D29): the polish (the rumble, TUNING.md, the look notes, the respray's bay, sodium
-  lamps), the perf levers, and FAN-OUT B: eight reviewers, 47 findings, each a test under `tests/review/` (a step of
-  `npm test`), every one fixed. **The owner's directions (D29):** performance is out of the Definition of Done (the
-  "perf gates" step left test:full; `tools/perf.mjs` stays for later), and the bots may play invulnerable (`?god=1`,
-  the tools' `--god`; the campaign plays god by default, `--mortal` without; the mission bot's runs stay mortal).
-- **M8, at its last step:** all 14 missions and the side content passed through the bot on seeds 1-3 (96/96) and
-  through a pad (32/32) on part 4d's MOTOR; the campaign reached 89% on `839a4c5` (mortal: H4's getaway wrecked under
-  police fire, Vigilante level 3's suspects getting away, two stunt jumps without a landing). FAN-OUT B's fixes changed
-  MOTOR since (a crash between cars now dents both; the drawbridge's gates; the curb stand-off; a job never starts
-  while wanted; every world from its seed), so **next**: every merged mission and activity again (`node tools/bot.mjs
-  --all --seeds 1,2,3 --par 3`, then `--all --pad --seeds 1 --par 3`, then the bot gym both ways:
-  `docs/handoff/m8-a2/tools/botgym.mjs`, copied to `tools/_botgym.mjs`), fix what fails, then the campaign
-  (`node tools/bot-campaign.mjs --seed 1 --verbose`, god) to 100%, then M8's acceptance with its evidence.
-- **Then the rest of M13:** test:full, the shots matrix with a verdict a row and its look pass, the release docs
+- **M13, parts 1-5 in** (D28, D29): the polish (the rumble, TUNING.md, the look notes, the respray's bay, sodium
+  lamps), the perf levers, FAN-OUT B (eight reviewers, 47 findings, each a test under `tests/review/`, a step of
+  `npm test`, every one fixed), and part 5: the bot after FAN-OUT B (the pull-away only from a cop coming for the door,
+  the Eye lost under a deck, the stunt runner's stop) and the shots matrix with a verdict a row and its look pass
+  (busier roofs, Neon Mile's neon, TOP-DOWN's roof clutter drawn). **The owner's directions (D29):** performance is out
+  of the Definition of Done (the "perf gates" step left test:full; `tools/perf.mjs` stays for later), and the bots may
+  play invulnerable (`?god=1`, the tools' `--god`; the campaign plays god by default, `--mortal` without; the mission
+  bot's runs stay mortal).
+- **M8, at its last step:** on FAN-OUT B's MOTOR (`7b1980f`) every mission and activity passed the bot on seeds 1-3
+  but H4 on seed 3 (95/96), fixed in part 5 (`9843969`). Part 5's bot changes are being validated in turn: `node
+  tools/bot.mjs --all --seeds 1,2,3 --par 3`, then `--all --pad --seeds 1 --par 3`, then the bot gym both ways
+  (`docs/handoff/m8-a2/tools/botgym.mjs`, copied to `tools/_botgym.mjs`); then the campaign (`node
+  tools/bot-campaign.mjs --seed 1 --verbose`, god) to 100%, then M8's acceptance with its evidence. The campaign's
+  last full run (mortal, `839a4c5`) reached 89%: H4's getaway, Vigilante level 3, two stunt jumps. Probes since:
+  four of the five stunts land at once, the canal now too (its runner's stop drove it back into the canal); `--only
+  <ids>` probes one item at a time.
+- **Then the rest of M13:** test:full, the release docs
   (README's and the Credits & About screen's Source Information and engine analysis, the HTML header,
   `docs/ENGINE-ANALYSIS.md` final, `vendor/my-3d2dge/PATCHES.md`), the Definition of Done check (PLAN.md 15 as D29
   amends it), PR 2's description.

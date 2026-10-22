@@ -28,7 +28,7 @@ export class StuntJumps {
     const J = this.jump; this.jump = null; if (!J || !J.s || J.v !== v) return null;
     const s = J.s, dist = Math.hypot(b.x - J.x, b.y - J.y);
     const landed = s.landing ? Math.hypot(s.landing.at[0] - b.x, s.landing.at[1] - b.y) < (s.landing.r || 80) : dist >= s.minDist;
-    if (!landed || J.t < s.minAir || b.flipped || v.wrecked) { this.last = { id: s.id, ok: false, dist, air: J.t }; return null; }
+    if (!landed || J.t < s.minAir || b.flipped || v.wrecked) { this.last = { id: s.id, ok: false, dist, air: J.t, flipped: !!b.flipped, wrecked: !!v.wrecked }; return null; }
     const score = Math.round(dist + (J.top - J.z) * 2 + Math.floor(J.roll / Math.PI) * 100), first = !this.save.stunts.includes(s.id);
     if (first) this.save.stunts.push(s.id);
     BUS.emit('stunt', { id: s.id, score });

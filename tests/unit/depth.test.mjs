@@ -127,3 +127,17 @@ test('MODE 7: the player shrinks walking north up the rail and grows coming back
     for (let i = 1; i < out.length; i++) assert.ok(Math.abs(out[i] - out[i - 1]) < out[i - 1] * .05, 'no jump in size between frames');
   }
 });
+
+test('TOP-DOWN: a thing standing on a roof is drawn after the roof (keyed just nearer than its span), one in the street by its own distance', async () => {
+  const { ViewManager } = await import('../../src/motor/render/view-manager.js'), { Stage } = await import('../../src/motor/render/stage.js');
+  const game = { real: 0, screen: { fx: 0, fy: 0 }, setView() { return game; }, view: {}, mouseGround: () => null, input: {} }, V = new ViewManager(game), S = new Stage(game, V);
+  const R = { ...fakeR, game, ctx: null }; game.setView('top');
+  for (let i = 0; i < 60; i++) { game.real += 1 / 60; S.begin(R, { focus: [100, 100] }); }
+  const span = { x0: 160, y0: 160, x1: 320, y1: 320, h: 48 }, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  S.spans = { at: (x, y) => (x >= span.x0 && x < span.x1 && y >= span.y0 && y < span.y1 ? span : null) };
+  const spanK = Math.hypot(clamp(S.top.x, 160, 320) - S.top.x, clamp(S.top.y, 160, 320) - S.top.y);
+  S.items.length = 0; S.shape(240, 240, 48, () => {}); S.shape(120, 120, 0, () => {}); S.shape(240, 240, 2, () => {});
+  assert.ok(S.items[0].k < spanK, `the roof's AC unit (${S.items[0].k.toFixed(1)}) after its roof (${spanK.toFixed(1)}): the far-to-near order draws smaller keys later`);
+  assert.ok(near(S.items[1].k, Math.hypot(120 - S.top.x, 120 - S.top.y), 1e-9), 'one in the street: its own distance');
+  assert.ok(S.items[2].k > spanK, 'one at the building\'s foot (inside its footprint, below the roof): not lifted over it');
+});
