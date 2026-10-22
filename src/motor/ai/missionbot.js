@@ -37,7 +37,7 @@ export class MissionBot {
   constructor(o) {
     this.pad = !!o.pad; this.city = o.city; this.roads = o.roads; this.fleet = o.fleet; this.J = o.junctions || null;
     this.auto = new AutoPlayer({ city: o.city, roads: o.roads, fleet: o.fleet, junctions: this.J });
-    this.I = makeIntent(); this.ped = null; this.fighter = null; this.key = null; this.t = 0; this.re = 0; this.si = 0; this.aimT = 0; this.dest = null; this.crouchT = 0;
+    this.I = makeIntent(); this.ped = null; this.fighter = null; this.key = null; this.t = 0; this.re = 0; this.si = 0; this.aimT = 0; this.dest = null; this.crouchT = 0; this.crouched = false;
   }
   /** the stars lost in free roam, as a player loses them (the bot campaign's, between jobs): in a car, away from the
    *  police. w: as update's */
@@ -95,6 +95,14 @@ export class MissionBot {
     // race or a photo goes on with the stars.)
     const travel = h.kind === 'deliver' || (h.kind === 'goto' && !h.spray);
     if (travel && w.wanted && w.wanted.stars > 0 && !R.allowWanted && !R.timer && !(w.inside)) { const job = h.kind === 'deliver' && !h.tow ? R.actors.tagged(h.what).find(alive) : null; return this._evade(dt, p, R, w, job && job.body ? job : null); }
+    const out = this._act(dt, p, R, h, w, I, v);
+    // crouched for a stealth stage that is over: stood up again, as a player would (a crouch is a toggle: left on, it
+    // walks the rest of the job slowly and climbs nothing)
+    if (h.kind !== 'stealth' && p.crouching && this.crouched && !v) { this.crouchT -= dt; if (this.crouchT <= 0) { out.tap.crouch = true; out.down.crouch = true; this.crouchT = .5; } }
+    if (!p.crouching) this.crouched = false;
+    return out;
+  }
+  _act(dt, p, R, h, w, I, v) {
     switch (h.kind) {
       case 'goto': return this._goto(dt, p, R, h, w);
       case 'enterVehicle': { const t = R.actors.tagged(h.vehicle).find(alive); return t ? this._board(dt, p, t, w) : this._idle(I, v); }
@@ -334,7 +342,7 @@ export class MissionBot {
     const v = p.seat && p.seat.vehicle; if (v) return this._out(v);
     const I = clearIntent(this.I), path = h.path.map(q => pointOf(this.city, q)), run = w.inside && w.inside.run;
     if (!run && this.si === 0 && Math.hypot(path[0][0] - p.x, path[0][1] - p.y) > 40) return this._go(dt, p, path[0][0], path[0][1], { foot: true, stay: true, radius: 12 }, w);   // (outdoors: walked to where the path begins)
-    if (!p.crouching) { this.crouchT -= dt; if (this.crouchT <= 0) { I.tap.crouch = true; I.down.crouch = true; this.crouchT = .5; } return I; }
+    if (!p.crouching) { this.crouchT -= dt; if (this.crouchT <= 0) { I.tap.crouch = true; I.down.crouch = true; this.crouchT = .5; this.crouched = true; } return I; }
     // a guard close with its back turned: taken down (the scene offers it; the bot presses attack)
     if ((run && run.takedownFor && run.takedownFor(p)) || (!run && R.actors.takedownFor(p))) { I.tap.attack = true; I.down.attack = true; return I; }
     // indoors, a guard uneasy (noticing, searching): wait where it stands (at cover), or, in its sight, back off along

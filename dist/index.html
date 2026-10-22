@@ -25611,6 +25611,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.aimT = 0;
       this.dest = null;
       this.crouchT = 0;
+      this.crouched = false;
     }
     /** the stars lost in free roam, as a player loses them (the bot campaign's, between jobs): in a car, away from the
      *  police. w: as update's */
@@ -25722,6 +25723,19 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         const job = h.kind === "deliver" && !h.tow ? R3.actors.tagged(h.what).find(alive2) : null;
         return this._evade(dt, p, R3, w8, job && job.body ? job : null);
       }
+      const out = this._act(dt, p, R3, h, w8, I, v);
+      if (h.kind !== "stealth" && p.crouching && this.crouched && !v) {
+        this.crouchT -= dt;
+        if (this.crouchT <= 0) {
+          out.tap.crouch = true;
+          out.down.crouch = true;
+          this.crouchT = 0.5;
+        }
+      }
+      if (!p.crouching) this.crouched = false;
+      return out;
+    }
+    _act(dt, p, R3, h, w8, I, v) {
       switch (h.kind) {
         case "goto":
           return this._goto(dt, p, R3, h, w8);
@@ -26222,6 +26236,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           I.tap.crouch = true;
           I.down.crouch = true;
           this.crouchT = 0.5;
+          this.crouched = true;
         }
         return I;
       }

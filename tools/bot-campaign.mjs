@@ -7,14 +7,15 @@
 // walked onto, a stunt driven at flat out, a property's BUY prompt pressed and its confirm card accepted. Stars left
 // over from a job are lost first, as a player would (the MissionBot's evade); a property short of cash waits for the
 // pay of what comes after it, or of a job played again.
-//   node tools/bot-campaign.mjs [--seed 1] [--hours 8] [--verbose]  ·  exit 0 at 100%
+//   node tools/bot-campaign.mjs [--seed 1] [--hours 8] [--verbose] [--only id,id]  ·  exit 0 at 100% (--only: those items
+//   alone, every other mission, activity, token, stunt and property passed over: a probe of what failed)
 import { loadGame } from '../tests/harness.mjs';
 
 const TRIES = 3;   // (an item that fails is tried again, after the rest: three times in all)
 
-/** one campaign: { pct, tenths, items (the checklist), steps: [{ what, id, ok, secs, why }], secs (game time), fund, errors }.
- *  prep(gtm, save): a probe's, once the new game is up */
-export async function campaign({ seed = 1, hours = 8, verbose = false, out = console.log, prep = null } = {}) {
+/** one campaign: { pct, tenths, items (the checklist), steps: [{ what, id, ok, secs, why, fails }], secs (game time), fund,
+ *  errors }. prep(gtm, save): a probe's, once the new game is up; only: ids to play (the rest passed over) */
+export async function campaign({ seed = 1, hours = 8, verbose = false, out = console.log, prep = null, only = null } = {}) {
   const g = await loadGame({ hash: '#title', query: { seed: String(seed), bot: '1' } }), { game, gtm } = g, M = gtm.motor;
   const title = gtm.career;
   game.go('play', { newGame: true });   // (NEW GAME: the title's own, deferred to the step's end)
@@ -33,8 +34,12 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   const pilot = (f, secs, until) => { gtm.pilot(f); const ok = run(secs, until); gtm.pilot(null); return ok; };
   // the AutoPlayer at the controls until it arrives (or until())
   const auto = (secs, until = null) => pilot((dt, p) => A.update(dt, p, world()), secs, () => A.arrived || (until && until()));
+  // a press (the scene's △ / E: a prompt, a door, a seat)
+  const press = (k = 'interact') => { let n = 0; pilot(() => { const I = M.clearIntent(idle); if (n++ === 0) { I.tap[k] = true; I.down[k] = true; } return I; }, .5); };
+  // standing (a crouch is a toggle: one left on by a stealth job walks slowly and climbs nothing)
+  const stand = () => { if (P().crouching && !P().seat) press('crouch'); };
   // on foot: out of the vehicle first
-  const onFoot = () => { const p = P(); if (!p.seat && !p.boarding) return true; A.goto(p.x, p.y, { foot: true }); return auto(12, () => !P().seat && !P().boarding); };
+  const onFoot = () => { stand(); const p = P(); if (!p.seat && !p.boarding) return true; A.goto(p.x, p.y, { foot: true }); return auto(12, () => !P().seat && !P().boarding); };
   // the dev teleport: on foot to the sidewalk nearest (x, y)
   const teleport = (x, y) => { onFoot(); const n = roads.walks.nearestNode(x, y, 400); gtm.teleport(n ? n.x : x, n ? n.y : y); run(.5); };
   // on foot to (x, y) the AutoPlayer's way (the sidewalks, then straight)
@@ -49,8 +54,6 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
       return I;
     }, secs, () => Math.hypot(x - P().x, y - P().y) <= r && (z === null || Math.abs((P().z || 0) - z) < 12));
   };
-  // a press (the scene's △ / E: a prompt, a door, a seat)
-  const press = (k = 'interact') => { let n = 0; pilot(() => { const I = M.clearIntent(idle); if (n++ === 0) { I.tap[k] = true; I.down[k] = true; } return I; }, .5); };
   // the stars lost, as a player loses them: away from the police, in a car (the MissionBot's evade)
   const cool = () => { if (!stars()) return true; say(`losing ${stars()} star(s)`); const B = C().bot; return pilot((dt, p) => B.evade(dt, p, world()), 400, () => !stars()); };
   const fits = (need, v) => (Array.isArray(need) ? need : [need]).some(n => n === v.def.id || n === v.cls || n === v.def.role || n === v.def.model);
@@ -58,42 +61,47 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   // a vehicle near (x, y) the campaign can take: fitting need (else any a player takes), parked; the fastest near. A
   // locked one only when a job needs that kind (every police car is locked: Vigilante's, broken into as a player would)
   const carNear = (x, y, need = null, r = 600) => {
-    let best = null, bs = -1;
+    let best = null, bs = -Infinity;   // (a far one still counts: the only Pumper may be across town)
     for (const v of gtm.fleet.vehicles) {
-      if (v.wrecked || (v.locked && !need) || v.driver || v.cls === 'rail' || v.cls === 'boat' || v.cls === 'heli') continue;
+      if (v.wrecked || (v.locked && !need) || (v.driver && v.driver !== P()) || v.cls === 'rail' || v.cls === 'boat' || v.cls === 'heli') continue;   // (the player's own counts: the Pumper the last call was answered in)
       if (need ? !fits(need, v) : !M.pickable(v) || v.cls !== 'car') continue;
       const d = Math.hypot(v.x - x, v.y - y); if (d > r) continue; const s = top(v) - d * .2; if (s > bs) { bs = s; best = v; }
     }
     return best;
   };
   const board = v => { if (P().seat && P().seat.vehicle === v) return true; teleport(v.x, v.y); A.board(v); return auto(60, () => P().seat && P().seat.vehicle === v); };
-  // a job, an activity or a mission played out by the bot from its start (true: passed)
+  // a job, an activity or a mission played out by the bot from its start (true: passed); why: what kept it from
+  // starting (start() may set it), fails: its stages' failures on the way
+  let why = '';
   const play = (what, id, start, max = 2400) => {
-    const t0 = t; cool();
+    const t0 = t; cool(); why = '';
     const began = start() || R().state === 'running';
-    if (!began || R().state !== 'running') { steps.push({ what, id, ok: false, secs: Math.round(t - t0), why: 'did not start' }); say(`${what} ${id}: did not start`); return false; }
-    say(`${what} ${id}: started`);
-    run(max, () => R().state === 'idle');
+    if (!began || R().state !== 'running') { steps.push({ what, id, ok: false, secs: Math.round(t - t0), why: 'did not start' + (why ? ': ' + why : '') }); say(`${what} ${id}: did not start${why ? ' (' + why + ')' : ''}`); return false; }
+    say(`${what} ${id}: started at ${clock()} (${Math.floor(gtm.clock.hour)}:00, ${gtm.weather.state || 'clear'}, ${P().seat ? 'in the ' + P().seat.vehicle.def.id : 'on foot'})`);
+    const fails = [], un = gtm.BUS.on('stageFail', e => fails.push(`${e.stage}: ${e.reason}`), 'global');
+    run(max, () => R().state === 'idle'); un();
     const r = R().result || {}, ok = !!r.passed;
-    steps.push({ what, id, ok, secs: Math.round(t - t0), medal: r.medal || null, retries: r.retries ?? null, why: ok ? '' : r.failure || 'not passed' });
-    say(`${what} ${id}: ${ok ? 'passed' + (r.medal ? ' ' + r.medal : '') : 'NOT passed (' + (r.failure || 'quit') + ')'} in ${Math.round(t - t0)} s`);
+    steps.push({ what, id, ok, secs: Math.round(t - t0), medal: r.medal || null, retries: r.retries ?? null, why: ok ? '' : r.failure || 'not passed', fails });
+    say(`${what} ${id}: ${ok ? 'passed' + (r.medal ? ' ' + r.medal : '') : 'NOT passed (' + (r.failure || 'quit') + ')'} in ${Math.round(t - t0)} s${fails.length ? '; fails: ' + fails.join(', ') : ''}`);
     run(2); return ok;
   };
-  const tried = new Map(), again = k => { const n = (tried.get(k) || 0) + 1; tried.set(k, n); return n <= TRIES; };
+  const onlySet = only ? new Set(only) : null, mine = id => !onlySet || onlySet.has(id);
+  const tried = new Map(), again = k => { if (!mine(k.split(':')[1])) return false; const n = (tried.get(k) || 0) + 1; tried.set(k, n); return n <= TRIES; };
   const startAt = a => { const q = typeof a.start.at === 'string' ? city.poi(a.start.at) : null; return q ? [q.x, q.y] : a.start.at; };
 
   // ---- each kind of thing to do
   const mission = m => play('mission', m.id, () => { const at = C().giverOf(m); teleport(at[0], at[1]); return walk(at[0], at[1], { until: () => R().state === 'running' }) && R().state === 'running'; });
   const job = (a, level) => play('job', `${a.id} L${level}`, () => {
-    const v = carNear(P().x, P().y, a.start.vehicle, 1e9); if (!v || !board(v)) return false;
+    const v = carNear(P().x, P().y, a.start.vehicle, 1e9); if (!v) { why = 'no ' + [].concat(a.start.vehicle).join('/') + ' about'; return false; } if (!board(v)) { why = 'could not board the ' + v.def.id; return false; }
+    if (C().card) C().close();   // (a drive-in shop's card, opened by stopping at its door: the phone waits for no card)
     C().phone(); const it = C().card && C().card.items.find(q => q.label === a.title.toUpperCase());
-    if (!it) { C().close(); return false; } it.act(); run(1); return R().state === 'running';
+    if (!it) { why = 'not on the phone (' + (C().card ? C().card.items.map(q => q.label).join(', ') : 'no phone') + ')'; C().close(); return false; } it.act(); run(1); return R().state === 'running';
   });
   const activity = a => play(a.kind, a.id, () => {
     const at = startAt(a), need = a.start.vehicle;
     if (a.start.foot || !need) { teleport(at[0], at[1]); return walk(at[0], at[1], { until: () => R().state === 'running' }) && R().state === 'running'; }
-    const v = carNear(at[0], at[1], need === true ? null : need); if (!v || !board(v)) return false;
-    A.goto(at[0], at[1], { car: v, stay: true }); return auto(240, () => R().state === 'running') && R().state === 'running';
+    const v = carNear(at[0], at[1], need === true ? null : need) || carNear(P().x, P().y, need === true ? null : need, 1e9); if (!v) { why = 'no ' + (need === true ? 'car' : [].concat(need).join('/')) + ' near its start'; return false; } if (!board(v)) { why = 'could not board the ' + v.def.id; return false; }
+    A.goto(at[0], at[1], { car: v, stay: true }); const ok = auto(240, () => R().state === 'running') && R().state === 'running'; if (!ok) why = `drove to ${Math.round(P().x)},${Math.round(P().y)}: ${Math.round(Math.hypot(at[0] - P().x, at[1] - P().y))} u from the start`; return ok;
   });
   const token = s => {
     const way = [...(s.via || []), s.at], t0 = t; teleport(way[0][0], way[0][1]);
@@ -109,7 +117,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   const lift = (b, go) => pilot((dt, p) => { const I = M.clearIntent(idle); I.down.handbrake = true; return I; }, 4 * 3600 / 24, () => b.phase === 'raising' && b.lift >= go);
   const stunt = s => {
     const t0 = t, ap = s.approach || [s.takeoff[0] - 300, s.takeoff[1]], [tx, ty] = s.takeoff, n = tried.get('s:' + s.id) || 1; cool();
-    const v = carNear(ap[0], ap[1]); let ok = false;
+    const v = carNear(ap[0], ap[1]) || carNear(P().x, P().y, null, 1e9); let ok = false;   // (none near the run-up: one from where the player is, driven there)
     if (v && board(v)) {
       A.goto(ap[0], ap[1], { car: v, stay: true, radius: 30, z: ap[2] ?? null }); auto(240);   // (the Loop Gap's run-up is on the deck)
       const b = bridgeOf(s); if (b) { const d = Math.hypot(tx - v.x, ty - v.y); lift(b, Math.max(0, .5 - d / 160 * (1 / Math.max(.1, M.TUNE.drawbridgeRaise))) + (n - 1) * .08); }
@@ -161,8 +169,8 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; }, has = k => process.argv.includes('--' + k);
-  const t0 = Date.now(), r = await campaign({ seed: +arg('seed', 1), hours: +arg('hours', 8), verbose: has('verbose') });
-  for (const s of r.steps) console.log(`${s.ok ? 'ok  ' : 'FAIL'} ${s.what} ${s.id}${s.ok ? (s.medal ? ' ' + s.medal : '') : ' (' + s.why + ')'} ${s.secs} s`);
+  const t0 = Date.now(), r = await campaign({ seed: +arg('seed', 1), hours: +arg('hours', 8), verbose: has('verbose'), only: arg('only', null) ? arg('only').split(',') : null });
+  for (const s of r.steps) console.log(`${s.ok ? 'ok  ' : 'FAIL'} ${s.what} ${s.id}${s.ok ? (s.medal ? ' ' + s.medal : '') : ' (' + s.why + ')'} ${s.secs} s${!s.ok && s.fails && s.fails.length ? '; ' + s.fails.join(', ') : ''}`);
   for (const q of r.items) console.log(`  ${q.label}: ${q.done}/${q.of}`);
   if (r.errors.length) console.log('ERRORS: ' + r.errors.join(' | '));
   console.log(`\ncompletion ${r.pct.toFixed(1)}% after ${(r.secs / 3600).toFixed(2)} h of game [${((Date.now() - t0) / 60000).toFixed(1)} min]`);
