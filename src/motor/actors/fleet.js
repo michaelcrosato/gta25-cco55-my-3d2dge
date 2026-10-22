@@ -138,10 +138,12 @@ export class Fleet {
     this.tows.push(j); truck.towing = j; car.towedBy = truck; this.wake(truck); this.wake(car); return j;
   }
   _untow(j) { j.release(); if (j.truck) j.truck.towing = null; if (j.car) j.car.towedBy = null; this.tows = this.tows.filter(t => t !== j); }
-  /** a car bomb fitted at the Boom Box ('ignition' | 'remote') is armed when its fitter gets out; an ignition bomb goes
-   *  off when the next driver puts a foot down, a remote one on detonate() (the phone) */
+  /** a car bomb fitted at the Boom Box ('ignition' | 'remote') is armed when its fitter gets out (PLAN.md 8.8); any armed
+   *  bomb goes off on detonate() (the phone's DETONATE), and an ignition bomb when the next driver puts a foot down too */
   armBomb(v, by) { if (v.mods.bomb && !v.bombArmed) { v.bombArmed = true; v.bombBy = by || null; } }
   detonate(v) { if (!v || !v.bombArmed || v.wrecked) return false; v.bombArmed = false; this.wake(v); v.chainT = .05; v.chainBy = v.bombBy; return true; }
+  /** the armed bombs set by any of these ped ids (the phone lists them) */
+  bombsBy(ids) { return this.vehicles.filter(v => v.bombArmed && !v.wrecked && ids.includes(v.bombBy)); }
 
   /** one step. o: { intent(v) -> the Intent of v's driver (null: none), peds: [Ped] (bodies cars meet), night, wet } */
   update(dt, o = {}) {
@@ -153,7 +155,7 @@ export class Fleet {
       if (v.asleep) continue;
       awake++;
       const I = v.driver && o.intent ? o.intent(v) : null;
-      if (I && v.bombArmed && v.mods.bomb === 'ignition' && I.throttle > .1 && v.driver.id !== v.bombBy && v.chainT < 0) { v.bombArmed = false; v.chainT = .6; v.chainBy = v.bombBy; }   // (the ignition: a moment, then up)
+      if (I && v.bombArmed && v.mods.bomb !== 'remote' && I.throttle > .1 && v.driver.id !== v.bombBy && v.chainT < 0) { v.bombArmed = false; v.chainT = .6; v.chainBy = v.bombBy; }   // (the ignition: a moment, then up)
       v.update(dt, I, W);
       if (I && v.driver && !v.wrecked) this._tools(dt, v, I);
       if (v.cls === 'heli' && v.wrecked) v.body.falling = true;
@@ -179,6 +181,7 @@ export class Fleet {
         if (imp > 0) {   // (who hit whom, and how hard: a velocity change, u/s; traffic's drivers react to the player's)
           if (b.asleep) this.wake(b);
           a.bumpedBy = b; b.bumpedBy = a; a.bumpT = b.bumpT = this.t; a.bumpDv = imp / a.body.h.mass; b.bumpDv = imp / b.body.h.mass;
+          this._crash(a, imp, b); this._crash(b, imp, a);
         }
       }
     }
@@ -190,8 +193,8 @@ export class Fleet {
     for (const v of [...this.vehicles]) {
       if (v.damage.update(dt) === 'explode') this.explode(v, v.lastBy);
       if (v.chainT >= 0) { v.chainT -= dt; if (v.chainT < 0) this.explode(v, v.chainBy); }
-      if (v.lastCrash > 2) { BUS.emit('vehicleDamage', { vehicle: v.id, amount: Math.round(v.lastCrash), x: v.x, y: v.y, by: v.driver ? v.driver.id : null }); }
-      v.lastCrash = 0;
+      if (v.lastCrash > 2) { BUS.emit('vehicleDamage', { vehicle: v.id, amount: Math.round(v.lastCrash), x: v.x, y: v.y, by: v.crashBy ?? null }); }
+      v.lastCrash = 0; v.crashBy = null;
       if (v.sunk && v.sunkAt === undefined) this._sink(v);
       if (v.sunkAt !== undefined && this.t - v.sunkAt > 2.5) this.remove(v);
     }
@@ -207,9 +210,19 @@ export class Fleet {
     if (this._seen.size > 64) this._seen = new Set(this.combat ? this.combat.explosives.blasts : []);
     this._presentation(dt);
   }
+  // a crash between two vehicles: what it cost this one (collideCars' impulse comes after Vehicle.update has read the
+  // step's own knocks, walls and props), and who did it: the other one's driver (a parked car's: no one)
+  _crash(v, imp, o) {
+    if (v.wrecked || !v.body) return;
+    const hurt = Damage.crash(imp, v.body.h.mass); if (hurt <= 0) return;
+    const [lx, ly] = v.toLocal(v.body.felt.hitX, v.body.felt.hitY); v.damage.hit(hurt, lx, ly, v.hl, v.hw);
+    if (hurt > v.lastCrash) { v.lastCrash = hurt; v.crashBy = o.driver ? o.driver.id : null; }
+    if (o.driver) v.lastBy = o.driver.id;
+  }
   /** blow a vehicle up now: a blast through Combat (it hurts, lights fire, chains), the wreck thrown up, its people killed */
   explode(v, by = null) {
     if (v.blownAt !== null) return;
+    if (v.damage.immune) { v.chainT = -1; return; }   // (a bot's own ride never goes up: D29)
     this.wake(v); v.damage.explode(); v.blownAt = this.t; v.chainT = -1; v.siren = false;
     const who = by ?? v.lastBy ?? null;
     if (this.combat) this.combat.explosives.blast({ x: v.x, y: v.y, z: v.z + 10, damage: TUNE.carBlastDamage, splash: TUNE.carBlastSplash, by: who, source: 'car' });
@@ -303,7 +316,7 @@ export class Fleet {
     v._cool = Math.max(-1, (v._cool || 0) - dt);
     if (v.def.tool === 'hook' && I.tap.fire) {
       if (v.towing) this._untow(v.towing);
-      else { const hook = v.model.hook || [-v.hl - 4, 0], [x, y] = v.toWorld(hook[0], hook[1]); const car = this.near(x, y, 24, c => c !== v && LAND.has(c.cls) && c.cls !== 'bike' && !c.towedBy && !c.wrecked).find(c => Math.min(Math.hypot(...sub(c.toWorld(c.hl, 0), [x, y])), Math.hypot(...sub(c.toWorld(-c.hl, 0), [x, y]))) < 22); if (car) this.tow(v, car); }
+      else { const hook = v.model.hook || [-v.hl - 4, 0], [x, y] = v.toWorld(hook[0], hook[1]); const car = this.near(x, y, 24, c => c !== v && LAND.has(c.cls) && c.cls !== 'bike' && !c.towedBy && !c.wrecked && Math.abs(c.z - v.z) < 12).find(c => Math.min(Math.hypot(...sub(c.toWorld(c.hl, 0), [x, y])), Math.hypot(...sub(c.toWorld(-c.hl, 0), [x, y]))) < 22); if (car) this.tow(v, car); }
       return;
     }
     if (v.def.tool === 'cannon' && I.down.fire) {   // the water cannon: knocks peds over, puts fires out
@@ -314,7 +327,7 @@ export class Fleet {
         v._cool += .06; const reach = 150, nz = v.model.nozzle, zx = v.toWorld(nz ? nz[0] : v.hl * .1, nz ? nz[1] : 0);   // (from the model's nozzle)
         this.jets.push({ x: zx[0], y: zx[1], z: b.z + (nz ? nz[2] : v.height + 6), dx: hx, dy: hy, t: 0, life: .5 });
         if (C && C.fire && C.fire.count) for (let k = 12; k <= reach; k += 18) C.fire.douse(zx[0] + hx * k, zx[1] + hy * k, 10);   // (the jet's whole length, from just off the nozzle)
-        if (C) for (const p of C.bodies) { if (p.dead || p.seat) continue; const dx = p.x - zx[0], dy = p.y - zx[1], along = dx * hx + dy * hy, side = Math.abs(-dx * hy + dy * hx); if (along > 0 && along < reach && side < 14 && !p.floored) C.hurt(p, { amount: 1, kind: 'water', by, knock: 180, knockdown: true, dir: [hx, hy] }); }
+        if (C) for (const p of C.bodies) { if (p.dead || p.seat || Math.abs((p.z || 0) - v.z) > 16) continue; const dx = p.x - zx[0], dy = p.y - zx[1], along = dx * hx + dy * hy, side = Math.abs(-dx * hy + dy * hx); if (along > 0 && along < reach && side < 14 && !p.floored) C.hurt(p, { amount: 1, kind: 'water', by, knock: 180, knockdown: true, dir: [hx, hy] }); }
       }
       return;
     }

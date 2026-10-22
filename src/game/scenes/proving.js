@@ -3,17 +3,32 @@
 // (S3); M3 the combat 'range'; the rest arrive with the systems they test. A perf readout shows on screen; ?perf=1
 // records every frame's update and draw times for tools/perf.mjs. ?selftest=1 runs the zone's self-test (zone.selftest,
 // called after each drawn frame with its own state until it returns { ok, checks }), published as __gtm.selftest for
-// the e2e suite (tests/e2e/selftest.mjs).
-import { E, def, get, all, expose } from '../../motor/index.js';
+// the e2e suite (tests/e2e/selftest.mjs). The title's EXTRAS opens the zone list (provingMenu); over a zone, Options, Esc,
+// P or a browser back opens it again, with RESUME and BACK TO TITLE, the zone standing still under it.
+import { E, def, get, all, expose, List } from '../../motor/index.js';
+
+/** PLAN.md 8.23's eight zones, in its order */
+export const ZONES = ['handling', 'traffic', 'range', 'wanted', 'views', 'ui', 'bench', 'stress'];
+/** the Proving Ground's menu: its zones (here: the zone it is opened over, with RESUME first and BACK TO TITLE last) */
+export function provingMenu(app, o = {}) {
+  const { game } = app, U = app.ui.screens, here = o.here || null;
+  const leave = (scene, data) => { U.closeAll(); game.input.consumeAll(); game.go(scene, data); };
+  const items = ZONES.filter(id => get('provingZones', id)).map(id => ({ label: get('provingZones', id).title.toUpperCase(), sub: id === here ? 'HERE' : '', act: () => (id === here ? U.back() : leave('proving', { route: ['proving', id] })) }));
+  if (here) { items.unshift({ label: 'RESUME', act: () => U.back() }); items.push({ label: 'BACK TO TITLE', act: () => leave('title') }); }
+  return { id: 'proving', title: 'PROVING GROUND', w: 260, list: new List({ id: 'proving', items }), pause: !!here, legend: `{menu:confirm} SELECT   {menu:back} ${here ? 'RESUME' : 'BACK'}` };
+}
 
 def('scenes', 'proving', {
   make(app) {
-    const { game, views, links, stage } = app;
+    const { game, views, links, stage } = app, U = app.ui.screens, B = app.bindings;
     const zones = new Map();
     let zone, id, rec, hud, selftest = null;
     const perfOn = links.query.get('perf') === '1';
+    const openPause = () => { if (U.isOpen) return false; U.open(provingMenu(app, { here: id })); return true; };
     return {
-      pausable: true,
+      get pausable() { return !U.isOpen && !game.input.pressed('pause'); },   // (the engine's own pause only when the page goes away: ours, handed over in uiFrame)
+      openPause: () => openPause(),
+      back() { if (U.isOpen) { U.back(); return true; } return openPause(); },   // (a browser back: the menu)
       enter(data) {
         const want = data && data.route && data.route[1];
         id = get('provingZones', want) ? want : 'scale';
@@ -30,7 +45,10 @@ def('scenes', 'proving', {
         expose('selftest', selftest ? () => selftest.result : () => ({ zone: id, ok: null, note: 'no self-test asked (?selftest=1)' }));
       },
       exit() { if (zone && zone.exit) zone.exit(); },   // (a city zone puts its knobs back, its play scene away)
-      update(dt) { zone.update(dt); },
+      update(dt) {
+        if (!app.ui.took && (B.tap('pause', 'onFoot') || game.input.pressed('pause')) && openPause()) return;   // (Options, Esc, P)
+        zone.update(dt);
+      },
       hud(P) { if (zone && zone.uiHud) zone.uiHud(P); },   // (a zone's HUD on the UI layer)
       draw(r) {
         const st = game.stats; hud.draw += (st.renderMs - hud.draw) * .1; hud.update += (st.updateMs - hud.update) * .1;

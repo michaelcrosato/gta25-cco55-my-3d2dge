@@ -165,11 +165,11 @@ export class Combat {
     if (r.armor > 0) this._fx('spark', at[0], at[1], at[2]);
     const by = this.bodies.find(b => b.id === o.by);
     if (by && (o.kind === 'bullet' || o.kind === 'pellet')) { by.stats.did('shotHit'); if (by.ability) by.ability.feed('shotHit'); }
-    if (r.killed) { this.kills++; BUS.emit('kill', { target: t.id, by: o.by, kind: o.kind }); BUS.emit('crime', { type: 'murder', x: at[0], y: at[1], by: o.by, victim: t.id, severity: 3, lawful: by ? by.faction === 'police' : false }); }
+    if (r.killed) { this.kills++; BUS.emit('kill', { target: t.id, by: o.by, kind: o.kind, gang: t.gang || null, faction: t.faction || null }); BUS.emit('crime', { type: 'murder', x: at[0], y: at[1], by: o.by, victim: t.id, victimFaction: t.faction || null, severity: 3, lawful: by ? by.faction === 'police' : false }); }   // (who the victim was rides with the news: one in a car is no Combat body)
     return r;
   }
   /** a body standing in fire, or burning itself: damage, and the cells it crosses catch */
-  burnBody(p, dt) { this.hurt(p, { amount: TUNE.fireDps * dt, kind: 'fire', by: null }); if (this.fire && !p.dead) this.fire.ignite(p.x, p.y); }
+  burnBody(p, dt) { this.hurt(p, { amount: TUNE.fireDps * dt, kind: 'fire', by: p.burnBy ?? null }); if (this.fire && !p.dead) this.fire.ignite(p.x, p.y, p.burnBy ?? null); }   // (in the name of whoever set them alight, as is the trail they leave)
   // clear sight between two points for a zap (cell heights, at the shooter's height)
   _los(a, b) {
     const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6), z = Math.max(a.z || 0, b.z || 0) + 10;
@@ -186,17 +186,17 @@ export class Combat {
       onHit: (b, t, at) => {
         const flame = b.data.kind === 'flame';
         this.hurt(t, { amount: b.dmg, kind: flame ? 'fire' : b.data.kind === 'pellet' ? 'pellet' : 'bullet', by: b.data.by, at, dir: [b.vx, b.vy].map(v => v / (Math.hypot(b.vx, b.vy) || 1)) });
-        if (flame && t.ignite) t.ignite(3);
+        if (flame && t.ignite) t.ignite(3, b.data.by);
       },
-      onWall: (b, at) => { if (b.data.kind === 'flame' && this.fire) this.fire.add(at[0], at[1], 4, .8, 1.5, .5); else this._fx('spark', at[0], at[1], at[2]); },
-      onEnd: b => { if (b.data.kind === 'flame' && this.fire) this.fire.add(b.x, b.y, 4, .8, 1.5, .5); } });
+      onWall: (b, at) => { if (b.data.kind === 'flame' && this.fire) this.fire.add(at[0], at[1], 4, .8, 1.5, .5, b.data.by); else this._fx('spark', at[0], at[1], at[2]); },
+      onEnd: b => { if (b.data.kind === 'flame' && this.fire) this.fire.add(b.x, b.y, 4, .8, 1.5, .5, b.data.by); } });
     this.explosives.update(dt, { map: this.map, city: this.city, bodies, boxes: this.boxes, explosive: this.explosive,
       hurt: (t, amount, b, o) => this.hurt(t, { amount, kind: b.source === 'molotov' ? 'fire' : 'explosion', by: b.by, knock: o.knock, dir: o.dir, knockdown: b.source !== 'molotov' && amount > 8 }),
       onBlast: b => {
         BUS.emit('explode', { x: b.x, y: b.y, z: b.z, r: b.splash, by: b.by, power: b.damage });
         if (b.source !== 'molotov') BUS.emit('crime', { type: 'explosion', x: b.x, y: b.y, by: b.by, victim: null, severity: 2, lawful: this.bodies.some(q => q.id === b.by && q.faction === 'police') });
         if (this.game && this.game.particles && b.source !== 'molotov') this.game.particles.explosion(b.x, b.y, b.z, Math.min(2, b.splash / 48), { sound: true });
-        if (b.source === 'molotov') { for (const t of bodies) if (Math.hypot(t.x - b.x, t.y - b.y) < b.splash * 1.4 && t.ignite) t.ignite(4); this._sfx('hurt', { pitch: 1.8, vol: .4 }); }
+        if (b.source === 'molotov') { for (const t of bodies) if (Math.hypot(t.x - b.x, t.y - b.y) < b.splash * 1.4 && t.ignite) t.ignite(4, b.by); this._sfx('hurt', { pitch: 1.8, vol: .4 }); }
       } });
     if (this.fire) {
       const before = this.fire.count;
@@ -205,7 +205,7 @@ export class Combat {
       if (!this.fire.count) this._told = false;
       // (who stands in fire catches: not one already alight, whose own trail would keep it burning for good; not one just
       // put out, a moment; not one inside a car)
-      if (this.fire.count) for (const b of bodies) { if (b.burning > 0 || b.burnGrace > 0 || b.seat) continue; const h = this.fire.heatAt(b.x, b.y); if (h > .5 && b.z < 8 && b.ignite) b.ignite(2.5); }
+      if (this.fire.count) for (const b of bodies) { if (b.burning > 0 || b.burnGrace > 0 || b.seat) continue; const h = this.fire.heatAt(b.x, b.y); if (h > .5 && b.z < 8 && b.ignite) b.ignite(2.5, this.fire.sourceAt(b.x, b.y)); }
       for (const t of this.explosive) if (t.fuse && !t.blown) { t.heat = this.fire.count && this.fire.heatAt(t.x, t.y) > .5 ? t.heat + dt : 0; if (t.heat > 1.2) t.burn(); }   // (a barrel stood in fire a moment)
     }
     if (w.takers) this.pickups.update(dt, w.takers, w.take || null); else this.pickups.update(dt);

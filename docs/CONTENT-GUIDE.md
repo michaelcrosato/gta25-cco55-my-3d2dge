@@ -78,7 +78,8 @@ rules the audit (`tools/ui-audit.mjs`) checks on every screen:
 A mission is an ordered list of **stages** (PLAN.md 8.15). Each stage has a `setup(m)` that puts the world as the
 stage needs it and a generator `*run(m)` that yields **ops** the runtime steps until each is done. A retry, and every
 deep link `#mission/<id>/<stage>`, starts a stage from its setup, so **a setup must be idempotent**: run on a stage
-already under way (or twice) it changes nothing. The tools for that:
+already under way (or twice) it changes nothing. A stage with `passOnSave: true` is a save step (the prologue's
+last): a save written while it runs passes the job first, so the slot holds it done and paid. The tools for that:
 
 - `m.ensure.vehicle(tag, def, at, o)` / `m.ensure.ped(tag, arch, at, o)`: the tagged one if it is still about, else a
   new one; `m.place('player', at, { within })` leaves a player already that near where they are;
@@ -123,7 +124,8 @@ boards and never leaves: a police car ramming suspects),
 `m.objective(text, { hint })` (a hint of `HINTS`' kinds, with its data: `stealth` needs a `path` of waypoints),
 `m.marker(at | actor)`, `m.route(to)`, `m.timer(secs, { reason })` (and `m.countdown`, the one running: `{ left, total,
 stop() }`), `m.failIf(pred, reason)`, `m.wanted.set / floor /
-cap / clear` (a floor or a cap is lifted when the job ends, however it ends), `m.alerted(tag)` (a guard or enemy of the
+cap / clear` (a floor or a cap is lifted when the job ends, however it ends), `m.wanted.blocks(false)` (no roadblocks or
+spike strips while the job runs: a reel's chase down its own street), `m.alerted(tag)` (a guard or enemy of the
 tag has seen the player, been hurt or been called, and is still in it: a stealth stage's fail), `m.ally(gang)` (that
 gang's members on the player's side till the job ends: strays on them rally no one and cost no respect; `m.truce(gang)`
 the same for a job fought against that gang's own; a mission with a `gang` has that gang's truce from its start, so a

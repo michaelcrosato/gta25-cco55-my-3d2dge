@@ -111,7 +111,7 @@ export class Emergency {
       if (c.crew.every(f => f.task === 'aboard' || f.ped.dead)) this._back(c);
       return;
     }
-    if (c.state === 'leaving' && c.crew.every(f => f.task === 'aboard' || f.ped.dead)) { this.onFoot = this.onFoot.filter(f => !c.crew.includes(f)); if (this._driver(u)) this.life.traffic.release(u); c.state = 'done'; c.done = c.done || 'answered'; this.answered++; }
+    if (c.state === 'leaving' && c.crew.every(f => f.task === 'aboard' || f.ped.dead)) { this.onFoot = this.onFoot.filter(f => !c.crew.includes(f)); if (this._driver(u)) this.life.traffic.release(u); c.state = 'done'; c.done = c.done || 'answered'; this.answered++; if (c.target && c.target.attended !== undefined) c.target.attended = false; }   // (a body not brought back lies its time out and goes, as any)
   }
   // on the scene: the crew gets out (the Pumper's stays at its cannon)
   _arrive(c) {
@@ -133,7 +133,10 @@ export class Emergency {
   }
   _standDown(c, why) {
     c.done = why; if (c.target && c.target.attended !== undefined) c.target.attended = false;
-    for (const f of c.crew) { if (this.combat) this.combat.remove(f.ped); }
+    // (its crew on foot stay in the world: handed to the crowd, the living scared off by what took their unit, the dead
+    // lying their time out as bodies; nothing vanishes in sight, PLAN.md 7.6)
+    const C = this.life.crowd, unit = c.unit && c.unit.v;
+    for (const f of c.crew) { if (f.ped.seat) continue; if (C) C.adopt(f.ped, f.ped.dead ? 'dead' : 'scared', { from: unit }); else if (this.combat) this.combat.remove(f.ped); }
     this.onFoot = this.onFoot.filter(f => !c.crew.includes(f));
     if (c.unit && c.unit.duty && !c.unit.duty.lost) { this._resume(c.unit); if (!c.unit.duty.lost) this.life.traffic.release(c.unit); }
     c.state = 'done';

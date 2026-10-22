@@ -2,8 +2,9 @@
 // its deep link by the MissionBot, on seeds 1-3, passed or not. --pad plays the same through a gamepad (the scripted
 // human-style pass): the bot's wishes pressed on a pad by the PadPilot each step, the game reading the pad.
 //   node tools/bot.mjs --mission saints_holy_rollers [--seeds 1,2,3] [--pad] [--stage deliver] [--level 2] [--secs 1800] [--verbose | --trace]
-//   node tools/bot.mjs --all [--pad] [--seeds 1] [--par 3]  ·  exit 0 when every run passed (--par: that many runs at
-//   once, each in a process of its own)
+//   node tools/bot.mjs --all [--pad] [--seeds 1] [--par 3] [--god]  ·  exit 0 when every run passed (--par: that many
+//   runs at once, each in a process of its own; --god: the crew and their rides take no harm and their guns never run
+//   dry, D29)
 import { spawn } from 'node:child_process';
 import { loadGame } from '../tests/harness.mjs';
 import { pad as fakePad } from '../tests/fixtures/pads.mjs';
@@ -36,7 +37,7 @@ export async function botRun({ id, seed = 1, pad = false, stage = null, level = 
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; }, has = k => process.argv.includes('--' + k);
-  const seeds = arg('seeds', '1,2,3').split(',').map(Number), pad = has('pad'), secs = +arg('secs', 1800), verbose = has('trace') ? 'all' : has('verbose');
+  const seeds = arg('seeds', '1,2,3').split(',').map(Number), pad = has('pad'), secs = +arg('secs', 1800), verbose = has('trace') ? 'all' : has('verbose'), god = has('god');
   let jobs = [];
   if (has('all')) {
     const { gtm } = await loadGame({ hash: '#title' });
@@ -49,7 +50,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const runs = jobs.flatMap(j => seeds.map(seed => ({ ...j, seed }))), queue = runs.slice();
     const one = r => new Promise(done => {
       const a = ['tools/bot.mjs', '--mission', r.id, '--seeds', String(r.seed), '--secs', String(secs)];
-      if (r.level) a.push('--level', String(r.level)); if (r.stage) a.push('--stage', r.stage); if (pad) a.push('--pad');
+      if (r.level) a.push('--level', String(r.level)); if (r.stage) a.push('--stage', r.stage); if (pad) a.push('--pad'); if (god) a.push('--god');
       const c = spawn(process.execPath, a, { stdio: ['ignore', 'pipe', 'inherit'] }); let o = '';
       c.stdout.on('data', d => { o += d; }); c.on('close', code => { const line = o.split('\n').find(l => /^(ok|FAIL)/.test(l)); console.log(line || `FAIL ${r.id} seed ${r.seed}: no result (exit ${code})`); if (code !== 0) bad++; done(); });
     });
@@ -58,7 +59,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(bad ? 1 : 0);
   }
   for (const j of jobs) for (const seed of seeds) {
-    const t0 = Date.now(), r = await botRun({ ...j, seed, pad, secs, verbose });
+    const t0 = Date.now(), r = await botRun({ ...j, seed, pad, secs, verbose, query: god ? { god: '1' } : {} });
     const ok = r.passed && !r.errors.length; if (!ok) bad++;
     console.log(`${ok ? 'ok  ' : 'FAIL'} ${j.id}${j.level ? ' L' + j.level : ''}${j.stage ? '/' + j.stage : ''} seed ${seed}${pad ? ' (pad)' : ''}: ${r.passed ? 'passed ' + (r.medal || '') : 'not passed (at ' + r.stage + ')'} in ${r.secs} s of game, ${r.retries ?? '-'} retries${r.failures.length ? '; fails: ' + r.failures.join(', ') : ''}${r.errors.length ? '; ERRORS: ' + r.errors.join(' | ') : ''} [${((Date.now() - t0) / 1000).toFixed(0)} s]`);
   }

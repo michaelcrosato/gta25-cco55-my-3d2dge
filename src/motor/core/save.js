@@ -5,6 +5,7 @@
 // (the attract mode, the Proving Ground) nothing is written.
 //   const saves = new SaveStore({ game: 'GrandTheftMoto-5S', schema: 1, blank, normalize, migrations });
 //   saves.write('1', data) -> { ok } · saves.read('1') -> { data, error, migrated } · saves.list() · saves.locked = true
+// Each write is stamped afresh (savedAt) and numbered (seq: one more than any stored), so the newest is known.
 const PREFIX = 'my3d2dge:';
 /** the browser's storage, as E.store keeps it (headless: nothing is stored) */
 function localBackend() {
@@ -27,8 +28,10 @@ export class SaveStore {
   write(slot, data) {
     if (this.locked) return { ok: false, reason: 'locked' };
     if (!this.slots.includes(String(slot))) return { ok: false, reason: 'slot' };
+    // (stamped afresh, and numbered: two writes in one millisecond, or a clock gone back, still order by the later)
+    const seq = 1 + Math.max(0, ...this.list().map(q => q.seq || 0));
     // eslint-disable-next-line no-restricted-globals -- a save's wall-clock stamp is for the load menu, never the simulation
-    const doc = { ...data, schema: this.schema, game: this.game, slot: String(slot), savedAt: data.savedAt ?? Date.now() };
+    const doc = { ...data, schema: this.schema, game: this.game, slot: String(slot), savedAt: Date.now(), seq };
     const ok = this.backend.set(this.key(slot), JSON.stringify(doc)); if (ok) this.writes++;
     return ok ? { ok } : { ok, reason: 'storage' };
   }
@@ -39,7 +42,8 @@ export class SaveStore {
     let d; try { d = JSON.parse(raw); } catch (e) { d = undefined; }
     if (!d || typeof d !== 'object' || Array.isArray(d)) { this.backend.set(k + ':bak', raw); this.backend.remove(k); return { data: null, error: 'corrupt' }; }
     if (d.game && d.game !== this.game) return { data: null, error: 'game' };
-    let v = Number.isInteger(d.schema) ? d.schema : 0, from = v;
+    const sv = typeof d.schema === 'string' && d.schema.trim() !== '' ? Number(d.schema) : d.schema;   // (a hand edit's "1" is the v1 it says)
+    let v = Number.isInteger(sv) ? sv : 0, from = v;
     if (v > this.schema) return { data: null, error: 'future' };
     while (v < this.schema) { const m = this.migrations[v]; if (!m) { this.backend.set(k + ':bak', raw); return { data: null, error: 'corrupt' }; } d = m(d); v++; }
     return { data: this.normalize({ ...d, schema: this.schema, game: this.game }), error: null, migrated: from < this.schema ? from : undefined };
@@ -48,7 +52,12 @@ export class SaveStore {
    *  screen's cards show besides, the game's own) */
   list() {
     const out = [];
-    for (const s of this.slots) { const r = this.backend.get(this.key(s)); if (r === null || r === undefined) continue; try { const d = JSON.parse(r); out.push({ slot: s, label: d.label || '', savedAt: d.savedAt || 0, playtime: d.playtime || 0, ...(this.summary ? this.summary(d) : {}) }); } catch (e) { out.push({ slot: s, label: '(damaged)', savedAt: 0, playtime: 0 }); } }
+    for (const s of this.slots) {
+      const r = this.backend.get(this.key(s)); if (r === null || r === undefined) continue;
+      let d; try { d = JSON.parse(r); } catch (e) { d = null; }
+      if (!d || typeof d !== 'object' || Array.isArray(d)) { out.push({ slot: s, label: '(damaged)', savedAt: 0, seq: 0, playtime: 0, damaged: true }); continue; }   // (CONTINUE and LOAD pass it by, and say so)
+      out.push({ slot: s, label: d.label || '', savedAt: d.savedAt || 0, seq: d.seq || 0, playtime: d.playtime || 0, ...(this.summary ? this.summary(d) : {}) });
+    }
     return out;
   }
   clear(slot) { if (!this.locked) this.backend.remove(this.key(slot)); }

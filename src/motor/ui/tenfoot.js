@@ -82,8 +82,12 @@ export class Pen {
     g.globalAlpha = a; g.strokeStyle = color; g.lineWidth = 2; g.strokeRect(Math.round(x) + 1, Math.round(y) + 1, Math.round(w) - 2, Math.round(h) - 2); g.globalAlpha = 1; g._c = null;
     this.rec.focused(x, y, w, h);
   }
-  /** the button legend at the foot of a panel (centred) */
-  legend(s, cx, y) { return this.prompt(s, cx, y, { align: 'center', color: UI.dim }); }
+  /** the button legend at the foot of a panel (centred); wider than w, on two lines (the first one a line above) */
+  legend(s, cx, y, w = Infinity) {
+    const o = { align: 'center', color: UI.dim };
+    if (this.promptWidth(s) <= w) return this.prompt(s, cx, y, o);
+    const [a, b] = splitLegend(this, s); this.prompt(a, cx, y - LEGEND_LINE, o); return this.prompt(b, cx, y, o);
+  }
   /** "2/4": a list's page and its pages, at a panel's top right */
   pages(page, pages, x, y) { if (pages > 1) this.text(`${page + 1}/${pages}`, x, y, UI.mute, { align: 'right' }); }
 }
@@ -222,4 +226,12 @@ export class Cards {
     P.rec.list(this.id, shown.length, page, this.pages, this.boxes.map(b => ({ label: this.cards[b.i].title, x: b.x, y: b.y, w: b.w, h: b.h })), live);
     return Math.ceil(shown.length / this.cols) * (h + gap) - gap;
   }
+}
+
+/** a legend's line height, and the legend in two halves as even as its parts allow (its parts: three spaces apart) */
+export const LEGEND_LINE = 11;
+export function splitLegend(P, s) {
+  const parts = String(s).split('   '); let best = null;
+  for (let k = 1; k < parts.length; k++) { const a = parts.slice(0, k).join('   '), b = parts.slice(k).join('   '), m = Math.max(P.promptWidth(a), P.promptWidth(b)); if (!best || m < best.m) best = { a, b, m }; }
+  return best ? [best.a, best.b] : [s, ''];
 }

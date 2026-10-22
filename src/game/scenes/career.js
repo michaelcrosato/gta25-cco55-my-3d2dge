@@ -35,6 +35,9 @@ export class Career {
    *  hold-ups, no cards, nothing ever written) } */
   constructor(o) {
     this.app = o.app; this.W = o.world; this.save = o.save || normalizeSave(blankSave()); this.saves = o.saves || makeSaves(); this.demo = !!o.demo; this.lab = !!o.lab;   // (lab: a district not Lowtown's, the Proving Ground's lab or District 2: free roam alone, no tokens, hold-ups or random events)
+    this.saves.locked = this.demo || this.lab;   // (neither the demo nor a lab ever writes: PLAN.md 7.8, 8.19)
+    /** god (?god=1, the bot tools' --god: D29): the crew take no harm, nor what they drive, and their guns never run dry */
+    this.god = !!o.god; this._godRides = new Set();
     const W = this.W, fund = { get: () => W.crew.fund, add: (n, why) => { W.crew.fund = Math.max(0, W.crew.fund + n); BUS.emit('cash', { amount: n, reason: why }); } };
     this.econ = new Economy({ save: this.save, fund });
     this.R = new MissionRuntime({ world: () => W, save: this.save, onEnd: r => this._ended(r) });
@@ -99,6 +102,7 @@ export class Career {
     for (const q of this.pops) q.t -= dt; this.pops = this.pops.filter(q => q.t > 0);
     let I = ctx.I;
     this.botI = null;
+    if (this.god) this._god();
     if (this.bot && this.R.state === 'running' && !ctx.busy && !ctx.down) { const B = this.bot.update(dt, p, this.R, { t: W.life ? W.life.t : 0, pedsNear: W.life ? (x, y, r) => W.life.pedsNear(x, y, r) : null, wet: W.weather.wet, wanted: W.wanted(), police: W.life && W.life.police, inside: ctx.inside, heat: W.combat && W.combat.fire ? (x, y) => W.combat.fire.heatAt(x, y) : null, respray: this._respray() }); if (this.padMode) this.botI = B; else I = B; }
     if (this.card) I = clearIntent(I);   // (the card's own input is the screens': MOTOR's step wrapper gave it first)
     this.R.update(dt);   // (WRECKED or NABBED fails the job at once; JOB BLOWN waits for the card)
@@ -106,7 +110,7 @@ export class Career {
     if (this.R.state === 'failed' && !ctx.down && !this.card) this._blown();
     if (this.R.state === 'passed' && !this.card) this._jobDone();
     if (this.R.choosing && !this.card && !this.R.picked) this._choice();
-    if (!this.lab) this.events.update(dt, { free: !this.R.active && !ctx.inside && !this.card, player: p });
+    if (!this.lab) this.events.update(dt, { free: !this.R.active && !ctx.inside, hold: !!this.card, player: p });
     // free roam: the givers, the starts, the shops, the properties, the safehouse; the stunts and the tokens always
     const v = p.seat && p.seat.vehicle;
     const st = this.stunts.update(dt, v && v.driver === p ? v : null);
@@ -116,21 +120,24 @@ export class Career {
       const hu = this.holdups && this.holdups.update(dt, p, { hours: this.hours, crime: e => { const w = W.wanted(); if (w) w.crime(e); } });
       if (hu) this.pop('HOLD-UP  ' + hu.name.toUpperCase(), '+$' + hu.cash + ' ON THE COUNTER', '#ff8a5a');
       if (!this.R.active) this._free(p, v, I);
-      else { const h = this.R.objective && this.R.objective.hint; if (h && h.kind === 'goto' && h.interact && !v) this._doors(p, h.at); }   // (a job's own △ at a door: the prologue's save)
+      else { this.visited = null; const h = this.R.objective && this.R.objective.hint; if (h && h.kind === 'goto' && h.interact && !v) this._doors(p, h.at); }   // (a job's own △ at a door: the prologue's save)
     }
     if (this.bot && !this.R.active && this.R.state === 'idle' && this.card && this.card.auto) this.card.auto();
     return I;
   }
   // free roam's offers: a giver walked into, an activity's start, a drive-in shop, a door's prompt. A marker the player
-  // is standing in when free roam begins (a spawn at the chapel, on the prologue's) asks only once they have left it
+  // is standing in when free roam begins (a spawn at the chapel, on the prologue's) asks only once they have left it;
+  // once its card is answered (or not asked), the door under it answers again (the chapel's SAVE, the diner's SHOP). A
+  // visit lasts till the player is twice the marker's reach away: stepping about a door under a giver asks nothing again
   _free(p, v, I) {
-    const W = this.W, C = W.city, R2 = TUNE.giverReach, quiet = !this.armed; this.armed = true;
-    if (!v && !p.boarding) for (const m of this.available()) { const at = giverAt(C, m); if (Math.hypot(at[0] - p.x, at[1] - p.y) < R2) { if (this.visited !== m.id) { this.visited = m.id; if (!quiet) this._jobCard(m); } return; } }
+    const W = this.W, C = W.city, R2 = TUNE.giverReach, quiet = !this.armed, P = v || p; this.armed = true;
+    const visit = (id, at, r) => { this.visited = id; this.visitAt = [at[0], at[1], r * 2]; };
+    if (!v && !p.boarding) for (const m of this.available()) { const at = giverAt(C, m); if (Math.hypot(at[0] - p.x, at[1] - p.y) < R2) { if (this.visited !== m.id) { visit(m.id, at, R2); if (!quiet) { this._jobCard(m); return; } } this._doors(p, null); return; } }
     for (const { spec, at } of this.startable()) {
       const need = spec.start.vehicle; if (need && !v) continue; if (spec.start.foot && v) continue;
-      const P = v || p; if (Math.hypot(at[0] - P.x, at[1] - P.y) < (spec.start.radius || 26)) { if (v && v.speed > START_STOP) return; if (this.visited !== spec.id) { this.visited = spec.id; if (!quiet) this._activityCard(spec); } return; }   // (a vehicle stopped in the start: driving by it asks nothing)
+      const r = spec.start.radius || 26; if (Math.hypot(at[0] - P.x, at[1] - P.y) < r) { if (v && v.speed > START_STOP) return; if (this.visited !== spec.id) { visit(spec.id, at, r); if (!quiet) this._activityCard(spec); } return; }   // (a vehicle stopped in the start: driving by it asks nothing)
     }
-    this.visited = null;
+    const A = this.visitAt; if (!A || Math.hypot(A[0] - P.x, A[1] - P.y) > A[2]) this.visited = null;
     // a drive-in shop: the vehicle stopped in its yard
     if (v && v.driver === p && v.speed < 6) for (const s of all('shops')) { if (!s.drive) continue; const q = C.poi(s.poi); if (q && Math.hypot(q.x - v.x, q.y - v.y) < DRIVE_R) { if (this.shopVisit !== s.id) { this.shopVisit = s.id; this._shopCard(s, { ped: p, vehicle: v }); } return; } }
     if (v && v.speed > 30) this.shopVisit = null;
@@ -147,7 +154,19 @@ export class Career {
       if (own) { const n = this.econ.collect(pr.id); if (n) this.pop(pr.name.toUpperCase(), '+$' + n, '#5aff8a'); return; }
       const price = Math.round(amountOf(pr.price)); this.prompt = { text: `{onFoot:interact} BUY  ${pr.name.toUpperCase()}  $${price.toLocaleString('en-US')}`, color: '#5aff8a', act: () => this._buyProperty(pr) }; return;
     }
-    const safe = C.poi('safehouse'); if (safe && near(safe) && Math.hypot(safe.x - p.x, safe.y - p.y) < SHOP_R) this.prompt = { text: '{onFoot:interact} SAVE', color: '#7af0ff', act: () => this.saveScreen() };
+    const safe = C.poi('safehouse'); if (safe && !this.lab && !this.demo && near(safe) && Math.hypot(safe.x - p.x, safe.y - p.y) < SHOP_R) this.prompt = { text: '{onFoot:interact} SAVE', color: '#7af0ff', act: () => this.saveScreen() };
+  }
+  // god (D29): each step the crew can't be hurt, their rides neither (and a ride left goes back to the world's rules),
+  // and the gun in hand is full
+  _god() {
+    const C = this.W.crew, rides = new Set();
+    for (const id of C.order) {
+      const p = C.member(id).ped; p.god = true;
+      const v = p.seat && p.seat.vehicle; if (v && v.damage) { rides.add(v); v.damage.immune = true; }
+      const w = p.inv.current, sp = get('weapons', w); if (sp && (sp.mag || sp.ammo)) { p.inv.ammo[w] = Math.max(p.inv.ammo[w] || 0, sp.ammo || sp.mag); if (sp.mag) p.inv.mag[w] = sp.mag; }
+    }
+    for (const v of this._godRides) if (!rides.has(v) && v.damage) v.damage.immune = false;
+    this._godRides = rides;
   }
   /** keep a vehicle in the save's garage (a mission's stash), and the one kept under an id (null: gone or wrecked) */
   stash(v, id, at = null) {
@@ -183,13 +202,20 @@ export class Career {
     const rw = m.rewards || {}, resp = Object.entries(rw.respect || {}).map(([g, d]) => `${(get('gangs', g) || { name: g }).name} ${d > 0 ? '+' : ''}${d}`).join('   ');
     this._open({ id: 'job', title: m.title.toUpperCase(), color: (m.gang && get('gangs', m.gang) && get('gangs', m.gang).colors[0]) || '#ffe066',
       body: [...(m.brief || []), '', `$${(rw.cash || 0).toLocaleString('en-US')}${resp ? '   ' + resp : ''}`, m.plays && m.plays !== 'any' ? 'PLAYS AS ' + (get('characters', m.plays) || { name: m.plays }).name.toUpperCase() : ''].filter((l, i, a) => l !== '' || a[i - 1] !== ''),
-      items: [{ label: 'START THE JOB', act: () => { this.close(); this.startMission(m.id); } }, { label: 'NOT NOW', act: () => this.close() }],
-      auto: () => { this.close(); this.startMission(m.id); } });
+      items: [this._start('START THE JOB', () => this.startMission(m.id)), { label: 'NOT NOW', act: () => this.close() }],
+      auto: () => { this.close(); this.startMission(m.id); } });   // (the campaign's bot: its stars lost before it walks up)
   }
+  /** a card's START: refused while wanted (a job or an activity never begins with stars on: lose them first, as for a
+   *  switch or a cab, so none of their stages' clean slates is a way out of them) */
+  _start(label, go, sub) {
+    const hot = this._stars() > 0;
+    return { label, sub: hot ? 'NOT WHILE WANTED' : sub, disabled: hot, act: () => { if (this._stars() > 0) return; this.close(); go(); } };
+  }
+  _stars() { const w = this.W.wanted(); return w ? w.stars : 0; }
   _activityCard(a) {
     const next = Math.min(a.levels || 1, (this.save.activities[a.id] || 0) + 1), rw = (a.rewardsFor ? a.rewardsFor(next) : a.rewards) || {};
     this._open({ id: 'activity', title: a.title.toUpperCase(), color: '#5af0ff', body: [...(a.brief || []), '', (a.levels > 1 ? `LEVEL ${next}/${a.levels}   ` : '') + `$${(rw.cash || 0).toLocaleString('en-US')}`],
-      items: [{ label: 'START', act: () => { this.close(); this.startMission(a.id, { activity: true, level: next }); } }, { label: 'NOT NOW', act: () => this.close() }],
+      items: [this._start('START', () => this.startMission(a.id, { activity: true, level: next })), { label: 'NOT NOW', act: () => this.close() }],
       auto: () => { this.close(); this.startMission(a.id, { activity: true, level: next }); } });
   }
   _blown() {
@@ -241,13 +267,15 @@ export class Career {
     const W = this.W, p = W.crew.ped, v = p.seat && p.seat.vehicle, items = []; this._phoneSel = 0;
     for (const a of all('activities').filter(q => q.kind === 'job' && q.start && q.start.vehicle && v && v.driver === p && fits(q.start.vehicle, v))) {
       const next = Math.min(a.levels || 1, (this.save.activities[a.id] || 0) + 1);
-      items.push({ label: a.title.toUpperCase(), sub: `START  LEVEL ${next}/${a.levels || 1}`, icon: 'job', color: '#ffd23a', act: () => { this.close(); this.startMission(a.id, { activity: true, level: next }); } });
+      items.push({ ...this._start(a.title.toUpperCase(), () => this.startMission(a.id, { activity: true, level: next }), `START  LEVEL ${next}/${a.levels || 1}`), label: a.title.toUpperCase(), icon: 'job', color: '#ffd23a' });
     }
     const offers = this.available().length, texts = this._textList().length;
     items.push({ label: 'CONTACTS', sub: `${offers} JOB${offers === 1 ? '' : 'S'} ON OFFER`, icon: 'contacts', act: this._app(() => this._contacts()) });
     items.push({ label: 'TEXTS', sub: texts ? `${texts} UNREAD` : 'NOTHING NEW', icon: 'texts', act: this._app(() => this._texts()) });
     items.push({ label: 'JOBS', sub: 'TAXI, AMBULANCE, MORE', icon: 'jobs', act: this._app(() => this._jobs()) });
     items.push({ label: 'SNAP', sub: 'PHOTO MODE', icon: 'snap', disabled: !this.W.photo, act: () => { this.close(); if (this.W.photo) this.W.photo(); } });
+    const bombs = W.fleet.bombsBy(W.crew.order.map(id => W.crew.member(id).ped.id));   // (PLAN.md 8.8: a car bomb set off from the phone)
+    if (bombs.length) items.push({ label: 'DETONATE', sub: bombs.length > 1 ? `${bombs.length} CAR BOMBS` : 'THE ' + bombs[0].def.name.toUpperCase(), icon: 'bomb', color: '#ff5a4a', act: () => { this.close(); for (const v of bombs) W.fleet.detonate(v); } });
     items.push({ label: 'SETTINGS', icon: 'settings', act: () => this.app.ui.screens.open(settingsScreen(this.app)) });
     this._open({ id: 'phone', style: 'phone', title: 'PHONE', color: '#7af0ff', body: [], items, legend: '{menu:confirm} OPEN   {menu:back} HANG UP' });
   }
@@ -292,7 +320,8 @@ export class Career {
     const W = this.W, p = W.crew.ped, v = p.seat && p.seat.vehicle;
     const items = all('activities').filter(a => a.kind === 'job' && a.start && a.start.vehicle).map(a => {
       const next = Math.min(a.levels || 1, (this.save.activities[a.id] || 0) + 1), ok = !!v && v.driver === p && fits(a.start.vehicle, v), need = [].concat(a.start.vehicle)[0];
-      return { label: a.title.toUpperCase(), sub: ok ? `START  LEVEL ${next}/${a.levels || 1}` : 'IN ' + ((get('vehicles', need) || {}).name || String(need)).toUpperCase(), icon: 'job', disabled: !ok, act: () => { this.close(); this.startMission(a.id, { activity: true, level: next }); } };
+      if (ok) return { ...this._start(a.title.toUpperCase(), () => this.startMission(a.id, { activity: true, level: next }), `START  LEVEL ${next}/${a.levels || 1}`), label: a.title.toUpperCase(), icon: 'job' };
+      return { label: a.title.toUpperCase(), sub: 'IN ' + ((get('vehicles', need) || {}).name || String(need)).toUpperCase(), icon: 'job', disabled: true, act: () => {} };
     });
     this._open({ id: 'jobs', style: 'phone', title: 'JOBS', color: '#ffd23a', body: items.length ? [] : ['NO JOBS YET'], items, back: () => this.phone_() });
   }
@@ -301,7 +330,7 @@ export class Career {
   snapshot() {
     const W = this.W, S = this.save, out = JSON.parse(JSON.stringify(S));
     out.crewFund = W.crew.fund; out.active = W.crew.active; out.clock = W.clock.hour; out.weather = W.weather.state;
-    for (const id of PROTAGONISTS) { const m = W.crew.member(id); if (!m) continue; const j = m.ped.toJSON(), q = out.protagonists[id]; q.pos = j.pos; q.health = j.health; q.armor = j.armor; q.weapons = j.weapons; q.ammo = j.ammo; q.ability = j.ability; q.outfit = m.outfit || 0; if (j.stats) q.stats = { ...q.stats, ...j.stats }; }
+    for (const id of PROTAGONISTS) { const m = W.crew.member(id); if (!m) continue; const j = m.ped.toJSON(), q = out.protagonists[id]; q.pos = j.pos; q.health = j.health; q.armor = j.armor; q.weapons = j.weapons; q.ammo = j.ammo; q.current = j.current; q.ability = j.ability; q.outfit = m.outfit || 0; if (j.stats) q.stats = { ...q.stats, ...j.stats }; }
     if (W.life && W.life.gangs) out.respect = { ...W.life.gangs.respect };
     out.completion = completion(S).pct;
     return out;
@@ -310,7 +339,8 @@ export class Career {
   saveScreen() { this.app.ui.screens.open(slotsScreen(this.app, { mode: 'save', saves: this.saves, onSave: slot => this.write(slot, true) })); }
   /** write the save to a slot (toast: say so) */
   write(slot, toast = false) {
-    if (this.demo) return { ok: false, reason: 'the demo' };   // (the attract mode never writes)
+    if (this.demo || this.lab) return { ok: false, reason: this.demo ? 'the demo' : 'a lab' };   // (the attract mode and the Proving Ground never write)
+    if (this.R.state === 'running' && this.R.stage && this.R.stage.passOnSave && !this.saves.locked) this.R.pass();   // (a job's own save step, the prologue's last: the job passes first, so the save holds it done and paid)
     const r = this.saves.write(slot, this.snapshot()); if (r.ok) BUS.emit('save', { slot });
     if (toast) this.pop(r.ok ? 'GAME SAVED' : 'NOT SAVED', r.ok ? 'SLOT ' + slot : (r.reason || '').toUpperCase(), r.ok ? '#7af0ff' : '#ff5a4a');
     return r;
@@ -322,11 +352,18 @@ export class Career {
       const m = W.crew.member(id), q = S.protagonists[id]; if (!m || !q) continue; const p = m.ped;
       if (q.pos) p.place(q.pos[0], q.pos[1], q.pos[2] || 0);
       p.vitals.health = q.health; p.vitals.armor = q.armor;
-      for (const w of q.weapons) if (w !== 'fists') p.inv.give(w, 0, true);
-      for (const [w, n] of Object.entries(q.ammo || {})) if (p.inv.has(w)) { p.inv.ammo[w] = n; p.inv.mag[w] = Math.min(p.inv.mag[w] ?? 0, n); }
+      // (the guns as saved, and only those: the start kit's a confiscation took stays gone; each magazine full from its
+      // rounds; the one in hand)
+      p.inv.strip(); for (const w of q.weapons) if (w !== 'fists') p.inv.give(w, 0, true);
+      for (const [w, n] of Object.entries(q.ammo || {})) if (p.inv.has(w)) { const sp = get('weapons', w); p.inv.ammo[w] = n; p.inv.mag[w] = sp && sp.mag ? Math.min(sp.mag, n) : n; }
+      if (q.current && p.inv.has(q.current)) p.inv.select(q.current);
+      for (const [k, v] of Object.entries(q.stats || {})) if (Number.isFinite(v) && k in p.stats) p.stats[k] = v;   // (the stats raised by doing, PLAN.md 8.11)
+      if (p.ability) p.ability.meter = q.ability || 0;
+      const look = q.outfit && (get('characters', id) || { outfits: [] }).outfits[q.outfit]; if (look) { m.outfit = q.outfit; p.rig.setLook(look); }   // (Threads' outfit, worn again)
     }
     if (S.active && S.active !== W.crew.active) W.crew.possess(S.active);
     if (W.clock.set) W.clock.set(S.clock);
+    if (W.weather && W.weather.set && !W.weather.fixed && S.weather) W.weather.set(S.weather);   // (the weather it was saved in; a ?weather= holds its own)
     W.snap();
   }
   // ---- drawing (inside the stage: floor rings, the mission's peds and props; the overlay: everything else)
@@ -413,9 +450,12 @@ function cardScreen(C, card) {
 }
 // the phone: a handset at the foot of the screen's right, one column of big rows with an icon each, its time at the top
 function drawPhone(P, scr, card, C, live = true) {
-  const list = scr.list, items = list ? list.items : [], per = 6, page = list ? list.page : 0, pages = list ? list.pages : 1, shown = items.slice(page * per, page * per + per);
-  const [, sy0, sx1, sy1] = P.safe, body = (card.body || []).length, fixed = 44 + body * 10 + (body ? 4 : 0) + 26 + 8;
-  const RH = Math.max(20, Math.min(24, Math.floor((sy1 - sy0 - fixed) / per))), w = 188, h = fixed - 8 + per * RH, x = sx1 - w - 4, y = Math.max(sy0 + 4, sy1 - h - 4);   // (rows as tall as the screen allows; its frame inside the safe area too)
+  const list = scr.list, [, sy0, sx1, sy1] = P.safe, body = (card.body || []).length, fixed = 44 + body * 10 + (body ? 4 : 0) + 26 + 8;
+  // (six rows a page, as tall as the screen allows; at HUD size Large or Huge on 320 x 180 UI pixels, fewer a page: a row
+  // never under 20 for its label and its line under it, the frame inside the safe area)
+  const per = Math.max(2, Math.min(6, Math.floor((sy1 - sy0 - fixed) / 20))); if (list) list.per = per;
+  const items = list ? list.items : [], page = list ? list.page : 0, pages = list ? list.pages : 1, shown = items.slice(page * per, page * per + per);
+  const RH = Math.max(20, Math.min(24, Math.floor((sy1 - sy0 - fixed) / per))), w = 188, h = fixed - 8 + per * RH, x = sx1 - w - 4, y = Math.max(sy0 + 4, sy1 - h - 4);
   P.shade(.35);
   P.panel(x - 4, y - 4, w + 8, h + 8, { kind: 'phone', bg: ['#0c0a16', '#05030c'], border: '#4a4470' });
   P.fill(x + 4, y + 6, w - 8, h - 12, '#141026');
@@ -450,5 +490,6 @@ function phoneIcon(P, kind, x, y, c) {
   else if (kind === 'settings') { f(6, 1, 4, 14); f(1, 6, 14, 4); f(3, 3, 10, 10); P.fill(x + 6, y + 6, 4, 4, '#141026'); }
   else if (kind === 'cab') { f(2, 6, 12, 6); f(4, 3, 8, 3); P.fill(x + 3, y + 12, 3, 3, '#05030c'); P.fill(x + 10, y + 12, 3, 3, '#05030c'); }
   else if (kind === 'pin') { f(4, 1, 8, 8); f(6, 9, 4, 3); f(7, 12, 2, 3); }
+  else if (kind === 'bomb') { f(4, 6, 8, 8); f(3, 8, 10, 4); f(6, 4, 4, 2); f(9, 1, 2, 3); P.fill(x + 11, y, 2, 2, '#ffe066'); }
   else f(5, 5, 6, 6);
 }

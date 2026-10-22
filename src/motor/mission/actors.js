@@ -30,6 +30,7 @@ import { drawBoxModel } from '../render/box-model.js';
 import { PROP_MODELS } from '../render/city-render.js';
 import { curbSpots, blockedSpot } from '../world/fleet-spawn.js';
 import { boxDistance } from '../actors/fleet.js';
+import { exitFor, standable } from '../actors/boarding.js';
 
 const ALERT = 260, MATES = 200, GUARD_SIGHT = 220, ALLY_REACH = 220, FLEE_R = 160, REPLAN = 2, TAKEDOWN_R = 20;
 const NOAIM = { candidates: [], level: 'off' };
@@ -93,6 +94,9 @@ export class MissionActors {
     const e = this._add(v, 'vehicle', o);
     if (o.driver) { const p = this._newPed(o.driver, x, y, { gang: o.gang, weapons: o.weapons, faction: o.faction }); v.sit(p, 0); e.crew = [p]; }
     (o.passengers || []).forEach((arch, i) => { if (i + 1 < v.seats.length) { const p = this._newPed(arch, x, y, { gang: o.gang, weapons: o.weapons, faction: o.faction }); v.sit(p, i + 1); (e.crew ||= []).push(p); } });
+    // (each of its crew an entry of its own, untagged, the car's stage: it rides in its seat; carjacked, bailed out or
+    // thrown, it is stepped and drawn where it is, runs from the player, and goes with the stage wherever it ended up)
+    for (const p of e.crew || []) { const c = this._add(p, 'ped', { stage: e.stage, role: 'flee' }); c.home = [x, y]; c.brain = new Fighter(p, { walks: this.W.life ? this.W.life.walks : null, map: this.W.city.map, fleet: this.W.fleet, rng: this.rng }); }
     if (o.drive && o.driver) e.drive = { ...o.drive, cp: 0, finishedAt: null, replan: 0 };
     return v;
   }
@@ -170,7 +174,7 @@ export class MissionActors {
   update(dt) {
     this.t += dt; const W = this.W, P = W.crew && W.crew.ped, PW = { map: W.city.map, city: W.city, combat: W.combat, fleet: W.fleet, aim: NOAIM };
     for (const e of this.list) {
-      if (e.kind === 'vehicle') { for (const q of e.crew || []) if (q !== P && !q.dead && q.seat && q.seat.vehicle === e.a) q.ride(); this._drive(dt, e, P); continue; }   // (its own crew in their seats, wherever it goes: shots find them)
+      if (e.kind === 'vehicle') { this._drive(dt, e, P); continue; }   // (its crew: entries of their own, riding in their seats)
       if (e.kind !== 'ped') continue;
       const p = e.a; if (p === P) continue;
       if (p.seat) { if (!p.dead) p.ride(); continue; }   // (a rider in its seat, wherever the vehicle goes: hits and draws find it there)
@@ -277,9 +281,13 @@ export class MissionActors {
       if (e.kind === 'vehicle') {
         const v = e.a; if (e.brain && e.brain.dispose) e.brain.dispose();
         if (v.adopted) { v.owner = v.adopted; v.adopted = null; continue; }   // (the world's own, lent to the job: back to the world)
+        for (const q of e.crew || []) { const c = this.entry(q); if (c) c.gone = true; if (q.seat && q.seat.vehicle === v) continue; if (q.seat) q.seat.vehicle.unseat(q); if (W.combat) W.combat.remove(q); }   // (its crew go with it, wherever they are)
         if (P && P.seat && P.seat.vehicle === v && o.evict) { v.unseat(P); P.boarding = null; P.place(v.x + Math.cos(v.heading + Math.PI / 2) * (v.hw + 10), v.y + Math.sin(v.heading + Math.PI / 2) * (v.hw + 10), 0); }
-        if (P && P.seat && P.seat.vehicle === v) { v.owner = 'world'; for (const q of [...v.seats]) if (q && q !== P) { v.unseat(q); if (W.combat) W.combat.remove(q); } continue; }
-        for (const q of [...v.seats]) if (q) { v.unseat(q); if (q.owner === 'mission' && W.combat) W.combat.remove(q); else if (q !== P) q.place(v.x + v.hw + 12, v.y); }
+        // (the people in it by whose they are: the job's go with it, anyone else, a protagonist riding along, gets out at
+        // a door; the player's own car, kept as the world's, keeps the player)
+        const out = q => { if (q.owner === 'mission') { v.unseat(q); if (W.combat) W.combat.remove(q); return; } const ex = exitFor(q, v, (x, y) => standable(W.city, x, y, v.z)); v.unseat(q); q.place(ex ? ex.at.x : v.x + v.hw + 12, ex ? ex.at.y : v.y, v.z); };
+        if (P && P.seat && P.seat.vehicle === v) { v.owner = 'world'; for (const q of [...v.seats]) if (q && q !== P) out(q); continue; }
+        for (const q of [...v.seats]) if (q) { if (q === P) { v.unseat(q); continue; } out(q); }
         if (P && P.boarding && P.boarding.v === v) P.boarding = null;
         W.fleet.remove(v);
       } else if (e.kind === 'ped') { const p = e.a; if (p === P) continue; if (p.seat) p.seat.vehicle.unseat(p); if (W.combat) W.combat.remove(p); }

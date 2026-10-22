@@ -11,7 +11,7 @@ export default [
   { files: ['src/**/*.js'], languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.browser } } },
   { files: ['tools/**/*.mjs', 'tools/**/*.js', 'tests/**/*.mjs', 'eslint.config.js'], languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.node } } },
   // browser-side callbacks (page.evaluate) live in the e2e scripts and the tools that drive a page
-  { files: ['tests/e2e/**/*.mjs', 'tools/**/*.mjs'], languageOptions: { globals: { ...globals.browser, ...globals.node } } },
+  { files: ['tests/e2e/**/*.mjs', 'tests/review/**/*.mjs', 'tools/**/*.mjs'], languageOptions: { globals: { ...globals.browser, ...globals.node } } },   // (FAN-OUT B's browser repros too)
   { files: ['**/*.{js,mjs}'], rules: { 'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', varsIgnorePattern: '^_' }], 'no-empty': ['error', { allowEmptyCatch: true }] } },
   { files: SIM, rules: {
     'no-restricted-globals': ['error', ...['Date', 'setTimeout', 'setInterval', 'requestAnimationFrame', 'crypto', 'performance'].map(name => ({ name, message: DET }))],

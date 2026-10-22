@@ -32,7 +32,7 @@ export function skyAt(hour, w = null) {
   s.sky = s.sky.map(col => mixHex(col, '#5a6070', .6 * c)); s.top = mixHex(s.top, '#3e424c', .5 * c);
   s.fog = mixHex(s.fog, s.ambient > .6 ? '#a4aab4' : '#3a3c48', Math.min(1, .8 * f + .35 * c));
   s.lamps = s.ambient < .8; s.night = s.ambient < .66;   // (a storm by day puts the lamps on)
-  s.haze = f; s.rain = w.rain || 0; s.wet = w.wet || 0; s.flash = w.flash || 0;
+  s.haze = f; s.rain = w.rain || 0; s.wet = w.wet || 0; s.flash = (w.flash || 0) * (w.flashK ?? 1);
   if (s.flash > 0) s.ambient = Math.min(1, s.ambient + s.flash * 2.2);   // lightning lights the whole city for a moment
   return s;
 }

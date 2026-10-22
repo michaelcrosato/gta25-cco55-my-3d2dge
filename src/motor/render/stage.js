@@ -34,6 +34,7 @@ const CROWD = { outline: false, rim: false }, XRAY = { xray: true };
 const SMALL = .7;   // a crowd body drawn smaller than this (its view's scale): redrawn half as often
 const FAR_BODY = 160;   // (world units, |dx| + |dy| from the focus: a crowd body farther off redraws two thirds as often)
 const KEPT_MAX = 60;   // a kept shape whose reach is more pixels than this on screen (near a depth view's camera) is drawn, not kept
+const BODY_KEPT_MAX = 160;   // and a crowd body whose image would be taller than this (MODE 7's lens, Sharp MODE 7's buffer): drawn
 const PREBAKE_AHEAD = .3;   // (ISO: s ahead of the camera the walls are baked before they show)
 // an ISO quarter turn: its length, the longest it waits for walls to bake, the bake budget a frame while it turns and
 // while it waits at the new yaw, its yaw steps (degrees)
@@ -284,11 +285,15 @@ export class Stage {
     if (!d) { this.glows.push([x, y, z, draw, o.reflect || null, !!o.always]); return; }
     if (o.iso) return;
     if (o.always) { this.marks.push(() => { const q = d.proj(x, y, z); if (q) this._glowAt(this.r.ctx, draw, q); }); return; }
-    const it = { k: d.depth(x, y) - .01, kind: 'glow', fn: g => { const q = d.proj(x, y, z); if (q) this._glowAt(g, draw, q); } };
+    // (a glow whose reach misses the buffer costs nothing: MODE 7's lens puts a passing lamp's halo hundreds of pixels
+    // off it, ISO's _isoGlows culls the same way)
+    const reach = o.r || 16, it = { k: d.depth(x, y) - .01, kind: 'glow', fn: g => { const q = d.proj(x, y, z); if (q && !this._offBuf(q, reach * q[2] + 8)) this._glowAt(g, draw, q); } };
     const q = o.r && d === this.side7 && z >= 0 && d.proj(x, y, z), R = q && Math.max(8, o.r * q[2]) * this.px;
     if (q) { it.box = [q[0] - R, q[0] + R, q[1] - R]; it.m = it.k - o.r; }
     this.items.push(it);
   }
+  // is a screen point R pixels round it wholly off the buffer?
+  _offBuf(q, R) { const r = this.r; return !r || q[0] + R < 0 || q[1] + R < 0 || q[0] - R > r.bw || q[1] - R > r.bh; }
   // a glow at its screen point; under Sharp MODE 7 drawn px times over (its pixels the game's size on screen)
   _glowAt(g, draw, q) {
     const px = this.px; if (px === 1) { draw(g, q[0], q[1], q[2]); return; }
@@ -384,7 +389,7 @@ export class Stage {
       if (o.shadow) { const s = d.proj(x, y, 0); if (s) { g.fillStyle = 'rgba(5,3,12,.45)'; g.beginPath(); g.ellipse(s[0], s[1], o.shadow * s[2] * 1.1, Math.max(1, o.shadow * s[2] * (d === this.top ? 1.1 : .45)), 0, 0, Math.PI * 2); g.fill(); } }
       if (o.alpha !== undefined) g.globalAlpha = o.alpha;
       const sx = Math.round(p[0]), sy = Math.round(p[1]);
-      if (o.crowd && o.key && TUNE.crowdEvery > 1) this._keptDraw(g, d.view(p[2]), d.heading, o.key, sx, sy, p[2], draw, o.pose, this._far(x, y)); else { if (o.pose) o.pose(1 / 60); draw(g, sx, sy, d.view(p[2]), p[2]); }
+      if (o.crowd && o.key && TUNE.crowdEvery > 1 && 52 * p[2] + 12 <= BODY_KEPT_MAX) this._keptDraw(g, d.view(p[2]), d.heading, o.key, sx, sy, p[2], draw, o.pose, this._far(x, y)); else { if (o.pose) o.pose(1 / 60); draw(g, sx, sy, d.view(p[2]), p[2]); }
       g.globalAlpha = 1;
     } });
   }
@@ -410,8 +415,10 @@ export class Stage {
     if (!K || this.frameNo - K.n >= every || Math.abs(K.k - k) > K.k * .12 || K.view.id !== view.id || K.heading !== heading) {
       if (pose) { const now = this.game.real; pose(K && K.t !== undefined ? Math.min(.5, now - K.t) : 1 / 60); if (K) K.t = now; }
       const w = Math.ceil(30 * k) + 12, h = Math.ceil(52 * k) + 12, foot = Math.ceil(8 * k) + 6;
-      if (!K) { K = { cv: E.mkCanvas(w, h) }; this._kept.set(key, K); }
-      if (K.cv.width < w || K.cv.height < h || K.cv.width > w * 2) { K.cv.width = w; K.cv.height = h; }
+      // (its canvas in steps of 16 px with room to grow, as _keptShape's: never reallocated for a pixel as it nears)
+      const cw = Math.ceil(w * 1.25 / 16) * 16, ch = Math.ceil(h * 1.25 / 16) * 16;
+      if (!K) { K = { cv: E.mkCanvas(cw, ch) }; this._kept.set(key, K); }
+      else if (K.cv.width < w || K.cv.height < h || K.cv.width > w * 2) { K.cv.width = cw; K.cv.height = ch; }
       const kg = K.g || (K.g = K.cv.getContext('2d')); kg.setTransform(1, 0, 0, 1, 0, 0); kg.clearRect(0, 0, K.cv.width, K.cv.height); kg.imageSmoothingEnabled = false;
       K.ax = Math.floor(K.cv.width / 2); K.ay = K.cv.height - foot; draw(kg, K.ax, K.ay, view, k); kg._c = null;
       if (K.n === undefined) { K.phase = (this._keptN = (this._keptN || 0) + 1) % TUNE.crowdEvery; K.t = this.game.real; }   // (staggered: a part of a crowd redraws each frame)

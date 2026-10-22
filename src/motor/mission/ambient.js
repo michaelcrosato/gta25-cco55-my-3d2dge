@@ -2,8 +2,9 @@
 // police chase passing) that happen near the player in free roam. Every TUNE.eventEvery seconds with no job running
 // and the player outdoors, the next event in turn whose where(W, player) finds a spot for it starts in a runtime of its
 // own (the BUS scope 'event'); it ends by its own stages (passed: its reward; failed: quietly), or when the player
-// leaves it TUNE.eventLeave behind for 10 s, or a job starts. Its spot is m.data.at.
-//   const A = new AmbientEvents({ world: () => W, save });  each step: A.update(dt, { free, player })  ·  A.R: its runtime
+// leaves it TUNE.eventLeave behind for 10 s, or a job starts (a card up, the phone or a shop's, holds off the next one
+// and leaves a running one be). Its spot is m.data.at.
+//   const A = new AmbientEvents({ world: () => W, save });  each step: A.update(dt, { free, hold, player })  ·  A.R: its runtime
 import { all } from '../core/registry.js';
 import { TUNE, knob } from '../core/tune.js';
 import { MissionRuntime } from './runtime.js';
@@ -15,7 +16,7 @@ export class AmbientEvents {
   /** o: { world() -> W, save, onEnd(result) } */
   constructor(o) { this.world = o.world; this.R = new MissionRuntime({ world: o.world, save: o.save, scope: 'event', onEnd: o.onEnd }); this.t = TUNE.eventEvery * .5; this.next = 0; this.far = 0; }
   get active() { return this.R.active; }
-  /** one step. ctx: { free (no job running, outdoors), player (the possessed ped) } */
+  /** one step. ctx: { free (no job running, outdoors), hold (a card up: no new event), player (the possessed ped) } */
   update(dt, ctx) {
     const R = this.R, P = ctx.player;
     if (R.active) {
@@ -26,7 +27,7 @@ export class AmbientEvents {
       R.update(dt); return;
     }
     if (R.state === 'passed') R.done();
-    if (!ctx.free || !P) return;
+    if (!ctx.free || ctx.hold || !P) return;
     this.t -= dt; if (this.t > 0) return;
     this.t = TUNE.eventEvery;
     const list = all('activities').filter(a => a.kind === 'event'); if (!list.length) return;

@@ -56,7 +56,7 @@ const UNITS = {   // (each kind's vehicle and crew; content may override: the fl
   swat: { def: 'rhino', crew: ['swat', 'swat', 'swat'] },
   fed: { def: 'fedsedan', crew: ['fed', 'fed'] },
 };
-const SENSE_EVERY = .2, DISPATCH_EVERY = 1, OUT_NEAR = 90, STUCK_OUT = 3, STUCK_NEAR = 320, PENDING = 3, FALL = 2.5, RECALL = 140, HELI_R = 110;
+const SENSE_EVERY = .2, DISPATCH_EVERY = 1, OUT_NEAR = 90, STUCK_OUT = 3, STUCK_NEAR = 320, PENDING = 3, FALL = 2.5, RECALL = 140, HELI_R = 110, HELI_CLAIM = 1600;   // (HELI_CLAIM: an Eye farther off than this is not sent: another comes in)
 const NOAIM = { candidates: [], level: 'off' };
 
 export class Police {
@@ -94,7 +94,7 @@ export class Police {
   }
   // the crime as the police name it: an officer's assault or murder, a police car taken
   _classify(e) {
-    const vic = e.victim != null && this.combat ? this.combat.bodies.find(b => b.id === e.victim) : null, cop = !!(vic && vic.faction === 'police');
+    const vic = e.victim != null && this.combat ? this.combat.bodies.find(b => b.id === e.victim) : null, cop = (vic ? vic.faction : e.victimFaction) === 'police';   // (an officer in a car is no Combat body: the crime says who it was)
     let type = e.type;
     if (cop && e.type === 'assault') type = 'copAssault';
     else if (cop && e.type === 'murder') type = 'copMurder';
@@ -152,7 +152,7 @@ export class Police {
     if (this._senseT <= 0) { this._senseT = SENSE_EVERY; this._sense(SENSE_EVERY, P); }
     if (!this.busted) W.update(dt, { seen: this.seen && !P.dead, at: P });   // (held while the arrest plays out)
     if (car && !this.busted) this._offences(dt, P, car); else this._inBox = null;
-    const standDown = !W.stars;
+    const standDown = !W.stars; if (standDown && !this.busted) this.fought = false;   // (the stars lost, by any way: a fight with the police is forgotten with the chase; the next one-star chase arrests again)
     this._dispT -= dt; if (this._dispT <= 0) { this._dispT = DISPATCH_EVERY; this._dispatch(P); }
     this._units(dt, ctx, P, car, standDown);
     this._copsStep(dt, P, car, standDown);
@@ -326,8 +326,10 @@ export class Police {
   }
   // ---- the Eye
   _claimHeli(P) {
-    let v = this.fleet.vehicles.find(q => q.def.id === 'eye' && !q.wrecked);
-    if (!v) {   // (none flying: another comes in from the annulus)
+    let v = null, bd = HELI_CLAIM;   // (the nearest Eye within reach; none flying near: another comes in from the annulus)
+    for (const q of this.fleet.vehicles) if (q.def.id === 'eye' && !q.wrecked) { const d = Math.hypot(q.x - P.x, q.y - P.y); if (d < bd) { bd = d; v = q; } }
+    if (v) this.leaving = (this.leaving || []).filter(q => q !== v);
+    if (!v) {
       const a = this.rng.next() * Math.PI * 2, r = TUNE.fpSpawnIn + 40; v = this.fleet.spawn('eye', P.x + Math.cos(a) * r, P.y + Math.sin(a) * r, a + Math.PI); v.owner = 'police';
     }
     const alt = v.body.h.hoverZ, h = this.heli = { v, patrol: v.ai || null, mind: null, orbit: this.rng.next() * Math.PI * 2 };
@@ -343,12 +345,16 @@ export class Police {
   _freeHeli() {
     const h = this.heli; this.heli = null; if (h.v.wrecked) return;
     h.v.ai = h.patrol || ((dt, me) => ({ to: [me.x + Math.cos(me.heading) * 400, me.y + Math.sin(me.heading) * 400], alt: me.body.h.hoverZ, spot: null }));   // (one called in flies off)
+    if (!h.patrol) (this.leaving ||= []).push(h.v);   // (and is gone once out of sight: _heliStep)
   }
-  _heliStep() { if (this.heli && this.heli.v.wrecked) this.heli = null; }
+  _heliStep() {
+    if (this.heli && this.heli.v.wrecked) this.heli = null;
+    if (this.leaving && this.leaving.length) this.leaving = this.leaving.filter(v => { if (v.wrecked || !this.fleet.vehicles.includes(v)) return false; if (this.fp.d(v.x, v.y) > TUNE.fpSpawnOut + 100) { this.fleet.remove(v); return false; } return true; });
+  }
   // ---- roadblocks and spike strips: ahead of the player's car, inside the annulus
   _blocksStep(dt, P, car, standDown) {
     const T = this.tier();
-    if (!standDown && !this.busted && T && car && car.speed > 60) {
+    if (!standDown && !this.busted && !this.noBlocks && T && car && car.speed > 60) {   // (noBlocks: a job's or a reel's word: m.wanted.blocks(false))
       this._blockT -= dt; this._spikeT -= dt;
       // (one that found no room, the road ahead full of traffic, is tried again in a moment)
       if (T.roadblocks && this._blockT <= 0 && this.blocks.length < T.roadblocks) this._blockT = this._roadblock(car) ? TUNE.roadblockEvery : 3;

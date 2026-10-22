@@ -7,8 +7,11 @@
 // walked onto, a stunt driven at flat out, a property's BUY prompt pressed and its confirm card accepted. Stars left
 // over from a job are lost first, as a player would (the MissionBot's evade); a property short of cash waits for the
 // pay of what comes after it, or of a job played again.
-//   node tools/bot-campaign.mjs [--seed 1] [--hours 8] [--verbose] [--only id,id]  ·  exit 0 at 100% (--only: those items
-//   alone, every other mission, activity, token, stunt and property passed over: a probe of what failed)
+//   node tools/bot-campaign.mjs [--seed 1] [--hours 8] [--verbose] [--only id,id] [--mortal]  ·  exit 0 at 100% (--only:
+//   those items alone, every other mission, activity, token, stunt and property passed over: a probe of what failed).
+// The campaign plays god (D29: the crew and their rides take no harm, their guns never run dry): it proves the game's
+// way to 100%, its progression, its economy and its completion; each mission's own beatability is the mission bot's
+// runs' (tools/bot.mjs, mortal). --mortal plays it without.
 import { loadGame } from '../tests/harness.mjs';
 
 const TRIES = 3;   // (an item that fails is tried again, after the rest: three times in all)
@@ -17,8 +20,8 @@ const STALL = 120;   // (seconds at the wheel within 40 u before a rescue: rescu
 /** one campaign: { pct, tenths, items (the checklist), steps: [{ what, id, ok, secs, why, fails }], secs (game time), fund,
  *  errors }. prep(gtm, save): a probe's, once the new game is up; only: ids to play (the rest passed over); onStep(t, g):
  *  a probe's, each step */
-export async function campaign({ seed = 1, hours = 8, verbose = false, out = console.log, prep = null, only = null, onStep = null } = {}) {
-  const g = await loadGame({ hash: '#title', query: { seed: String(seed), bot: '1' } }), { game, gtm } = g, M = gtm.motor;
+export async function campaign({ seed = 1, hours = 8, verbose = false, out = console.log, prep = null, only = null, onStep = null, god = true } = {}) {
+  const g = await loadGame({ hash: '#title', query: { seed: String(seed), bot: '1', ...(god ? { god: '1' } : {}) } }), { game, gtm } = g, M = gtm.motor;
   const title = gtm.career;
   game.go('play', { newGame: true });   // (NEW GAME: the title's own, deferred to the step's end)
   for (let k = 0; k < 400 && gtm.career === title; k++) game.advance(.25);
@@ -145,8 +148,11 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
 
   // ---- each kind of thing to do
   const mission = m => play('mission', m.id, () => { const at = C().giverOf(m); teleport(at[0], at[1]); return walk(at[0], at[1], { until: () => ours(m.id) }) && ours(m.id); });
+  // (a job's car: the fastest kind it allows first, as a player picks a Cruiser over a Fed Sedan to chase Zephyrs)
+  const topOf = k => { const d = M.get('vehicles', k); return (d && d.handling && d.handling.top) || 0; };
   const job = (a, level) => play('job', `${a.id} L${level}`, () => {
-    const { v, ok: aboard } = takeCar(() => carNear(P().x, P().y, a.start.vehicle, 1e9)); if (!v) { why = 'no ' + [].concat(a.start.vehicle).join('/') + ' about'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
+    const kinds = [].concat(a.start.vehicle).sort((p, q) => topOf(q) - topOf(p));
+    const { v, ok: aboard } = takeCar(...kinds.map(k => () => carNear(P().x, P().y, k, 1e9))); if (!v) { why = 'no ' + [].concat(a.start.vehicle).join('/') + ' about'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
     if (C().card) C().close();   // (a drive-in shop's card, opened by stopping at its door: the phone waits for no card)
     C().phone(); const it = C().card && C().card.items.find(q => q.label === a.title.toUpperCase());
     if (!it) { why = 'not on the phone (' + (C().card ? C().card.items.map(q => q.label).join(', ') : 'no phone') + ')'; C().close(); return false; } it.act(); run(1); return ours(null);
@@ -242,7 +248,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; }, has = k => process.argv.includes('--' + k);
-  const t0 = Date.now(), r = await campaign({ seed: +arg('seed', 1), hours: +arg('hours', 8), verbose: has('verbose'), only: arg('only', null) ? arg('only').split(',') : null });
+  const t0 = Date.now(), r = await campaign({ seed: +arg('seed', 1), hours: +arg('hours', 8), verbose: has('verbose'), only: arg('only', null) ? arg('only').split(',') : null, god: !has('mortal') });
   for (const s of r.steps) console.log(`${s.ok ? 'ok  ' : 'FAIL'} ${s.what} ${s.id}${s.ok ? (s.medal ? ' ' + s.medal : '') : ' (' + s.why + ')'} ${s.secs} s${!s.ok && s.fails && s.fails.length ? '; ' + s.fails.join(', ') : ''}`);
   for (const q of r.items) console.log(`  ${q.label}: ${q.done}/${q.of}`);
   if (r.errors.length) console.log('ERRORS: ' + r.errors.join(' | '));

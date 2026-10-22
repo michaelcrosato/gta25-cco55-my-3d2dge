@@ -28,14 +28,14 @@ export class Damage {
   static zone(lx, ly, hl, hw) { const fx = lx / (hl || 1), fy = ly / (hw || 1); return Math.abs(fx) * 1.25 >= Math.abs(fy) ? (fx >= 0 ? 'front' : 'rear') : (fy >= 0 ? 'right' : 'left'); }
   /** take damage at a point (vehicle frame; null: no dent). Returns what it took */
   hit(amount, lx = null, ly = null, hl = 1, hw = 1) {
-    if (this.state === 'wrecked' || amount <= 0) return 0;
+    if (this.state === 'wrecked' || amount <= 0 || this.immune) return 0;   // (immune: a bot's own ride, D29)
     const a = Math.min(this.health, amount * this.toughness); this.health -= a; this.taken += a;
     if (lx !== null) { const z = Damage.zone(lx, ly, hl, hw); this.dents[z] = Math.min(1, this.dents[z] + a / this.max * TUNE.dentRate); }
     this._state();
     return a;
   }
   /** on its roof: it burns, whatever its health */
-  flip() { if (this.state !== 'wrecked' && this.state !== 'burning') { this.state = 'burning'; this.burnT = 0; } }
+  flip() { if (this.state !== 'wrecked' && this.state !== 'burning' && !this.immune) { this.state = 'burning'; this.burnT = 0; } }
   /** put it right (the Boom Box's respray and repair) */
   repair() { this.health = this.max; this.dents = { front: 0, rear: 0, left: 0, right: 0 }; this.state = 'ok'; this.burnT = 0; this.exploded = false; }
   _state() {

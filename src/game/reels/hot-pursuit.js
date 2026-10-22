@@ -18,6 +18,7 @@ defReel('hot_pursuit', {
         m.place('player', { in: v, seat: 0 });
         for (let i = 1; i <= 2; i++) m.spawn.vehicle('cruiser', [q.x - Math.cos(q.heading) * 70 * i, q.y - Math.sin(q.heading) * 70 * i], { tag: 'cops', heading: q.heading, driver: 'mpd', drive: { chase: 'player', style: 'fast' } });
         m.allowWanted(); m.wanted.set(3); m.wanted.floor(3); m.wanted.cap(3);
+        m.wanted.blocks(false);   // (no roadblock across the avenue: the city's traffic queued behind one held the chase at its junction till the watchdog cut it)
         m.view('side7', { heading: 'south' });   // (MODE 7's rail down the avenue, the cruisers behind)
       },
       *run(m) { yield m.race(RUN, { text: 'Run', radius: 80 }); } },

@@ -81,7 +81,7 @@ function apply(it, ctx) {
     case 'armor': p.vitals.armor = 100; break;
     case 'health': p.vitals.health = p.vitals.maxHealth; break;
     case 'snack': p.vitals.heal(it.amount || 25); break;
-    case 'mod': { const m = v.mods, k = it.item; if (k === 'armor') { m.armor = true; v.damage.max *= 1.5; v.damage.health = Math.min(v.damage.max, v.damage.health * 1.5); } else if (k === 'roofMG') m.roofMG = true; else if (k === 'bomb') m.bomb = it.amount || 'timed'; else m[k] = Math.min(3, (m[k] || 0) + (it.amount || 3)); break; }
+    case 'mod': { const m = v.mods, k = it.item; if (k === 'armor') { m.armor = true; v.damage.max *= 1.5; v.damage.health = Math.min(v.damage.max, v.damage.health * 1.5); } else if (k === 'roofMG') m.roofMG = true; else if (k === 'bomb') m.bomb = it.amount || 'ignition'; else m[k] = Math.min(3, (m[k] || 0) + (it.amount || 3)); break; }
     case 'paint': v.color = it.item; break;
     case 'repair': v.damage.repair(); v.flats = 0; if (v.body) v.body.flat = 0; break;
     case 'outfit': if (ctx.outfit) ctx.outfit(it.item); break;

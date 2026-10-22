@@ -107,7 +107,7 @@ export class Crowd {
     // near and far: the nearest TUNE.crowdNear inside fpFull (with a little hysteresis) run on their physics
     this._nearT -= dt; if (this._nearT <= 0) { this._nearT = .25; this._sortNear(); }
     this._grid(ctx.others || []);
-    const W = { t, dt, near: false, city: this.city, fleet: this.fleet, player: ctx.player || null, wet: ctx.wet || 0, crowdNear: (x, y, r) => this.pedsNear(x, y, r),
+    const W = { t, dt, near: false, city: this.city, fleet: this.fleet, player: ctx.player || null, wet: ctx.wet || 0, closedAt: ctx.closedAt || null, crowdNear: (x, y, r) => this.pedsNear(x, y, r),
       spotFor: (k, x, y, b) => this._spotFor(k, x, y, b), partnerFor: b => this._partnerFor(b) };
     const PW = { map: this.city.map, city: this.city, combat: this.combat, fleet: this.fleet, aim: NOAIM };
     for (const m of this.members) {

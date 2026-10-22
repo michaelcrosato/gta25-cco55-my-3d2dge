@@ -85,10 +85,11 @@ export class VehicleBody {
   _sub(dt, world) {
     const h = this.h, C = this.ctl, m = h.mass, g = 400, contact = !this.airborne && !this.flipped;
     // steering: toward the stick, slower to turn the faster it goes (an arcade car stays drivable at speed)
-    const want = E.clamp(C.steer, -1, 1) * h.steer * (1 - h.steerFade * Math.min(1, Math.abs(this.u) / h.top));
-    this.steerAngle += E.clamp(want - this.steerAngle, -h.steerRate * dt, h.steerRate * dt);
+    // (C.handle: the driver's own factor on grip and steering response, PLAN.md 8.11: the Driving stat, OVERDRIVE)
+    const want = E.clamp(C.steer, -1, 1) * h.steer * (1 - h.steerFade * Math.min(1, Math.abs(this.u) / h.top)), hk = C.handle || 1;
+    this.steerAngle += E.clamp(want - this.steerAngle, -h.steerRate * hk * dt, h.steerRate * hk * dt);
     const d = this.lifted === 'front' ? 0 : this.steerAngle, cd = Math.cos(d), sd = Math.sin(d), u = this.u, v = this.v, w = this.w;
-    const mu = this._grip(world), wet = world.wet ? .8 : 1, flat = this.flat || 0, grip = h.grip * mu * wet * (1 - .45 * flat) * (this.slide ? .03 : 1);   // (slide: an empty car shoved aside)
+    const mu = this._grip(world), wet = world.wet ? .8 : 1, flat = this.flat || 0, grip = h.grip * hk * mu * wet * (1 - .45 * flat) * (this.slide ? .03 : 1);   // (slide: an empty car shoved aside)
     // the throttle drives forward, or backward once stopped with the brake held a moment (and the brake pedal brakes)
     this.held = Math.abs(u) < 1 && C.brake > 0 && !(C.throttle > 0) ? (this.held || 0) + dt : 0;
     const fwd = u > .5 || (u > -.5 && C.throttle >= C.brake), rev = !fwd && C.brake > 0 && u < 2 && (u < -.5 || this.held > .2);

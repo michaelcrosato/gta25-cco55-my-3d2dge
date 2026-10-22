@@ -3,10 +3,11 @@
 // newest save), NEW GAME (the prologue), LOAD (the slots), SETTINGS, EXTRAS (the Proving Ground, Credits & About, the
 // field guide). The attract mode follows TUNE.attractIdle seconds without input from any device, on the title or any
 // menu opened from it (not while a rebind waits for its button).
-import { E, def, expose, TUNE, FloorChunks, WorldClock, Weather, skyAt, List, UI, settingsScreen, slotsScreen, guideScreen, compose } from '../../motor/index.js';
+import { E, def, expose, TUNE, FloorChunks, WorldClock, Weather, skyAt, flashScale, List, UI, settingsScreen, slotsScreen, guideScreen, compose } from '../../motor/index.js';
 import { makeSaves } from '../save.js';
 import { lowtown, citySeed } from './lowtown.js';
 import { creditsScreen } from '../ui/credits.js';
+import { provingMenu } from './proving.js';
 import { GUIDE } from '../ui/guide.js';
 import { GAME } from '../../about.js';
 
@@ -35,11 +36,13 @@ def('scenes', 'title', {
   make(app) {
     const { game, activity, stage, links } = app, U = app.ui.screens;
     let t = 0, city = null, cityR = null, clock = null, weather = null, fly = null, menu = null;
-    const saves = makeSaves(), latest = () => saves.list().sort((a, b) => b.savedAt - a.savedAt)[0] || null;
+    // (the newest save: by its stamp, then its number; a damaged one is passed by, and CONTINUE says so)
+    const saves = makeSaves(), latest = () => saves.list().filter(q => !q.damaged).sort((a, b) => b.savedAt - a.savedAt || (b.seq || 0) - (a.seq || 0))[0] || null;
+    const damaged = () => saves.list().find(q => q.damaged) || null;
     const play = data => { U.closeAll(); game.input.consumeAll(); game.go('play', data); };
     function extras() {
       const list = new List({ id: 'extras', items: [
-        { label: 'PROVING GROUND', act: () => { U.closeAll(); game.go('proving'); } },
+        { label: 'PROVING GROUND', act: () => U.open(provingMenu(app)) },
         { label: 'CREDITS & ABOUT', act: () => U.open(creditsScreen()) },
         { label: 'HOW TO PLAY', act: () => U.open(guideScreen(app, { id: 'help', title: 'HOW TO PLAY', topics: GUIDE })) },
       ] });
@@ -49,7 +52,7 @@ def('scenes', 'title', {
       const items = () => {
         const last = latest();
         return [
-          { label: 'CONTINUE', sub: last ? (last.slot === 'auto' ? 'AUTOSAVE' : 'SLOT ' + last.slot) : 'NO SAVE YET', disabled: !last, act: () => play({ load: last.slot }) },
+          { label: 'CONTINUE', sub: last ? (last.slot === 'auto' ? 'AUTOSAVE' : 'SLOT ' + last.slot) : damaged() ? (damaged().slot === 'auto' ? 'THE AUTOSAVE' : 'SLOT ' + damaged().slot) + ' IS DAMAGED' : 'NO SAVE YET', disabled: !last, act: () => { if (last) play({ load: last.slot }); } },
           { label: 'NEW GAME', act: () => play({ newGame: true }) },
           { label: 'LOAD', disabled: !last, act: () => U.open(slotsScreen(app, { mode: 'load', saves, onLoad: slot => play({ load: slot }) })) },
           { label: 'SETTINGS', act: () => U.open(settingsScreen(app)) },
@@ -76,14 +79,14 @@ def('scenes', 'title', {
       exit() { if (game.audio && game.audio.music) game.audio.music(null); },
       update(dt) {
         t += dt;
-        if (activity.idle() >= TUNE.attractIdle && !(U.top && U.top.capturing)) { game.go('attract'); return; }   // (a rebind waiting for its button keeps the title)
+        if (activity.idle() >= TUNE.attractIdle && !(U.top && U.top.capturing)) { game.go('attract', { asked: game.input.clock }); return; }   // (asked: an input in the fade into it leaves it too)   // (a rebind waiting for its button keeps the title)
         // the fly-over: straight legs between the tour's corners (presentation: nothing in it is simulated)
         const A = fly.at, to = fly.tour[(fly.leg + 1) % fly.tour.length], dx = to[0] - A[0], dy = to[1] - A[1], d = Math.hypot(dx, dy), step = FLY * dt;
         if (d <= step) { A[0] = to[0]; A[1] = to[1]; fly.leg = (fly.leg + 1) % fly.tour.length; } else { A[0] += dx / d * step; A[1] += dy / d * step; }
         game.focus(A[0], A[1], 16);
       },
       draw(r) {
-        stage.setSky(skyAt(clock.hour, weather));
+        weather.flashK = flashScale(game); stage.setSky(skyAt(clock.hour, weather));
         stage.begin(r, { focus: [fly.at[0], fly.at[1]], vel: [0, 0], speed01: 0, vehicle: false, player: [fly.at[0], fly.at[1], 0] });
         cityR.queue(stage, fly.at[0], fly.at[1], 520, stage.world.lamps, [fly.at[0], fly.at[1], 0]);
         stage.end();

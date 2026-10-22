@@ -117,7 +117,8 @@ test('a unit at its call stands with a car\'s room behind it, clear of the junct
   // a car standing just past a lane's zebra, too near it for one more behind it: a driver at the line waits for room
   const cn = G.conns.filter(k => k.kind !== 'change' && k.region !== null && G.lanes[k.to].ground && G.lanes[k.to].clearS >= 30 && Math.hypot(G.lanes[k.to].a[0] - c.v.x, G.lanes[k.to].a[1] - c.v.y) > 400).sort((a, b) => byNear(G.lanes[a.to], G.lanes[b.to]))[0], X = G.lanes[cn.to];
   for (const o of [...F.vehicles]) if (o !== c.v && Math.hypot(o.x - X.a[0], o.y - X.a[1]) < 260) F.remove(o);
-  const put = s => { const q = G.pointOn(X, s), v = F.spawn('cortez', q[0], q[1], Math.atan2(X.dir[1], X.dir[0])); v.body.z = q[2]; game.advance(1 / 120); return v; };
+  // (a car in a queue there, someone at its wheel: a parked one, nobody's, is gone round, never waited for at the line)
+  const put = s => { const q = G.pointOn(X, s), v = F.spawn('cortez', q[0], q[1], Math.atan2(X.dir[1], X.dir[0])); v.body.z = q[2]; v.ai = () => ({ throttle: 0, brake: 1, steer: 0, handbrake: true }); game.advance(1 / 120); return v; };
   const room = X.clearS + 2 * c.v.hl + 16, w = { fleet: F };   // (from the lane's start: where the tail of the car ahead must be)
   let v = put(room + 29 - 10); assert.ok(c.brain._exitFull(w, cn), `its tail ${(room - 10).toFixed(0)} u along: no room for a car clear of the zebra (${X.clearS.toFixed(0)}) behind it`);
   F.remove(v); v = put(room + 29 + 10); assert.ok(!c.brain._exitFull(w, cn), `its tail ${(room + 10).toFixed(0)} u along: room`);
@@ -132,7 +133,7 @@ test('a unit at its call stands with a car\'s room behind it, clear of the junct
   b.react = () => false;   // (deaf to the street for this check: a crime seen nearby would send it off on its own)
   let waited = 0; for (; waited < 30 && b.edge === e && b.a <= 4; waited += .25) game.advance(.25);
   assert.ok(b.edge !== e, `it goes another way (still at the curb after ${waited} s)`);
-  assert.ok(waited >= 19, `after waiting for the car to move (${waited} s)`);
+  assert.ok(waited >= 1.5, `after a moment (${waited} s): a car standing still on the zebra is not waited for the full 20 s (D29: the curb stand-off)`);
   assert.ok(Math.hypot(car.x - (A.x + B.x) / 2, car.y - (A.y + B.y) / 2) < 4, 'the car still on the crossing');
 });
 

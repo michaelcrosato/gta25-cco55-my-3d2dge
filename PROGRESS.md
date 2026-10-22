@@ -1,20 +1,21 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M8's last step (2026-10-22). Everything M8 builds is in: the runtime, the economy, the activity frameworks, the
-career's screens and saves, all 14 missions and the side content (FAN-OUT A2, parts 1-3c), every one passing through
-the bot on seeds 1-3 and through a pad. M9-M12 are done (the 10-foot UI, sound and the radio, the attract mode, the
-Proving Ground with photo mode, the dev tools and the content recipes) and merged.
+Now: M13 (2026-10-22). Everything M8 to M12 builds is in and merged; M13's polish (parts 1-2), its perf levers
+(part 3) and FAN-OUT B (part 4: eight adversarial reviewers, 47 findings, each a test under `tests/review/` now in
+`npm test`, every one fixed, D29) are in. The owner's directions of 2026-10-22 (D29): performance leaves the
+Definition of Done (the hardware is unlimited; FPS targets and optimization come later), and the bots may play
+invulnerable (the campaign plays `--god`; the mission bot's runs stay mortal).
 
 Next:
-- the bot campaign to 100% (part 4: what it found so far is fixed and under validation; it stood at 69% in its last
-  full run, with S1 and the level-3 jobs left);
-- M8's acceptance; then M13 (the perf pass, the polish pass, FAN-OUT B, the release docs).
+- after FAN-OUT B's MOTOR changes, every merged mission and activity through the mission bot again (seeds 1-3, the pad,
+  the bot gym), then the bot campaign to 100% (god) and M8's acceptance with its evidence;
+- test:full; the shots matrix and its look pass; the release docs (README, ENGINE-ANALYSIS, HANDOFF, PATCHES); the
+  Definition of Done check.
 
-Blockers: pushing to GitHub is refused with a 403 (the Claude GitHub App has no access to the repository for the
-owner's organization) since the session resumed on 2026-10-21: the commits wait locally, and PLAN.md 6.1's fallback
-stands in for CI (DECISIONS D27). The run started inside the planning session (DECISIONS D5). At M4's close it was
-handed off (D16), and the next sessions carried it from M5 on the branch `claude/compassionate-shannon-h7k7zk`
-(draft PR 2). A new session picks it up from `docs/HANDOFF.md`'s `/goal`.
+Blockers: none. (The 403 on pushing, D27, is gone: the branch takes pushes again since M13's part 3.) The run started
+inside the planning session (DECISIONS D5). At M4's close it was handed off (D16), and the next sessions carried it
+from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new session picks it up from
+`docs/HANDOFF.md`'s `/goal`.
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|
@@ -31,7 +32,7 @@ handed off (D16), and the next sessions carried it from M5 on the branch `claude
 | M10 Audio + radio | done | GTM-PATCH 5 (the buses), MOTOR's sequencer, composer, radio and voices, four stations, the score cues (`b2ea884`, D24) · unit audio, sim audio (the hash the same with sound), e2e audio (each station's RMS, the music bus, mute, a bounded soak) · 277 tests |
 | M11 Attract + kiosk | done | the Director and its five reels, cards, the camera plan, the watchdog, leaving on any input, the kiosk and phone (`52b3980`, D25) · the soak 30 min x seeds 1-3 headless and 5 min drawn, all pass · director 4, attract sim 18, attract e2e 24 checks · `docs/media/m11/` (11 shots, the Joyride MP4 and GIF) |
 | M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
-| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3) · 328 unit + sim tests, 15 recipes |
+| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, D29) · 328 unit + sim tests, 77 review tests (`tests/review/`), 15 recipes |
 
 ## Acceptance log
 
@@ -1152,4 +1153,18 @@ handed off (D16), and the next sessions carried it from M5 on the branch `claude
     for a quiet machine (below).
   - **The look note on the title:** its logo panel darker (.82): the KARAOKE KING sign of the fly-over had shown
     through the words.
+- **M13 · FAN-OUT B (part 4, D29):** eight adversarial reviewers, one an area (vehicles, traffic and peds, wanted and
+  gangs, missions, the 10-foot UI, the attract mode, perf and memory, determinism and saves), each in its own worktree
+  on `839a4c5`, each finding a test that failed (`tests/review/<area>/`; three browser repros as scripts). 47 findings,
+  every one fixed and its test green, the suite a step of `npm test` ("review"); the calls they made are D29's. The
+  ones a player would meet first: a job could be started with four stars and quit at once to lose them (a job never
+  starts while wanted now); a giver on the chapel's door hid its SAVE; a load dropped the stats, the outfit, the meter
+  and the weather, and CONTINUE could load an older slot; ○ RESUME also rolled the player (or fired a drive-by); a
+  trigger at half travel was full throttle in a browser; the Proving Ground had no way back; cars rammed each other
+  without a dent; the drawbridge was never closed to traffic. Two existing tests moved with the fixes: the city-life
+  junction check now queues a driven car (a parked one is gone round, D29), and a ped held at a curb by a still car
+  goes another way after a moment.
+  - **The owner's directions (D29):** performance is out of the Definition of Done (the "perf gates" step left
+    test:full; `tools/perf.mjs` stays); the bots may play invulnerable: `?god=1` / `--god` (the crew and their rides
+    take no harm, the gun in hand stays full); the campaign plays god, the mission bot's runs stay mortal.
 

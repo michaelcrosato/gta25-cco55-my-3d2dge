@@ -29,7 +29,7 @@ export const REBIND = [
     ['CAMERA AND MENUS', ['view', 'turnLeft', 'turnRight', 'phone', 'switch', 'map']], ['MORE', ['photo', 'pause']]]],
   ['photo', 'PHOTO MODE', [['FRAMING', ['up', 'down', 'left', 'right', 'zoomIn', 'zoomOut']], ['THE SHOT', ['view', 'snap', 'back']]]],
 ];
-const LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt)/;   // (the bindings' own rule: the menus and the browser keep them)
+const LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt|KeyP$)/;   // (the bindings' own rule: the menus and the browser keep them)
 const PADLIKE = /^(Pad|LS|RS)/, KEYS = /^(Key[A-Z]|Digit\d|Numpad\d|Arrow(Up|Down|Left|Right)|Space|Shift(Left|Right)|Tab|Backspace|Backquote|Minus|Equal|Bracket(Left|Right)|Backslash|Semicolon|Quote|Comma|Period|Slash|CapsLock|Mouse[0-4])$/;
 
 /** a question: o { title, lines, yes, no, onYes, onNo, color, id } */
@@ -169,16 +169,22 @@ export function docScreen(o) {
     for (const l of lines) { const lh = l.gap || 10; if (y + lh > h && pages[pages.length - 1].length) { pages.push([]); y = 0; if (l.gap) continue; } pages[pages.length - 1].push(l); y += lh; }
     laid = { W: P.W, H: P.H, pages }; return pages;
   };
+  // (o.tapBack(): taps only, a kiosk's phone: a tap turns the page, and on the last one goes back)
+  const last = () => k >= (laid ? laid.pages.length : 1) - 1;
   const scr = {
-    id: o.id || 'doc', title: o.title, w: 9999, full: !!o.full, legend: '{menu:left}{menu:right} TURN THE PAGE   {menu:back} BACK',
+    id: o.id || 'doc', title: o.title, w: 9999, full: !!o.full,
+    get legend() { return o.tapBack ? (last() ? 'TAP TO GO BACK' : 'TAP FOR THE NEXT PAGE') : '{menu:left}{menu:right} TURN THE PAGE   {menu:back} BACK'; },
     paging: () => [k, laid ? laid.pages.length : 1],
-    bodyH: P => Math.max(60, P.safe[3] - P.safe[1] - 30 - 26 - 8),
+    bodyH: P => Math.max(60, P.safe[3] - P.safe[1] - 30 - 26 - 8 - (P.legendExtra || 0)),
     body(P, x, y, w) {
       const h = scr.bodyH(P), pages = layout(P, w - 24, h); k = Math.min(k, pages.length - 1); let yy = y;
       for (const l of pages[k]) { if (l.gap) { yy += l.gap; continue; } P.text(l.text, x + 12, yy, l.color); yy += 10; }
       return h;
     },
-    update(nav, mouse) { const n = laid ? laid.pages.length : 1, d = nav.right || mouse.wheel > 0 || mouse.click ? 1 : nav.left || mouse.wheel < 0 ? -1 : 0; if (!d || n < 2) return null; k = (k + d + n) % n; return 'move'; },
+    update(nav, mouse) {
+      if (o.tapBack && mouse.click && last()) { o.tapBack(); return 'back'; }
+      const n = laid ? laid.pages.length : 1, d = nav.right || mouse.wheel > 0 || mouse.click ? 1 : nav.left || mouse.wheel < 0 ? -1 : 0; if (!d || n < 2) return null; k = (k + d + n) % n; return 'move';
+    },
   };
   return scr;
 }

@@ -20,7 +20,7 @@ def('shops', 'boom-box', { name: 'Boom Box Garage', poi: 'boom-box', drive: true
   { id: 'mod_nitro', name: 'Nitro x3', kind: 'mod', item: 'nitro', amount: 3, price: P('price_mod_nitro', 'Nitro', 1500) },
   { id: 'mod_oil', name: 'Oil slick x3', kind: 'mod', item: 'oil', amount: 3, price: P('price_mod_oil', 'Oil slick', 800) },
   { id: 'mod_mines', name: 'Mines x3', kind: 'mod', item: 'mines', amount: 3, price: P('price_mod_mines', 'Mines', 1200) },
-  { id: 'mod_bomb', name: 'Car bomb', kind: 'mod', item: 'bomb', amount: 'timed', price: P('price_mod_bomb', 'Car bomb', 2000) },
+  { id: 'mod_bomb', name: 'Car bomb', kind: 'mod', item: 'bomb', amount: 'ignition', price: P('price_mod_bomb', 'Car bomb', 2000) },   // (PLAN.md 8.8: set on exit, set off by the next driver's ignition or from the phone)
   { id: 'mod_roofmg', name: 'Roof gun', kind: 'mod', item: 'roofMG', price: P('price_mod_roofmg', 'Roof gun', 6000) },
 ] });
 // Spray & Pray: drive in for a new coat (and, wanted and unseen, the respray that loses the stars: the scene's)

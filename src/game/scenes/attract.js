@@ -12,7 +12,7 @@
 // else says BEST WITH A CONTROLLER (at most every TUNE.attractTapNote s); a key or a controller (pressed, or newly
 // connected) opens the title and normal play. #attract starts here; #attract/<reel> plays that one reel over and over
 // (no cards: the reels' tests and tools/record-attract.mjs).
-import { E, def, all, expose, TUNE, knob, RNG, Director, wokeBy, List, UI, settingRows, hudLayout } from '../../motor/index.js';
+import { E, def, all, expose, TUNE, knob, RNG, resetActorIds, Director, wokeBy, List, UI, settingRows, hudLayout } from '../../motor/index.js';
 import { PLAY } from './play.js';
 import { drawCard } from '../ui/attract-cards.js';
 import { creditsScreen } from '../ui/credits.js';
@@ -20,14 +20,14 @@ import { makeSaves } from '../save.js';
 
 knob('Attract', 'attractSeed', 'The demo\'s first seed', 2600, 1, 999999, 1, 'The first reel\'s world (each after it: plus one; ?seed= gives another)');
 knob('Attract', 'attractTapNote', 'A kiosk\'s note at most every', 30, 5, 120, 1, 'Seconds between BEST WITH A CONTROLLER notes when the screen is tapped');
-const CARDS = ['title', 'howto', 'wanted'], FADE = .35, VIEWS = [['auto', 'THE SHOW\'S'], ['iso', 'ISO'], ['top', 'TOP'], ['side7', 'MODE 7']];
+const CARDS = ['title', 'howto', 'wanted'], FADE = .35, KIOSK_LEFT = 45, VIEWS = [['auto', 'THE SHOW\'S'], ['iso', 'ISO'], ['top', 'TOP'], ['side7', 'MODE 7']];
 
 def('scenes', 'attract', {
   make(app) {
     const { game, activity, links, views } = app, U = app.ui.screens, L = app.ui.layer;
     let seed = 1, D = null, t = 0, t0 = 0, pads0 = 0, rumble = .6, leaving = null, built = false, card = null, fade = 0;
     let note = null, noteT = -1e9, viewStyle = 'auto', records = [];
-    const play = PLAY.make(app, { seed: () => seed });
+    const play = PLAY.make(app, { seed: () => seed, view: v => host.view(v) });   // (view: a reel's m.view() through the show's VIEW choice)
     const host = {
       startReel(id, s) {
         seed = s; if (built) play.exit();
@@ -52,14 +52,14 @@ def('scenes', 'attract', {
     function kioskMenu() {
       const list = new List({ id: 'kiosk', items: [...settingRows(game, ['sound', 'volume']),
         { kind: 'choice', key: 'view', label: 'VIEW', help: 'The show\'s camera, or one view throughout', get: () => viewStyle, set: v => { viewStyle = v; if (v !== 'auto') game.setView(v); }, options: VIEWS },
-        { label: 'ABOUT', help: 'The game, its engine and its sources', act: () => U.open(creditsScreen()) },
+        { label: 'ABOUT', help: 'The game, its engine and its sources', act: () => U.open(creditsScreen({ tapBack: () => U.back() })) },   // (a phone's taps: the page, then back)
         { label: 'BACK TO THE DEMO', act: () => U.back() }] });
       return { id: 'kiosk', title: 'MENU', w: 260, list, tips: true, legend: 'TAP A ROW  •  A CONTROLLER PLAYS' };
     }
     // the kiosk's menu button, top right in the margin over the safe area (the HUD's weapon below it): [x, y, w, h] in
     // UI pixels (its hit box a little larger)
     function menuRect() { const w = E.font.width('MENU') + 18, s = L.safe; return [L.W - s[0] - w, Math.max(2, s[1] - 15), w, 13]; }
-    function leave(by) { leaving = by; U.closeAll(); game.input.consumeAll(); game.go('title', null, { fade: .15 }); }
+    function leave(by) { leaving = by; U.closeAll(); game.input.consumeAll(); app.ui.layer.reset(); game.timeScale = 1; game.go('title', null, { fade: .15 }); }   // (timeScale: a reel's slow motion would stretch the fade out)
     function exposeAll() {
       expose('snapshot', () => ({ scene: 'attract', t: +t.toFixed(2), kiosk: !!app.kiosk, leaving, card, reel: D && D.now && D.now.kind === 'reel' ? D.now.id : null, seed, view: views.active,
         stage: built && play.career && play.career.R.stage ? play.career.R.stage.id : null, caption: D && D.caption ? D.caption.text : null, note: note ? note.text : null, menu: U.top ? U.top.id : null }));
@@ -71,7 +71,7 @@ def('scenes', 'attract', {
       enter(data) {
         const only = data && data.route && data.route[0] === 'attract' ? data.route[1] : null;
         t = 0; leaving = null; built = false; card = null; fade = 0; note = null; noteT = -1e9; viewStyle = 'auto'; records = [];
-        activity.reset(); t0 = game.input.clock; pads0 = null;   // (the pads counted at the first step: the engine polls them in its tick)
+        activity.reset(); t0 = data && data.asked !== undefined ? Math.min(data.asked, game.input.clock) : game.input.clock; pads0 = null;   // (from when the title asked for it: an input during the fade leaves at once; the pads counted at the first step: the engine polls them in its tick)
         rumble = game.input.rumbleScale; game.input.rumbleScale = 0;   // (the rumble off)
         seed = links.query.get('seed') ? app.seed : TUNE.attractSeed;
         D = new Director({ reels: only ? [only] : all('reels').map(r => r.id), cards: only ? [] : CARDS, seed, host });
@@ -81,13 +81,14 @@ def('scenes', 'attract', {
         if (built) play.exit(); built = false;
         if (D) { D.dispose(); D = null; }
         game.input.rumbleScale = rumble; game.timeScale = 1;
-        RNG.seed(app.seed);   // (the streams as a boot leaves them: the demo's draws never shape a game)
+        RNG.seed(app.seed); resetActorIds();   // (the streams and the actor ids as a boot leaves them: the demo never shapes a game)
       },
       update(dt) {
         t += dt; if (leaving) return;
         if (pads0 === null) pads0 = game.input.raw ? game.input.raw.pads.length : 0;
         const by = wokeBy(game.input, t0, pads0);
         if (by && (!app.kiosk || by === 'key' || by === 'pad')) { leave(by); return; }   // (a kiosk's taps stay in the demo)
+        if (app.kiosk && app.ui.took && activity.idle() > KIOSK_LEFT) U.closeAll();   // (the kiosk left with its menu open: back to the bare demo)
         if (app.kiosk && !app.ui.took) {
           const p = L.poll(), b = menuRect();
           if (p.click && p.x !== null) {

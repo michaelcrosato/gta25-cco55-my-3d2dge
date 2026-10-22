@@ -91,7 +91,7 @@ export class Explosives {
         if (thing.blown || thing.dead) continue;
         if (Math.hypot(thing.x - b.x, thing.y - b.y) <= b.splash * .9 && !this.pending.some(q => q.thing === thing)) this.pending.push({ thing, t: TUNE.chainDelay, by: b.by });
       }
-      if (this.fire && b.fire !== false) this.fire.add(b.x, b.y, b.splash * .45, .8, 0, .7);
+      if (this.fire && b.fire !== false) this.fire.add(b.x, b.y, b.splash * .45, .8, 0, .7, b.by);
       if (w.onBlast) w.onBlast(b);
     }
     this.blasts = this.blasts.filter(b => b.t < 1);
@@ -105,7 +105,7 @@ export class Explosives {
   _burst(p) {
     p.dead = true;
     if (p.kind === 'molotov') {   // petrol on the ground: fire with fuel of its own, and a small burst of flame
-      if (this.fire) this.fire.add(p.x, p.y, p.splash, 1, p.burn || 5);
+      if (this.fire) this.fire.add(p.x, p.y, p.splash, 1, p.burn || 5, 1, p.by);
       this.blast({ x: p.x, y: p.y, z: p.z, damage: p.damage, splash: p.splash * .6, by: p.by, source: 'molotov' }).fire = false;
       return;
     }

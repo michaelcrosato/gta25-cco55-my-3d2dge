@@ -40,13 +40,15 @@ export class CityLife {
     this.gangs = o.gangs === false || !this.crowd ? null : new Gangs({ life: this, city: this.city, fleet: this.fleet, combat: this.combat, footprint: this.fp, respect: o.respect, isPlayer: o.isPlayer, rng: RNG.stream('gangs') });
   }
   /** one step. ctx: { night, wet, player (the vehicle the player drives, or null), ped (the possessed Ped), others
-   *  (bodies on foot CityLife does not own: the crew) } */
+   *  (bodies on foot CityLife does not own: the crew), bridges (the live drawbridges: their gates shut the traffic and
+   *  the crowd off the span) } */
   update(dt, ctx = {}) {
     this.t += dt; this.player = ctx.ped || null;
-    const pedsNear = this.crowd ? (x, y, r) => this.crowd.pedsNear(x, y, r) : null;
-    if (this.crowd) this.crowd.update(dt, { t: this.t, night: !!ctx.night, wet: ctx.wet || 0, player: ctx.ped || null, others: [...(ctx.others || []), ...(this.services ? this.services.bodies : []), ...(this.police ? this.police.bodies : []), ...(this.gangs ? this.gangs.bodies : [])] });
-    const sirens = this.fleet.vehicles.filter(v => v.siren && !(v.duty && v.duty.out)), W = { fleet: this.fleet, t: this.t, pedsNear, wet: ctx.wet || 0, sirens };
-    if (this.traffic) this.traffic.update(dt, { t: this.t, night: !!ctx.night, wet: ctx.wet || 0, player: ctx.player || null, pedsNear, sirens });
+    const pedsNear = this.crowd ? (x, y, r) => this.crowd.pedsNear(x, y, r) : null, B = ctx.bridges || [];
+    const closed = B.length ? id => B.some(b => b.id === id && b.closed) : null, closedAt = B.length ? (x, y) => B.some(b => b.closed && b.contains(x, y)) : null;
+    if (this.crowd) this.crowd.update(dt, { t: this.t, night: !!ctx.night, wet: ctx.wet || 0, closedAt, player: ctx.ped || null, others: [...(ctx.others || []), ...(this.services ? this.services.bodies : []), ...(this.police ? this.police.bodies : []), ...(this.gangs ? this.gangs.bodies : [])] });
+    const sirens = this.fleet.vehicles.filter(v => v.siren && !(v.duty && v.duty.out)), W = { fleet: this.fleet, t: this.t, pedsNear, wet: ctx.wet || 0, sirens, closed };
+    if (this.traffic) this.traffic.update(dt, { t: this.t, night: !!ctx.night, wet: ctx.wet || 0, player: ctx.player || null, pedsNear, sirens, closed, bridgeUp: closed });
     if (this.services) this.services.update(dt, { t: this.t });
     if (this.police) this.police.update(dt, { player: ctx.ped || null, night: !!ctx.night, W });
     if (this.gangs) this.gangs.update(dt, { player: ctx.ped || null });

@@ -181,6 +181,7 @@ export class MissionRuntime {
     BUS.clear(this.scope);
     const W = this.world(); if (W.endMission) W.endMission(this);
     if (this.wantedHeld) { const w = W.wanted ? W.wanted() : null; if (w) { w.floor(0); w.cap(5); } this.wantedHeld = false; }   // (a stage's cap or floor never outlives its job)
+    if (this.blocksHeld) { const P = W.life && W.life.police; if (P) P.noBlocks = false; this.blocksHeld = false; }   // (nor its word on roadblocks)
     if (this.allyHeld) { const G = W.life && W.life.gangs; if (G) G.allies.clear(); this.allyHeld = false; }   // (nor its allies and truces)
     if (this.servicesHeld) { const S = W.life && W.life.services; if (S) S.held.clear(); this.servicesHeld = false; }   // (nor a service stood down)
     if (W.stage && W.stage.pointRail) W.stage.pointRail(null);   // (nor a set piece's rail)
@@ -228,6 +229,8 @@ export class MissionContext {
       floor: n => { const w = wanted(); if (w) { w.floor(n); R.wantedHeld = true; } },   // (held: lifted when the run ends, however it ends)
       cap: n => { const w = wanted(); if (w) { w.cap(n); R.wantedHeld = true; } },
       clear: () => { const w = wanted(); if (w) { w.clear('mission'); w.floor(0); w.cap(5); } },   // (the heat gone before the cap lifts: no star shows for a step)
+      /** roadblocks and spike strips (false: none, while the run lasts: a reel's chase down its own street) */
+      blocks: on => { const P = W.life && W.life.police; if (P) { P.noBlocks = !on; R.blocksHeld = true; } },
       get stars() { const w = wanted(); return w ? w.stars : 0; },
     };
   }
@@ -353,7 +356,7 @@ export class MissionContext {
    *  held looking that way (0 or 'north', 90 'east', 180 'south', 270 'west') till the next view call or the job's end */
   view(id, o = {}) {
     const G = this.W.game, S = this.W.stage, h = typeof o.heading === 'string' ? RAIL_HEADINGS[o.heading] : o.heading;
-    if (G && G.views && G.views.includes(id)) G.setView(id);
+    if (G && G.views && G.views.includes(id)) { if (this.W.setView) this.W.setView(id); else G.setView(id); }   // (the scene's say: the attract mode's VIEW may hold one view throughout)
     if (S && S.pointRail) S.pointRail(id === 'side7' && h !== undefined ? h : null);
   }
   /** play as a protagonist from now (a setup's: no switch camera) */

@@ -172,19 +172,26 @@ const SODIUM = '#ffa850';   // (the streetlamps' light: sodium orange against th
 const LAMP_HEAD = 32;   // the streetlamp sprite's lamp, in world units over its foot (its glowAt: .13 of 52 pixels down, at sqrt 2 a unit)
 const GLOWS = new Map();
 /** a lamp's halo: two soft discs, sodium orange round a hot core, added (one image per size) */
+// (its image by radius: each one to 16 px, then in steps of 4 to 48, and a bigger halo, MODE 7's lens on a passing lamp,
+// is the 48's image drawn bigger: a soft gradient loses nothing; the images a bounded cache, cleared past GLOWS_MAX)
+const GLOWS_MAX = 64, glowSize = R => (R <= 16 ? R : Math.min(48, Math.ceil(R / 4) * 4));
+const keepGlow = (key, cv) => { if (GLOWS.size >= GLOWS_MAX) GLOWS.clear(); GLOWS.set(key, cv); return cv; };
 function lampGlow(g, sx, sy, k) {
-  const R = Math.max(7, Math.round(12 * k)), key = R; let cv = GLOWS.get(key);
+  const R = Math.max(7, Math.round(12 * k)), C = glowSize(R); let cv = GLOWS.get(C);
   if (!cv) {
-    cv = E.mkCanvas(R * 2 + 2, R * 2 + 2); const c = E.ctx2d(cv), gr = c.createRadialGradient(R + 1, R + 1, 0, R + 1, R + 1, R);
+    cv = E.mkCanvas(C * 2 + 2, C * 2 + 2); const c = E.ctx2d(cv), gr = c.createRadialGradient(C + 1, C + 1, 0, C + 1, C + 1, C);
     gr.addColorStop(0, 'rgba(255,240,206,1)'); gr.addColorStop(.18, 'rgba(255,204,128,.9)'); gr.addColorStop(.42, 'rgba(255,168,80,.42)'); gr.addColorStop(.75, 'rgba(255,140,56,.12)'); gr.addColorStop(1, 'rgba(255,128,48,0)');
-    c.fillStyle = gr; c.fillRect(0, 0, cv.width, cv.height); GLOWS.set(key, cv);
+    c.fillStyle = gr; c.fillRect(0, 0, cv.width, cv.height); keepGlow(C, cv);
   }
-  const op = g.globalCompositeOperation; g.globalCompositeOperation = 'lighter'; g.drawImage(cv, Math.round(sx - R - 1), Math.round(sy - R - 1)); g.globalCompositeOperation = op;
+  const op = g.globalCompositeOperation; g.globalCompositeOperation = 'lighter';
+  if (C === R) g.drawImage(cv, Math.round(sx - R - 1), Math.round(sy - R - 1)); else g.drawImage(cv, Math.round(sx - R - 1), Math.round(sy - R - 1), R * 2 + 2, R * 2 + 2);
+  g.globalCompositeOperation = op;
 }
 /** a lamp's light on a wet street: a broken warm streak down the screen from its foot, the reflection of its head
  *  (rows with gaps, narrowing and fading; one image per size) */
 function lampSmear(g, sx, sy, k, wet) {
-  const w = Math.max(2, Math.round(2.5 * k)), h = Math.max(10, Math.round(22 * k)), key = 's' + w + 'x' + h; let cv = GLOWS.get(key);
+  // (its image at k up to 2.5, in quarters; nearer than that, the 2.5's drawn bigger: the cache stays a few images)
+  const kq = Math.max(.25, Math.min(2.5, Math.round(k * 4) / 4)), w = Math.max(2, Math.round(2.5 * kq)), h = Math.max(10, Math.round(22 * kq)), key = 's' + w + 'x' + h; let cv = GLOWS.get(key);
   if (!cv) {
     cv = E.mkCanvas(w * 2 + 1, h); const c = E.ctx2d(cv);
     for (let y = 0; y < h; y++) {
@@ -192,10 +199,12 @@ function lampSmear(g, sx, sy, k, wet) {
       if (E.hash2(y * 3, 11) < .22 * (1 - f) + .08) continue;   // (gaps, more of them down the streak)
       c.fillStyle = `rgba(255,${170 + Math.round(40 * f)},${80 + Math.round(60 * f)},${(.5 * f * f + .06).toFixed(3)})`; c.fillRect(w - half, y, half * 2 + 1, 1);
     }
-    GLOWS.set(key, cv);
+    keepGlow(key, cv);
   }
   const op = g.globalCompositeOperation, a = g.globalAlpha; g.globalCompositeOperation = 'lighter'; g.globalAlpha = Math.min(1, wet);
-  g.drawImage(cv, Math.round(sx - w), Math.round(sy + 1)); g.globalCompositeOperation = op; g.globalAlpha = a;
+  if (kq === k || k < 2.5) g.drawImage(cv, Math.round(sx - w), Math.round(sy + 1));
+  else { const s = k / kq; g.drawImage(cv, Math.round(sx - w * s), Math.round(sy + 1), Math.round((w * 2 + 1) * s), Math.round(h * s)); }
+  g.globalCompositeOperation = op; g.globalAlpha = a;
 }
 /** the water's glints on screen: short bright dashes that blink in and out, each cell on its own phase */
 function drawGlints(g, P, lists, t, W, H) {

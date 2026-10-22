@@ -1,4 +1,4 @@
-# Handoff: GRAND THEFT MOTO at the end of M8
+# Handoff: GRAND THEFT MOTO in M13
 
 This is where a fresh session picks up the run. `PLAN.md` is still the contract and `GOAL.md` is the prompt that
 started the run. This page says where the run stands, how the repository is worked, and what to watch for. The
@@ -12,30 +12,30 @@ anywhere can resume from it: the work in flight is listed with where it lives.
     vehicles; the roads, traffic, crowds and emergency services; the wanted level, police and gangs; the bank;
   - M9: the 10-foot UI on MOTOR's own layer (D23); M10: sound and the radio (D24); M11: the attract mode, kiosk and
     phone (D25); M12: the Proving Ground, photo mode, the dev tools, the 15 content recipes and District 2 (D26).
-- **M8, at its last step:** all 14 missions and the side content are in and pass through the bot on seeds 1-3 (96/96)
-  and through a pad (32/32) (parts 1-3c); parts 4a-4d fixed what the bot campaign and the full validations found
-  (D27; part 4d: crossfire spares the player, the police nab on the player's level, the bot waits for no cop, the
-  campaign's rescue, the bot's retries). What is left is the bot campaign to 100% (`tools/bot-campaign.mjs --seed 1
-  --verbose`; the last full run, on part 4d before its last fixes, reached 54.8% and stopped on a bug of the tool's
-  own, fixed: run it again on this head), then M8's acceptance.
-- **The work in flight (2026-10-22):** this tree holds M13's second batch, uncommitted (`git stash list`:
-  `m13-part2-wip` if it is still stashed): the respray's bay at the curb in front of Spray & Pray (D20's carried map
-  fix: a car's turning circle off Canal Street never brought it within reach of the door), the streetlamps' sodium
-  orange (PLAN.md 10), and their tests. The validation tree `/home/user/gtm-m9` (branch `m11-attract`) is where the
-  bot runs go: `node tools/bot.mjs --all --seeds 1,2,3 --par 3`, then `--all --pad --seeds 1 --par 3`, then the bot
-  gym both ways (`docs/handoff/m8-a2/tools/botgym.mjs`, copied to `tools/_botgym.mjs`), and the campaign; `npm test`
-  runs alone (never beside the bot runs: the container was restarted once under that load).
-- **Then M13** (PLAN.md 13): the perf pass (ISO about 11.4 ms against 10.4, MODE 7 about 18 against 12.7: D20's levers;
-  measured so far, under load: in MODE 7 the textured faces cost about 6 ms of a 25 ms frame, the bodies about 5, the
-  cars 2, the deck cells 2; three levers tried did not pay and were dropped: the fog folded into the face textures, the
-  floor as one raster, and bodies' kept images scaled between redraws), the shots matrix with a verdict per row,
-  FAN-OUT B's eight reviewers (PLAN.md 13's areas, read-only, each returning failing tests or repro scripts), test:full,
-  the release docs and the Definition of Done.
+- **M13, parts 1-4 in** (D28, D29): the polish (the rumble, TUNING.md, the look notes, the respray's bay, sodium
+  lamps), the perf levers, and FAN-OUT B: eight reviewers, 47 findings, each a test under `tests/review/` (a step of
+  `npm test`), every one fixed. **The owner's directions (D29):** performance is out of the Definition of Done (the
+  "perf gates" step left test:full; `tools/perf.mjs` stays for later), and the bots may play invulnerable (`?god=1`,
+  the tools' `--god`; the campaign plays god by default, `--mortal` without; the mission bot's runs stay mortal).
+- **M8, at its last step:** all 14 missions and the side content passed through the bot on seeds 1-3 (96/96) and
+  through a pad (32/32) on part 4d's MOTOR; the campaign reached 89% on `839a4c5` (mortal: H4's getaway wrecked under
+  police fire, Vigilante level 3's suspects getting away, two stunt jumps without a landing). FAN-OUT B's fixes changed
+  MOTOR since (a crash between cars now dents both; the drawbridge's gates; the curb stand-off; a job never starts
+  while wanted; every world from its seed), so **next**: every merged mission and activity again (`node tools/bot.mjs
+  --all --seeds 1,2,3 --par 3`, then `--all --pad --seeds 1 --par 3`, then the bot gym both ways:
+  `docs/handoff/m8-a2/tools/botgym.mjs`, copied to `tools/_botgym.mjs`), fix what fails, then the campaign
+  (`node tools/bot-campaign.mjs --seed 1 --verbose`, god) to 100%, then M8's acceptance with its evidence.
+- **Then the rest of M13:** test:full, the shots matrix with a verdict a row and its look pass, the release docs
+  (README's and the Credits & About screen's Source Information and engine analysis, the HTML header,
+  `docs/ENGINE-ANALYSIS.md` final, `vendor/my-3d2dge/PATCHES.md`), the Definition of Done check (PLAN.md 15 as D29
+  amends it), PR 2's description.
+- **Where runs go:** the validation tree `/home/user/gtm-m9` (branch `m11-attract`, its `node_modules` a symlink:
+  never `git clean` it) is checked out at the commit under test; `npm test` runs alone (never beside the bot runs: the
+  container was restarted once under that load).
 - **The pull requests:** michaelcrosato/gta25-cco55-my-3d2dge#1 carried M0-M4 and was merged into `main`. M5 onward is
-  on `claude/compassionate-shannon-h7k7zk`, in the draft michaelcrosato/gta25-cco55-my-3d2dge#2. Since 2026-10-21 every
-  push is refused with a 403 (the Claude GitHub App has no access for the owner's organization): the commits wait
-  locally, PLAN.md 6.1's fallback stands in for CI (D27), and one push carries them all once access is back.
-- **Remaining fan-out point** (PLAN.md 16): **B** at M13 (the adversarial review).
+  on `claude/compassionate-shannon-h7k7zk`, in the draft michaelcrosato/gta25-cco55-my-3d2dge#2. Pushing works again
+  (the 403 of D27 is gone since M13's part 3).
+- **Fan-out points** (PLAN.md 16): A1 (M4), A2 (M8) and B (M13) ran; C (optional, M9's screens) was not used.
 
 ## Read first
 
@@ -44,7 +44,8 @@ anywhere can resume from it: the work in flight is listed with where it lives.
 3. `PROGRESS.md`: each milestone's status and evidence (the acceptance log has M8's runs).
 4. `docs/ARCHITECTURE.md`: the module map and the frozen contracts (the Stage and projectors, the registries, the
    Intent, the BUS).
-5. `docs/DECISIONS.md`: D1-D21, every call made without an answer. D21 is M8's, including what the bot does and why.
+5. `docs/DECISIONS.md`: D1-D29, every call made without an answer. D21 is M8's, including what the bot does and why;
+   D29 has the owner's two directions (performance out of the Definition of Done, bots that may play god).
 6. `docs/CONTENT-GUIDE.md`: how each kind of content is added, the mission DSL and its `m` API included.
 7. `vendor/my-3d2dge/PATCHES.md`: the engine patches (GTM-PATCH markers). Never read the 727 KB engine whole. Search
    its `API-INDEX.md` first.

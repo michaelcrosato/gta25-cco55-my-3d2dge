@@ -32,7 +32,7 @@ export class HumanController {
     if (this.game.input.invertAimY) rs[1] = -rs[1];   // (Settings, Controls: invert aim)
     I.aimStick = Math.min(1, Math.hypot(rs[0], rs[1]));
     if (rs[0] || rs[1]) { const a = this.views.screenDirToGround(rs[0], rs[1]), l = Math.hypot(a[0], a[1]) || 1; I.aim = [a[0] / l, a[1] / l]; }
-    else if (actor && this.game.input.lastDevice === 'mouse' && this.game.input.mouse.active) {
+    else if (actor && this.game.input.aimSource === 'mouse' && this.game.input.mouse.active) {   // (the engine's own "what aims now": a key pressed meanwhile, a strafe, leaves the mouse aiming)
       const p = this.views.mouseGround();
       if (p) { const dx = p[0] - actor.x, dy = p[1] - actor.y, l = Math.hypot(dx, dy); if (l > 4) { I.aim = [dx / l, dy / l]; I.aimPoint = [p[0], p[1], p[2] || 0]; } }
     }

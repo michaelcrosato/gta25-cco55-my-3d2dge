@@ -44,6 +44,7 @@ export class Vehicle {
      *  (far from the focus), its physics skipped */ this.brain = null; this.kinematic = false;
     /** lights this step: head (on at night or when told), brake, reverse */ this.lights = { head: false, brake: false, reverse: false };
     this.towing = null; this.towedBy = null; this.burnFx = 0; this.blownAt = null; this.chainT = -1; this.chainBy = null;
+    /** this step's worst crash (health) and whose (the other car's driver; a wall's: its own) */ this.lastCrash = 0; this.crashBy = null;
     /** asleep: at rest and untouched, so the Fleet skips its step (actors/fleet.js) */ this.asleep = false; this._still = 0;
     /** presentation: eased roll, pitch, bike lean, wheelie, suspension squash (the renderer reads; never simulated) */
     this.look = { roll: 0, pitch: 0, lean: 0, wheelie: 0, squash: 0, spin: 0 };
@@ -96,7 +97,7 @@ export class Vehicle {
     let ctl;
     if (this.ai && live) ctl = this.ai(dt, this, w) || {};
     else if (I && live && this.driver) {
-      ctl = { throttle: I.throttle, brake: I.brake, steer: I.steer, handbrake: !!I.down.handbrake };
+      ctl = { throttle: I.throttle, brake: I.brake, steer: I.steer, handbrake: !!I.down.handbrake, handle: this.driver.handling ? this.driver.handling() : 1 };   // (handle: the driver's Driving stat and OVERDRIVE)
       if (I.tap.nitro && this.mods.nitro > 0 && this.nitroT <= 0) { this.mods.nitro--; this.nitroT = TUNE.nitroTime; }
       if (this.hasSiren && I.tap.horn) this.siren = !this.siren; else this.horn = !!I.down.horn && !this.hasSiren;
       if (I.tap.radioNext || I.tap.radioPrev) this.radio = nextStation(this.radio, I.tap.radioNext ? 1 : -1);
@@ -118,7 +119,7 @@ export class Vehicle {
     else b.step(dt, ctl, w);
     // the crash: what the impulse cost, at the corner that took it
     if (b.felt.hit > 0 && !wreck) {
-      const hurt = Damage.crash(b.felt.hit, b.h.mass); if (hurt > 0) { const [lx, ly] = this.toLocal(b.felt.hitX, b.felt.hitY); D.hit(hurt, lx, ly, this.hl, this.hw); this.lastCrash = hurt; }
+      const hurt = Damage.crash(b.felt.hit, b.h.mass); if (hurt > 0) { const [lx, ly] = this.toLocal(b.felt.hitX, b.felt.hitY); D.hit(hurt, lx, ly, this.hl, this.hw); this.lastCrash = hurt; this.crashBy = this.driver ? this.driver.id : null; }
     }
     if (b.felt.land > 320 && !wreck) D.hit((b.felt.land - 320) * .12, null, null);
     if (b.flipped && !wreck) D.flip();

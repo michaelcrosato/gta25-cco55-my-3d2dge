@@ -78,7 +78,11 @@ export class Traffic {
     this.t += dt; const fp = this.fp;
     // the hand-off: a car whose driver's seat is no longer its driver's (a carjack, the driver dead or out)
     for (const c of [...this.cars]) {
-      if (c.duty && c.duty.out) { if (c.v.wrecked || c.v.sunk || !this.fleet.vehicles.includes(c.v)) { c.duty.lost = true; this._drop(c, false); } continue; }   // (a unit waiting for its crew)
+      if (c.duty && c.duty.out) {   // (a unit waiting for its crew: lost when it goes, or when someone not of its crew takes its wheel: the player's to drive)
+        const thief = c.v.driver && c.v.driver !== c.driver && !(c.crew || []).includes(c.v.driver);
+        if (thief || c.v.wrecked || c.v.sunk || !this.fleet.vehicles.includes(c.v)) { c.duty.lost = true; c.v.duty = null; c.v.siren = false; this._drop(c, false); }
+        continue;
+      }
       if (c.v.driver !== c.driver || c.v.wrecked || c.v.sunk || !this.fleet.vehicles.includes(c.v)) { if (c.duty) c.duty.lost = true; this._drop(c, true); continue; }
       if (fp.d(c.v.x, c.v.y) > TUNE.fpSpawnOut + 60 && c.v.owner !== 'mission' && !c.duty) { this._drop(c, false, true); continue; }
     }
@@ -92,7 +96,7 @@ export class Traffic {
       this._towT = 2;
       for (const v of [...this.fleet.vehicles]) if (v.abandonT !== undefined && this.t - v.abandonT > TOW_AFTER && fp.d(v.x, v.y) > TUNE.fpSpawnIn && !v.seats.some(p => p && !p.dead) && !(v.damage && v.damage.burning)) { this.fleet.remove(v); this.towed++; }
     }
-    const W = { fleet: this.fleet, t: ctx.t ?? this.t, pedsNear: ctx.pedsNear || null, wet: ctx.wet || 0, sirens: ctx.sirens || null };
+    const W = { fleet: this.fleet, t: ctx.t ?? this.t, pedsNear: ctx.pedsNear || null, wet: ctx.wet || 0, sirens: ctx.sirens || null, closed: ctx.closed || null };   // (closed(bridgeId): a drawbridge's gates shut)
     for (const c of this.cars) {
       const v = c.v, b = c.brain, d = fp.d(v.x, v.y);
       if (c.duty && (c.duty.out || c.duty.ext)) continue;   // (parked at the scene, the crew out; or in the police's chase)

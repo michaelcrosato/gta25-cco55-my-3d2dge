@@ -44,7 +44,14 @@ export class FloorChunks {
   }
   /** a new frame in a view that is not ISO (drawIso counts its own): the chunks it asks for from now are this frame's,
    *  and the cap evicts only the others */
-  tick() { this.frame++; }
+  tick() { this.frame++; this._trim(); }
+  // past the cap: the chunks used longest ago go (never this frame's: a crew switch's camera high over the city uses
+  // eighty at once, trimmed back as soon as it comes down)
+  _trim() {
+    if (this.chunks.size <= this.cap) return;
+    const old = [...this.chunks.entries()].filter(([, c]) => c.used !== this.frame).sort((a, b) => a[1].used - b[1].used);
+    for (const [kk] of old.slice(0, this.chunks.size - this.cap)) this.chunks.delete(kk);
+  }
   /** bake chunk (i, j) now (and evict the chunks used longest ago past the cap) */
   bake(i, j) {
     const S = this.size, p = this.pad, n = S + 2 * p, x0 = i * S - p, y0 = j * S - p, cv = E.mkCanvas(n, n), g = E.ctx2d(cv);
@@ -55,10 +62,7 @@ export class FloorChunks {
     g.setTransform(1, 0, 0, 1, 0, 0);
     const k = this._key(i, j); this.chunks.set(k, { i, j, cv, used: this.frame }); this.wanted.delete(k);
     this.stats.bakes++; if (t0) this.stats.bakeMs += performance.now() - t0;
-    if (this.chunks.size > this.cap) {
-      const old = [...this.chunks.entries()].filter(([, c]) => c.used !== this.frame).sort((a, b) => a[1].used - b[1].used);
-      for (const [kk] of old.slice(0, this.chunks.size - this.cap)) this.chunks.delete(kk);
-    }
+    this._trim();
     return cv;
   }
   /** bake every chunk within rad world units of (x, y) now: a scene start or a teleport shows no baking floor */
@@ -86,7 +90,7 @@ export class FloorChunks {
    *  are asked for too, so a moving camera finds them baked */
   drawIso(r) {
     const v = r.view, g = r.ctx, S = this.size, p = this.pad, cam = v.toGround ? v.toGround(r.ix + r.bw / 2, r.iy + r.bh / 2) : null;
-    this.frame++;
+    this.frame++; this._trim();
     const pre = this.rangeIso(r, S / 2);
     for (let j = pre[1]; j <= pre[3]; j++) for (let i = pre[0]; i <= pre[2]; i++) this.canvas(i, j);
     if (cam) this.pump(cam[0], cam[1]);

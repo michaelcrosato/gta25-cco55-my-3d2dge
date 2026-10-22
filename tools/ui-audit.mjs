@@ -7,7 +7,8 @@
 //   - nothing (text, prompt, panel, card, focus) outside the 5% safe area.
 // At 1920 x 1080 and 1280 x 720, a screenshot at each stop (--shots). Then the same walk by the keyboard alone, and a
 // walk by the mouse alone (hover, click, the wheel, a right click to go back). Exit 0 when every stop passed.
-//   node tools/ui-audit.mjs [--page dist/index.html] [--sizes 1920x1080,1280x720] [--passes pad,keys,mouse]
+// --hud 2: at a HUD size (1 Large, 2 Huge: 320 x 180 UI pixels at 720p and at 1080p's Huge, the tightest the layer gets).
+//   node tools/ui-audit.mjs [--page dist/index.html] [--sizes 1920x1080,1280x720] [--passes pad,keys,mouse] [--hud 0]
 //                           [--shots dir] [--report docs/ui-audit.md] [--verbose]
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -18,7 +19,7 @@ import { auditRecord } from '../src/motor/ui/record.js';
 
 const args = process.argv.slice(2), arg = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; }, has = k => args.includes('--' + k);
 const PAGE = resolve(arg('page', join(ROOT, 'dist/index.html'))), SIZES = arg('sizes', '1920x1080,1280x720').split(',').map(s => s.split('x').map(Number));
-const PASSES = arg('passes', 'pad,keys,mouse').split(','), SHOTS = arg('shots', null), REPORT = arg('report', null), VERBOSE = has('verbose');
+const PASSES = arg('passes', 'pad,keys,mouse').split(','), SHOTS = arg('shots', null), REPORT = arg('report', null), VERBOSE = has('verbose'), HUD = +arg('hud', 0);
 const EXE = process.env.PLAYWRIGHT_BROWSERS_PATH ? '/opt/pw-browsers/chromium' : undefined;
 
 // the pad: a DualSense on the standard mapping, its buttons pressed for a few steps at a time
@@ -45,7 +46,7 @@ async function session(size, pass) {
   const S = {
     page, errors, stops, size, pass,
     /** a fresh load at a deep link (about:blank first: a new hash alone would not reload the page) */
-    async open(hash = '', query = '') { await page.goto('about:blank'); await page.goto(pathToFileURL(PAGE).href + query + (hash ? '#' + hash : '')); await page.waitForFunction(() => window.__gtm && window.__gtm.ready, null, { timeout: 60000 }); await page.waitForTimeout(900); if (pass === 'pad') await S.pad(PAD.right, 40); },
+    async open(hash = '', query = '') { await page.goto('about:blank'); await page.goto(pathToFileURL(PAGE).href + query + (hash ? '#' + hash : '')); await page.waitForFunction(() => window.__gtm && window.__gtm.ready, null, { timeout: 60000 }); if (HUD) await page.evaluate(n => window.__gtm.game.settings.set('hudSize', n), HUD); await page.waitForTimeout(900); if (pass === 'pad') await S.pad(PAD.right, 40); },
     async pad(b, ms = 70) { await page.evaluate(([i, on]) => { const q = window.__auditPad.buttons[i]; q.pressed = on; q.value = on ? 1 : 0; q.touched = on; }, [b, true]); await page.waitForTimeout(ms); await page.evaluate(i => { const q = window.__auditPad.buttons[i]; q.pressed = false; q.value = 0; q.touched = false; }, b); await page.waitForTimeout(90); },
     /** an action by the pass's device: pad buttons or keys */
     async act(a, n = 1) { for (let i = 0; i < n; i++) { if (pass === 'pad') await S.pad(PAD[a]); else { await page.keyboard.press(KEYS[a]); await page.waitForTimeout(110); } } },

@@ -172,6 +172,13 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `holdupCash` The till | 450 | 0..5000 | Cash a hold-up takes ($) |
 | `holdupRest` Shut for | 24 | 1..96 | Game hours a store stays shut to hold-ups after one |
 
+## HUD
+
+| Knob | Default | Range | What it does |
+|---|---|---|---|
+| `radarCones` Cop cones on the radar | 1 | 0..1 | Show the police's sight cones on the radar (1) or not (0) |
+| `radarRange` Radar range | 560 | 200..1600 | World units from the radar's centre to its rim |
+
 ## Photo
 
 | Knob | Default | Range | What it does |
@@ -179,13 +186,6 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `photoPan` Photo camera pan speed | 260 | 40..800 | World units a second the photo camera pans at a full push |
 | `photoReach` Photo camera reach | 320 | 80..1200 | How far from the player the photo camera may pan (u) |
 | `photoFrame` Photo frame | 140 | 40..400 | How near the middle of the picture (u, at zoom 1) a subject must be to be in the photo |
-
-## HUD
-
-| Knob | Default | Range | What it does |
-|---|---|---|---|
-| `radarCones` Cop cones on the radar | 1 | 0..1 | Show the police's sight cones on the radar (1) or not (0) |
-| `radarRange` Radar range | 560 | 200..1600 | World units from the radar's centre to its rim |
 
 ## Crowd
 

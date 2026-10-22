@@ -4,7 +4,8 @@
 //   - cars inside each other (centres nearer than OVERLAP at the same level), and the longest any traffic car stands
 //     still with no cause (a queue, a light, a ped, a siren to let by, its goal);
 //   - red-light runs: a calm driver (no panic, no siren) onto a signalled connector red for half a second (one that
-//     committed on amber, with no room to stop, may reach its connector just after the change);
+//     committed on amber, with no room to stop, may reach its connector just after the change; one that crossed the
+//     line in a panic, ignoring the light as panic does, is committed too: no panic in the last 3 s);
 //   - the traffic's mean speed, and spawns nearer the focus than the inner radius of the traffic's annulus or the
 //     crowd's ring (the fills when the focus arrives somewhere aside: nothing round it has been seen yet);
 //   - peds stuck: wanting to walk and not moving (waiting at a crossing aside), and the longest crossing wait;
@@ -48,7 +49,8 @@ export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather 
       if (c.duty && (c.duty.out || c.duty.arrived)) { w.still = 0; continue; }   // (a unit at its scene)
       // a calm driver onto a signalled connector on red
       const e = b.here, key = e ? e.k + e.id : '';
-      if (key !== w.el && e && e.k === 'conn' && !b.siren && !(b.panic > 0) && v.body && v.body.u > 0) {
+      if (b.panic > 0) w.pan = step;
+      if (key !== w.el && e && e.k === 'conn' && !b.siren && !(b.panic > 0) && !(w.pan !== undefined && step - w.pan < 360) && v.body && v.body.u > 0) {
         const cn = G.conns[e.id]; if (cn.signals === 'signal' && M.lightFor(cn, G, L.t) === 'red' && M.lightFor(cn, G, L.t - .5) === 'red') {   // (red for half a second: not one committed on amber)
           r.redRuns++; r.redAt ||= { car: v.def.id, at: cn.region, t: +(step / 120).toFixed(2) }; r.lastRed = { c, cn, step }; }
       }

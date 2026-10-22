@@ -73,6 +73,9 @@ export class UILayer {
     const moved = !!p && (!last || Math.abs(p.x - last.x) + Math.abs(p.y - last.y) > .5); this._last = p;   // (hover takes the focus only when the mouse moves: a still pointer leaves the pad's and the keys' choice)
     return { x: p ? p.x : null, y: p ? p.y : null, moved, click, down, up, wheel };
   }
+  /** drop what the pointer left pending (a finger's tap, the wheel's notches, a button held down: not a fresh click)
+   *  when a screen opens or the attract mode leaves: the input that woke the demo never acts on the title */
+  reset() { this._tap = null; this.wheel = 0; const I = this.game.input; this._down = !!(I && I.held && I.held.has('Mouse0')); this._last = this.pointer(); }
   /** the mouse's position in UI pixels, or null */
   pointer() {
     const I = this.game.input, m = I && I.mouse; if (!m || !m.active || !this.page) return null;

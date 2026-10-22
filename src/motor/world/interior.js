@@ -180,6 +180,7 @@ export class InteriorRun {
   /** the player takes guard g down: the paired action plays on both bodies, and the guard is out of it */
   takedown(P, g) {
     g.ped.held = P.mover.play('takedown', { other: g.ped.mover, map: this.map }); g.down = true; g.mind.reset(); this.downs++;
+    if (P.stats) P.stats.did('takedown'); if (P.ability) P.ability.feed('takedown');   // (PLAN.md 8.11: a stealth takedown, in character)
     BUS.emit('takedown', { interior: this.id, guard: g.ped.id, by: P.id });
     return true;
   }

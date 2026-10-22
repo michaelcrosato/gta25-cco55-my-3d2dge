@@ -9,6 +9,7 @@
 //   M.enter(player); each step while M.active: M.update(dt); on the UI layer: M.legend(pen)
 import { BUS } from '../core/bus.js';
 import { TUNE, knob } from '../core/tune.js';
+import { flashScale } from '../ui/settings.js';
 
 knob('Photo', 'photoPan', 'Photo camera pan speed', 260, 40, 800, 10, 'World units a second the photo camera pans at a full push');
 knob('Photo', 'photoReach', 'Photo camera reach', 320, 80, 1200, 20, 'How far from the player the photo camera may pan (u)');
@@ -83,7 +84,7 @@ export class PhotoMode {
   /** the legend at the foot of the UI layer (a 10-foot Pen), and the shutter's flash over the screen */
   legend(P) {
     if (!this.active) return;
-    if (this.flash > 0) P.fill(0, 0, P.W, P.H, '#ffffff', Math.min(.8, this.flash * 3));
+    const k = flashScale(this.game); if (this.flash > 0 && k > 0) P.fill(0, 0, P.W, P.H, '#ffffff', Math.min(.8, this.flash * 3) * k);   // (Settings: SCREEN FLASHES, REDUCE MOTION)
     const y = P.safe[3] - 12;
     P.fill(P.W / 2 - 160, y - 4, 320, 15, '#05030c', .6);
     P.prompt('{photo:snap} SNAP   {photo:zoomOut}{photo:zoomIn} ZOOM   {photo:view} VIEW   {photo:back} BACK', P.W / 2, y, { align: 'center', color: '#f0ecff' });

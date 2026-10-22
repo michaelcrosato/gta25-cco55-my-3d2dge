@@ -66,6 +66,7 @@ export class Gangs {
     this._unsub = [
       BUS.on('kill', e => this._kill(e), 'world'),
       BUS.on('hit', e => this._hit(e), 'world'),
+      BUS.on('vehicleDamage', e => this._rammed(e), 'world'),
     ];
   }
   dispose() { for (const u of this._unsub) u(); this._unsub = []; const T = this.life.traffic; if (T && T.pick) T.pick = null; }
@@ -86,9 +87,10 @@ export class Gangs {
   // a killing: the player's of a gang's member costs that gang's respect and earns its rivals'
   _kill(e) {
     if (!this.isPlayer(e.by) || !this.combat) return;
-    const t = this.combat.bodies.find(b => b.id === e.target); if (!t || !t.gang || this.allies.has(t.gang)) return;
-    this.add(t.gang, TUNE.respectKill, 'kill');
-    for (const g of all('gangs')) if (g.rival === t.gang) this.add(g.id, TUNE.respectRival, 'rival');
+    const t = this.combat.bodies.find(b => b.id === e.target), gang = t ? t.gang : e.gang;   // (one at the wheel of the gang's car is no Combat body: the kill says whose)
+    if (!gang || this.allies.has(gang)) return;
+    this.add(gang, TUNE.respectKill, 'kill');
+    for (const g of all('gangs')) if (g.rival === gang) this.add(g.id, TUNE.respectRival, 'rival');
   }
   // a hit: on one of a gang's cars by the player (respect), on a member (it and its mates go for whoever did it), on the
   // player (a friendly gang's members go for whoever did it)
@@ -103,6 +105,11 @@ export class Gangs {
       this._rally(t, by);
     }
     if (this.isPlayer(e.target) && !player) for (const m of this._members()) if (this.stance(m.ped.gang) === 'friendly' && Math.hypot(m.ped.x - t.x, m.ped.y - t.y) < TUNE.gangSight) this._fight(m.ped, by, null);
+  }
+  // a crash: one of a gang's cars rammed by the player's (a crash's by is the other car's driver; a wall's, its own)
+  _rammed(e) {
+    const v = this.fleet.byId(e.vehicle); if (!v || !v.gang || this.allies.has(v.gang) || !this.isPlayer(e.by) || (v.driver && v.driver.id === e.by)) return;
+    this._carHit(v);
   }
   _carHit(v) { if ((this.carHits.get(v.id) ?? -1e9) > this.t) return; this.carHits.set(v.id, this.t + CAR_AGAIN); this.add(v.gang, TUNE.respectCar, 'car'); }
   // a member hurt: it and the mates near it go for whoever did it

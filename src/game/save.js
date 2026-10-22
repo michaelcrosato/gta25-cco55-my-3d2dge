@@ -27,7 +27,7 @@ function normProtagonist(p) {
   const b = blankProtagonist(), q = obj(p), pos = Array.isArray(q.pos) && q.pos.length >= 2 && q.pos.every(Number.isFinite) ? q.pos.slice(0, 3) : null;
   const stats = obj(q.stats);
   const weapons = ['fists', ...arr(q.weapons, w => (typeof w === 'string' && w !== 'fists' ? w : undefined))];   // (fists always)
-  return { pos, map: str(q.map, b.map), outfit: num(q.outfit, 0, 0, 2) | 0, weapons, ammo: Object.fromEntries(Object.entries(obj(q.ammo)).filter(([, v]) => Number.isFinite(v)).map(([k, v]) => [k, Math.max(0, v | 0)])),
+  return { pos, map: str(q.map, b.map), outfit: num(q.outfit, 0, 0, 15) | 0, weapons, current: str(q.current, 'fists'), ammo: Object.fromEntries(Object.entries(obj(q.ammo)).filter(([, v]) => Number.isFinite(v)).map(([k, v]) => [k, Math.max(0, v | 0)])),   // (outfit: a character's own count checks it on load: a recipe adds looks)
     health: num(q.health, 100, 0, 100), armor: num(q.armor, 0, 0, 100), stats: Object.fromEntries(STATS.map(s => [s, num(stats[s], b.stats[s], 0, 100)])), ability: num(q.ability, 0, 0, 1) };
 }
 /** check every field and fill what is missing or wrong (PLAN.md 7.8: loading checks every field) */
@@ -38,13 +38,13 @@ export function normalizeSave(d) {
     protagonists: Object.fromEntries(PROTAGONISTS.map(k => [k, normProtagonist(p[k])])), crewFund: num(d.crewFund, b.crewFund, 0) | 0,
     respect: Object.fromEntries(GANGS.map(g => [g, num(r[g], 0, -100, 100)])), missions: { done: arr(m.done, x => (typeof x === 'string' ? x : undefined)), medals: obj(m.medals) },
     activities: obj(d.activities), collectibles: arr(d.collectibles), stunts: arr(d.stunts), properties: arr(d.properties), garage: arr(d.garage, g => (g && typeof g === 'object' ? g : undefined)),
-    completion: num(d.completion, 0, 0, 100), rngSeed: num(d.rngSeed, 1) >>> 0, savedAt: num(d.savedAt, 0) };
+    completion: num(d.completion, 0, 0, 100), rngSeed: num(d.rngSeed, 1) >>> 0, savedAt: num(d.savedAt, 0), seq: num(d.seq, 0, 0) | 0 };
   return out;
 }
 /** v0 (the prototype's single hero and money) -> v1 (three protagonists and the crew fund) */
 export const MIGRATIONS = {
-  0: d => {
-    const h = obj(d.hero), out = { ...d, schema: 1, protagonists: { dex: { ...blankProtagonist(), pos: Array.isArray(h.pos) ? h.pos : null, health: h.health ?? 100, weapons: h.weapons || ['fists'] } }, crewFund: d.money ?? 250 };
+  0: d => {   // (a v1 save taken for a v0, its schema lost to a hand edit, keeps its own protagonists and fund)
+    const h = obj(d.hero), out = { ...d, schema: 1, protagonists: d.protagonists && typeof d.protagonists === 'object' ? d.protagonists : { dex: { ...blankProtagonist(), pos: Array.isArray(h.pos) ? h.pos : null, health: h.health ?? 100, weapons: h.weapons || ['fists'] } }, crewFund: d.crewFund ?? d.money ?? 250 };
     delete out.hero; delete out.money; return out;
   },
 };

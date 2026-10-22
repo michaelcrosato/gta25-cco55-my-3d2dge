@@ -43,7 +43,7 @@ export function wrapScenes(app, specs) {
     const s = spec.make(app), update = s.update ? s.update.bind(s) : null, draw = s.draw ? s.draw.bind(s) : null;
     s.update = dt => {
       app.bindings.update(dt);
-      app.ui.took = U.isOpen; if (U.isOpen) U.update(dt);
+      app.ui.took = U.isOpen; if (U.isOpen) { U.update(dt); if (!U.isOpen) app.bindings.spendHeld(); }   // (the press that closed the last screen is spent: play never reads it)
       const held = U.pausing; if (held !== app.ui.held) { app.ui.held = held; try { app.game.audio.duck(held); } catch (e) { /* no audio yet */ } }   // (the music quieter under the pause)
       if (held) return;   // (the scene stands still under the pause, the map, the settings from it)
       if (update) update(dt);

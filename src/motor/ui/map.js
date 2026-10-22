@@ -39,7 +39,7 @@ export function mapPage(app, o) {
     id: 'map', w: 9999,
     legend: '{menu:confirm} WAYPOINT   {menu:secondary} LEGEND   {menu:tertiary} FILTER   {menu:zoomOut}{menu:zoomIn} ZOOM',
     enter() { const p = o.player && o.player(); st.cx = p ? p.x : C.w * T / 2; st.cy = p ? p.y : C.h * T / 2; st.mouse = false; },
-    bodyH: P => Math.max(80, P.safe[3] - P.safe[1] - 30 - 22 - 26 - 8),
+    bodyH: P => Math.max(80, P.safe[3] - P.safe[1] - 30 - 22 - 26 - 8 - (P.legendExtra || 0)),   // (the screen's legend on two lines: a line less)
     update(nav, mouse, dt) {
       if (st.cx === null) page.enter();
       let sound = null;

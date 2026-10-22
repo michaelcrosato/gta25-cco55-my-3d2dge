@@ -10,14 +10,16 @@
 //     after a full GC (headless: run it with --expose-gc, as the test gate does);
 //   - every reel ran at least once; all three views and the bank were shown; a chase reached three stars; there was
 //     an explosion and a switch.
-//   node --expose-gc tools/attract-soak.mjs [--seeds 1,2,3] [--mins 30] [--chromium] [--json report.json]
+// Seed 0 is the shipped page (no ?seed: Lowtown from its own seed, the reels from TUNE.attractSeed), which a ?seed=
+// rebuilds: FAN-OUT B found Hot Pursuit stalling there and nowhere else.
+//   node --expose-gc tools/attract-soak.mjs [--seeds 0,1,2,3] [--mins 30] [--chromium] [--json report.json]
 import { writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadGame } from '../tests/harness.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; }, has = k => process.argv.includes('--' + k);
-const chromium = has('chromium'), seeds = arg('seeds', chromium ? '1' : '1,2,3').split(',').map(Number), mins = +arg('mins', chromium ? 5 : 30);
+const chromium = has('chromium'), seeds = arg('seeds', chromium ? '1' : '0,1,2,3').split(',').map(Number), mins = +arg('mins', chromium ? 5 : 30);   // (seed 0: the shipped page, no ?seed: Lowtown as players get it)
 const SAMPLE = 10, HEAP = 20, REELS = ['joyride', 'hot_pursuit', 'turf_war', 'switch', 'heist_tease'];
 
 // the run's samples judged: { ok, fails: [...] }
@@ -42,7 +44,7 @@ function judge(r) {
 }
 
 async function headless(seed) {
-  const g = await loadGame({ hash: '#attract', query: { seed: String(seed) } }), { game, gtm, ctx } = g, errors = [];
+  const g = await loadGame({ hash: '#attract', query: seed ? { seed: String(seed) } : {} }), { game, gtm, ctx } = g, errors = [];
   ctx.console.error = (...a) => errors.push(a.map(String).join(' ').slice(0, 300));
   const gc = globalThis.gc || null, heap = () => { if (gc) gc(); return process.memoryUsage().heapUsed; };
   const samples = [], heaps = []; let warmT = 0;
@@ -66,7 +68,7 @@ function count(gtm, t) {
 
 async function inChromium(seed) {
   const { chromium: C } = await import('playwright');
-  const url = pathToFileURL(resolve('dist/index.html')).href + `?seed=${seed}#attract`;
+  const url = pathToFileURL(resolve('dist/index.html')).href + `${seed ? '?seed=' + seed : ''}#attract`;
   if (!existsSync('dist/index.html')) throw new Error('no dist/index.html: node tools/build.mjs first');
   const browser = await C.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--enable-precise-memory-info', '--js-flags=--expose-gc', '--autoplay-policy=no-user-gesture-required'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } }), errors = [];

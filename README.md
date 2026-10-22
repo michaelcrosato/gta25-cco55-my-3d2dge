@@ -52,7 +52,8 @@ controller first if you have one.
 - **Money** buys guns, a respray (loses the police), the two properties (they pay a little each night) and the heist.
 - **Respect** with each gang rises with its jobs and falls with its rivals'. Hostile gangs go for you on their turf;
   friendly ones back you up.
-- **Stars** come from crimes the police see. Lose them out of sight, or at the respray.
+- **Stars** come from crimes the police see. Lose them out of sight, or at the respray. A job never starts while you
+  are wanted (nor a crew switch, nor a cab): lose the stars first.
 - **The pause** (Options) has the map, your brief, the stats (the completion percentage), the settings and help.
 
 ## Controls
@@ -115,15 +116,17 @@ and the feedback for the engine's maintainers is [`docs/FEEDBACK-FOR-ENGINE.md`]
 - **Play:** `dist/index.html` (committed, rebuilt by every change).
 - **Build:** `npm ci` (Node 22 or later), then `npm run build`. `npm run dev` serves it on `localhost:5173` and rebuilds
   on every change.
-- **Test:** `npm test` is the gate (lint, the layer and vendor checks, a current build and tuning list, about 320 unit
-  and sim tests, the 15 content recipes, and the browser suites: smoke, replay, the Proving Ground's self-tests, audio,
-  the attract mode, photo mode, the dev tools, the engine's checker on the city and the bank). `npm run test:full` adds
-  the soaks, every mission through the bot on three seeds and through a pad, the bot campaign to 100% and the rest
+- **Test:** `npm test` is the gate (lint, the layer and vendor checks, a current build and tuning list, about 330 unit
+  and sim tests, the 15 content recipes, FAN-OUT B's review tests (each a finding of the adversarial review, fixed), and
+  the browser suites: smoke, replay, the Proving Ground's self-tests, audio, the attract mode, photo mode, the dev
+  tools, the engine's checker on the city and the bank). `npm run test:full` adds the soaks, every mission through the
+  bot on three seeds and through a pad, the bot campaign to 100% (the bot invulnerable there: `--god`) and the rest
   (`PROGRESS.md` has each run's evidence). In a Claude Code cloud session the SessionStart hook installs everything;
   elsewhere, run `npx playwright install chromium` once.
 - **Deep links:** `#title`, `#play` (or `#play/<spawn>`), `#interior/bank`, `#attract`, `#mission/<id>/<stage>`,
   `#proving/<zone>`. Options: `?view=iso|top|side7`, `?time=day|dusk|night`, `?weather=`, `?seed=`, `?dev=1` (the dev
-  menu, and District 2 behind the closed bridge), `?record=1`, `?perf=1`, `?selftest=1`.
+  menu, and District 2 behind the closed bridge), `?record=1`, `?perf=1`, `?selftest=1`, `?god=1` (the crew and their
+  rides take no harm: the bots').
 
 ## Repository
 

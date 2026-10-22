@@ -5,7 +5,7 @@ import { docScreen } from '../../motor/index.js';
 import { SOURCE_INFO, ENGINE_SUMMARY, ENGINE_CREDIT, GAME_CREDIT, GAME } from '../../about.js';
 
 export function creditsScreen(o = {}) {
-  return docScreen({ id: 'credits', title: 'CREDITS & ABOUT', full: !!o.full, sections: [
+  return docScreen({ id: 'credits', title: 'CREDITS & ABOUT', full: !!o.full, tapBack: o.tapBack, sections: [
     { title: 'Source Information', rows: SOURCE_INFO },
     { title: 'Game Engine Analysis', lines: ENGINE_SUMMARY },
     { title: 'The engine', lines: ENGINE_CREDIT },

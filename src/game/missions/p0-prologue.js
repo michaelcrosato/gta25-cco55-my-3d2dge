@@ -250,7 +250,9 @@ defMission('prologue', {
       id: 'save',
       // home: back to the chapel, and the game saved at its door (saveAtDoor; storage refused, the pass's autosave
       // tries again). From across town the ride home comes first (up Chapel Street to the corner: Lantern Lane is
-      // one-way); nearer, the door is the objective, walked or ridden
+      // one-way); nearer, the door is the objective, walked or ridden. The save passes the job (passOnSave): the slot
+      // written holds the prologue done and paid
+      passOnSave: true,
       setup(m) { dex(m, 1); },
       *run(m) {
         if (m.dist(DOOR) > 700) yield m.first([m.waitUntil(mm => near(mm, FRONT, 64)), m.reach(pt(cornerLane(m)), { radius: 56, text: 'Ride home: up Chapel Street to Lantern Lane' })]);

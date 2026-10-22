@@ -49,6 +49,7 @@ knob('Traffic', 'pedPatience', 'Edges past peds after', 5, 1, 60, .5, 'Seconds a
 const TURN_W = { straight: .58, right: .24, left: .18, uturn: 0, change: 0 };
 const SAMPLE = 6;   // units between the samples along the path ahead
 const LANE_CLEAR = 18;   // a parked vehicle this far from every lane's line is out of everyone's way (the widest half-width, and room)
+const GATE = 6;   // units short of a drawbridge's span a driver stops while its gates are shut
 const SNAP_OFF = 12;   // the farthest a car may be off its lane's line to go over to the far LOD (it is put on the line)
 const DRIVE = new Set(['road', 'bridge', 'alley']);   // the surfaces a car pulls over onto (never a curb or a sidewalk)
 const OVER_RAMP = 30;   // units a car takes to pull over (and back)
@@ -117,7 +118,7 @@ export class DriverBrain {
       if (k >= 0 && k + 1 < this.route.length) { const c = outs.find(q => q.to === this.route[k + 1]); if (c) { this.rk = k + 1; return c; } }
       if (k === this.route.length - 1) { if (this.goal) return null; this.route = null; }   // (a route with no goal is only a way there: at its end, on as anyone)
     }
-    let w = outs.map(q => { const to = G.lanes[q.to]; return to.deadEnd || !to.out.length ? 0 : TURN_W[q.kind] ?? .1; });
+    let w = outs.map(q => { const to = G.lanes[q.to]; return to.deadEnd || !to.out.length || (to.bridge && this._closed && this._closed(to.bridge)) ? 0 : TURN_W[q.kind] ?? .1; });   // (a drawbridge with its gates shut: a dead end while they are)
     if (this.keep) { const k = outs.map(q => this.keep(G.lanes[q.to])); if (k.some((x, i) => x > 0 && w[i] > 0)) w = w.map((x, i) => x * k[i]); }   // (inside its turf while it can, back toward it when out)
     if (!w.some(x => x > 0) && !avoid) w = outs.map(q => (G.lanes[q.to].deadEnd === 'jump' ? 0 : 1));   // (forced: only a dead end goes on; never to dodge a jam)
     const tot = w.reduce((a, b) => a + b, 0); if (tot <= 0) return null;
@@ -234,11 +235,14 @@ export class DriverBrain {
   _peds(w, S) {
     if (!w.pedsNear || !S.length) return null;
     const v = this.v, hl = v.hl, mid = S[S.length >> 1].p, kind = this.p.calm && !(this.panic > 0), patient = !(this.pedT > TUNE.pedPatience * this.p.patience); let best = null;   // (out of patience: a crossing's wide berth given up, a body's width kept)
+    const C = this.g.city;
     for (const p of w.pedsNear(mid[0], mid[1], S[S.length - 1].d / 2 + 30)) {
       if (p.dead || p.floored || p.seat || Math.abs((p.z || 0) - mid[2]) > 14) continue;
+      // (one standing still off the road, at a curb, is waited for only if it stands in our very way: it waits for us)
+      const mv = p.mover, off = !!mv && C && C.surfaceAtPoint && !DRIVE.has(C.surfaceAtPoint(p.x, p.y)) && Math.hypot(mv.vx, mv.vy) < 6;
       for (const q of S) {
         if (q.d < hl - 2) continue;
-        const reach = v.hw + (!kind ? 3 : patient && this._onCross(q) ? 14 : 5);
+        const reach = v.hw + (off ? 1 : !kind ? 3 : patient && this._onCross(q) ? 14 : 5);
         if ((p.x - q.p[0]) ** 2 + (p.y - q.p[1]) ** 2 < reach * reach) { const gap = Math.max(0, q.d - hl - 6); if (best === null || gap < best) best = gap; break; }
       }
     }
@@ -253,6 +257,7 @@ export class DriverBrain {
     if (!w.fleet) return false; const L = this.g.lanes[c.to], need = (L.clearS || 0) + this.v.hl * 2 + 16, fx = L.a[0] + L.dir[0] * need / 2, fy = L.a[1] + L.dir[1] * need / 2;
     for (const o of w.fleet.around(fx, fy, need / 2 + 56)) {
       if (o === this.v || !o.body || o.cls === 'heli' || Math.abs(o.z - L.a[2]) > 12) continue;
+      if (!o.driver && !o.brain && !o.ai) continue;   // (a car nobody drives will never move on: gone round, as in the lane, not waited for at the line)
       const dx = o.x - L.a[0], dy = o.y - L.a[1], along = dx * L.dir[0] + dy * L.dir[1], off = Math.abs(-dx * L.dir[1] + dy * L.dir[0]);
       if (along > -o.hl && along - o.hl < need && off < o.hw + 8 && o.speed < 30) return true;
     }
@@ -300,6 +305,23 @@ export class DriverBrain {
       if (d > 400) break;
     }
     return null;
+  }
+  // a drawbridge's gates shut ahead (w.closed(id)): the stop line short of its span, as at a red light; a wanderer
+  // waiting there TUNE.exitWait s takes another way where its lane has one (one already on the span drives off it)
+  _gate(dt, w, sp) {
+    this._closed = w.closed || null; if (!w.closed) return null;
+    const G = this.g, v = this.v; let d = -this.s;
+    for (let j = this.i; j < this.path.length && d < 320; j++) {
+      const e = this.path[j], L = e.k === 'lane' ? G.lanes[e.id] : null;
+      if (L && L.bridge && w.closed(L.bridge)) {
+        const at = d + spanS(L, G.city) - (e.s0 || 0) - v.hl - GATE;   // (from our centre: our front stops GATE short of the span)
+        if (at < 0) break;   // (past the line already, its nose at or on the span: on across, never left standing on it)
+        if (sp < 3 && at < 20) { this.gateT = (this.gateT || 0) + dt; if (this.gateT > TUNE.exitWait && !this.route && j >= 2 && this.path[j - 1].k === 'conn') { this.gateT = 0; this._reroute(j - 1, G.conns[this.path[j - 1].id], w); } }
+        return Math.max(0, at);
+      }
+      d += e.len;
+    }
+    this.gateT = 0; return null;
   }
   // a jammed exit: choose another way out of the lane before connector at path index j
   _reroute(j, c, w) {
@@ -438,6 +460,7 @@ export class DriverBrain {
     let gap = Infinity, lv = 0;
     if (L && !creep) { gap = L.gap; lv = L.speed; if (L.gap < 34 && L.speed < 3 && this._queued(L.v)) this.cause = 'queue'; }
     const stop = this._junction(dt, w, sp, S); if (stop !== null && stop < gap) { gap = stop; lv = 0; }
+    const gate = this._gate(dt, w, sp); if (gate !== null && gate < gap) { gap = gate; lv = 0; this.cause = 'bridge'; }
     const pg = this._peds(w, S); if (pg !== null && pg < gap) { gap = pg; lv = 0; this.cause = 'ped'; }
     this.pedT = this.cause === 'ped' && sp < 3 ? (this.pedT || 0) + dt : sp > 20 ? 0 : this.pedT || 0;   // (how long held by people near its way; patience back once it is moving)
     if (goalGap !== null && goalGap + TUNE.idmMin < gap) { gap = goalGap + TUNE.idmMin; lv = 0; if (this.arrived) this.cause = 'arrived'; }
@@ -560,4 +583,12 @@ export function turnSpeed(v, r = TURN_R) {
 function boxPoint(bx, by, h, hl, hw, x, y, r) {
   const c = Math.cos(h), s = Math.sin(h), dx = x - bx, dy = y - by, lx = dx * c + dy * s, ly = -dx * s + dy * c;
   return Math.abs(lx) < hl + r && Math.abs(ly) < hw + r;
+}
+// how far along a lane its drawbridge's span begins (the lane's first point inside the span), kept on the lane
+function spanS(L, city) {
+  if (L._spanS !== undefined) return L._spanS;
+  const b = city && (city.drawbridges || []).find(q => q.id === L.bridge), T = city ? city.T : 16;
+  let s0 = 0;
+  if (b) { const [x0, y0, x1, y1] = b.rect; for (let s = 0; s <= L.len; s += 2) { const k = s / (L.len || 1), x = L.a[0] + (L.b[0] - L.a[0]) * k, y = L.a[1] + (L.b[1] - L.a[1]) * k; if (x >= x0 * T && x < (x1 + 1) * T && y >= y0 * T && y < (y1 + 1) * T) { s0 = s; break; } } }
+  return (L._spanS = s0);
 }

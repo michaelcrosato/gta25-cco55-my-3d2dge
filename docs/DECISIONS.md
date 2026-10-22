@@ -1146,3 +1146,69 @@ and where it landed.
     the engine's (PLAN.md 12: patch only where an extension can't reach); the crowd's rigs redrawn less often (a
     choppier walk) and the depth views' light at nearest-neighbour scaling (blocky pools) change the look.
 - **Answered:** no. **Landed in:** M13 (parts 1 to 3).
+
+## D29 · 2026-10-22 · M13's FAN-OUT B: forty-seven findings, each a test; performance out of the Definition of Done; bots that may not die
+- **Principle:** PLAN.md 13's M13 ("FAN-OUT B: eight adversarial reviewers ... return findings as failing tests; the main
+  agent fixes them and re-runs test:full") and 15 (the Definition of Done); the owner's two directions of 2026-10-22.
+- **The owner's calls:**
+  - **Performance is no longer part of the Definition of Done.** The owner: assume the hardware is unlimited; detail,
+    enemies, effects, lights and shadows may be as rich as a scene needs; FPS targets, optimization and performance
+    configuration come at a later time. So PLAN.md 15's item 8 keeps "Determinism and replay: both pass" and drops
+    "Performance: the medians are within the logged budgets"; D10's and D20's budgets gate no milestone (nor PLAN.md
+    7.11's, nor a milestone's perf acceptance); the "perf gates" step leaves test:full. `tools/perf.mjs` (and its `--gate`, read against M2's build as D28 says) stays for that
+    later work, and M13's levers (D28) stay in. What FAN-OUT B found that grows without bound (canvases, chunks) is
+    fixed all the same: memory that only grows is a bug, not a budget.
+  - **The bots may play invulnerable** (the owner left it to the run): `?god=1` (the tools' `--god`): each step the
+    crew take no harm (`Ped.god`), nor the vehicles they sit in (`Damage.immune`: no hit, no flip fire, no explosion),
+    and the gun in hand is full. The campaign plays god by default (`--mortal` to play without): it proves the way to
+    100% (the progression, the economy, completion), and a long session's chance deaths had cost it hours. Each
+    mission's beatability stays the mission bot's to prove, mortal, on seeds 1-3 and through a pad (tools/bot.mjs
+    without `--god`).
+- **The calls FAN-OUT B's fixes make** (eight reviewers, one an area; 47 findings, each a test under `tests/review/`
+  that failed until its fix, now a step of `npm test`):
+  - **Vehicles:** OVERDRIVE works at the wheel (driving fast and near misses fill it, the Ability button switches it,
+    the driver's handling reaches the car: `ctl.handle`); a bail-out dives out of its own door, outward, and stops
+    short of a wall or the deck's edge; getting in and out, the tow hook and the water cannon keep to their level (12
+    u); a carjack cut short lets its victim go; a car bomb is fitted 'ignition' or 'remote' (DETONATE on the phone); a
+    parked car on the drawbridge holds it down.
+  - **Traffic and peds:** the drawbridge closes its gates to traffic and the crowd before it lifts, and rises only
+    when the span is clear; a driver stops short of a raised span and reroutes; **a ped held at a curb by a car standing
+    still goes another way after a moment (1.5 s), not 20 s**, and a driver passes a still ped off the road a body's
+    width away (the curb stand-off: each had waited for the other); a car nobody drives in a junction's exit is gone
+    round, not waited for; a unit's crew left on foot when it is lost join the crowd; a stolen unit is lost to its call.
+  - **Wanted and gangs:** **a crash between two cars dents both**, blamed on the other's driver (`vehicleDamage`'s
+    `by`), so ramming a gang's car costs D19's -2; who went down mid-switch is the one revived; the Eye flies off when
+    its chase ends; a burning death is the fire-starter's (`fire.src`, `burnBy`); a kill in a vehicle carries the
+    victim's gang and faction; `fought` ends with the stand-down.
+  - **Missions:** **a job or an activity never starts while wanted** (NOT WHILE WANTED on its card and the phone, as a
+    switch and a cab already were, GTA V's rule: the stages' clean slates had been a free way out of four stars); a
+    giver standing on a door asks once a visit (a visit ends twice its reach away) and the door answers again (the
+    chapel's SAVE, the diner's SHOP); a random event goes on under a card (a card only holds off the next); H4's lobby
+    is cleared only by its guards going down; a job's car crews are entries of their own (released wherever they end
+    up), and a protagonist riding in a job's car gets out at a door when it goes; a load puts the outfit back on.
+  - **Saves:** each write is stamped afresh and numbered (`seq`), and CONTINUE takes the newest; a load restores the
+    stats, the outfit, the ability meter, the weapons exactly as saved (a confiscated gun stays gone) and the weather;
+    a damaged slot is passed by and said ("SLOT 1 IS DAMAGED"), and a load that won't read starts a new game and says
+    so; a schema "1" reads as 1; MIGRATIONS[0] keeps what a save already has; the Proving Ground and the demo never
+    write (the store locked); a stage may be `passOnSave` (the prologue's last: the save it asks for holds it done and
+    paid); **every world starts from its seed with its actors' ids from 1** (`RNG.seed`, `resetActorIds`, in each
+    PLAY.enter and the attract mode's exit): a game after the demo, or a second new game, is a boot's.
+  - **The 10-foot UI:** a trigger's travel is its value (a browser's "pressed" from an eighth of the way is not a full
+    press); **the press that closes a screen is spent** (`Bindings.spendHeld`: no roll, jump or drive-by from ○
+    RESUME); the mouse aims while the engine says it does (`aimSource`), a key between; REBIND refuses a button held as
+    part of another action's chord, modifier or release tap, and P; SCREEN FLASHES and REDUCE MOTION reach MOTOR's own
+    lightning and the photo shutter (`flashScale`); at HUD Large and Huge a list pages fewer rows, a long legend takes
+    two lines, and the phone pages four rows; EXTRAS opens the Proving Ground's menu of PLAN.md 8.23's eight zones,
+    and over a zone Options, Esc, P or a browser back opens it with RESUME and BACK TO TITLE. The UI audit runs at HUD
+    Huge by pad too (test:full).
+  - **The attract mode:** an input in the title's fade into the demo leaves it; a reel's slow motion is undone before
+    the fade out; the pointer's pending tap, wheel and held button are drained when the demo leaves and when any
+    screen opens; the kiosk's About goes back by a tap, and an unattended kiosk menu closes after 45 s; the kiosk's VIEW
+    holds through the reels' own `m.view`; Hot Pursuit runs with no roadblock (`m.wanted.blocks(false)`: the traffic
+    queued behind one had held its chase till the watchdog cut it, 24 of 30 seeds in the shipped city); the soak plays
+    the shipped page (seed 0) besides seeds 1-3.
+  - **Memory:** the lamp halos, their wet streaks and the pickup tokens are bounded caches of quantised sizes (a bigger
+    one drawn from the largest image); a glow wholly off the buffer is not drawn; a crowd body's kept image grows in
+    16-pixel steps, and one taller than 160 pixels on screen is drawn directly; the floor chunks are trimmed to their
+    cap every frame; floor marks and wakes are cut to the buffer before their pixels are stepped.
+- **Answered:** the owner's two directions (2026-10-22). **Landed in:** M13 (part 4).

@@ -12,7 +12,7 @@
 // and the list), draw(P) (all of it, its own way), enter(), exit() }.
 //   const S = new Screens({ app, layer });  S.open(screen) · S.back() · S.closeAll() · each step S.update(dt) · each frame S.draw(P)
 import { BUS } from '../core/bus.js';
-import { UI, ROW } from './tenfoot.js';
+import { UI, ROW, LEGEND_LINE } from './tenfoot.js';
 
 const SOUND = { move: 'select', confirm: 'confirm', back: 'cancel', error: 'bump' };
 const TAPS = ['up', 'down', 'left', 'right', 'confirm', 'back', 'tabPrev', 'tabNext', 'secondary', 'tertiary', 'close'];
@@ -26,7 +26,7 @@ export class Screens {
   get pausing() { return this.stack.some(s => s.pause); }
   open(s) {
     this.stack.push(s); if (s.enter) s.enter();
-    const I = this.app.game.input; if (I && I.consumeAll) I.consumeAll();   // (the press that opened it is spent)
+    const I = this.app.game.input; if (I && I.consumeAll) I.consumeAll(); if (this.L && this.L.reset) this.L.reset();   // (the press that opened it is spent, the pointer's too)
     BUS.emit('uiOpen', { screen: s.id }); return s;
   }
   /** the top screen in place of the one under it (a tab's sub-screen, a confirm) */
@@ -70,9 +70,20 @@ export function drawScreen(P, s, live = true) {
   if (!s.full && s.shade !== false) P.shade(.62);
   const [sx0, sy0, sx1, sy1] = P.safe, maxW = sx1 - sx0, w = Math.min(maxW, s.w || 320), x = Math.round(P.W / 2 - w / 2);
   const info = (s.info || []).flatMap(l => (typeof l === 'string' ? wrapLines(P, l, w - 24) : [l])), lh = l => (typeof l === 'string' || !l.scale ? 10 : 10 * l.scale + 4), infoH = info.reduce((a, l) => a + lh(l), 0);
-  const listH = s.list ? Math.min(s.list.items.length, s.list.per) * ROW : 0, cardsH = s.cards ? s.cardsH || 120 : 0, bodyH = typeof s.bodyH === 'function' ? s.bodyH(P, w) : s.bodyH || 0;
-  const tip = s.tips ? (s.list && s.list.current && s.list.current.help) || '' : null, tipH = tip === null ? 0 : 24;
-  const h = Math.min(sy1 - sy0, (s.title ? 30 : 8) + (s.tabs ? 22 : 0) + infoH + (info.length ? 6 : 0) + bodyH + listH + cardsH + tipH + 26), y = Math.max(sy0, Math.min(sy1 - h, s.top ? s.top(P, h) : Math.round(P.H / 2 - h / 2)));   // (inside the safe area, wherever it asks to be)
+  // (the legend wider than the panel: two lines, and the panel a line taller; a body that fills the screen reads
+  // P.legendExtra to leave it room)
+  const legend = s.legend || (s.list || s.cards ? '{menu:confirm} SELECT   {menu:back} BACK' : '{menu:back} BACK'), legW = w - 16; P.legendExtra = P.promptWidth(legend) > legW ? LEGEND_LINE : 0;
+  const cardsH = s.cards ? s.cardsH || 120 : 0, bodyH = typeof s.bodyH === 'function' ? s.bodyH(P, w) : s.bodyH || 0;
+  const tip = s.tips ? (s.list && s.list.current && s.list.current.help) || '' : null; let tipH = tip === null ? 0 : 24;
+  // (short of room, a HUD size Large or Huge at 320 x 180: the list pages fewer rows, and the tip goes before the rows do)
+  const base = (s.title ? 30 : 8) + (s.tabs ? 22 : 0) + infoH + (info.length ? 6 : 0) + bodyH + cardsH + 26 + P.legendExtra, room = sy1 - sy0;
+  if (s.list) {
+    const per0 = s.list.per0 ?? (s.list.per0 = s.list.per); let rows = Math.floor((room - base - tipH) / ROW);
+    if (tipH && rows < Math.min(3, s.list.items.length)) { tipH = 0; rows = Math.floor((room - base) / ROW); }
+    s.list.per = Math.max(1, Math.min(per0, rows));
+  }
+  const listH = s.list ? Math.min(s.list.items.length, s.list.per) * ROW : 0;
+  const h = Math.min(room, base + listH + tipH), y = Math.max(sy0, Math.min(sy1 - h, s.top ? s.top(P, h) : Math.round(P.H / 2 - h / 2)));   // (inside the safe area, wherever it asks to be)
   P.panel(x, y, w, h, { kind: 'screen' });
   if (s.title) P.text(s.title, P.W / 2, y + 8, s.color || UI.accent, { align: 'center', scale: 2 });
   const pg = s.paging ? s.paging() : s.list ? [s.list.page, s.list.pages] : s.cards ? [s.cards.page, s.cards.pages] : null;
@@ -88,8 +99,8 @@ export function drawScreen(P, s, live = true) {
   if (s.body) yy += s.body(P, x + 8, yy, w - 16) || 0;
   if (s.cards) yy += s.cards.draw(P, x + 10, yy, w - 20, s.cardH || 52, live) + 8;
   if (s.list) { s.list.draw(P, x + 8, yy, w - 16, { focus: live }); yy += listH; }   // (the panel as tall on every page)
-  if (tip) wrapLines(P, tip, w - 24).slice(0, 2).forEach((l, i) => P.text(l, P.W / 2, yy + 6 + i * 10, UI.mute, { align: 'center' }));
-  P.legend(s.legend || (s.list || s.cards ? '{menu:confirm} SELECT   {menu:back} BACK' : '{menu:back} BACK'), P.W / 2, y + h - 14);
+  if (tip && tipH) wrapLines(P, tip, w - 24).slice(0, 2).forEach((l, i) => P.text(l, P.W / 2, yy + 6 + i * 10, UI.mute, { align: 'center' }));
+  P.legend(legend, P.W / 2, y + h - 14, legW);
 }
 const TOKEN = /\{[a-zA-Z]+(:[a-zA-Z]+)?\}/;
 /** a line split to fit w UI pixels (glyph tokens measured as the buttons they show) */

@@ -51,6 +51,9 @@ export function defineSettings(game) {
 }
 /** a setting's value, or its fallback where the store or the setting is missing (headless, a test) */
 export function setting(game, key, fallback) { const S = game && game.settings; if (!S || !S.spec || !S.spec(key)) return fallback; const v = S[key]; return v === undefined ? fallback : v; }
+/** how strong a full-screen flash may be (0..1): the engine's SCREEN FLASHES, softer again with REDUCE MOTION (as the
+ *  engine's own game.flash does); MOTOR's own flashes, lightning and the photo shutter, are drawn at this */
+export function flashScale(game) { const k = Math.max(0, Math.min(1, +setting(game, 'flashes', 1) || 0)); return game && game.reduceMotion ? k * .4 : k; }
 /** the actions a toggle latches now (the ACCESS tab) */
 export function toggled(game) { const out = new Set(); for (const [k, acts] of Object.entries(HOLDS)) if (setting(game, k, k === 'holdCrouch' ? 'toggle' : 'hold') === 'toggle') for (const a of acts) out.add(a); return out; }
 /** the List rows for settings by key (those the store has): a toggle, a slider or a left-right choice each, with its tip */

@@ -166,8 +166,8 @@ function inTheWay(m, van) {
   }
   return false;
 }
-// the bank's guards, alive and standing (the interior's own)
-const guardsUp = m => (m.inside ? m.inside.run.watch().guards.filter(g => !g.down) : []);   // (the interior's own: a copy)
+// the bank's guards, alive and standing (the interior's own; null: Viv is out of the bank)
+const guardsUp = m => (m.inside ? m.inside.run.watch().guards.filter(g => !g.down) : null);   // (the interior's own: a copy)
 
 // ---- the stages
 const plan = {
@@ -251,10 +251,15 @@ const loudLobby = {
     m.loadout({ select: 'buzzsaw' });   // (in through the door, the gun put away: out again, and the CCTV's alarm with it)
     // the guards come for her: the hint's point follows the nearest one still up (the bot holds the trigger on it, from
     // inside the doors)
+    // (out of the doors with guards still up, the lobby isn't clear: back in for them)
     const P0 = [m.player.x, m.player.y], hint = { kind: 'goto', at: P0, radius: 600, spray: [P0[0], P0[1] - 60], reach: 640 };
+    const back = { kind: 'goto', at: door, radius: 16, foot: true, interact: true }; let out = false;
     m.objective('Take out the guards', { hint });
     yield m.parallel([m.say(['Everybody down! This is a withdrawal!'], VIV), m.waitUntil(mm => {
-      const up = guardsUp(mm); if (!up.length) return true;
+      const up = guardsUp(mm);
+      if (!up) { if (!out) { out = true; mm.objective('Back in: take out the guards', { hint: back }); } return false; }
+      if (out) { out = false; mm.objective('Take out the guards', { hint }); }
+      if (!up.length) return true;
       const P = mm.player; let g = up[0], gd = 1e9; for (const q of up) { const d = Math.hypot(q.x - P.x, q.y - P.y); if (d < gd) { gd = d; g = q; } }
       hint.spray[0] = g.x; hint.spray[1] = g.y; hint.at[0] = P.x; hint.at[1] = P.y;
       return false;

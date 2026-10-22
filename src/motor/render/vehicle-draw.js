@@ -157,14 +157,16 @@ export class VehicleFX {
       let w = this._wake.get(v); if (!w) this._wake.set(v, w = []);
       if (v.speed > 20) { const [x, y] = v.toWorld(-v.hl, 0); if (!w.length || Math.hypot(w[w.length - 1][0] - x, w[w.length - 1][1] - y) > 6) w.push([x, y, now, v.heading, Math.min(1, v.speed / 150)]); }
       while (w.length && now - w[0][2] > 2.5) w.shift();
-      if (w.length && near(v.x, v.y)) stage.floor((g, Pj) => drawWake(g, Pj, w, now));
+      if (w.length && near(v.x, v.y)) stage.floor((g, Pj) => drawWake(g, Pj, w, now, stage.r));
     }
     // skid marks, slicks and mines on the floor
     const marks = F.skids.filter(m => near(m[0], m[1]) && now - m[4] < SKID_LIFE);
     if (marks.length || F.slicks.length || F.mines.length) stage.floor((g, Pj) => {
+      const R = stage.r;
       for (const m of marks) {
         const A = Pj.proj(m[0], m[1], m[5]), B = Pj.proj(m[2], m[3], m[5]); if (!A || !B) continue;
-        g.globalAlpha = .38 * (1 - (now - m[4]) / SKID_LIFE); E.px.line(g, A[0], A[1], B[0], B[1], '#141216', Math.max(1, Math.round(1.8 * A[2])));
+        const w = Math.max(1, Math.round(1.8 * A[2])), c = clipSeg(A, B, R, w); if (!c) continue;   // (off the buffer: MODE 7's lens puts the marks under it hundreds of pixels below)
+        g.globalAlpha = .38 * (1 - (now - m[4]) / SKID_LIFE); E.px.line(g, c[0], c[1], c[2], c[3], '#141216', w);
       }
       g.globalAlpha = 1;
       for (const s of F.slicks) { const q = Pj.proj(s.x, s.y, s.z); if (!q) continue; g.fillStyle = 'rgba(10,8,14,.7)'; g.beginPath(); g.ellipse(q[0], q[1], s.r * q[2], s.r * q[2] * .6, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(120,90,200,.18)'; g.beginPath(); g.ellipse(q[0] - 2, q[1] - 1, s.r * q[2] * .5, s.r * q[2] * .25, 0, 0, Math.PI * 2); g.fill(); }
@@ -172,13 +174,25 @@ export class VehicleFX {
     });
   }
 }
-function drawWake(g, P, w, now) {
+function drawWake(g, P, w, now, R) {
   for (let i = 1; i < w.length; i++) {
     const a = w[i - 1], b = w[i], age = (now - b[2]) / 2.5, spread = 3 + age * 22;
     for (const side of [-1, 1]) {
       const nx = -Math.sin(b[3]) * side * spread, ny = Math.cos(b[3]) * side * spread, A = P.proj(a[0] + nx * .9, a[1] + ny * .9, 0), B = P.proj(b[0] + nx, b[1] + ny, 0); if (!A || !B) continue;
-      g.globalAlpha = (1 - age) * .55 * b[4]; E.px.line(g, A[0], A[1], B[0], B[1], '#f0f8ff', Math.max(1, Math.round(A[2] * 1.4)));
+      const lw = Math.max(1, Math.round(A[2] * 1.4)), c = clipSeg(A, B, R, lw); if (!c) continue;
+      g.globalAlpha = (1 - age) * .55 * b[4]; E.px.line(g, c[0], c[1], c[2], c[3], '#f0f8ff', lw);
     }
   }
   g.globalAlpha = 1;
+}
+/** a floor line from screen point A to B cut to the buffer (R: the renderer, bw x bh) and m pixels round it: [ax, ay,
+ *  bx, by], or null when none of it is on the buffer (a line drawn a pixel a step costs a fill a pixel, on it or not) */
+export function clipSeg(A, B, R, m = 0) {
+  if (!R || !R.bw) return [A[0], A[1], B[0], B[1]];
+  const x0 = -m, y0 = -m, x1 = R.bw + m, y1 = R.bh + m, dx = B[0] - A[0], dy = B[1] - A[1]; let t0 = 0, t1 = 1;
+  for (const [p, q] of [[-dx, A[0] - x0], [dx, x1 - A[0]], [-dy, A[1] - y0], [dy, y1 - A[1]]]) {
+    if (p === 0) { if (q < 0) return null; continue; }
+    const t = q / p; if (p < 0) { if (t > t1) return null; if (t > t0) t0 = t; } else { if (t < t0) return null; if (t < t1) t1 = t; }
+  }
+  return [A[0] + dx * t0, A[1] + dy * t0, A[0] + dx * t1, A[1] + dy * t1];
 }

@@ -140,7 +140,7 @@ export class PedBrain {
    *  w: { t (the signals' clock), city, fleet, player (the possessed Ped), wet, near (inside fpFull), crowdNear(x, y, r),
    *  spotFor(kind, x, y, brain), partnerFor(brain) } */
   glide(dt, w) {
-    const p = this.ped; this.t += dt;
+    const p = this.ped; this.t += dt; this._closedAt = w.closedAt || null;
     if (p.dead) { this._die(); return; }
     if (this.follow) {   // in single file: its place on the leader's trail (the leader stops, it stops)
       const F = this.follow, L = F.leader;
@@ -161,12 +161,12 @@ export class PedBrain {
   // the state machine's calm part: how fast to walk now (0: stand), with its stops and its waits
   _plan(dt, w) {
     switch (this.state) {
-      case 'walk': return this._curb(dt, this._canGo(w)) ? WALK * (this.traits.pace || 1) * (w.wet > .5 ? 1.3 : 1) : 0;
-      case 'goto': return this._curb(dt, this._canGo(w)) ? WALK * (this.traits.pace || 1) : 0;
+      case 'walk': return this._curb(dt, this._canGo(w), w) ? WALK * (this.traits.pace || 1) * (w.wet > .5 ? 1.3 : 1) : 0;
+      case 'goto': return this._curb(dt, this._canGo(w), w) ? WALK * (this.traits.pace || 1) : 0;
       case 'flee':
         if (this.t > this.until) { this.react('calm'); return 0; }
         if (w.near) { this.feet = true; return 0; }   // (near the focus: on its feet, straight away from the threat)
-        return this._curb(dt, this._canGo(w, true)) ? RUN : 0;
+        return this._curb(dt, this._canGo(w, true), w) ? RUN : 0;
       case 'idle': if (this.t > this.until) { this._stopIdle(); this.state = 'walk'; this.feet = !this.rejoin(); } return 0;
       case 'witness': if (this.t > this.until) this._startCall(); return 0;
       case 'phone': if (this.t > this.until) this._report(); return 0;
@@ -177,13 +177,16 @@ export class PedBrain {
   }
   // the wait at a crossing's curb (go: may it step off): held there GIVE_UP s, it turns and takes another way from the
   // corner it stands at (one heading for a spot gives that up). Returns go
-  _curb(dt, go) {
+  _curb(dt, go, w = null) {
     // (the time counts at the spot where it stands at the curb, whatever its state: a ped that fled to a curb, then calmed
     // down there, had started its wait again, and waited 38 s behind a lorry stopped on the zebra)
     const e = this.edge, p = this.ped, at = this.curbAt, away = !at || Math.hypot(p.x - at[0], p.y - at[1]) > 4;
     if (!e || e.kind !== 'cross' || this.a > 4) { if (away) { this.curbAt = null; this.curbT = 0; } return go; }
     if (go) return true;
     if (away) { this.curbAt = [p.x, p.y]; this.curbT = 0; }
+    // (held by a vehicle stopped on its crossing, maybe waiting for it to get out of its sweep: after a moment it goes
+    // another way; the two had waited on each other, and every ped coming round the corner stood on the same spot)
+    if (w && this._stillBlock && this.curbT > 1.5) this.curbT = GIVE_UP;
     if ((this.curbT += dt) < GIVE_UP) return false;
     const S = this.S, here = this.node, N = S.nodes[here]; this.curbT = 0; this.curbAt = null; if (!N) return false;
     let opts = N.edges.map(id => S.edges[id]).filter(q => q !== e); if (opts.some(q => q.kind !== 'cross')) opts = opts.filter(q => q.kind !== 'cross');
@@ -203,13 +206,13 @@ export class PedBrain {
   // on it or about to roll onto it, a third of a second away, holds a ped back; a long crossing over an avenue is no
   // longer than a short one for that)
   _carsClear(w, e, lit = false) {
-    if (!e || !w.fleet) return true;
+    this._stillBlock = false; if (!e || !w.fleet) return true;
     const A = this.S.nodes[e.a], B = this.S.nodes[e.b], mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
     for (const v of w.fleet.around(mx, my, e.len / 2 + 90)) {
       if (!v.body || v.wrecked || v.cls === 'heli') continue;
       const dx = mx - v.x, dy = my - v.y, d = Math.hypot(dx, dy);
       let near = Infinity; if (d < v.hl + e.len / 2 + 50) for (const k of CROSS_K) near = Math.min(near, boxDistance(v, A.x + (B.x - A.x) * k, A.y + (B.y - A.y) * k));
-      if (near < 9) return false;   // (a car on it, moving or not)
+      if (near < (v.speed < 2 ? 3 : 9)) { this._stillBlock = v.speed < 2; return false; }   // (a car on it, moving or not; one stopped short of it is yielding: it goes first)
       if (v.speed < 15) continue;
       const toward = (v.body.vx * dx + v.body.vy * dy) / (v.speed * (d || 1));
       if (toward > .55 && (lit ? near < 6 + v.speed * .35 : d < 40 + v.speed * 1.1)) return false;   // (one that would reach it while we cross)
@@ -231,6 +234,10 @@ export class PedBrain {
         const po = (pl.x - A.x) * -uy + (pl.y - A.y) * ux;   // (the player's offset, in its own frame)
         if (Math.abs(po - goal) < 12) for (const side of po <= this.o ? [1, -1] : [-1, 1]) { const want = po + side * 13, f = S.freeAt(e, fwd ? look : e.len - look, fwd ? want : -want); if (f !== null && Math.abs((fwd ? f : -f) - po) >= 10) { goal = fwd ? f : -f; break; } }
       }
+    }
+    if (w.closedAt && !w.closedAt(p.x, p.y)) {   // (a drawbridge's gates shut ahead: back the way it came, never onto the span; one on it walks off)
+      const ah = Math.min(e.len, Math.max(0, this.a) + 6), [nx, ny] = S.along(e, fwd ? ah : e.len - ah, fwd ? this.o : -this.o);
+      if (w.closedAt(nx, ny)) { const n = this.node; this.node = this.to; this.to = n; this.from = n; this.a = e.len - this.a; this.o = -this.o; this._piece = undefined; p.glide(p.x, p.y, p.z, 0, 0); return; }
     }
     const slide = Math.max(-step * .8, Math.min(step * .8, goal - this.o));
     this.o += slide; this.a += Math.sqrt(Math.max(0, step * step - slide * slide));
@@ -259,6 +266,7 @@ export class PedBrain {
   _choose(away, noCross) {
     const S = this.S, here = this.node, n = S.nodes[here]; if (!n || !n.edges.length) return null;
     let opts = n.edges.map(id => S.edges[id]).filter(e => S.other(e, here) !== this.from || n.edges.length === 1);
+    if (this._closedAt) { const ok = opts.filter(e => { const B = S.nodes[S.other(e, here)]; return !this._closedAt((n.x + B.x) / 2, (n.y + B.y) / 2) && !this._closedAt(B.x, B.y); }); if (ok.length) opts = ok; }   // (never onto a drawbridge with its gates shut)
     if (noCross && opts.some(e => e.kind !== 'cross')) opts = opts.filter(e => e.kind !== 'cross');
     if (!opts.length) opts = n.edges.map(id => S.edges[id]);
     if (away) {
