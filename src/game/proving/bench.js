@@ -6,9 +6,11 @@
 import { defBench } from '../../motor/index.js';
 
 const HOME = [312, 408];
-// each job starts from the safehouse door on foot, the stars gone
+// each job starts from the safehouse door on foot, the stars gone, and takes its car away with it when it passes (one
+// left at the wheel is the world's: the next job's car would be spawned on top of it at the one curb)
 const start = m => { m.wanted.clear(); m.place('player', HOME); };
-const job = (id, title, op, run, setup = () => {}, time = 120) => defBench(id, { title, op, time, stages: [{ id: 'go', setup(m) { start(m); setup(m); }, run }] });
+const job = (id, title, op, play, setup = () => {}, time = 120) => defBench(id, { title, op, time, stages: [{ id: 'go', setup(m) { start(m); setup(m); },
+  *run(m) { yield* play(m); for (const v of m.tagged('car')) m.remove(v); } }] });
 // a parked car beside the door (a job's own: put back at the curb on a retry), the player at its wheel
 const car = (m, def = 'cortez') => { const at = m.curb([360, 420]); const v = m.ensure.vehicle('car', def, at, { heading: at.heading }); return v; };
 
@@ -45,7 +47,12 @@ job('bench_collect', 'COLLECT', 'collect', function* (m) { yield m.collect('parc
 job('bench_photo', 'PHOTO', 'photo', function* (m) { yield m.photo([HOME[0] + 100, HOME[1]], { text: 'Snap the corner', from: [HOME[0] + 20, HOME[1]] }); }, m => {
   m.loadout({ weapons: ['snap'], select: 'snap' });
 });
-job('bench_evade', 'EVADE', 'evade', function* (m) { m.wanted.set(1); yield m.evade({ text: 'Lose the star' }); }, m => { m.allowWanted(); }, 240);
+job('bench_evade', 'EVADE', 'evade', function* (m) {   // (in a car, across town first: the precinct is next door to the safehouse)
+  yield m.enter('car');
+  const far = m.lane([872, 300], Math.PI / 2);
+  yield m.reach([far.x, far.y], { text: 'Across town, to East Avenue', radius: 60 });
+  m.wanted.set(1); yield m.evade({ text: 'Lose the star' });
+}, m => { m.allowWanted(); car(m, 'zephyr'); }, 240);
 job('bench_race', 'RACE', 'race', function* (m) {
   yield m.enter('car');
   const line = [m.lane([320, 504], Math.PI), m.lane([136, 320], -Math.PI / 2), m.lane([320, 136], 0), m.lane([504, 320], Math.PI / 2)].map(q => [q.x, q.y]);

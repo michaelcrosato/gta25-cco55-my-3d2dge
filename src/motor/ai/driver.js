@@ -19,6 +19,9 @@
 //     waits for it, its cause the scene ('scene'), still trying to go round;
 //   - a gridlock (a ring of stopped drivers each waiting on the next, none with room to back off): after TUNE.gridlock
 //     seconds the one with the lowest id creeps on through a moment, and its bump moves the rest;
+//   - a car nobody drives (a unit whose crew never came back, a wreck) in the lane: gone round even where the pass runs
+//     on through the junction's box beside it (an assertive driver round a unit parked at its scene too); with no way
+//     round at all, after 4 x TUNE.gridlock seconds shoved aside at a creep;
 //   - panic (shots, a blast nearby): faster, the lights and the reservations ignored; a crash: a pause, then on;
 //   - a siren behind it: it pulls over into a gap on its right wide enough to clear the siren's way and waits there;
 //     with none (a street parked up on both sides) it drives on ahead of it at its own speed.
@@ -305,6 +308,13 @@ export class DriverBrain {
     const alt = this._choose(lane, avoid); if (!alt) return;
     this.path.length = j; this._append(this.path[j - 1], alt); this._grow();
   }
+  /** may a pass round o run on past the stop line, through the box beside it? Round a car nobody drives (abandoned,
+   *  wrecked: no brain, nobody at the wheel), any driver; round a unit parked at its scene, an assertive one (the
+   *  player's, a siren's): either would stand in the lane for good */
+  _throughBox(o) { return (!o.brain && !o.driver) || (!!this.siren && !!o.brain && (!!o.brain.parked || !!(o.duty && o.duty.out))); }
+  /** stuck behind a car nobody drives a while (4 x TUNE.gridlock s), with no pass round it (at a junction's mouth, on a
+   *  connector): shove it aside at a creep, as the gridlock breaker shoves a ring's next car */
+  _shoves(L, stuck) { return !!(stuck && !this.pass && L && !L.v.brain && !L.v.driver && this.blocked > TUNE.gridlock * 4 && !(this.creepT > 0)); }
   // a pass round a stopped obstacle: the smallest sideways offset whose corridor is clear (walls, street furniture,
   // water, other vehicles, peds), out to past its far end; null when neither side is
   _planPass(L, w, S) {
@@ -319,7 +329,7 @@ export class DriverBrain {
     const here = this.path[this.i]; if (!here || here.k !== 'lane') return null;
     const nextC = this.path[this.i + 1] && this.path[this.i + 1].k === 'conn' ? this.g.conns[this.path[this.i + 1].id] : null;
     const room = here.len - this.s - (nextC && this.J && this.J.regionOf(nextC) ? Math.max(0, nextC.fromS - Math.min(this.g.lanes[here.id].stopS, nextC.fromS - 2)) + v.hl : 0);
-    if (end > room) return null;
+    if (end > room && !this._throughBox(o)) return null;
     for (const off of offs) {
       if (Math.abs(off) > 70) continue;
       let ok = true;
@@ -467,6 +477,7 @@ export class DriverBrain {
     this.honkT = Math.max(0, this.honkT - dt);
     if (this.blocked > TUNE.honkAfter * this.p.patience && this.honkT <= 0) this.honkT = 3.5;
     if (stuck && !this.pass && this.blocked > TUNE.passAfter * this.p.patience) { this.passTry -= dt; if (this.passTry <= 0) { this.passTry = .75; this.pass = this._planPass(L, w, S); } }
+    if (this._shoves(L, stuck)) { this.creepT = 2.5; this.blocked = TUNE.passAfter * this.p.patience; }
     return acc;
   }
   // the free-road part of the thinking alone (between a far car's looks): no faster than its lane allows

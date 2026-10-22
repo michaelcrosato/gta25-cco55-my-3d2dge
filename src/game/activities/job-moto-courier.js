@@ -19,7 +19,7 @@ const count = m => Math.min(MAX, 2 + m.level);
 // the clock for a drop: the road's time there from where the bike stands (m.eta: the quickest way at the streets'
 // limits, one-way streets and all) stretched by the level's factor (a moped is slower than an avenue's limit, and the
 // lights and the traffic cost time), and a grace for the start
-const SLACK = [0, 2.6, 2.3, 2.0], GRACE = [0, 25, 20, 15];
+const SLACK = [0, 2.6, 2.3, 2.0], GRACE = [0, 25, 20, 22];   // (level 3's grace: one red light's wait; its stretch the tightest)
 function clock(m, at) {
   const eta = m.eta(at) ?? m.dist(at) * 1.4 / 150;
   return Math.round(GRACE[m.level] + eta * SLACK[m.level]);

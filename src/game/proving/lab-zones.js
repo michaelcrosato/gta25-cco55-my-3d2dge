@@ -185,7 +185,7 @@ labZone('wanted', 'Wanted sandbox', {
 
 // the mission bench: every bench job in turn, the bot at the controls
 labZone('bench', 'Mission bench', {
-  bot: true,
+  bot: true, hold: { trafficCars: 14 },   // (a quiet town: the getaway of the evade job is not a queue at a light with a cop at the door)
   enter: app => { const only = app.links.query.get('job'); return { list: all('bench').map(b => b.id).filter(id => !only || id === 'bench_' + only), i: -1, wait: 1, results: [], speed: app.links.query.get('selftest') === '1' ? 6 : 1 }; },   // (?job=collect: that one alone)
   update: (dt, app, play, Z) => {
     const C = handle.career; if (!C) return;

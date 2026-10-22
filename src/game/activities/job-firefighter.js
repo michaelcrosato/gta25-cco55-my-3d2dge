@@ -27,7 +27,7 @@ const CELL = 16, FUEL = 45, FEED = 3;
 // the clock: the road's time there (m.eta: at the streets' limits, one-way streets and all, from where the engine
 // stands) stretched by the level's factor (a Pumper tops out at 180 and pulls away slowly, the lights and the traffic
 // cost time, and it crawls round the corners), and a grace for the hosing (more for a second car)
-const SLACK = [0, 4, 3.6, 3.2], GRACE = [0, 35, 30, 25], MORE = 12;
+const SLACK = [0, 4, 3.6, 3.2], GRACE = [0, 35, 30, 30], MORE = 16;   // (level 3: its grace as level 2's, the stretch the tightest)
 function clock(m, at, n) {
   const eta = m.eta(at) ?? m.dist(at) * 1.4 / 150;
   return Math.round(GRACE[m.level] + (n - 1) * MORE + eta * SLACK[m.level]);

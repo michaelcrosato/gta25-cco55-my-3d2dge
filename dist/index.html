@@ -18941,6 +18941,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this._append(this.path[j - 1], alt);
       this._grow();
     }
+    /** may a pass round o run on past the stop line, through the box beside it? Round a car nobody drives (abandoned,
+     *  wrecked: no brain, nobody at the wheel), any driver; round a unit parked at its scene, an assertive one (the
+     *  player's, a siren's): either would stand in the lane for good */
+    _throughBox(o) {
+      return !o.brain && !o.driver || !!this.siren && !!o.brain && (!!o.brain.parked || !!(o.duty && o.duty.out));
+    }
+    /** stuck behind a car nobody drives a while (4 x TUNE.gridlock s), with no pass round it (at a junction's mouth, on a
+     *  connector): shove it aside at a creep, as the gridlock breaker shoves a ring's next car */
+    _shoves(L17, stuck) {
+      return !!(stuck && !this.pass && L17 && !L17.v.brain && !L17.v.driver && this.blocked > TUNE.gridlock * 4 && !(this.creepT > 0));
+    }
     // a pass round a stopped obstacle: the smallest sideways offset whose corridor is clear (walls, street furniture,
     // water, other vehicles, peds), out to past its far end; null when neither side is
     _planPass(L17, w8, S5) {
@@ -18959,7 +18970,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (!here || here.k !== "lane") return null;
       const nextC = this.path[this.i + 1] && this.path[this.i + 1].k === "conn" ? this.g.conns[this.path[this.i + 1].id] : null;
       const room = here.len - this.s - (nextC && this.J && this.J.regionOf(nextC) ? Math.max(0, nextC.fromS - Math.min(this.g.lanes[here.id].stopS, nextC.fromS - 2)) + v.hl : 0);
-      if (end2 > room) return null;
+      if (end2 > room && !this._throughBox(o)) return null;
       for (const off2 of offs) {
         if (Math.abs(off2) > 70) continue;
         let ok = true;
@@ -19213,6 +19224,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           this.passTry = 0.75;
           this.pass = this._planPass(L17, w8, S5);
         }
+      }
+      if (this._shoves(L17, stuck)) {
+        this.creepT = 2.5;
+        this.blocked = TUNE.passAfter * this.p.patience;
       }
       return acc;
     }
@@ -34241,8 +34256,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var FUEL = 45;
   var FEED = 3;
   var SLACK = [0, 4, 3.6, 3.2];
-  var GRACE = [0, 35, 30, 25];
-  var MORE = 12;
+  var GRACE = [0, 35, 30, 30];
+  var MORE = 16;
   function clock2(m, at, n) {
     const eta = m.eta(at) ?? m.dist(at) * 1.4 / 150;
     return Math.round(GRACE[m.level] + (n - 1) * MORE + eta * SLACK[m.level]);
@@ -34431,7 +34446,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var MAX3 = 5;
   var count2 = (m) => Math.min(MAX3, 2 + m.level);
   var SLACK2 = [0, 2.6, 2.3, 2];
-  var GRACE2 = [0, 25, 20, 15];
+  var GRACE2 = [0, 25, 20, 22];
   function clock3(m, at) {
     const eta = m.eta(at) ?? m.dist(at) * 1.4 / 150;
     return Math.round(GRACE2[m.level] + eta * SLACK2[m.level]);
@@ -36141,7 +36156,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     hoodMap: [[0, 0, 63, 63, "proving"]],
     roads: [NS2(8, "West Avenue"), NS2(31, "Middle Avenue"), NS2(54, "East Avenue"), EW2(8, "North Avenue"), EW2(31, "Centre Avenue"), EW2(54, "South Avenue")],
     walls: [{ rect: [0, 0, 63, 1], type: WALL }, { rect: [0, 2, 1, 63], type: WALL }, { rect: [61, 2, 63, 63], type: WALL }, { rect: [2, 61, 60, 63], type: WALL }],
-    props: { lampEvery: 6, clutter: 0.3 }
+    props: { lampEvery: 6, clutter: 0.3 },
+    // the grid's four corners: somewhere to run to (the mission bot's evade drives to the point of interest farthest from
+    // the police, and the three doors are all in the middle)
+    pois: [["north-west", 10, 10], ["north-east", 52, 10], ["south-west", 10, 52], ["south-east", 52, 52]].map(([id, x, y]) => ({ id: "corner-" + id, kind: "landmark", at: [x, y], label: "The " + id + " corner" }))
   });
   var look2 = (side, top2, o = {}) => ({ side, top: top2, face: "stone", roof: "plain", windows: { lit: 0.5, w: 4 }, ...o });
   var L3 = (id, name, lots, pois) => def("landmarks", id, { district: "proving", name, lots, pois });
@@ -37920,6 +37938,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     put(m, t, c, { heading: c.heading });
   }
   var laneClear = (m) => !m.fleet.near(BLOCK[0] - 70, BLOCK[1], 220).some((o) => o.body && o.z > DECK3 - 16 && o.x > GUS_AT2[0] - 60 && o.x < BLOCK[0] + 50 && Math.abs(o.y - BLOCK[1]) < 26);
+  var stayOut = (m) => {
+    for (const g of ["saints", "rats", "gnomes"]) m.truce(g);
+  };
   function standoff(m) {
     m.data.plan ??= "loud";
     for (const tag of ["getaway", "swat"]) for (const v2 of m.tagged(tag)) if (v2.wrecked) m.remove(v2);
@@ -37990,6 +38011,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var loudRam = {
     id: "ram",
     setup(m) {
+      stayOut(m);
       m.as("gus");
       const t = m.ensure.vehicle("ram", "hookline", m.lane([1500, 862], 0), { color: "#e07a2a" });
       seat(m, "gus", t, 0);
@@ -38030,6 +38052,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var loudLobby = {
     id: "lobby",
     setup(m) {
+      stayOut(m);
       if (m.inside) m.outside();
       stand(m, "viv", [1830, 812], 60);
       m.wanted.clear();
@@ -38073,6 +38096,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var quietDrill = {
     id: "drill",
     setup(m) {
+      stayOut(m);
       m.as("gus");
       if (m.inside) m.outside();
       const rig2 = m.ensure.vehicle("rig", "drillrig", m.lane([1662, 1060], -Math.PI / 2), { color: "#e8e8ec" });
@@ -38102,6 +38126,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var quietVault = {
     id: "vault",
     setup(m) {
+      stayOut(m);
       if (m.inside) m.outside();
       stand(m, "viv", [1700, 712], 60);
       m.wanted.clear();
@@ -38134,6 +38159,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var getawayStage = {
     id: "getaway",
     setup(m) {
+      stayOut(m);
       m.data.plan ??= "loud";
       if (m.inside) m.outside();
       m.as("dex");
@@ -38200,6 +38226,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var windowStage = {
     id: "window",
     setup(m) {
+      stayOut(m);
       const car4 = standoff(m);
       m.view("side7", { heading: "east" });
       if (!m.one("swat")) swatVan(m, car4, true);
@@ -38230,6 +38257,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var towStage = {
     id: "tow",
     setup(m) {
+      stayOut(m);
       standoff(m);
     },
     *run(m) {
@@ -39826,11 +39854,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     m.wanted.clear();
     m.place("player", HOME6);
   };
-  var job = (id, title, op2, run3, setup = () => {
-  }, time = 120) => defBench(id, { title, op: op2, time, stages: [{ id: "go", setup(m) {
-    start(m);
-    setup(m);
-  }, run: run3 }] });
+  var job = (id, title, op2, play, setup = () => {
+  }, time = 120) => defBench(id, { title, op: op2, time, stages: [{
+    id: "go",
+    setup(m) {
+      start(m);
+      setup(m);
+    },
+    *run(m) {
+      yield* play(m);
+      for (const v of m.tagged("car")) m.remove(v);
+    }
+  }] });
   var car3 = (m, def2 = "cortez") => {
     const at = m.curb([360, 420]);
     const v = m.ensure.vehicle("car", def2, at, { heading: at.heading });
@@ -39888,10 +39923,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     m.loadout({ weapons: ["snap"], select: "snap" });
   });
   job("bench_evade", "EVADE", "evade", function* (m) {
+    yield m.enter("car");
+    const far = m.lane([872, 300], Math.PI / 2);
+    yield m.reach([far.x, far.y], { text: "Across town, to East Avenue", radius: 60 });
     m.wanted.set(1);
     yield m.evade({ text: "Lose the star" });
   }, (m) => {
     m.allowWanted();
+    car3(m, "zephyr");
   }, 240);
   job("bench_race", "RACE", "race", function* (m) {
     yield m.enter("car");
@@ -42656,6 +42695,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   });
   labZone("bench", "Mission bench", {
     bot: true,
+    hold: { trafficCars: 14 },
+    // (a quiet town: the getaway of the evade job is not a queue at a light with a cop at the door)
     enter: (app2) => {
       const only = app2.links.query.get("job");
       return { list: all("bench").map((b) => b.id).filter((id) => !only || id === "bench_" + only), i: -1, wait: 1, results: [], speed: app2.links.query.get("selftest") === "1" ? 6 : 1 };

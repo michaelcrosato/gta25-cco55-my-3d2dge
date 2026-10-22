@@ -170,3 +170,20 @@ test('a gridlock: a ring of stopped drivers each waiting on the next is found, a
   const [s, u] = ring([1, 8]); u.brain.leader = null; assert.equal(s.brain._ring(s.brain.leader), null, 'a queue that ends (at a light): no ring');
   const { TUNE } = await import('../../src/motor/core/tune.js'); assert.equal(TUNE.gridlock, 4, 'the knob');
 });
+
+test('a car nobody drives in the lane: a pass round it may run on through the box, and with none it is shoved aside (M8 part 4b)', async () => {
+  engineGlobal(); const { DriverBrain } = await import('../../src/motor/ai/driver.js'), { TUNE } = await import('../../src/motor/core/tune.js');
+  const brain = o => Object.assign(Object.create(DriverBrain.prototype), { siren: false, pass: null, blocked: 0, creepT: 0, ...o });
+  const abandoned = { brain: null, driver: null }, driven = { brain: null, driver: {} }, unit = { brain: { parked: true }, driver: {}, duty: { out: true } };
+  const b = brain({});
+  assert.equal(b._throughBox(abandoned), true, 'round an abandoned car, through the box');
+  assert.equal(b._throughBox(driven), false, 'not round a car somebody drives (the player stopped at a light)');
+  assert.equal(b._throughBox(unit), false, 'a calm driver waits for a unit at its scene');
+  assert.equal(brain({ siren: true })._throughBox(unit), true, 'an assertive one goes round it');
+  const L = v => ({ v }), long = TUNE.gridlock * 4 + .1;
+  assert.equal(brain({ blocked: long })._shoves(L(abandoned), true), true, 'stuck behind an abandoned car long enough: shoved');
+  assert.equal(brain({ blocked: long })._shoves(L(driven), true), false, 'never a car somebody drives');
+  assert.equal(brain({ blocked: 1 })._shoves(L(abandoned), true), false, 'not at once');
+  assert.equal(brain({ blocked: long, pass: {} })._shoves(L(abandoned), true), false, 'not while going round it');
+});
+

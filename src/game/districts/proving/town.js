@@ -17,6 +17,9 @@ def('districts', 'proving', {
   roads: [NS(8, 'West Avenue'), NS(31, 'Middle Avenue'), NS(54, 'East Avenue'), EW(8, 'North Avenue'), EW(31, 'Centre Avenue'), EW(54, 'South Avenue')],
   walls: [{ rect: [0, 0, 63, 1], type: WALL }, { rect: [0, 2, 1, 63], type: WALL }, { rect: [61, 2, 63, 63], type: WALL }, { rect: [2, 61, 60, 63], type: WALL }],
   props: { lampEvery: 6, clutter: .3 },
+  // the grid's four corners: somewhere to run to (the mission bot's evade drives to the point of interest farthest from
+  // the police, and the three doors are all in the middle)
+  pois: [['north-west', 10, 10], ['north-east', 52, 10], ['south-west', 10, 52], ['south-east', 52, 52]].map(([id, x, y]) => ({ id: 'corner-' + id, kind: 'landmark', at: [x, y], label: 'The ' + id + ' corner' })),
 });
 
 const look = (side, top, o = {}) => ({ side, top, face: 'stone', roof: 'plain', windows: { lit: .5, w: 4 }, ...o });

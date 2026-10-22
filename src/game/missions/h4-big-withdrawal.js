@@ -117,6 +117,9 @@ function parkTruck(m, t = m.one('hookline')) {
 const laneClear = m => !m.fleet.near(BLOCK[0] - 70, BLOCK[1], 220).some(o => o.body && o.z > DECK - 16 && o.x > GUS_AT[0] - 60 && o.x < BLOCK[0] + 50 && Math.abs(o.y - BLOCK[1]) < 26);
 // the standoff on the deck (a stage started there): the car behind the roadblock (where Dex stopped, or at STOP) with
 // Dex and Viv in it, Gus waiting
+// the city's gangs keep out of the job (m.truce, lifted when it ends): a bump in the getaway, a stray round in the
+// lobby, a ram into a jam rallies nobody, so no gang's crew shoots the Hookline to pieces on its way to the Strongbox
+const stayOut = m => { for (const g of ['saints', 'rats', 'gnomes']) m.truce(g); };
 function standoff(m) {
   m.data.plan ??= 'loud';
   for (const tag of ['getaway', 'swat']) for (const v of m.tagged(tag)) if (v.wrecked) m.remove(v);   // (a retry: the wrecks cleared away)
@@ -194,6 +197,7 @@ const plan = {
 const loudRam = {
   id: 'ram',
   setup(m) {
+    stayOut(m);
     m.as('gus');
     const t = m.ensure.vehicle('ram', 'hookline', m.lane([1500, 862], 0), { color: '#e07a2a' });
     seat(m, 'gus', t, 0);
@@ -230,6 +234,7 @@ const loudRam = {
 const loudLobby = {
   id: 'lobby',
   setup(m) {
+    stayOut(m);
     if (m.inside) m.outside();
     stand(m, 'viv', [1830, 812], 60);
     m.wanted.clear();
@@ -265,6 +270,7 @@ const loudLobby = {
 const quietDrill = {
   id: 'drill',
   setup(m) {
+    stayOut(m);
     m.as('gus');
     if (m.inside) m.outside();
     const rig = m.ensure.vehicle('rig', 'drillrig', m.lane([1662, 1060], -Math.PI / 2), { color: '#e8e8ec' });
@@ -292,6 +298,7 @@ const quietDrill = {
 const quietVault = {
   id: 'vault',
   setup(m) {
+    stayOut(m);
     if (m.inside) m.outside();
     stand(m, 'viv', [1700, 712], 60);
     m.wanted.clear();
@@ -325,6 +332,7 @@ const quietVault = {
 const getawayStage = {
   id: 'getaway',
   setup(m) {
+    stayOut(m);
     m.data.plan ??= 'loud';
     if (m.inside) m.outside();
     m.as('dex');
@@ -373,6 +381,7 @@ const getawayStage = {
 const windowStage = {
   id: 'window',
   setup(m) {
+    stayOut(m);
     const car = standoff(m);
     m.view('side7', { heading: 'east' });   // (MODE 7 looking back along the deck: the car, and the van on its tail)
     if (!m.one('swat')) swatVan(m, car, true); m.music('chase');
@@ -399,6 +408,7 @@ const windowStage = {
 const towStage = {
   id: 'tow',
   setup(m) {
+    stayOut(m);
     standoff(m);
   },
   *run(m) {
