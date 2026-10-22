@@ -60,7 +60,11 @@ export class AutoPlayer {
    *  off, how long it has been stuck) */
   goto(x, y, o = {}) {
     this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold }; this.state = 'idle'; this.path = null; this._dropBrain();
-    if (!o.keep) { this.car = o.car || null; this.tried.clear(); this.prog = null; this.avoid = null; this.esc = null; this.wedge = null; }
+    // (a new trip's counts start at nothing: they had run on from trip to trip, so a long-lived AutoPlayer (the campaign's,
+    // the career's mission bot's) got out of the car at its first box once three were behind it anywhere, gave up a car
+    // at a glance once 20 s of walks to doors were, and after its first hop anywhere never walked straight again, each
+    // walk begun from a node farther off)
+    if (!o.keep) { this.car = o.car || null; this.tried.clear(); this.prog = null; this.avoid = null; this.esc = null; this.wedge = null; this.round = null; this.boxed = this.boxT = this.exitHeld = 0; this._jam = null; this._boardT = 0; this.skip = 0; }
     return this;
   }
   /** get into this vehicle (out of another first) */
@@ -95,6 +99,7 @@ export class AutoPlayer {
   _walkTo(dt, p, tx, ty, key) {
     const I = this.I, far = Math.hypot(tx - p.x, ty - p.y);
     if (!this.path || this.pathKey !== key) {   // (straight there when the way is open: a park, a plaza, across a yard)
+      if (this.pathKey !== key) this.skip = 0;   // (a new place to walk to: the hops at the last one forgotten)
       const a = this._startNode(p), b = this.S.nearestNode(tx, ty, 200);
       this.path = a && b && far > 60 && !this._open(p.x, p.y, tx, ty) ? this.S.route(a.id, b.id) || [] : []; this.i = 0; this.pathKey = key;
     }
@@ -160,6 +165,7 @@ export class AutoPlayer {
   // The scene boards the nearest vehicle in reach, so △ waits until this one's door is the nearest
   _board(dt, p, keep = false) {
     const I = this.I, v = this.car; if (!v || v.wrecked || (!keep && (v.speed > 40 || Math.hypot(v.x - p.x, v.y - p.y) > CAR_REACH * 2))) { if (keep) return I; this._giveUp(v && v.id); this.car = null; this.state = 'walk'; return I; }   // (gone, driven off, or left far behind: another)
+    if (this._boardFor !== v) { this._boardFor = v; this._boardT = 0; }   // (the walk's clock is this car's)
     const plan = boardingFor(p, v, 0);
     if (plan && inReach(p, v) && plan.dist < 16 && !this._nearer(p, v, plan.dist)) {   // (at the door itself: △, the scene's own walk a step or two)
       I.tap.interact = true; I.down.interact = true; this._tries = (this._tries || 0) + 1; if (this._tries > 90 && !keep) { this._giveUp(v.id); this.car = null; this.state = 'walk'; this._tries = 0; } return I; }
@@ -177,7 +183,7 @@ export class AutoPlayer {
   _nearer(p, v, d) { for (const o of this.fleet.near(p.x, p.y, 80)) { if (o === v || !inReach(p, o)) continue; const q = boardingFor(p, o, 0); if (q && q.dist < d) return true; } return false; }
   // ---- at the wheel
   _drive(dt, p, v, w) {
-    const g = this.goal, level = g.z == null || Math.abs((v.z || 0) - g.z) < 24, d = Math.hypot(g.x - v.x, g.y - v.y) + (level ? 0 : 400); this._tries = 0; this._bfails = 0;   // (a goal on a deck: not there from the road under it)
+    const g = this.goal, level = g.z == null || Math.abs((v.z || 0) - g.z) < 24, d = Math.hypot(g.x - v.x, g.y - v.y) + (level ? 0 : 400); this._tries = 0; this._bfails = 0; this._boardT = 0;   // (a goal on a deck: not there from the road under it)
     if (v.driver !== p) { this.state = 'exit'; this.I.tap.interact = true; return this.I; }   // (a passenger seat: out)
     if (g.stay && d < Math.max(TUNE.autoArrive * 2, (g.radius || 0) * .6)) { this.state = 'arrived'; this._dropBrain(); const I = clearIntent(this.I); if (v.speed > 2 && this._fwd(v)) I.brake = 1; else if (v.speed > 2) I.throttle = 1; else I.down.handbrake = true; return I; }   // (there, seated: it stops)
     if (this.esc) return this._escape(dt, v);

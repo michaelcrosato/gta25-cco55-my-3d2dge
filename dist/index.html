@@ -28178,6 +28178,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.avoid = null;
         this.esc = null;
         this.wedge = null;
+        this.round = null;
+        this.boxed = this.boxT = this.exitHeld = 0;
+        this._jam = null;
+        this._boardT = 0;
+        this.skip = 0;
       }
       return this;
     }
@@ -28258,6 +28263,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _walkTo(dt, p, tx, ty, key) {
       const I = this.I, far = Math.hypot(tx - p.x, ty - p.y);
       if (!this.path || this.pathKey !== key) {
+        if (this.pathKey !== key) this.skip = 0;
         const a = this._startNode(p), b = this.S.nearestNode(tx, ty, 200);
         this.path = a && b && far > 60 && !this._open(p.x, p.y, tx, ty) ? this.S.route(a.id, b.id) || [] : [];
         this.i = 0;
@@ -28387,6 +28393,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.state = "walk";
         return I;
       }
+      if (this._boardFor !== v) {
+        this._boardFor = v;
+        this._boardT = 0;
+      }
       const plan2 = boardingFor(p, v, 0);
       if (plan2 && inReach(p, v) && plan2.dist < 16 && !this._nearer(p, v, plan2.dist)) {
         I.tap.interact = true;
@@ -28448,6 +28458,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const g = this.goal, level2 = g.z == null || Math.abs((v.z || 0) - g.z) < 24, d = Math.hypot(g.x - v.x, g.y - v.y) + (level2 ? 0 : 400);
       this._tries = 0;
       this._bfails = 0;
+      this._boardT = 0;
       if (v.driver !== p) {
         this.state = "exit";
         this.I.tap.interact = true;

@@ -1191,7 +1191,14 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
     the Loop's ramp meets the sidewalk from Lefty (now beside him); H4's getaway gave its car up in a jam ("Dex left
     the getaway car": `m.reach`'s `inVehicle` now reaches the bot, which holds the car); the gym's kill found the
     player's fighter stepping to and fro behind a parked truck while two Rats shot it (it now goes round once 3 s of
-    steps clear nothing, a unit test).
+    steps clear nothing, a unit test). Then (`97e9c37` and after): S1's bot walked at one Zephyr out of reach for 40
+    minutes (a car given up on now stays so for a minute whatever goals follow); Harbor Hustle "did not start" 10 u
+    from its start (its card asks a stopped car: the campaign holds still there); the only Pumper, once out of reach,
+    was passed over for good (now for ten minutes). And the root of the late stalls: the AutoPlayer's per-trip counts
+    (boxed in, the unstick moves, the walk to a door, the hops on foot) ran on from trip to trip in the two AutoPlayers
+    that live for hours in the campaign, so it left cars at their first box, gave cars up at a glance and never walked
+    straight; a new goal starts them afresh (a unit test). A job started on the way during a token, a stunt or a
+    property is quit at once (Lawn Order, begun by a teleport beside its giver, had taken the controls from a stunt's).
   - **The shots** (`tools/shot-matrix.mjs`, PLAN.md 10's matrix): `docs/media/shots/`: the 4 neighbourhoods by day,
     dusk and night in ISO (`<hood>-<time>-iso.png`) and every view on the contact sheets (`sheet-iso-clear.jpg`,
     `sheet-top-clear.jpg`, `sheet-side7-clear.jpg`, and ISO in rain, `sheet-iso-rain.jpg`); the bank's lobby in each

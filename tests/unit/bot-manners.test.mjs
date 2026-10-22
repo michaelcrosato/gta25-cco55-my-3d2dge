@@ -150,3 +150,22 @@ test('the AutoPlayer\'s give-ups outlast a new goal for a minute: a car out of r
   A.t = 59; assert.ok(A.shuns(7)); A.t = 61; assert.ok(!A.shuns(7), 'free again a minute later');
   A._giveUp(undefined); assert.ok(!A.shuns(undefined), 'no id: nothing');
 });
+
+test('the AutoPlayer\'s counts are a trip\'s: boxed in, the unstick moves, the walk to a door, the hops start at nothing with a new goal, car or place (a long-lived one had got out at its first box once three were behind it anywhere, and never walked straight after its first hop)', () => {
+  const A = Object.assign(Object.create(AutoPlayer.prototype), { t: 0, I: makeIntent(), tried: new Set(), gaveUp: new Map(), brain: null });
+  Object.assign(A, { boxed: 3, boxT: 4, exitHeld: 7, round: { t: 1, side: 1 }, _jam: { to: 5 }, _boardT: 19, skip: 2 });
+  A.goto(100, 100, { keep: true });
+  assert.deepEqual([A.boxed, A.boxT, A.exitHeld, !!A.round, !!A._jam, A._boardT, A.skip], [3, 4, 7, true, true, 19, 2], 'the same trip (a goal that moved): kept');
+  A.goto(500, 100);
+  assert.deepEqual([A.boxed, A.boxT, A.exitHeld, A.round, A._jam, A._boardT, A.skip], [0, 0, 0, null, null, 0, 0], 'a new trip: afresh');
+  // the walk's clock is the car's: 15 s at one, then another car starts at nothing
+  const car = (id, x) => ({ id, x, y: 0, speed: 0, wrecked: false, heading: 0, hw: 8, hl: 20, model: { doors: [] }, seats: [] });
+  const p = { x: 0, y: 0, z: 0 }; Object.assign(A, { S: { live: [], nearestNode: () => null }, city: { T: 16, walkable: () => true, map: { solids: [] } }, last: [0, 0], stuck: 0 });
+  A.car = car(1, 60); for (let k = 0; k < 60; k++) A._board(.25, p);
+  assert.equal(A._boardT, 15);
+  A.car = car(2, 80); A._board(.25, p);
+  assert.equal(A._boardT, .25, 'another car: its own clock');
+  // the hops at one place to walk to are that place's: walking somewhere else, straight there again when the way is open
+  Object.assign(A, { skip: 2, stuck: 0, dodge: 0 }); A._walkTo(.25, p, 80, 0, 'car2'); assert.equal(A.skip, 2, 'the same place: the hops kept');
+  A.stuck = 0; A._walkTo(.25, p, 200, 0, 'goal'); assert.equal(A.skip, 0, 'another place: afresh');
+});

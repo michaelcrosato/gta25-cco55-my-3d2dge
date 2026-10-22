@@ -20,21 +20,22 @@ anywhere can resume from it: the work in flight is listed with where it lives.
   of the Definition of Done (the "perf gates" step left test:full; `tools/perf.mjs` stays for later), and the bots may
   play invulnerable (`?god=1`, the tools' `--god`; the campaign plays god by default, `--mortal` without; the mission
   bot's runs stay mortal).
-- **M8, at its last step:** on FAN-OUT B's MOTOR (`7b1980f`) every mission and activity passed the bot on seeds 1-3
-  but H4 on seed 3 (95/96), fixed in part 5 (`9843969`). Part 5's bot changes are being validated in turn: `node
-  tools/bot.mjs --all --seeds 1,2,3 --par 3`, then `--all --pad --seeds 1 --par 3`, then the bot gym both ways
-  (`docs/handoff/m8-a2/tools/botgym.mjs`, copied to `tools/_botgym.mjs`); then the campaign (`node
-  tools/bot-campaign.mjs --seed 1 --verbose`, god) to 100%, then M8's acceptance with its evidence. The campaign's
-  last full run (mortal, `839a4c5`) reached 89%: H4's getaway, Vigilante level 3, two stunt jumps. Probes since:
-  four of the five stunts land at once, the canal now too (its runner's stop drove it back into the canal); `--only
-  <ids>` probes one item at a time.
+- **M8, at its last step:** the campaign (god) on part 5's MOTOR found stalls the per-mission runs cannot (each of
+  those starts a new game), each fixed where it lives with a test (D30, `1805e75` to the present): a wedged far car,
+  H1's garage retry, a car reached in a vehicle held, the bot's give-ups kept a minute, a race's start card waited
+  for, and the root of the late stalls, the AutoPlayer's per-trip counts running on from trip to trip in the two
+  AutoPlayers that live for hours in the campaign. On the commit under test, in turn: `node tools/bot.mjs --all --seeds
+  1,2,3 --par 3`, `--all --pad --seeds 1 --par 3`, the bot gym both ways (`docs/handoff/m8-a2/tools/botgym.mjs`,
+  copied to `tools/_botgym.mjs`), and the campaign (`node tools/bot-campaign.mjs --seed 1 --verbose`, god) to 100%;
+  then M8's acceptance with its evidence. `node tools/bot-campaign.mjs --only <ids> --ready --verbose` probes one item
+  at a time (`--ready`: every other mission done and cash in hand first).
 - **Then the rest of M13:** test:full, the release docs
   (README's and the Credits & About screen's Source Information and engine analysis, the HTML header,
   `docs/ENGINE-ANALYSIS.md` final, `vendor/my-3d2dge/PATCHES.md`), the Definition of Done check (PLAN.md 15 as D29
   amends it), PR 2's description.
-- **Where runs go:** the validation tree `/home/user/gtm-m9` (branch `m11-attract`, its `node_modules` a symlink:
-  never `git clean` it) is checked out at the commit under test; `npm test` runs alone (never beside the bot runs: the
-  container was restarted once under that load).
+- **Where runs go:** the validation trees `/home/user/gtm-m9` and `/home/user/gtm-v2` (detached worktrees, their
+  `node_modules` symlinks: never `git clean` them) are checked out at the commit under test; `npm test` runs alone or
+  beside one bot run at most (the container was restarted once under more).
 - **The pull requests:** michaelcrosato/gta25-cco55-my-3d2dge#1 carried M0-M4 and was merged into `main`. M5 onward is
   on `claude/compassionate-shannon-h7k7zk`, in the draft michaelcrosato/gta25-cco55-my-3d2dge#2. Pushing works again
   (the 403 of D27 is gone since M13's part 3).

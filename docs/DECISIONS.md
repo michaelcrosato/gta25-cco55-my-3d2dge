@@ -1236,10 +1236,22 @@ and where it landed.
   - **A point to be reached in a vehicle is driven to in it, never out of it** (`m.reach`'s `inVehicle` reaches the bot's
     hint: the AutoPlayer holds the car through a jam, as it does a job's own): H4's getaway failed on "Dex left the
     getaway car" when a jam made the bot give the car up.
+  - **A car given up on stays given up on for a minute** whatever goals follow (`AutoPlayer.shuns`): each new goal had
+    cleared the list, and S1's bot walked at one Zephyr out of reach by Club Chrome for 40 minutes.
+  - **A trip's counts are the trip's.** The AutoPlayer's boxed-in count, its unstick moves, the clock of its walk to a
+    door and its hops on foot ran on from trip to trip, and two AutoPlayers live for hours in the campaign (its own,
+    and the career's mission bot's): once three boxes were behind it anywhere it got out of the car at the next, once
+    20 s of walks to doors were it gave a car up at a glance, and after its first hop it never walked straight again,
+    each walk begun from a farther node. A new goal starts them at nothing (the walk's clock is a car's, the hops a
+    place's). The per-mission runs start each mission with a new game, which is why only the campaign met it.
   - **Content:** a retry of H1's garage stage puts Dex beside Lefty (it had put him the far side of where the Loop's
     ramp meets the sidewalk, with no way round on foot).
   - **The campaign's tool:** a stunt's line-up stops against the way the car rolls (holding the brake while it backed
-    drove it back faster, into the canal behind the Canal's run-up); a failed jump says why.
+    drove it back faster, into the canal behind the Canal's run-up); a failed jump says why. A race's start card asks a
+    stopped car, so the campaign holds it still a moment there (Harbor Hustle had "not started" 10 u from its start).
+    A car it could not board is passed over for ten minutes, not for good (the only Pumper). A job that starts on the
+    way while it is about a token, a stunt or a property is quit at once, as on the way to another job: whatever
+    runs, the career's bot has the controls.
   - **The look pass:** the flat roofs' clutter (a stair hut, skylights, a duct, a chimney on brick, an aerial or a dish
     on the tall, more units) on the builder's own stream (`roofs+`), none of it solid; a style's neon (`style.neon`:
     tubes up its street corners, more shop signs; Neon Mile's); TOP-DOWN draws a thing standing on a roof after the
