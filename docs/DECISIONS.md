@@ -1262,7 +1262,11 @@ and where it landed.
     A car it could not board is passed over for ten minutes, not for good (the only Pumper). A job that starts on the
     way while it is about a token, a stunt or a property is quit at once, as on the way to another job: whatever
     runs, the career's bot has the controls. The stars a job's car brought (a police car broken into for Vigilante,
-    a cop watching) are lost in it before the phone, which offers no job while wanted.
+    a cop watching) are lost in it before the phone, which offers no job while wanted. A stunt's run starts at its
+    run-up's start, reached by the dev teleport as the campaign travels between items (PLAN.md 8.20): the car with
+    the player in it put down there facing the takeoff; the line-up, the run-up and the jump are driven. Driven
+    there hours into a campaign, it had met the city's jams (a junction's exit held on the way up to the Loop Gap's
+    stub had it out of car after car; by the canal it stood 30 u short with no room to turn).
   - **The look pass:** the flat roofs' clutter (a stair hut, skylights, a duct, a chimney on brick, an aerial or a dish
     on the tall, more units) on the builder's own stream (`roofs+`), none of it solid; a style's neon (`style.neon`:
     tubes up its street corners, more shop signs; Neon Mile's); TOP-DOWN draws a thing standing on a roof after the

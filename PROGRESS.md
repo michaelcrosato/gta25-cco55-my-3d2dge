@@ -1204,7 +1204,10 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
     On that, every mission passed at its first try; then the courier's bike sat behind the Pumper the campaign had left
     across its road (nothing towed a car the player got out of: now out of sight it is towed, or one parked as the
     world was made goes back to its spot, a sim test), and Vigilante never started (its cruiser, broken into, brought
-    stars, and the phone offers no job while wanted: the campaign loses them in it first).
+    stars, and the phone offers no job while wanted: the campaign loses them in it first). Then every job, race, MAYHEM
+    and token passed, and three stunts failed on the drive to their run-ups (a junction's exit held on the way up to
+    the Loop Gap's stub; 30 u short of the canal's with no room to turn): a stunt's car is now put down at its run-up
+    by the dev teleport, and all five land in a probe.
   - **The shots** (`tools/shot-matrix.mjs`, PLAN.md 10's matrix): `docs/media/shots/`: the 4 neighbourhoods by day,
     dusk and night in ISO (`<hood>-<time>-iso.png`) and every view on the contact sheets (`sheet-iso-clear.jpg`,
     `sheet-top-clear.jpg`, `sheet-side7-clear.jpg`, and ISO in rain, `sheet-iso-rain.jpg`); the bank's lobby in each

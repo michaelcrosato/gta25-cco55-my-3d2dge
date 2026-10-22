@@ -102,6 +102,8 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   // is item id running? Another that started on the way (a giver's marker walked into, its card taken by the bot: G1
   // had started on the way to a race, and was played as the race) is quit, and the way goes on
   const ours = id => { if (R().state === 'running' && R().id !== id && id !== null) { say(`${R().id} started on the way: quit`); R().quit('not the campaign\'s'); run(1); } return R().state === 'running' && (id === null || R().id === id); };
+  // a vehicle put down at (x, y, z) facing h, at rest (the dev teleport's, with the player in it), the AutoPlayer's trip over
+  const put = (v, x, y, z, h) => { const b = v.body; b.x = x; b.y = y; b.z = z; b.heading = h; b.u = b.v = b.w = 0; b.vz = 0; b.airborne = false; v.asleep = false; A._dropBrain(); A.goal = null; };
   // a car the bot can't drive out of where it stands (a long truck in a dead end it can't turn round in, wedged on a
   // corner), STALL s within 40 u at its wheel: put back on the nearest lane that leads on, at its own spot, facing its
   // way, and the AutoPlayer's route made afresh from there. A player backs out; the bot's driving can't. Each rescue is
@@ -190,10 +192,16 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     const { v, ok: aboard } = takeCar(() => carNear(ap[0], ap[1]), () => carNear(P().x, P().y, null, 1e9), () => carNear(ap[0], ap[1], null, 300, true)); let ok = false, why = v ? 'no landing' : 'no car';   // (none near the run-up: one from where the player is, driven there)
     if (v && !aboard) why = `could not board the ${v.def.id} at ${Math.round(v.x)},${Math.round(v.y)}${v.driver ? ' (driven)' : ''}`;
     else if (v) {
-      A.goto(ap[0], ap[1], { car: v, stay: true, radius: 30, z: ap[2] ?? null }); auto(240);   // (the Loop Gap's run-up is on the deck)
+      // the run-up's start: travelled to by the dev teleport, as the campaign travels between its items (PLAN.md 8.20),
+      // the car with the player in it put down there facing the takeoff, or as near before it along the run-up as a car
+      // leaves room (driven there, hours into a campaign, it met the city's jams: a junction's exit held on the way up to
+      // the Loop Gap's stub had it out of car after car; by the canal it stood 30 u short with no room to turn)
+      const L = Math.hypot(tx - ap[0], ty - ap[1]) || 1, ux = (tx - ap[0]) / L, uy = (ty - ap[1]) / L, ang = a => Math.atan2(Math.sin(a), Math.cos(a));
+      const z = ap[2] ?? 0, room = (x, y) => gtm.fleet.near(x, y, 80).every(o => o === v || Math.abs((o.z || 0) - z) > 12 || Math.hypot(o.x - x, o.y - y) > o.hl + v.hl + 4);
+      let k = 0; while (k < 4 && !room(ap[0] - ux * k * 30, ap[1] - uy * k * 30)) k++;
+      put(v, ap[0] - ux * Math.min(k, 3) * 30, ap[1] - uy * Math.min(k, 3) * 30, z, Math.atan2(uy, ux)); run(1);
       // lined up first, at a crawl, on the line from the run-up's start to the takeoff (a car still turning as it floors
       // it misses a three-cell kicker), backed up to the start if lining up took it past, and stopped there
-      const L = Math.hypot(tx - ap[0], ty - ap[1]) || 1, ux = (tx - ap[0]) / L, uy = (ty - ap[1]) / L, ang = a => Math.atan2(Math.sin(a), Math.cos(a));
       const along = c => (c.x - ap[0]) * ux + (c.y - ap[1]) * uy, ahead = (c, k) => { const q = Math.max(along(c), 0) + k; return Math.atan2(ap[1] + uy * q - c.y, ap[0] + ux * q - c.x); };
       let phase = 'align';
       pilot((dt, p) => {
