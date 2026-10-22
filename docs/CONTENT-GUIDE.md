@@ -126,7 +126,9 @@ stop() }`), `m.failIf(pred, reason)`, `m.wanted.set / floor /
 cap / clear` (a floor or a cap is lifted when the job ends, however it ends), `m.alerted(tag)` (a guard or enemy of the
 tag has seen the player, been hurt or been called, and is still in it: a stealth stage's fail), `m.ally(gang)` (that
 gang's members on the player's side till the job ends: strays on them rally no one and cost no respect; `m.truce(gang)`
-the same for a job fought against that gang's own), `m.shoo(ped)` (a passer-by, and its troupe, sent running from the
+the same for a job fought against that gang's own; a mission with a `gang` has that gang's truce from its start, so a
+gang never shoots at the player doing its own job), `m.standDown(kind)` (the city's own 'fire', 'medic' or 'police'
+service takes no new calls till the job ends: a job that is the service, Firefighter's engine on call), `m.shoo(ped)` (a passer-by, and its troupe, sent running from the
 player: one a swing caught that would swing back), `m.blast(at, { damage, splash, fire })` (an explosion nobody set
 off: a drum the fire reached), `m.adopt(vehicle, tag)` (a world vehicle on the job's list under a tag, so a hint can
 name it: a garaged car; the world's again when the job ends), `m.fund` and `m.pay(n, why)` (the crew fund, and money

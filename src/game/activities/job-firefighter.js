@@ -122,7 +122,7 @@ function douse(m, cells, list, text) {
 const lights = m => Object.assign(m.waitUntil(() => false), { start: mm => mm.wanted.cap(0), end: mm => mm.wanted.clear() });
 // on the job the gangs leave Engine 9 alone: a gangster the cannon knocks over, or a car of theirs it soaks, rallies
 // nobody and costs no respect, and none go for the crew on sight (till the job ends, however it ends)
-const neutral = m => { for (const g of ['saints', 'rats', 'gnomes']) m.truce(g); };
+const neutral = m => { for (const g of ['saints', 'rats', 'gnomes']) m.truce(g); m.standDown('fire'); };   // (and the city's own engine: the player's on call)
 
 const fireStage = k => ({
   id: 'fire' + (k + 1),

@@ -998,3 +998,43 @@ and where it landed.
     on west from the bridge the Gnomes have barricaded, a block of the Brickyard's warehouses between four streets, the
     three doors; loaded only with `?dev=1` (`&district=district2`, or GO), free roam alone.
 - **Answered:** no. **Landed in:** M12.
+
+## D27 · 2026-10-22 · M8's last: a bot with manners, a gang's own job in peace, a campaign that travels as a player does
+- **Principle:** PLAN.md 15.4 (a headless bot campaign reaches 100%), M8's Accept (every mission through the bot and by a
+  scripted human-style pass), D21 (the bot plays from the hints, as a player would).
+- **Calls (part 4c):**
+  - **The AutoPlayer looks before its unstick moves** (`_footIn`): it never backs into someone behind it or swings into
+    someone ahead (a cop by a cruiser parked at its scene stands in the lane beside it); held, it waits a while (6 s)
+    and then plans afresh.
+  - **At a star or more, stopped, with a cop on foot near its door, it pulls away at once** (`_copAt`): round whatever
+    holds it, away from the cop (backing first only when the cop is ahead), as a player floors it before the hand is on
+    the door (NABBED is a cop at the door of a car going under 4 for 1.5 s).
+  - **Wedged** (`_wedged`): 5 s with nothing to wait for (no light, no queue, nobody within 30 ahead) and no more than a
+    rock back and forth (10 u), at street level: off the road round it, as the progress check's second try does, but
+    without its 30 s wait (the brain's own back-off needs room behind, and a long truck in a corner has none: H4's
+    Hookline through the pad sat 50 s like that).
+  - **A delivery that must arrive whole is driven with care** (`deliver`'s hint carries `health`): the evade style
+    'careful', and the bot's fighter holds its fire while a bystander stands in its line (`careful`).
+  - **A car nobody drives gives when shoved** (`shoved`: its handbrake off, its tyres' grip at 3%, the low-speed
+    kinematic clamp off while it slides): the gridlock breaker's shove now moves a car parked broadside. **Never a
+    job's car** (`owner: 'mission'`): H4's roadblock cruiser, shoved off its lane by the queue behind it, put the
+    Hookline's hook-up point off the Loop's deck.
+  - **A gang's own job comes with its truce** (`MissionRuntime.start`, a mission's `gang`): the gang whose job it is
+    leaves the player be while it runs, however they stand (the campaign reaches the Saints' S1 after the Rats' and the
+    Gnomes' chains have turned them hostile), lifted when it ends like any truce. A player working for a gang isn't
+    shot at by it.
+  - **`m.standDown(kind)`:** a job that is the city's service holds the city's own off (Firefighter: the player is the
+    engine on call, and the city's own Pumper, sent to the same fires, jammed the street with the player's).
+  - **The campaign travels as a player does** (`tools/bot-campaign.mjs`): a mission that runs past its cap is quit (it
+    had run on into the next item); a race's start is driven to after a teleport there, in a car parked near it, else
+    one waiting at a red light there (jacked), else one parked anywhere; a job's first-named vehicle comes before the
+    rest (Vigilante's cruiser, not the SWAT truck); a stunt's run-up is lined up at a crawl, backed to its start and
+    stopped there before the run (a car still turning as it floors it misses a three-cell kicker); a car the player
+    can't reach (one parked up on the Loop, walked to from the street under it) is passed over for the next; and each
+    failure says what hurt the player and their vehicle, by source.
+- **CI: the push is refused.** Since the run resumed on 2026-10-21, every push to the branch is refused with a 403 (the
+  Claude GitHub App has no access to the repository for the owner's organization). PLAN.md 6.1's fallback, taken: the
+  gate is `npm test` and `npm run test:full` run here, their evidence in PROGRESS.md; the commits wait locally, and the
+  owner is told how to restore the access (install the app for the organization, or reconnect GitHub in claude.ai's
+  settings), after which one push carries them all.
+- **Answered:** no. **Landed in:** M8 (part 4c).

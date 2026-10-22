@@ -103,7 +103,9 @@ export class Vehicle {
     } else {   // nobody at the wheel: roll on, then the handbrake (never the brake pedal at rest: held at a stop, it reverses)
       const slow = b.speed < TUNE.coastBelow; ctl = { throttle: 0, brake: slow ? 0 : .05, steer: 0, handbrake: slow && !b.lifted };
       if (b.lifted) ctl.handbrake = false; this.horn = false;
+      if (this.shoved > 0) { this.shoved -= dt; ctl.handbrake = false; }   // (shoved aside by a car it blocks: off its handbrake, its tyres sliding)
     }
+    b.slide = !this.driver && this.shoved > 0;
     if (this.nitroT > 0) { this.nitroT -= dt; ctl.boost = TUNE.nitroBoost; }
     if (this.flats > 0) { b.flat = this.flats; this.flatT += dt; if (b.speed > 20) ctl = { ...ctl, steer: E.clamp((ctl.steer || 0) + Math.sin(this.flatT * 7) * .14 * this.flats, -1, 1) }; }   // (on its rims: the wheel tugs)
     this.ctlNow = ctl;

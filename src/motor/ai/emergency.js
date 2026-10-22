@@ -36,13 +36,14 @@ export class Emergency {
     this.life = o.life; this.combat = o.combat || null; this.fleet = o.fleet; this.fp = o.footprint; this.rng = o.rng || RNG.stream('services');
     this.units = { ...UNITS, ...((o.spec && o.spec.units) || {}) };
     this.calls = []; this.onFoot = []; this.t = 0; this._ids = 0; this.answered = 0; this.revived = 0; this.step = 0;
+    this.held = new Set();   // (kinds a job has stood down: m.standDown)
     this._unsub = o.reports === false ? [] : [BUS.on('report', e => this.call('police', e.x, e.y, { crime: e.crime, by: e.by }), 'world')];
   }
   dispose() { for (const u of this._unsub) u(); for (const f of this.onFoot) if (this.combat) this.combat.remove(f.ped); this.onFoot = []; }
   /** open a call ('police' | 'medic' | 'fire') at (x, y): a unit is sent (or the call is settled, far from the focus).
    *  Returns the call, or null when one like it is already being answered */
   call(kind, x, y, o = {}) {
-    const U = this.units[kind]; if (!U) return null;
+    const U = this.units[kind]; if (!U || this.held.has(kind)) return null;   // (stood down: the job is the service, Firefighter's engine on call)
     if (this.calls.some(c => c.kind === kind && c.state !== 'done' && Math.hypot(c.x - x, c.y - y) < (kind === 'police' ? 260 : kind === 'medic' ? 180 : 90))) return null;   // (already on its way: one Medic a street's bodies, one after another)
     const T = this.life.traffic, far = this.fp.d(x, y) > TUNE.fpActivity;
     if (!far && T && this.calls.filter(q => q.kind === kind && q.unit && q.state !== 'done').length >= U.max) return null;   // (every unit out: it waits its turn)

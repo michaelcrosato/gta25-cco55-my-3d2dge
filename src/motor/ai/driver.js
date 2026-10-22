@@ -314,7 +314,7 @@ export class DriverBrain {
   _throughBox(o) { return (!o.brain && !o.driver) || (!!this.siren && !!o.brain && (!!o.brain.parked || !!(o.duty && o.duty.out))); }
   /** stuck behind a car nobody drives a while (4 x TUNE.gridlock s), with no pass round it (at a junction's mouth, on a
    *  connector): shove it aside at a creep, as the gridlock breaker shoves a ring's next car */
-  _shoves(L, stuck) { return !!(stuck && !this.pass && L && !L.v.brain && !L.v.driver && this.blocked > TUNE.gridlock * 4 && !(this.creepT > 0)); }
+  _shoves(L, stuck) { return !!(stuck && !this.pass && L && !L.v.brain && !L.v.driver && L.v.owner !== 'mission' && this.blocked > TUNE.gridlock * 4 && !(this.creepT > 0)); }   // (never a job's: a roadblock stays where it was put)
   // a pass round a stopped obstacle: the smallest sideways offset whose corridor is clear (walls, street furniture,
   // water, other vehicles, peds), out to past its far end; null when neither side is
   _planPass(L, w, S) {
@@ -477,7 +477,7 @@ export class DriverBrain {
     this.honkT = Math.max(0, this.honkT - dt);
     if (this.blocked > TUNE.honkAfter * this.p.patience && this.honkT <= 0) this.honkT = 3.5;
     if (stuck && !this.pass && this.blocked > TUNE.passAfter * this.p.patience) { this.passTry -= dt; if (this.passTry <= 0) { this.passTry = .75; this.pass = this._planPass(L, w, S); } }
-    if (this._shoves(L, stuck)) { this.creepT = 2.5; this.blocked = TUNE.passAfter * this.p.patience; }
+    if (this._shoves(L, stuck)) { this.creepT = 2.5; this.blocked = TUNE.passAfter * this.p.patience; L.v.shoved = 3; if (w.fleet) w.fleet.wake(L.v); }   // (it gives as a pushed car does: vehicle.js)
     return acc;
   }
   // the free-road part of the thinking alone (between a far car's looks): no faster than its lane allows

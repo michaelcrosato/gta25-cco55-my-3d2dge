@@ -1,8 +1,8 @@
 // A fighter on foot (PLAN.md 8.13, 8.14): the Intent an armed ped acts on against one target, each step. The police's
 // officers (cop.js) and the gangs' members (gangs.js) are fighters.
 //   - a gun (a pistol, the SMG, the shotgun): it closes to its range (a share of the weapon's) and a clear line of fire
-//     (round a wall's corner; a step aside when a car stands in the way), stops, and fires in bursts at the target's
-//     chest, each burst a little off;
+//     (round a wall's corner; a step aside when a car stands in the way, or, for a careful fighter, the player's, anyone
+//     not in the fight), stops, and fires in bursts at the target's chest, each burst a little off;
 //   - a bat, or bare fists: it runs in and swings;
 //   - a Molotov or a grenade: now and then, at a throw's distance, one goes where the target stands;
 //   - blocked by a wall on its way, it takes the sidewalk graph round.
@@ -23,7 +23,7 @@ export class Fighter {
    *  its owner to step to: the pad pilot's), best (true: the gun with the most damage a second that has ammo, not the
    *  first carried) } */
   constructor(ped, o = {}) {
-    this.noSelect = !!o.noSelect; this.want = null;
+    this.noSelect = !!o.noSelect; this.want = null; this.careful = !!o.careful; this.pedsNear = o.pedsNear || null;   // (careful: holds its fire over people in the way: pedsNear(x, y, r))
     this.ped = ped; this.S = o.walks || null; this.map = o.map || null; this.fleet = o.fleet || null; this.rng = o.rng; this.I = makeIntent(); this.profile = { ...FIGHT, ...(o.profile || {}) };
     this.side = this.rng && this.rng.next() < .5 ? -1 : 1; this.stepT = 0;
     this.burst = 0; this.pause = this.rng ? this.rng.next() * .5 : 0; this.off = 0; this.throwT = 2 + (this.rng ? this.rng.next() * THROW_EVERY : 0);
@@ -83,7 +83,19 @@ export class Fighter {
   _lineTo(tgt) {
     if (this._lineT > this.t && this._lineFor === tgt) return this._line;
     this._lineT = this.t + .25; this._lineFor = tgt;
-    return (this._line = lineOfFire(this.ped, tgt, this.map, this.fleet));
+    const line = lineOfFire(this.ped, tgt, this.map, this.fleet);
+    return (this._line = line !== 'wall' && line !== 'car' && this.careful && this._peopleIn(tgt) ? 'car' : line);   // (someone in the way: stepped round, as a car)
+  }
+  // someone not in the fight between it and the target, near the line of fire
+  _peopleIn(tgt) {
+    const p = this.ped, N = this.pedsNear; if (!N) return false;
+    const dx = tgt.x - p.x, dy = tgt.y - p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+    for (const q of N((p.x + tgt.x) / 2, (p.y + tgt.y) / 2, d / 2 + 12)) {
+      if (q === p || q === tgt || q.dead || q.floored || q.seat || q.hostile) continue;
+      const ox = q.x - p.x, oy = q.y - p.y, along = ox * ux + oy * uy;
+      if (along > 6 && along < d - 6 && Math.abs(oy * ux - ox * uy) < 9) return true;
+    }
+    return false;
   }
   // a car in the line of fire: a few steps to one side (the other, if that goes nowhere)
   _aside(dt, I, tgt) {

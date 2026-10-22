@@ -58,6 +58,7 @@ export class MissionRuntime {
     this.id = id; this.spec = spec; this.kind = kind; this.level = Math.max(1, Math.min(spec.levels || 1, o.level || 1));
     this.rng = RNG.stream('mission:' + id); this.t = 0; this.retries = 0; this.result = null; this.failure = null; this.data = { ...(o.data || {}) }; this.startedAt = k;
     this.actors = new MissionActors(this.world(), this);
+    if (kind === 'mission' && spec.gang) { const G = this.world().life && this.world().life.gangs; if (G) { G.allies.add(spec.gang); this.allyHeld = true; } }   // (the gang whose job it is leaves the player be while it runs, hostile or not)
     if (kind !== 'reel' && kind !== 'bench') BUS.emit(kind === 'activity' ? 'activityStart' : 'missionStart', kind === 'activity' ? { id, level: this.level } : { id });
     this.state = 'running'; this._stage(k);
     return this;
@@ -180,6 +181,7 @@ export class MissionRuntime {
     const W = this.world(); if (W.endMission) W.endMission(this);
     if (this.wantedHeld) { const w = W.wanted ? W.wanted() : null; if (w) { w.floor(0); w.cap(5); } this.wantedHeld = false; }   // (a stage's cap or floor never outlives its job)
     if (this.allyHeld) { const G = W.life && W.life.gangs; if (G) G.allies.clear(); this.allyHeld = false; }   // (nor its allies and truces)
+    if (this.servicesHeld) { const S = W.life && W.life.services; if (S) S.held.clear(); this.servicesHeld = false; }   // (nor a service stood down)
     if (W.stage && W.stage.pointRail) W.stage.pointRail(null);   // (nor a set piece's rail)
     if (W.slowmo) W.slowmo(1);   // (nor its slow motion)
     if (this.weatherHeld) { if (W.weather) W.weather.release(); this.weatherHeld = false; }   // (nor its weather)
@@ -271,6 +273,9 @@ export class MissionContext {
    *  fought beside that gang (R3's Rats); truce: one fought against its own (G3's), the same thing */
   ally(gang) { const G = this.W.life && this.W.life.gangs; if (!G) return; if (gang) G.allies.add(gang); else G.allies.clear(); this.R.allyHeld = true; }
   truce(gang) { this.ally(gang); }
+  /** the city's own service of a kind ('fire' | 'medic' | 'police') takes no new calls while the run lasts: a job that is
+   *  that service (Firefighter: the player's the engine on call, and the city's own would come to the same fires) */
+  standDown(kind) { const S = this.W.life && this.W.life.services; if (!S) return; S.held.add(kind); this.R.servicesHeld = true; }
   /** put a world vehicle on the job's list under a tag (a garaged car, one the player came in): the hints can name it;
    *  the world's again when the run ends, and a retry never releases it */
   adopt(v, tag) { if (!v) return null; const R = this.R; if (R.actors.entry(v)) return v; const was = v.owner; R.actors._add(v, 'vehicle', { tag, stage: -1 }); v.adopted = was || 'world'; return v; }
@@ -415,7 +420,7 @@ export class MissionContext {
       const there = Math.hypot(w.x - to[0], w.y - to[1]) < r && (!o.stopped || (w.speed || 0) < 10);
       return there ? { value: true } : undefined;
     }, { nav: m => { const w = m.one(o.what); return w && w.body && m.vehicle !== w ? w : to; },
-      start: m => { m.objective(text, { hint: { kind: 'deliver', what: o.what, to, tow: o.tow } }); m.marker(to, { color: '#7aff8a', r: Math.min(r, 28) }); } });
+      start: m => { m.objective(text, { hint: { kind: 'deliver', what: o.what, to, tow: o.tow, health: o.health } }); m.marker(to, { color: '#7aff8a', r: Math.min(r, 28) }); } });   // (health: the bot spares the car)
   }
   /** keep within o.lose (400) of a tagged target until o.until(m) holds (or it gets to o.to); out of reach for o.grace
    *  (4 s) fails the stage */

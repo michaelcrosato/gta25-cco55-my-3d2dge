@@ -185,5 +185,6 @@ test('a car nobody drives in the lane: a pass round it may run on through the bo
   assert.equal(brain({ blocked: long })._shoves(L(driven), true), false, 'never a car somebody drives');
   assert.equal(brain({ blocked: 1 })._shoves(L(abandoned), true), false, 'not at once');
   assert.equal(brain({ blocked: long, pass: {} })._shoves(L(abandoned), true), false, 'not while going round it');
+  assert.equal(brain({ blocked: long })._shoves(L({ ...abandoned, owner: 'mission' }), true), false, 'never a job\'s car (H4\'s roadblock: D27)');
 });
 

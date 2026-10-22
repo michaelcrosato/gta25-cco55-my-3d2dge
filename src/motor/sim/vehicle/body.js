@@ -88,7 +88,7 @@ export class VehicleBody {
     const want = E.clamp(C.steer, -1, 1) * h.steer * (1 - h.steerFade * Math.min(1, Math.abs(this.u) / h.top));
     this.steerAngle += E.clamp(want - this.steerAngle, -h.steerRate * dt, h.steerRate * dt);
     const d = this.lifted === 'front' ? 0 : this.steerAngle, cd = Math.cos(d), sd = Math.sin(d), u = this.u, v = this.v, w = this.w;
-    const mu = this._grip(world), wet = world.wet ? .8 : 1, flat = this.flat || 0, grip = h.grip * mu * wet * (1 - .45 * flat);
+    const mu = this._grip(world), wet = world.wet ? .8 : 1, flat = this.flat || 0, grip = h.grip * mu * wet * (1 - .45 * flat) * (this.slide ? .03 : 1);   // (slide: an empty car shoved aside)
     // the throttle drives forward, or backward once stopped with the brake held a moment (and the brake pedal brakes)
     this.held = Math.abs(u) < 1 && C.brake > 0 && !(C.throttle > 0) ? (this.held || 0) + dt : 0;
     const fwd = u > .5 || (u > -.5 && C.throttle >= C.brake), rev = !fwd && C.brake > 0 && u < 2 && (u < -.5 || this.held > .2);
@@ -131,7 +131,7 @@ export class VehicleBody {
       // below walking pace (all of it: a car sliding sideways off a wall is not slow), turn like a kinematic bicycle and
       // let the slip die (the slip model is singular at rest)
       const s = Math.hypot(this.u, this.v), kin = E.clamp(1 - (s - 6) / 24, 0, 1);
-      if (kin > 0) {
+      if (kin > 0 && !this.slide) {   // (an empty car shoved aside slides as it is pushed: vehicle.js)
         const wk = this.lifted === 'front' ? this.w : this.u * Math.tan(d) / this.h.wheelbase;
         this.w += (wk - this.w) * kin; this.v += (wk * this.b - this.v) * kin * .5;
         if (s < .5 && !drive && !(C.throttle > 0)) { this.u = 0; this.v *= .5; this.w *= .5; if (Math.abs(this.v) < .05) this.v = 0; if (Math.abs(this.w) < 1e-3) this.w = 0; }

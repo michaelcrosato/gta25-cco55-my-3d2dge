@@ -265,3 +265,25 @@ test('a landmark\'s ramps are terrain: folded into its district\'s decks, no lan
   const top = city.decks.find(d => d.id === 'car-park'), x = 16.5 * city.T, y = 95.5 * city.T, q = city.deckAt(x, y);
   assert.ok(q && q.deck === top && Math.abs(q.z - 48) < 1, 'a car can stand on the car park\'s top deck (' + (q ? q.deck.id + ' z ' + q.z : 'none') + ')');
 });
+
+test('a gang\'s own job: its members leave the player be while it runs, however they stand with the player; lifted when it ends (D27)', async () => {
+  const g = await world(), { M, C, R } = g, G = g.gtm.life.gangs;
+  G.add('saints', -80 - G.get('saints'), 'a test');
+  M.defMission('fx_saints_job', { title: 'Fixture: a Saints job', gang: 'saints', stages: [{ id: 's', setup() {}, *run(m) { yield m.wait(600); } }] });
+  C.startMission('fx_saints_job'); g.game.advance(1 / 120);
+  assert.equal(G.stance('saints'), 'hostile', 'the Saints hate the player');
+  assert.ok(G.allies.has('saints'), 'but not during their own job');
+  assert.ok(!G.allies.has('rats') && !G.allies.has('gnomes'), 'the other gangs as they were');
+  R.quit(); g.game.advance(1 / 120);
+  assert.ok(!G.allies.has('saints'), 'the truce lifted when the job ends');
+});
+
+test('m.standDown: the city\'s own service of a kind takes no calls while the job runs (Firefighter\'s engine on call), again once it ends (D27)', async () => {
+  const g = await world(), { R } = g, S = g.gtm.life.services, P = g.P();
+  g.fixture('fx_standdown', mm => mm.standDown('fire'));
+  assert.ok(S.held.has('fire'), 'stood down');
+  assert.equal(S.call('fire', P.x + 120, P.y), null, 'a fire nearby: no engine sent');
+  R.quit(); g.game.advance(1 / 120);
+  assert.ok(!S.held.has('fire'), 'on duty again when the job ends');
+  assert.ok(S.call('fire', P.x + 120, P.y), 'and an engine comes');
+});

@@ -268,3 +268,17 @@ test('mods and tools: nitro, an oil slick, a mine, the roof MG, the water cannon
     step(Y, dt / 2, { intent: press(truck, I => { I.tap.fire = true; }) });
     assert.ok(truck.towing && truck.towing.car === car, 'hooked on ○'); }
 });
+
+test('an empty car broadside across a car\'s way stands its ground on its handbrake; shoved (a driver it blocks shoves it, M8 part 4c), it gives as a pushed car does', () => {
+  const run = shove => {
+    const Y = yard(), blocker = Y.fleet.spawn('cortez', 40 * 16, 30 * 16, Math.PI / 2), pusher = Y.fleet.spawn('cortez', 40 * 16 - 52, 30 * 16, 0);   // (its flank square across the pusher's nose)
+    const me = ped(Y, pusher.x, pusher.y); pusher.sit(me, 0); step(Y, .5);   // (settled: the empty one on its handbrake)
+    const x0 = blocker.x, I = makeIntent();
+    if (shove) { blocker.shoved = 3; Y.fleet.wake(blocker); }
+    step(Y, 3, { intent: v => { clearIntent(I); if (v === pusher) I.throttle = v.speed < 18 ? .5 : 0; return I; } });
+    return blocker.x - x0;
+  };
+  const held = run(false), gave = run(true);
+  assert.ok(held < 6, `on its handbrake it barely moves: ${held.toFixed(1)} u`);
+  assert.ok(gave > 20, `shoved, it slides out of the way: ${gave.toFixed(1)} u`);
+});

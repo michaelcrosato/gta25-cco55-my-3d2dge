@@ -14,7 +14,7 @@ export const HINTS = {
                                // spray: [x, y] (within reach, aimed there, the fire button held: a fire hose's, a gun's); reach
   enterVehicle: ['vehicle'],   // vehicle: a tag
   kill: ['targets'],           // targets: a tag; vehicle (a tag: rammed from that vehicle, never left for the job on foot)
-  deliver: ['what', 'to'],     // what: a tag; to: [x, y]; tow (the tow truck's tag: what goes on its hook)
+  deliver: ['what', 'to'],     // what: a tag; to: [x, y]; tow (the tow truck's tag: what goes on its hook); health (the share it must keep)
   evade: [],                   // lose the wanted level
   follow: ['target'],          // target: a tag; dist
   race: ['line'],              // line: [[x, y], ...] checkpoints

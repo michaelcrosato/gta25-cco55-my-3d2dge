@@ -13114,7 +13114,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const want = E.clamp(C8.steer, -1, 1) * h.steer * (1 - h.steerFade * Math.min(1, Math.abs(this.u) / h.top));
       this.steerAngle += E.clamp(want - this.steerAngle, -h.steerRate * dt, h.steerRate * dt);
       const d = this.lifted === "front" ? 0 : this.steerAngle, cd = Math.cos(d), sd = Math.sin(d), u = this.u, v = this.v, w8 = this.w;
-      const mu = this._grip(world2), wet = world2.wet ? 0.8 : 1, flat = this.flat || 0, grip = h.grip * mu * wet * (1 - 0.45 * flat);
+      const mu = this._grip(world2), wet = world2.wet ? 0.8 : 1, flat = this.flat || 0, grip = h.grip * mu * wet * (1 - 0.45 * flat) * (this.slide ? 0.03 : 1);
       this.held = Math.abs(u) < 1 && C8.brake > 0 && !(C8.throttle > 0) ? (this.held || 0) + dt : 0;
       const fwd = u > 0.5 || u > -0.5 && C8.throttle >= C8.brake, rev = !fwd && C8.brake > 0 && u < 2 && (u < -0.5 || this.held > 0.2);
       let drive = 0, braking = 0;
@@ -13159,7 +13159,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.w *= Math.max(0, 1 - 4 * dt);
       } else if (contact) {
         const s = Math.hypot(this.u, this.v), kin = E.clamp(1 - (s - 6) / 24, 0, 1);
-        if (kin > 0) {
+        if (kin > 0 && !this.slide) {
           const wk = this.lifted === "front" ? this.w : this.u * Math.tan(d) / this.h.wheelbase;
           this.w += (wk - this.w) * kin;
           this.v += (wk * this.b - this.v) * kin * 0.5;
@@ -15219,7 +15219,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     kill: ["targets"],
     // targets: a tag; vehicle (a tag: rammed from that vehicle, never left for the job on foot)
     deliver: ["what", "to"],
-    // what: a tag; to: [x, y]; tow (the tow truck's tag: what goes on its hook)
+    // what: a tag; to: [x, y]; tow (the tow truck's tag: what goes on its hook); health (the share it must keep)
     evade: [],
     // lose the wanted level
     follow: ["target"],
@@ -16784,6 +16784,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     constructor(ped, o = {}) {
       this.noSelect = !!o.noSelect;
       this.want = null;
+      this.careful = !!o.careful;
+      this.pedsNear = o.pedsNear || null;
       this.ped = ped;
       this.S = o.walks || null;
       this.map = o.map || null;
@@ -16902,7 +16904,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this._lineT > this.t && this._lineFor === tgt) return this._line;
       this._lineT = this.t + 0.25;
       this._lineFor = tgt;
-      return this._line = lineOfFire(this.ped, tgt, this.map, this.fleet);
+      const line = lineOfFire(this.ped, tgt, this.map, this.fleet);
+      return this._line = line !== "wall" && line !== "car" && this.careful && this._peopleIn(tgt) ? "car" : line;
+    }
+    // someone not in the fight between it and the target, near the line of fire
+    _peopleIn(tgt) {
+      const p = this.ped, N7 = this.pedsNear;
+      if (!N7) return false;
+      const dx = tgt.x - p.x, dy = tgt.y - p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+      for (const q of N7((p.x + tgt.x) / 2, (p.y + tgt.y) / 2, d / 2 + 12)) {
+        if (q === p || q === tgt || q.dead || q.floored || q.seat || q.hostile) continue;
+        const ox = q.x - p.x, oy = q.y - p.y, along2 = ox * ux + oy * uy;
+        if (along2 > 6 && along2 < d - 6 && Math.abs(oy * ux - ox * uy) < 9) return true;
+      }
+      return false;
     }
     // a car in the line of fire: a few steps to one side (the other, if that goes nowhere)
     _aside(dt, I, tgt) {
@@ -17720,7 +17735,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         ctl = { throttle: 0, brake: slow ? 0 : 0.05, steer: 0, handbrake: slow && !b.lifted };
         if (b.lifted) ctl.handbrake = false;
         this.horn = false;
+        if (this.shoved > 0) {
+          this.shoved -= dt;
+          ctl.handbrake = false;
+        }
       }
+      b.slide = !this.driver && this.shoved > 0;
       if (this.nitroT > 0) {
         this.nitroT -= dt;
         ctl.boost = TUNE.nitroBoost;
@@ -18950,8 +18970,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** stuck behind a car nobody drives a while (4 x TUNE.gridlock s), with no pass round it (at a junction's mouth, on a
      *  connector): shove it aside at a creep, as the gridlock breaker shoves a ring's next car */
     _shoves(L17, stuck) {
-      return !!(stuck && !this.pass && L17 && !L17.v.brain && !L17.v.driver && this.blocked > TUNE.gridlock * 4 && !(this.creepT > 0));
+      return !!(stuck && !this.pass && L17 && !L17.v.brain && !L17.v.driver && L17.v.owner !== "mission" && this.blocked > TUNE.gridlock * 4 && !(this.creepT > 0));
     }
+    // (never a job's: a roadblock stays where it was put)
     // a pass round a stopped obstacle: the smallest sideways offset whose corridor is clear (walls, street furniture,
     // water, other vehicles, peds), out to past its far end; null when neither side is
     _planPass(L17, w8, S5) {
@@ -19228,6 +19249,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this._shoves(L17, stuck)) {
         this.creepT = 2.5;
         this.blocked = TUNE.passAfter * this.p.patience;
+        L17.v.shoved = 3;
+        if (w8.fleet) w8.fleet.wake(L17.v);
       }
       return acc;
     }
@@ -20601,6 +20624,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.data = { ...o.data || {} };
       this.startedAt = k;
       this.actors = new MissionActors(this.world(), this);
+      if (kind === "mission" && spec.gang) {
+        const G2 = this.world().life && this.world().life.gangs;
+        if (G2) {
+          G2.allies.add(spec.gang);
+          this.allyHeld = true;
+        }
+      }
       if (kind !== "reel" && kind !== "bench") BUS.emit(kind === "activity" ? "activityStart" : "missionStart", kind === "activity" ? { id, level: this.level } : { id });
       this.state = "running";
       this._stage(k);
@@ -20842,6 +20872,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (G2) G2.allies.clear();
         this.allyHeld = false;
       }
+      if (this.servicesHeld) {
+        const S5 = W26.life && W26.life.services;
+        if (S5) S5.held.clear();
+        this.servicesHeld = false;
+      }
       if (W26.stage && W26.stage.pointRail) W26.stage.pointRail(null);
       if (W26.slowmo) W26.slowmo(1);
       if (this.weatherHeld) {
@@ -21042,6 +21077,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     truce(gang) {
       this.ally(gang);
+    }
+    /** the city's own service of a kind ('fire' | 'medic' | 'police') takes no new calls while the run lasts: a job that is
+     *  that service (Firefighter: the player's the engine on call, and the city's own would come to the same fires) */
+    standDown(kind) {
+      const S5 = this.W.life && this.W.life.services;
+      if (!S5) return;
+      S5.held.add(kind);
+      this.R.servicesHeld = true;
     }
     /** put a world vehicle on the job's list under a tag (a garaged car, one the player came in): the hints can name it;
      *  the world's again when the run ends, and a retry never releases it */
@@ -21327,7 +21370,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           return w8 && w8.body && m.vehicle !== w8 ? w8 : to;
         },
         start: (m) => {
-          m.objective(text, { hint: { kind: "deliver", what: o.what, to, tow: o.tow } });
+          m.objective(text, { hint: { kind: "deliver", what: o.what, to, tow: o.tow, health: o.health } });
           m.marker(to, { color: "#7aff8a", r: Math.min(r7, 28) });
         }
       });
@@ -26867,6 +26910,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.answered = 0;
       this.revived = 0;
       this.step = 0;
+      this.held = /* @__PURE__ */ new Set();
       this._unsub = o.reports === false ? [] : [BUS.on("report", (e) => this.call("police", e.x, e.y, { crime: e.crime, by: e.by }), "world")];
     }
     dispose() {
@@ -26878,7 +26922,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  Returns the call, or null when one like it is already being answered */
     call(kind, x, y, o = {}) {
       const U = this.units[kind];
-      if (!U) return null;
+      if (!U || this.held.has(kind)) return null;
       if (this.calls.some((c2) => c2.kind === kind && c2.state !== "done" && Math.hypot(c2.x - x, c2.y - y) < (kind === "police" ? 260 : kind === "medic" ? 180 : 90))) return null;
       const T20 = this.life.traffic, far = this.fp.d(x, y) > TUNE.fpActivity;
       if (!far && T20 && this.calls.filter((q) => q.kind === kind && q.unit && q.state !== "done").length >= U.max) return null;
@@ -27341,6 +27385,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.prog = null;
         this.avoid = null;
         this.esc = null;
+        this.wedge = null;
       }
       return this;
     }
@@ -27352,6 +27397,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.car = v;
       this.tried.clear();
       this.esc = null;
+      this.wedge = null;
       this._dropBrain();
       return this;
     }
@@ -27368,6 +27414,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     update(dt, p, w8 = {}) {
       const I = clearIntent(this.I);
       this.t += dt;
+      this._w = w8;
       if (!this.goal || p.dead) return I;
       const g = this.goal, v = p.seat && p.seat.vehicle, d = Math.hypot(g.x - p.x, g.y - p.y);
       if (this._wasBoarding && !p.boarding && !v && this.car) {
@@ -27694,6 +27741,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return I2;
       }
       if (this.round) return this._round(dt, v);
+      const cop = w8.wanted && w8.wanted.stars > 0 && v.speed < 6 ? this._copAt(v, w8.police) : null;
+      if (cop) {
+        const c = Math.cos(v.heading), s = Math.sin(v.heading), dx = cop.x - v.x, dy = cop.y - v.y;
+        this.round = { t: dx * c + dy * s > 0 ? 0 : 1.1, side: c * dy - s * dx > 0 ? -1 : 1 };
+        return this._round(dt, v);
+      }
+      if (this._wedged(dt, v, b)) {
+        this.esc = { to: this._ahead(b, 180) || [g.x, g.y], t: 0, slow: 0, back: 0, side: this.wedge.n % 2 ? 1 : -1 };
+        this._dropBrain();
+        return this._escape(dt, v);
+      }
       const L17 = b.leader, waits = L17 && L17.v && L17.v.brain && !L17.v.brain.parked && ["signal", "queue", "yield"].includes(L17.v.brain.cause), held = L17 && L17.gap < 14 && L17.speed < 2 && !waits || b.cause === "ped";
       this.boxT = held && v.speed < 3 && !b.pass && b.cause !== "signal" && b.cause !== "arrived" ? (this.boxT || 0) + dt : 0;
       if (this.boxT > (b.cause === "ped" ? 8 : 5)) {
@@ -27717,6 +27775,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.state = "escape";
       if (X2.back > 0) {
         X2.back -= dt;
+        if (this._footIn(v, -1)) {
+          X2.back = 0;
+          return this._hold(v, I);
+        }
         I.brake = 0.8;
         I.steer = -X2.side;
         return I;
@@ -27727,6 +27789,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this._dropBrain();
         return I;
       }
+      if (this._footIn(v, 1)) return this._hold(v, I);
       let da = Math.atan2(X2.to[1] - v.y, X2.to[0] - v.x) - v.heading;
       da = Math.atan2(Math.sin(da), Math.cos(da));
       X2.slow = v.speed < 3 ? X2.slow + dt : 0;
@@ -27782,17 +27845,75 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const R3 = this.round, I = clearIntent(this.I);
       R3.t += dt;
       if (R3.t < 1.1) {
+        if (this._footIn(v, -1)) {
+          R3.t = 1.1;
+          return this._hold(v, I);
+        }
         I.brake = 0.8;
         I.steer = -R3.side * 0.6;
         return I;
       }
       if (R3.t < 2.6) {
+        if (this._footIn(v, 1)) {
+          R3.t -= dt;
+          R3.wait = (R3.wait || 0) + dt;
+          if (R3.wait > 6) {
+            this.round = null;
+            this._dropBrain();
+          }
+          return this._hold(v, I);
+        }
         I.throttle = 0.55;
         I.steer = R3.side * 0.5;
         return I;
       }
       this.round = null;
       this._dropBrain();
+      return I;
+    }
+    // wedged (true once, then the clock starts again): no light, no queue, nobody close ahead, and no more than a rock back
+    // and forth for 5 s, at street level: pressed into a corner or a post with no room behind for the brain's own back-off
+    _wedged(dt, v, b) {
+      const W26 = this.wedge || (this.wedge = { t: 0, at: [v.x, v.y], n: 0 });
+      if (b.cause || b.leader && b.leader.gap < 30 || Math.hypot(v.x - W26.at[0], v.y - W26.at[1]) > 10) {
+        W26.t = 0;
+        W26.at = [v.x, v.y];
+        return false;
+      }
+      if ((W26.t += dt) <= 5 || (v.z || 0) >= 10) return false;
+      W26.t = 0;
+      W26.n++;
+      return true;
+    }
+    // someone on foot where the car is about to go (dir 1 ahead, -1 behind), within its length and a stride and across
+    // its width and a stride: the unstick moves look before they back off or swing out (a cop by a cruiser parked at a
+    // scene stands in the lane beside it)
+    _footIn(v, dir) {
+      const w8 = this._w;
+      if (!w8 || !w8.pedsNear) return false;
+      const c = Math.cos(v.heading) * dir, s = Math.sin(v.heading) * dir, reach = v.hl + 30;
+      for (const p of w8.pedsNear(v.x + c * reach / 2, v.y + s * reach / 2, reach)) {
+        if (p.dead || p.floored || p.seat || Math.abs((p.z || 0) - (v.z || 0)) > 14) continue;
+        const dx = p.x - v.x, dy = p.y - v.y, along2 = dx * c + dy * s, off2 = Math.abs(dy * c - dx * s);
+        if (along2 > 0 && along2 < reach && off2 < v.hw + 10) return true;
+      }
+      return false;
+    }
+    // a cop on foot near the car (police: the Police, its cops), or null
+    _copAt(v, police) {
+      for (const c of police && police.cops || []) {
+        const q = c.ped;
+        if (!q.dead && !q.seat && !q.floored && Math.hypot(q.x - v.x, q.y - v.y) < 80 && Math.abs((q.z || 0) - (v.z || 0)) < 14) return q;
+      }
+      return null;
+    }
+    // stopped where it is: braked against the way it rolls (the brake backs it up from a standstill, the throttle drives
+    // it on), the handbrake once still
+    _hold(v, I) {
+      if (v.speed > 3) {
+        if (this._fwd(v)) I.brake = 1;
+        else I.throttle = 1;
+      } else I.down.handbrake = true;
       return I;
     }
     // straight at the goal at a crawl (a yard, a plaza, the rest of the way past the road's end); reversing when it lies
@@ -27962,7 +28083,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const travel = h.kind === "deliver" || h.kind === "goto" && !h.spray;
       if (travel && w8.wanted && w8.wanted.stars > 0 && !R3.allowWanted && !R3.timer && !w8.inside) {
         const job3 = h.kind === "deliver" && !h.tow ? R3.actors.tagged(h.what).find(alive2) : null;
-        return this._evade(dt, p, R3, w8, job3 && job3.body ? job3 : null);
+        return this._evade(dt, p, R3, w8, job3 && job3.body ? job3 : null, h.health ? "careful" : "race");
       }
       const out = this._act(dt, p, R3, h, w8, I, v);
       if (h.kind !== "stealth" && p.crouching && this.crouched && !v) {
@@ -28360,10 +28481,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _fight(dt, p, t, w8) {
       const r0 = this.fighter && this.fighter.gun && p.inv.rounds(this.fighter.gun), dry = r0 && r0.total + r0.mag <= 0;
       if (!this.fighter || this.fighter.ped !== p || this._kit !== p.inv.list().join() || dry) {
-        this.fighter = new Fighter(p, { walks: this.roads.walks, map: this.city.map, fleet: this.fleet, refill: false, noSelect: this.pad, profile: PLAYER_FIGHT, best: true });
+        this.fighter = new Fighter(p, { walks: this.roads.walks, map: this.city.map, fleet: this.fleet, refill: false, noSelect: this.pad, profile: PLAYER_FIGHT, best: true, careful: true });
         this._kit = p.inv.list().join();
       }
       const F = this.fighter;
+      F.pedsNear = w8.pedsNear || null;
       const I = clearIntent(F.I);
       if (t.body) {
         const melee = !F.gun || p.inv.spec(F.gun).projectile === "melee";
@@ -28397,7 +28519,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       return I;
     }
-    _evade(dt, p, R3, w8, job3 = null) {
+    _evade(dt, p, R3, w8, job3 = null, style = "race") {
       const W26 = w8.wanted;
       if (!W26 || !W26.stars) return this._idle(clearIntent(this.I), p.seat && p.seat.vehicle);
       if (job3 && (!p.seat || p.seat.vehicle !== job3)) return this._board(dt, p, job3, w8);
@@ -28406,9 +28528,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (I) return I;
       }
       const v = p.seat && p.seat.vehicle, P17 = v || p;
-      if (v && w8.respray && !W26.seen && Math.hypot(w8.respray[0] - v.x, w8.respray[1] - v.y) < 1200) return this._go(dt, p, w8.respray[0], w8.respray[1], { stay: true, style: "race", radius: 18, slack: 30, hold: !!job3 }, w8);
+      if (v && w8.respray && !W26.seen && Math.hypot(w8.respray[0] - v.x, w8.respray[1] - v.y) < 1200) return this._go(dt, p, w8.respray[0], w8.respray[1], { stay: true, style, radius: 18, slack: 30, hold: !!job3 }, w8);
       if (!this.dest || Math.hypot(this.dest[0] - P17.x, this.dest[1] - P17.y) < 80) this.dest = this._far(P17, w8);
-      return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style: "race", slack: 80, hold: !!job3 }, w8);
+      return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style, slack: 80, hold: !!job3 }, w8);
     }
     // the point of interest farthest from the police round the player (or from the player, with none about), past 500
     _far(P17, w8) {
@@ -34379,6 +34501,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var lights = (m) => Object.assign(m.waitUntil(() => false), { start: (mm) => mm.wanted.cap(0), end: (mm) => mm.wanted.clear() });
   var neutral = (m) => {
     for (const g of ["saints", "rats", "gnomes"]) m.truce(g);
+    m.standDown("fire");
   };
   var fireStage = (k) => ({
     id: "fire" + (k + 1),

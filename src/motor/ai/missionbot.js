@@ -94,7 +94,7 @@ export class MissionBot {
     // stage not allowing the stars): lose them first, as a player would, and the objective after. (A fight, a chase, a
     // race or a photo goes on with the stars.)
     const travel = h.kind === 'deliver' || (h.kind === 'goto' && !h.spray);
-    if (travel && w.wanted && w.wanted.stars > 0 && !R.allowWanted && !R.timer && !(w.inside)) { const job = h.kind === 'deliver' && !h.tow ? R.actors.tagged(h.what).find(alive) : null; return this._evade(dt, p, R, w, job && job.body ? job : null); }
+    if (travel && w.wanted && w.wanted.stars > 0 && !R.allowWanted && !R.timer && !(w.inside)) { const job = h.kind === 'deliver' && !h.tow ? R.actors.tagged(h.what).find(alive) : null; return this._evade(dt, p, R, w, job && job.body ? job : null, h.health ? 'careful' : 'race'); }   // (a car to deliver whole: lost them at a careful pace)
     const out = this._act(dt, p, R, h, w, I, v);
     // crouched for a stealth stage that is over: stood up again, as a player would (a crouch is a toggle: left on, it
     // walks the rest of the job slowly and climbs nothing)
@@ -283,8 +283,8 @@ export class MissionBot {
   // on foot against one target: the fighter brain with the player's own weapons (a vehicle beaten with a bat, or shot)
   _fight(dt, p, t, w) {
     const r0 = this.fighter && this.fighter.gun && p.inv.rounds(this.fighter.gun), dry = r0 && r0.total + r0.mag <= 0;   // (out of ammo: the next gun, else the bat or the fists)
-    if (!this.fighter || this.fighter.ped !== p || this._kit !== p.inv.list().join() || dry) { this.fighter = new Fighter(p, { walks: this.roads.walks, map: this.city.map, fleet: this.fleet, refill: false, noSelect: this.pad, profile: PLAYER_FIGHT, best: true }); this._kit = p.inv.list().join(); }
-    const F = this.fighter;
+    if (!this.fighter || this.fighter.ped !== p || this._kit !== p.inv.list().join() || dry) { this.fighter = new Fighter(p, { walks: this.roads.walks, map: this.city.map, fleet: this.fleet, refill: false, noSelect: this.pad, profile: PLAYER_FIGHT, best: true, careful: true }); this._kit = p.inv.list().join(); }
+    const F = this.fighter; F.pedsNear = w.pedsNear || null;   // (the player holds fire over bystanders)
     const I = clearIntent(F.I);
     if (t.body) {   // a vehicle: right up to its side for a swing; a gun from where the fighter stands
       const melee = !F.gun || p.inv.spec(F.gun).projectile === 'melee';
@@ -305,15 +305,15 @@ export class MissionBot {
     if ((this.t * 8 | 0) % 2 === 0) { I.tap.weaponNext = true; I.down.weaponNext = true; }
     return I;
   }
-  _evade(dt, p, R, w, job = null) {   // (job: the vehicle the job is about, a delivery's: lost them in it, never another)
+  _evade(dt, p, R, w, job = null, style = 'race') {   // (job: the vehicle the job is about, a delivery's: lost them in it, never another)
     const W = w.wanted; if (!W || !W.stars) return this._idle(clearIntent(this.I), p.seat && p.seat.vehicle);
     if (job && (!p.seat || p.seat.vehicle !== job)) return this._board(dt, p, job, w);
     if (!p.seat) { const I = this._car(dt, p, w); if (I) return I; }
     const v = p.seat && p.seat.vehicle, P = v || p;
     // out of their sight in a car, a respray within reach (and the fee in hand): there, before they find it again
-    if (v && w.respray && !W.seen && Math.hypot(w.respray[0] - v.x, w.respray[1] - v.y) < 1200) return this._go(dt, p, w.respray[0], w.respray[1], { stay: true, style: 'race', radius: 18, slack: 30, hold: !!job }, w);
+    if (v && w.respray && !W.seen && Math.hypot(w.respray[0] - v.x, w.respray[1] - v.y) < 1200) return this._go(dt, p, w.respray[0], w.respray[1], { stay: true, style, radius: 18, slack: 30, hold: !!job }, w);
     if (!this.dest || Math.hypot(this.dest[0] - P.x, this.dest[1] - P.y) < 80) this.dest = this._far(P, w);
-    return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style: 'race', slack: 80, hold: !!job }, w);
+    return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style, slack: 80, hold: !!job }, w);
   }
   // the point of interest farthest from the police round the player (or from the player, with none about), past 500
   _far(P, w) {
