@@ -2,7 +2,7 @@
 // officers (cop.js) and the gangs' members (gangs.js) are fighters.
 //   - a gun (a pistol, the SMG, the shotgun): it closes to its range (a share of the weapon's) and a clear line of fire
 //     (round a wall's corner; a step aside when a car stands in the way, or, for a careful fighter, the player's, anyone
-//     not in the fight; a fighter with someone to spare, a gang's member not after the player, steps aside while the
+//     not in the fight, and round it toward the target when the steps clear nothing; a fighter with someone to spare, a gang's member not after the player, steps aside while the
 //     player or their car is anywhere its shots could go), stops, and fires in bursts at the target's chest, each burst
 //     a little off;
 //   - a bat, or bare fists: it runs in and swings;
@@ -30,7 +30,7 @@ export class Fighter {
     this.noSelect = !!o.noSelect; this.want = null; this.careful = !!o.careful; this.pedsNear = o.pedsNear || null;   // (careful: holds its fire over people in the way: pedsNear(x, y, r))
     this.spare = o.spare || null;
     this.ped = ped; this.S = o.walks || null; this.map = o.map || null; this.fleet = o.fleet || null; this.rng = o.rng; this.I = makeIntent(); this.profile = { ...FIGHT, ...(o.profile || {}) };
-    this.side = this.rng && this.rng.next() < .5 ? -1 : 1; this.stepT = 0;
+    this.side = this.rng && this.rng.next() < .5 ? -1 : 1; this.stepT = 0; this.blockT = 0;
     this.burst = 0; this.pause = this.rng ? this.rng.next() * .5 : 0; this.off = 0; this.throwT = 2 + (this.rng ? this.rng.next() * THROW_EVERY : 0);
     this.goal = null; this.path = null; this.pathKey = null; this.pi = 0; this.last = [ped.x, ped.y]; this.stuck = 0; this.t = 0;
     const spec = id => ped.inv.spec(id);
@@ -71,7 +71,8 @@ export class Fighter {
     }
     const range = Math.max(40, spec.range * this._p('range')), line = this._lineTo(tgt);
     if (d > range || line === 'wall') return this._go(dt, I, tgt.x, tgt.y, true, 'target');   // (closer, or round the corner it hides behind)
-    if (line === 'car') return this._aside(dt, I, tgt);
+    if (line === 'car') { this.blockT += dt; return this.careful && this.blockT > 3 ? this._go(dt, I, tgt.x, tgt.y, true, 'round') : this._aside(dt, I, tgt); }   // (the player's: steps aside that clear nothing for 3 s, round it toward the target: two behind a parked truck had kept it stepping to and fro while they shot)
+    this.blockT = 0;
     I.move[0] = I.move[1] = 0;
     // (a kiter backs off from a target come closer than its share of the range, still firing: where the way behind is
     // open)

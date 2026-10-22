@@ -8,8 +8,8 @@ summary (`src/about.js`).
   <https://github.com/michaelcrosato/my-3d2dge>, MIT. It is vendored whole at `vendor/my-3d2dge/` (the 742 KB
   `engine/my-3d2dge.js`, its tools, docs and mocap), checked against its SHA by `tools/vendor-check.mjs` on every
   `npm test`, and changed only by the seven patches in `vendor/my-3d2dge/PATCHES.md`.
-- **What sits on it:** MOTOR (`src/motor/`, about 15,400 lines), an open-city layer, and the game's content
-  (`src/game/`, about 8,400 lines), which imports MOTOR's public API alone (`tools/boundary-check.mjs` enforces it).
+- **What sits on it:** MOTOR (`src/motor/`, about 16,100 lines), an open-city layer, and the game's content
+  (`src/game/`, about 8,500 lines), which imports MOTOR's public API alone (`tools/boundary-check.mjs` enforces it).
   MOTOR reaches the engine through one global, `E`, and its game object.
 - **How this was worked out:** a census of every `E.*` name MOTOR and the content use (counts below are call sites),
   the decisions that chose against a piece (`docs/DECISIONS.md`), and the patches.
@@ -23,8 +23,8 @@ with `game.advance`: every sim test, the mission bot, the campaign and the soaks
 That one property carried the whole verification plan.
 
 **Pixels.** The primitives everywhere MOTOR draws for itself: `E.px` (84 call sites), `E.mkCanvas` and `E.ctx2d`
-(37), the colour helpers `E.shade`, `E.hex` and `E.tones` (34), `E.tex` textures (13), the pixel font `E.font` with
-its title face (32), `E.ui` boxes (4), and `E.hash2`, `E.noise2` and `E.rng` for procedural detail (31): every car,
+(38), the colour helpers `E.shade`, `E.hex` and `E.tones` (34), `E.tex` textures (13), the pixel font `E.font` with
+its title face (35), `E.ui` boxes (4), and `E.hash2`, `E.noise2` and `E.rng` for procedural detail (31): every car,
 facade, sign, floor tile, HUD glyph and card is drawn with them at run time, with no image files.
 
 **The world.** `E.TileMap` holds Lowtown's buildings and the bank's rooms: walls, roofs, facades, materials and
@@ -128,10 +128,10 @@ Patch 6 (a `floor: false` flag) was planned and never needed: the city never cal
 
 **Why this one.** The build bears out what planning guessed. Four of the seven patches (1, 2, 3, 7) exist only because
 Lowtown is a city and not a level. MOTOR's floor chunks and its decks are the rest of the same gap, written outside the
-engine. And the frame budget that still runs over (MODE 7's and ISO's medians, D20) is spent mostly on drawing a big
-world, not on simulating it. Every other gap a GTA-style game met could be built on top in game code: vehicles, the
-perspective views, the TV-scale UI, analog triggers, the radio. This one sits inside the engine and holds back every
-open-world game made with it: city sandboxes, overworlds, large towns.
+engine. And the frame time that still runs over its budget in MODE 7 and ISO (D20; the owner left performance for later,
+D29) is spent mostly on drawing a big world, not on simulating it. Every other gap a GTA-style game met could be built
+on top in game code: vehicles, the perspective views, the TV-scale UI, analog triggers, the radio. This one sits inside
+the engine and holds back every open-world game made with it: city sandboxes, overworlds, large towns.
 
 **A close second:** promote the stress test's side scrolling with depth from page code to a view any game can switch
 to. MOTOR had to lift it out of a demo page and make it general (a level camera, any heading, textured faces,

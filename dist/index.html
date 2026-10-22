@@ -18027,6 +18027,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.profile = { ...FIGHT, ...o.profile || {} };
       this.side = this.rng && this.rng.next() < 0.5 ? -1 : 1;
       this.stepT = 0;
+      this.blockT = 0;
       this.burst = 0;
       this.pause = this.rng ? this.rng.next() * 0.5 : 0;
       this.off = 0;
@@ -18101,7 +18102,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       const range = Math.max(40, spec.range * this._p("range")), line = this._lineTo(tgt);
       if (d > range || line === "wall") return this._go(dt, I, tgt.x, tgt.y, true, "target");
-      if (line === "car") return this._aside(dt, I, tgt);
+      if (line === "car") {
+        this.blockT += dt;
+        return this.careful && this.blockT > 3 ? this._go(dt, I, tgt.x, tgt.y, true, "round") : this._aside(dt, I, tgt);
+      }
+      this.blockT = 0;
       I.move[0] = I.move[1] = 0;
       const kite = this._p("kite");
       if (kite && d < range * kite) {

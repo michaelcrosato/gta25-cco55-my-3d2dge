@@ -116,3 +116,17 @@ test('the mission bot, the Eye up: under a deck out of its sight (the road under
   B.t = 2; B._cover(at, W); B.t = 4; B._cover(at, W); B.t = 6; const r = B._cover(at, W);
   assert.ok(r !== q && Math.hypot(r[0] - q[0], r[1] - q[1]) >= 160, 'seen there 3 s: another stretch, away from it');
 });
+
+test('the player\'s fighter, a car in its line of fire: steps aside, and when 3 s of that clear nothing, round it toward the target (two behind a parked truck had kept it stepping to and fro while they shot)', () => {
+  const ped = { x: 100, y: 100, z: 0, mover: { facing: 0 }, inv: { current: 'snub38', spec: () => ({ projectile: 'bullet', range: 400, spread: 2 }), select() {}, loaded: () => true, rounds: () => ({ mag: 6, total: 30 }), list: () => ['snub38'] } };
+  const tgt = { x: 250, y: 100, z: 0 }, run = careful => {   // (150 off: within the gun's reach, 400 x the profile's .45)
+    const F = new Fighter(ped, { careful }); F.gun = 'snub38'; F._lineTo = () => 'car';
+    const moves = []; for (let t = 0; t < 4; t += 1 / 60) { const I = F.attack(1 / 60, makeIntent(), tgt); moves.push([I.move[0], I.move[1]]); }
+    return moves;
+  };
+  const toward = m => m[0] > .5 && Math.abs(m[1]) < .5, sideways = m => Math.abs(m[0]) < .2 && Math.abs(m[1]) > .5;
+  const c = run(true);
+  assert.ok(c.slice(0, 170).every(sideways), 'the first 3 s: steps to one side and the other');
+  assert.ok(c.slice(190).every(toward), 'then: round it, toward the target');
+  assert.ok(run(false).every(sideways), 'a gang\'s or a cop\'s fighter (not careful) keeps to its steps aside');
+});
