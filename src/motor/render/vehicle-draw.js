@@ -4,7 +4,8 @@
 //     alternating lamps; a wreck charred, on its roof if it landed so; a bike leaning into turns and wheelieing off the
 //     line; a boat bobbing; a heli tilted into its push with its rotor turning and its spotlight on the ground; the L;
 //   - parked vehicles are kept images (D13), redrawn only when their look changes; in ISO a moving car's image is kept
-//     too, while its heading and look hold;
+//     too, while its heading and look hold, and in MODE 7 while it is small on screen and its bearing from the lens
+//     holds too (2 degree steps; the Stage redraws a depth view's kept image every 8 frames and at 6% of size anyway);
 //   - at night: headlight pools and beams, tail lights, the siren's lights;
 //   - VehicleFX: skid marks on the floor, tyre smoke, sparks off scrapes, engine smoke and fire, debris, the wake, the
 //     water cannon's jet, oil slicks and mines, the hydrant's spray.
@@ -13,7 +14,7 @@ import { TUNE } from '../core/tune.js';
 import { drawBoxModel } from './box-model.js';
 
 const SKID_LIFE = 40;   // seconds a skid mark lasts (it fades over its life)
-const HEADING_STEP = Math.PI / 90;   // (a moving car's kept image in ISO: redrawn when its heading moves 2 degrees)
+const HEADING_STEP = Math.PI / 90;   // (a moving car's kept image: redrawn when its heading, or in MODE 7 its bearing, moves 2 degrees)
 
 /** ease a vehicle's cosmetic look toward what its body feels (dt: real seconds since its last frame) */
 export function easeLook(v, dt) {
@@ -61,12 +62,14 @@ export function drawVehicle(stage, v, o = {}) {
     siren, paint: v.color, burnt: wreck, cracked: v.damage.share < .5, dents: v.damage.dents, extra };
   const plain = !v.damage.smoking && siren === undefined && !b.airborne && v.cls !== 'heli' && v.cls !== 'boat' && !v.sinking, still = plain && b.speed < .5;
   // ISO's projection is the same everywhere, so a car on the move looks the same wherever it is: its image is kept too,
-  // redrawn when its heading (2 degree steps), lean, steering, lights or paint change (a car driving straight: once)
-  const moving = plain && !still && !stage.depth && v.cls !== 'bike';
+  // redrawn when its heading (2 degree steps), lean, steering, lights or paint change (a car driving straight: once);
+  // in MODE 7 a car looks the same while its bearing from the lens holds (TOP-DOWN leans it by where it is on screen)
+  const d7 = stage.depth && stage.depth === stage.side7 ? stage.depth : null, moving = plain && !still && (!stage.depth || d7) && v.cls !== 'bike';
   const sig = still ? `${b.heading.toFixed(3)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}|${doorSig}|${v.color}|${b.steerAngle.toFixed(2)}`
-    : moving ? `m${Math.round(b.heading / HEADING_STEP)}|${Math.round(look.roll / .03)}|${Math.round(look.pitch / .02)}|${Math.round(b.steerAngle / .1)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}${v.lights.reverse ? 1 : 0}|${doorSig}|${v.color}|${wreck ? 1 : 0}` : '';
+    : moving ? `m${Math.round(b.heading / HEADING_STEP)}|${Math.round(look.roll / .03)}|${Math.round(look.pitch / .02)}|${Math.round(b.steerAngle / .1)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}${v.lights.reverse ? 1 : 0}|${doorSig}|${v.color}|${wreck ? 1 : 0}${d7 ? '|' + Math.round(Math.atan2(d7.lateral(b.x, b.y), d7.depth(b.x, b.y)) / HEADING_STEP) : ''}` : '';
   const draw = (g, P) => drawBoxModel(g, P, v.model, b.x, b.y, z, b.heading, opts);
-  stage.shape(b.x, b.y, z, draw, still || moving ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig }, kind: 'car' } : { kind: 'car' });
+  const reach = [v.hl + 6, z, z + v.height + 8];   // (what MODE 7's walls may hide)
+  stage.shape(b.x, b.y, z, draw, still || moving ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig }, kind: 'car', reach } : { kind: 'car', reach });
   if (v.cls === 'heli') drawHeliExtras(stage, v, o);
   if (o.night && !wreck) drawNightLights(stage, v, z);
   if (siren !== undefined) {   // the bar's lamps: alternating red and blue glows, and a light either side

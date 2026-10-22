@@ -3,11 +3,27 @@
 // view: each piece draws through the projector (P.proj), so ISO queues it with the engine (sorted by its own x, y, z:
 // a slab hides what is under it from the camera, PLAN.md 8.4), and TOP and SIDE7 sort it with everything else.
 //   Everything is bucketed by chunk at load, so a frame looks only at what is near the focus.
+//   ISO's projection is the same everywhere on the screen, so there the props and pillars of one model and facing, and
+//   the deck cells and railings of one variant, share one kept image each (Stage.shape's kept), redrawn only when the
+//   view turns or zooms: a box model or a textured slab a frame each had been most of their cost.
 import { E } from '../engine.js';
 import { texturedFace } from './depth/quads.js';
 import { drawBoxModel } from './box-model.js';
 
 const T = 16, CH = 256;
+// ISO's shared kept images: a key object by its words; a model's number and its reach round its anchor (r across, h
+// up); a deck cell's open edges (a bit an edge of EDGES), worked out once
+const SHARED = new Map(), MODELS = new WeakMap(), OPEN = new WeakMap(); let modelN = 0;
+const shared = k => { let o = SHARED.get(k); if (!o) SHARED.set(k, o = {}); return o; };
+function modelOf(m) {
+  let M = MODELS.get(m);
+  if (!M) { let r = 0, h = 0; for (const q of m.parts) { const [x0, y0, , x1, y1, z1] = q.box; r = Math.max(r, Math.hypot(Math.max(-x0, x1), Math.max(-y0, y1))); h = Math.max(h, z1); } MODELS.set(m, M = { id: ++modelN, r: Math.ceil(r) + 2, h: Math.ceil(h) + 2 }); }
+  return M;
+}
+// what a model reaches standing at height z ([r, z0, z1]: for MODE 7's walls to hide it)
+const reachOf = (m, z) => { const M = modelOf(m); return [M.r, z, z + M.h]; };
+// a kept image shared by every prop of model m at facing f in ISO (null in the depth views: there each looks its own)
+const keptProp = (stage, m, f) => { if (stage.depth) return null; const M = modelOf(m); return { key: shared('prop:' + M.id + ':' + (f || 0).toFixed(3)), r: M.r, h: M.h }; };
 /** the engine's prop sprites for the city's prop kinds (others are box models below) */
 const SPRITES = { lamp: 'streetlamp', bin: 'trashcan', hydrant: 'hydrant', palm: 'palm', tree: 'tree' };
 /** box models for the props the engine has no sprite for: parts in the prop's own frame (x along its facing) */
@@ -120,7 +136,7 @@ export class CityRenderer {
     return dMin < fd - 4 && lMin < fl + 40 && lMax > fl - 40;
   }
   _prop(stage, p, night) {
-    if (p.kind === 'pillar') { stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, PILLAR(p.top), p.x, p.y, 0, 0), { kind: 'pillar' }); return; }
+    if (p.kind === 'pillar') { const m = PILLAR(p.top); stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, 0, 0), { kind: 'pillar', kept: keptProp(stage, m, 0), reach: reachOf(m, 0) }); return; }
     if (p.broken) {   // knocked over by a vehicle (actors/fleet.js): a lamp lies along the way it was hit, its light out
       const B = p.broken, m = BROKEN[p.kind] || PROP_MODELS[p.kind], a = p.kind === 'lamp' ? B.dir : p.facing || 0;
       if (p.kind === 'lamp') { const f = Math.min(1, B.t / .45); stage.shape(p.x, p.y, 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, 0, a, { pitch: -(1 - f) * Math.PI / 2 * .98 }), { kind: 'prop3d' }); }
@@ -130,20 +146,24 @@ export class CityRenderer {
     const spr = SPRITES[p.kind];
     if (spr) {
       const lamp = p.kind === 'lamp'; stage.prop(spr, p.x, p.y, p.z || 0, { light: night && lamp, lightColor: SODIUM, halo: false, lightRadius: 88, size: p.kind === 'palm' ? 1.3 : 1 });
-      if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow, { reflect: lampSmear });
+      if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow, { reflect: lampSmear, r: 13 });   // (r: its halo's reach, 12 u)
       return;
     }
     if (p.roof && this.city.cutaway && this.city.cutaway.cut.has(p.lot)) return;   // (a building the cut-away drops takes its roof with it)
-    const m = p.kind === 'container' ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0), { kind: 'prop3d' });
+    const m = p.kind === 'container' ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0), { kind: 'prop3d', kept: keptProp(stage, m, p.facing), reach: reachOf(m, p.z || 0) });
   }
   _deck(stage, { d, c, map }, fade) {
     const x = (c.cx + .5) * T, y = (c.cy + .5) * T, z = Math.max(c.z0, c.z1);
     const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72, a = near ? .3 : 1;
     // (far down a depth view a cell is a few pixels across: its top flat, no railings; ISO's are all near)
     const D = stage.depth, q = D && D.proj(x, y, z), small = !!(q && q[2] * T < DECK_SMALL);
-    stage.shape(x, y, z, (g, P) => drawDeckCell(g, P, d, c, map, a, small), { hides: true, kind: 'deck' });   // (the player shows through it, x-rayed)
+    let open = OPEN.get(c); if (open === undefined) OPEN.set(c, open = EDGES.reduce((b, e, i) => b | (map.has((c.cx + e[0]) + ',' + (c.cy + e[1])) ? 0 : 1 << i), 0));
+    const zl = Math.min(c.z0, c.z1) - d.thickness;   // (its reach, for MODE 7's walls to hide it)
+    // (ISO: one kept image a variant: the deck, its slope, the texture's phase, its open edges and its fade)
+    const v = D ? null : `${d.kind}:${d.thickness}:${c.z1 - c.z0}:${c.axis}:${c.cx & 3}:${c.cy & 3}:${a}`, dz = z - zl + 1;
+    stage.shape(x, y, z, (g, P) => drawDeckCell(g, P, d, c, map, a, small), { hides: true, kind: 'deck', reach: [T / 2, zl, z + 8], kept: v && { key: shared('deck:' + v + ':' + open), r: T * .75, h: 2, d: dz } });   // (the player shows through it, x-rayed)
     // its railings sort on their own, just outside their edge: drawn with the cell, the next cell's top cut them to teeth
-    if (d.railing !== false && !small) for (const e of EDGES) if (!map.has((c.cx + e[0]) + ',' + (c.cy + e[1]))) stage.shape(x + e[0] * T * 1.1, y + e[1] * T * 1.1, z, (g, P) => drawDeckRail(g, P, d, c, e, a), { hides: true, kind: 'rail' });
+    if (d.railing !== false && !small) EDGES.forEach((e, i) => { if (open & 1 << i) stage.shape(x + e[0] * T * 1.1, y + e[1] * T * 1.1, z, (g, P) => drawDeckRail(g, P, d, c, e, a), { hides: true, kind: 'rail', reach: [T * .7, zl, z + 8], kept: v && { key: shared('rail:' + v + ':' + i), r: T, h: 9, d: dz } }); });
   }
 }
 const WALL_IN = { s: [0, -10], n: [0, 10], e: [-10, 0], w: [10, 0] };   // (from a sign on a building's side to inside its wall)

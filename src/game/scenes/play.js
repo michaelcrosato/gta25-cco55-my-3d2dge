@@ -336,7 +336,7 @@ export const PLAY = {
         bridges = city.drawbridges.map(b => new Drawbridge(b, city)); cityR.bridges = bridges;
         if (Q('bridge') === 'up') bridges.forEach(b => b.raiseNow());
         tour = Q('tour') === '1' && city.tour.length ? { leg: 0, at: [...city.tour[0]] } : null;
-        rec = Q('perf') === '1' ? { update: [], render: [], frames: 0 } : null; stage.profFlush = Q('prof') === '1';   // (?prof=1: the depth views' sections timed with their raster: tools/_prof)
+        rec = Q('perf') === '1' ? { update: [], render: [], steps: [], frames: 0 } : null; stage.profFlush = Q('prof') === '1';   // (?prof=1: the depth views' sections timed with their raster: tools/_prof)
         crowd = Q('crowd') === '1' ? standIns() : null;
         const route = (!demo && data && data.route) || [], into = route[0] === 'interior' ? get('interiors', route[1] || 'bank') : null;   // (#interior/bank: in at its first door)
         const slot = (!demo && data && data.load) || Q('load'), loaded = slot ? saves.read(slot).data : null;
@@ -481,7 +481,7 @@ export const PLAY = {
         else if (!cam) game.focus(fx1 + (stage.depth ? 0 : lead[0]), fy1 + (stage.depth ? 0 : lead[1]), 16);   // (TOP leads by itself; MODE 7 rides its rail)
       },
       draw(r) {
-        if (rec) { const st = game.stats; rec.update.push(+st.updateMs.toFixed(3)); rec.render.push(+st.renderMs.toFixed(3)); rec.frames++; }
+        if (rec) { const st = game.stats; rec.update.push(+st.updateMs.toFixed(3)); rec.render.push(+st.renderMs.toFixed(3)); rec.steps.push(st.steps); rec.frames++; }
         const p = hero(), hold = stage.top.hold, pv = p.seat && p.seat.vehicle, pr = photo.active ? photo.rig : null, fx0 = pr ? pr.x : hold ? hold.x : pv ? pv.x : p.x, fy0 = pr ? pr.y : hold ? hold.y : pv ? pv.y : p.y;
         stage.setSky(inside ? indoorSky(clock.hour) : skyAt(clock.hour, weather));
         stage.begin(r, { focus: [fx0, fy0], vel: hold ? [0, 0] : pv ? [pv.body.vx, pv.body.vy] : [p.mover.vx, p.mover.vy], speed01: pv ? Math.min(1, pv.speed / 300) : 0, vehicle: !!pv, player: [p.x, p.y, p.z] });

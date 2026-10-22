@@ -31,7 +31,7 @@ handed off (D16), and the next sessions carried it from M5 on the branch `claude
 | M10 Audio + radio | done | GTM-PATCH 5 (the buses), MOTOR's sequencer, composer, radio and voices, four stations, the score cues (`b2ea884`, D24) · unit audio, sim audio (the hash the same with sound), e2e audio (each station's RMS, the music bus, mute, a bounded soak) · 277 tests |
 | M11 Attract + kiosk | done | the Director and its five reels, cards, the camera plan, the watchdog, leaving on any input, the kiosk and phone (`52b3980`, D25) · the soak 30 min x seeds 1-3 headless and 5 min drawn, all pass · director 4, attract sim 18, attract e2e 24 checks · `docs/media/m11/` (11 shots, the Joyride MP4 and GIF) |
 | M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
-| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2) · 328 unit + sim tests, 15 recipes |
+| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3) · 328 unit + sim tests, 15 recipes |
 
 ## Acceptance log
 
@@ -1119,4 +1119,37 @@ handed off (D16), and the next sessions carried it from M5 on the branch `claude
     on the old rule: from the street the nearest a car got to the door was 50, and the reach is 44).
   - **The streetlamps** light, glow and streak sodium orange (`render/city-render.js`, the depth views' pools in
     `render/stage.js`). Shots: `docs/media/shots/` (M13's matrix, below).
+- **M13 · the perf pass's levers (part 3, D28):** found with switches in a scratch build (each part of a frame left
+  out in turn, interleaved, three or four rounds) and a CPU profile of each gate scenario. In MODE 7 the textured faces
+  were paid by the pixel: in this GPU-less Chromium an affine pattern fill costs about ten times a flat fill a pixel,
+  with or without its acceleration flags, and a plain scaled blit about a fifth of a pattern; and the near slices of a
+  wall ran off the screen, seven screens of pixels a frame. What landed (each exact, or within a pixel where a kept
+  image lands on whole pixels; checked against the previous build's frames: under 1% of the pixels differ at each of
+  MODE 7's four headings and in ISO, all of it bodies at another step of their walk or a car that had moved on):
+  - **MODE 7:** a textured quad's outline cut to the screen before it is filled; the front faces (square on to the
+    level camera, an upright rectangle on screen) drawn as scaled blits; the floor as one raster (each row's pixels
+    read from the chunks' own, one putImageData, where it was about 420 drawImage calls a frame); what the nearer walls
+    hide left out (the camera is level and the walls stand on the floor, so a face wholly nearer hides a thing over its
+    columns from its top down: faces, bodies, deck cells, cars, lamps and props, about 70 of the 510 items a frame on
+    the tour); a moving car kept as an image while it is small on screen and its bearing from the lens holds; the
+    lamps' warmth added over the pools' box only.
+  - **ISO:** the props and pillars of one model and facing, and the deck cells and railings of one variant, share one
+    kept image (ISO's projection is the same everywhere on the screen); the walls prebaked in a screen's window a third
+    of a second ahead of the camera, not in a ring round it (on the move the ring's sides and back were baked and
+    never shown).
+  - **Every view:** the 10-foot kit's text drawn once into an image and put in place pixel for pixel (the pixel font
+    fills a rectangle a run, six times over with the outline). **Found on the way:** the floor chunks' cap of 48 never
+    held in TOP-DOWN and MODE 7 (only ISO moved the chunks' frame on, so the depth views kept every chunk they ever
+    baked: 68-70 on the tour); it holds in every view now.
+  - **Interleaved with the previous build** (the gate scenarios, 7 s windows, four rounds, on a machine shared with
+    the bot campaign and the reviewers): MODE 7 22.5 → 18.1 ms (-20%), and with the culling widened 26.2 → 20.0 ms
+    (-24%); ISO 21.5 → 18.8 ms (-13%); TOP-DOWN 12.5 → 11.9 ms (-5%).
+  - **The gate as D20 reads it:** `tools/perf.mjs --gate` now measures M2's own build (its dist/index.html from git)
+    in turn with the build in each round, the order swapped each round, and puts each view on the gate's machine
+    (the build's median over M2's, times M2's figure there); the update is read a step from each frame's step count.
+    Two rounds on the shared machine (M2's own medians swung 14-22 ms between them): ISO 10.2 and 11.0 ms (gate 10.4),
+    TOP-DOWN 9.6 (12.7), MODE 7 12.3 and 14.9 (12.7), the update 0.9-1.0 ms a step (1.5). The reading of record waits
+    for a quiet machine (below).
+  - **The look note on the title:** its logo panel darker (.82): the KARAOKE KING sign of the fly-over had shown
+    through the words.
 

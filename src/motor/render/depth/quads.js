@@ -2,6 +2,8 @@
 // face's texture under the affine map of its corners (the PlayStation's way), split again only where the affine guess
 // misses the true projection by more than a pixel: near the camera, at the top and foot of tall walls. Each quad's
 // outline is exact (its corners are projected), so neighbours meet without gaps; only the texture inside is affine.
+// The outline is cut to the canvas first: a wall beside MODE 7's lens runs far off the screen (the quads of a frame
+// came to seven screens of pixels), and a textured fill is paid by the area its path covers.
 import { facePattern } from './textures.js';
 
 const MAX_LEVEL = 3, TOL = 2;
@@ -25,7 +27,13 @@ function part(g, P, cv, u0, v0, tw, th, color, fog, level, s0, s1, t0, t1) {
       }
     }
   }
-  g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath();
+  const cv0 = g.canvas, W = cv0 && cv0.width, H = cv0 && cv0.height;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath();
+  if (W > 0 && H > 0 && (Math.min(a[0], b[0], c[0], d[0]) < -1 || Math.max(a[0], b[0], c[0], d[0]) > W + 1 || Math.min(a[1], b[1], c[1], d[1]) < -1 || Math.max(a[1], b[1], c[1], d[1]) > H + 1)) {
+    const q = clipRect([a, b, c, d], -1, -1, W + 1, H + 1); if (q.length < 3) return 0;   // (wholly off the canvas)
+    g.moveTo(q[0][0], q[0][1]); for (let i = 1; i < q.length; i++) g.lineTo(q[i][0], q[i][1]);
+  } else { g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); }
+  g.closePath();
   const area = Math.abs((b[0] - a[0]) * (d[1] - a[1]) - (d[0] - a[0]) * (b[1] - a[1]));
   if (cv && area > 12) {
     // texel (u0 + s0 tw, v0 + t0 th) -> a, one texel along u -> (b - a) / ((s1 - s0) tw), along v -> (d - a) / ((t1 - t0) th)
@@ -34,4 +42,12 @@ function part(g, P, cv, u0, v0, tw, th, color, fog, level, s0, s1, t0, t1) {
   } else { g.fillStyle = color; g.fill(); }
   if (fog) { g.fillStyle = fog; g.fill(); }
   return 1;
+}
+// a convex polygon cut to the rectangle x0..x1, y0..y1 (Sutherland-Hodgman: one edge of the rectangle at a time)
+function clipRect(P, x0, y0, x1, y1) {
+  const cut = (P, inside, at) => { const out = []; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length], pi = inside(p); if (pi) out.push(p); if (pi !== inside(q)) out.push(at(p, q)); } return out; };
+  const atX = x => (p, q) => [x, p[1] + (q[1] - p[1]) * (x - p[0]) / (q[0] - p[0])], atY = y => (p, q) => [p[0] + (q[0] - p[0]) * (y - p[1]) / (q[1] - p[1]), y];
+  P = cut(P, p => p[0] >= x0, atX(x0)); if (P.length) P = cut(P, p => p[0] <= x1, atX(x1));
+  if (P.length) P = cut(P, p => p[1] >= y0, atY(y0)); if (P.length) P = cut(P, p => p[1] <= y1, atY(y1));
+  return P;
 }

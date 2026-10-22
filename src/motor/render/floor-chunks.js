@@ -35,6 +35,16 @@ export class FloorChunks {
     if (c) { c.used = this.frame; return c.cv; }
     this.wanted.set(k, [i, j]); return null;
   }
+  /** chunk (i, j)'s texels as 32-bit pixels (its canvas read once and kept with it: a chunk is never painted again), or
+   *  null while it is not baked (it is asked for): MODE 7 reads the floor from them */
+  pixels(i, j) {
+    const cv = this.canvas(i, j); if (!cv) return null;
+    const c = this.chunks.get(this._key(i, j));
+    return c.px || (c.px = new Uint32Array(cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data.buffer));
+  }
+  /** a new frame in a view that is not ISO (drawIso counts its own): the chunks it asks for from now are this frame's,
+   *  and the cap evicts only the others */
+  tick() { this.frame++; }
   /** bake chunk (i, j) now (and evict the chunks used longest ago past the cap) */
   bake(i, j) {
     const S = this.size, p = this.pad, n = S + 2 * p, x0 = i * S - p, y0 = j * S - p, cv = E.mkCanvas(n, n), g = E.ctx2d(cv);

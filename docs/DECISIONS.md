@@ -1098,7 +1098,7 @@ and where it landed.
   settings), after which one push carries them all.
 - **Answered:** no. **Landed in:** M8 (parts 4c and 4d).
 
-## D28 · 2026-10-22 · M13: the controller's rumble, the knob list as a doc, where a frame goes, the look notes
+## D28 · 2026-10-22 · M13: the controller's rumble, the knob list as a doc, where a frame goes, the look notes, the perf pass
 - **Principle:** PLAN.md 13's M13 (polish, performance, FAN-OUT B, the writing, the release) and 15 (the Definition of
   Done); 8.1 (the rumble profiles), 7.4 (TUNE: every knob listed), 7.11 (budgets come from measurement), D10 and D20.
 - **Calls:**
@@ -1121,4 +1121,28 @@ and where it landed.
     across the sidewalk between two lamp posts, and turning in off Canal Street a car's turning circle swung it into the
     posts short of the door's reach: the bot's evade could never respray there, and a player had to shuffle in. The bot
     is sent to the bay (`world.sprayBay()`); the Hot Pursuit reel's apron is within reach of it.
-- **Answered:** no. **Landed in:** M13 (parts 1 and 2).
+  - **The gate is read as D20 says, by the tool:** `tools/perf.mjs --gate` measures M2's own build (its
+    dist/index.html at `0c3d575`, from git) in turn with the build in each round, the pair's order swapped each round,
+    and puts each view on the gate's machine as its median over M2's times M2's figure there (ISO 9.65, TOP-DOWN 8.4,
+    MODE 7 15.2); the update is read a step (each frame's update over its steps, the same factor) against D10's 1.5 ms.
+    test:full runs it.
+  - **Where the depth views' frame went** (switches in a scratch build, each part left out in turn, interleaved; a CPU
+    profile): MODE 7's textured faces are paid by the pixel (an affine pattern fill is about ten times a flat fill a
+    pixel in the GPU-less Chromium of the gate, acceleration flags or not; a plain scaled blit about a fifth of a
+    pattern), the walls beside the lens ran far off the screen, and nothing hid what the nearer walls hide. So, each
+    exact or within a pixel: a textured quad cut to the screen before its fill; a front face (an upright rectangle on
+    screen under MODE 7's level camera) as scaled blits; MODE 7's floor as one raster (D20's lever); **occlusion in
+    MODE 7** (a face wholly nearer than a thing hides it over the face's columns from its top down, the camera being
+    level and every wall standing on the floor: faces, bodies, deck cells, cars, lamps and props left out when hidden);
+    a moving car kept as an image in MODE 7 while small on screen and its bearing holds (2 degrees); the lamps' warmth
+    added over the pools' box only. In ISO: one kept image shared by the props of a model and facing and by the deck
+    cells of a variant (the projection is the same everywhere there); the walls prebaked a third of a second ahead of
+    the camera, not in a ring round the screen. In every view: the kit's text kept as images. D20's other levers (deck
+    cells merged into runs, far bodies as simple shapes, ISO's roofs merged, the sky band kept) were not needed: the
+    sky band costs half a millisecond, and the rest change the look.
+  - **The floor chunks' cap holds in every view:** only ISO's draw moved the chunks' frame on, so TOP-DOWN and MODE 7
+    never evicted a chunk (68-70 kept against the cap of 48 on the tour; the map's own size the only bound).
+  - **Not taken:** the engine's present (a full-screen clear before the upscale) and its wall bakes and light field are
+    the engine's (PLAN.md 12: patch only where an extension can't reach); the crowd's rigs redrawn less often (a
+    choppier walk) and the depth views' light at nearest-neighbour scaling (blocky pools) change the look.
+- **Answered:** no. **Landed in:** M13 (parts 1 to 3).

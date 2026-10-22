@@ -20,6 +20,23 @@ export const UI = {
 /** a row's height in UI pixels; the most rows or cards a page shows */
 export const ROW = 18, PAGE = 6;
 
+// text as the pixel font draws it, kept by its words and look: the font fills a rectangle a run of each glyph, six times
+// over with the outline (a line of the HUD, hundreds of calls a frame), so a text is drawn once into an image of its own
+// and put in place with one blit, pixel for pixel (both at whole pixels); the 256 used last are kept
+const TEXTS = new Map(), TEXTS_MAX = 256;
+function textImage(s, color, o) {
+  const key = [s, color, o.outline, o.shadow, o.scale, o.align, o.wrap].join('\u0001');
+  let t = TEXTS.get(key);
+  if (t) { TEXTS.delete(key); TEXTS.set(key, t); return t; }   // (most recently used last)
+  const sc = Math.max(1, Math.round(o.scale || 1)), lines = o.wrap ? E.font.wrap(s, o.wrap, { scale: sc }) : String(s).split('\n');
+  const w = Math.max(0, ...lines.map(l => E.font.width(l, { scale: sc }))), h = E.font.height(lines.length, { scale: sc }), pad = 1 + sc;   // (the outline a pixel, the shadow a scaled one)
+  const ax = pad + (o.align === 'center' ? Math.round(w / 2) : o.align === 'right' ? w : 0), cv = E.mkCanvas(w + 2 * pad + 1, h + 2 * pad + 1), g = cv.getContext('2d');
+  const r = E.font.text(g, s, ax, pad, color, o);
+  t = { cv, ax, ay: pad, r };
+  TEXTS.set(key, t); if (TEXTS.size > TEXTS_MAX) TEXTS.delete(TEXTS.keys().next().value);
+  return t;
+}
+
 /** draws on the UI layer, recording what it draws: pen = new Pen(layer, bindings, input) each frame */
 export class Pen {
   constructor(layer, bindings, input) { this.L = layer; this.g = layer.g; this.rec = layer.rec; this.B = bindings; this.input = input; this.t = layer.t; }
@@ -28,7 +45,8 @@ export class Pen {
   get safe() { return this.L.safe; }
   /** text at (x, y) (its top left; align 'center' or 'right' moves it); o: { scale, align, wrap, outline, shadow } */
   text(s, x, y, color = UI.ink, o = {}) {
-    const scale = o.scale || 1, r = E.font.text(this.g, String(s), x, y, color, { outline: o.outline === undefined ? UI.outline : o.outline, shadow: o.shadow, scale, align: o.align, wrap: o.wrap });
+    const scale = o.scale || 1, t = textImage(String(s), color, { outline: o.outline === undefined ? UI.outline : o.outline, shadow: o.shadow, scale, align: o.align, wrap: o.wrap }), r = t.r;
+    this.g.drawImage(t.cv, Math.round(x) - t.ax, Math.round(y) - t.ay);
     const w = r ? r.w : E.font.width(String(s), { scale }), h = r ? r.h : 7 * scale, x0 = o.align === 'center' ? x - w / 2 : o.align === 'right' ? x - w : x;
     this.rec.text(String(s), Math.round(x0), y, w, h, scale, 'normal');
     return { w, h };

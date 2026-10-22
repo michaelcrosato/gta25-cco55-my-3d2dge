@@ -5,7 +5,7 @@ The engine here is my-3D2dge v0.46.1 @ `cfa866aa45474868350cad1a7fc015e612f9305f
 **Policy** (PLAN.md section 12):
 - Extend first.
 - Patch only where an extension would have to reach into private state.
-- Mark each patch `// GTM-PATCH(n): <why>` in the code, and test it in `tests/unit/engine-patches.test.js`.
+- Mark each patch `// GTM-PATCH(n): <why>` in the code, and test it in `tests/unit/engine-patches.test.mjs`.
 - Each patch is written so it could be offered upstream. Record it here and in `PATCHES.json`; `tools/vendor-check.mjs`
   checks both.
 

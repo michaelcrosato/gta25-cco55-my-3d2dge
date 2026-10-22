@@ -32,6 +32,9 @@ const FULL = [   // heavy suites join here milestone by milestone (PLAN.md 6.3)
   ['attract soak (30 min x seeds 1-3)', 'node', ['--expose-gc', 'tools/attract-soak.mjs']],   // (PLAN.md 8.20: headless)
   ['attract soak in Chromium (5 min, drawn)', 'node', ['tools/attract-soak.mjs', '--chromium']],
   ['gang sim (5 min)', 'node', ['tests/full/gang-soak.mjs', '--secs', '300']],
+  ['ui audit (pad, keys, mouse at 1080p and 720p)', 'node', ['tools/ui-audit.mjs']],   // (PLAN.md 8.18: every screen by each device alone)
+  ['screenshot matrix', 'node', ['tools/shot-matrix.mjs', '--views', 'iso,top,side7', '--out', 'check-output/shots']],   // (PLAN.md 10: each neighbourhood, time and view drawn without an error)
+  ['perf gates', 'node', ['tools/perf.mjs', '--gate']],   // (D10's budgets, each view read against M2's build as D20 says: the medians of three rounds)
   ['mission bot (seeds 1-3)', 'node', ['tools/bot.mjs', '--all', '--seeds', '1,2,3', '--par', '3']],   // (PLAN.md 8.15: every mission and activity level through the bot)
   ['mission bot through a pad', 'node', ['tools/bot.mjs', '--all', '--pad', '--seeds', '1', '--par', '3']],   // (the scripted human-style pass)
   ['bot campaign (100%)', 'node', ['tools/bot-campaign.mjs', '--seed', '1']],   // (PLAN.md 15.4: a new game played to 100% completion)
