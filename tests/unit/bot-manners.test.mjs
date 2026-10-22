@@ -93,7 +93,7 @@ test('the AutoPlayer stalled: 15 s no nearer and no farther on is a stall, count
 
 test('the AutoPlayer\'s car: an empty one parked before a carjack, unless the occupied one is much nearer', () => {
   const v = (id, x, o = {}) => ({ id, x, y: 100, z: 0, speed: 0, wrecked: false, locked: false, cls: 'car', owner: null, def: { role: 'civilian' }, seats: [o.driver ? { dead: false } : null], ...o });
-  const pick = cars => Object.assign(auto([]), { tried: new Set(), fleet: { near: () => cars } })._pickCar({ x: 0, y: 100 });
+  const pick = cars => Object.assign(auto([]), { tried: new Set(), gaveUp: new Map(), fleet: { near: () => cars } })._pickCar({ x: 0, y: 100 });
   assert.equal(pick([v(1, 50, { driver: true }), v(2, 90)]).id, 2, 'the empty one 40 farther');
   assert.equal(pick([v(1, 20, { driver: true }), v(2, 130)]).id, 1, 'the empty one 110 farther: the carjack');
   assert.equal(pick([v(1, 50, { driver: true })]).id, 1, 'only an occupied one: taken');
@@ -138,4 +138,15 @@ test('the mission bot to a point to be reached in a vehicle (m.reach inVehicle):
   assert.equal(B._goto(1 / 60, seated, null, h({ inVehicle: true }), {}).hold, true, 'in a car, to be got there in one: held');
   assert.equal(B._goto(1 / 60, seated, null, h({}), {}).hold, false, 'a plain goto: a car given up in a jam, as before');
   assert.equal(B._goto(1 / 60, foot, null, h({ inVehicle: true }), {}).hold, false, 'on foot: nothing to hold yet');
+});
+
+test('the AutoPlayer\'s give-ups outlast a new goal for a minute: a car out of reach is not taken again at once (S1 had walked at one Zephyr by Club Chrome for 40 minutes)', () => {
+  const A = Object.assign(Object.create(AutoPlayer.prototype), { t: 0, tried: new Set(), gaveUp: new Map() });
+  const near = [{ id: 7, x: 120, y: 100, speed: 0, seats: [], def: { cls: 'car' } }, { id: 8, x: 300, y: 100, speed: 0, seats: [], def: { cls: 'car' } }];
+  A.fleet = { near: () => near };
+  A._giveUp(7); assert.ok(A.shuns(7));
+  A.tried.clear();   // (what goto() does with a new goal)
+  assert.ok(A.shuns(7), 'still shunned after the goal changed');
+  A.t = 59; assert.ok(A.shuns(7)); A.t = 61; assert.ok(!A.shuns(7), 'free again a minute later');
+  A._giveUp(undefined); assert.ok(!A.shuns(undefined), 'no id: nothing');
 });

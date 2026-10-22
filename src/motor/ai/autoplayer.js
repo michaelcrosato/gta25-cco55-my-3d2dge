@@ -20,7 +20,7 @@ import { inReach, boardingFor } from '../actors/boarding.js';
 
 knob('AutoPlayer', 'autoDriveFrom', 'Drives beyond', 420, 0, 3000, 10, 'The AutoPlayer takes a vehicle for a trip longer than this (u)');
 knob('AutoPlayer', 'autoArrive', 'Arrives within', 14, 2, 80, 1, 'How near its goal the AutoPlayer stops (u)');
-const CAR_REACH = 140, NODE_NEAR = 9, FINAL = 170, JACK = 60;
+const CAR_REACH = 140, NODE_NEAR = 9, FINAL = 170, JACK = 60, SHUN = 60;
 const occupied = v => v.seats.some(q => q && !q.dead);
 const OFF_LIMITS = new Set(['police', 'medic', 'fire', 'service']);
 /** a vehicle a player would take for a ride: on the road (no helicopter, boat or train), not locked or wrecked, not the
@@ -45,8 +45,13 @@ export class AutoPlayer {
   constructor(o) {
     this.city = o.city; this.G = o.roads.graph; this.gps = o.roads.gps; this.S = o.roads.walks; this.fleet = o.fleet; this.J = o.junctions || null;
     this.I = makeIntent(); this.goal = null; this.state = 'idle'; this.path = null; this.i = 0; this.brain = null; this.car = null;
-    this.stuck = 0; this.last = [0, 0]; this.t = 0; this.tried = new Set();
+    this.stuck = 0; this.last = [0, 0]; this.t = 0; this.tried = new Set(); this.gaveUp = new Map();
   }
+  // a car given up on (no way to its door, boxed in): kept off for this goal (tried) and, whatever the goals that
+  // follow, for SHUN s (gaveUp): a fresh goal had cleared tried and the same car out of reach was taken again, for ever
+  _giveUp(id) { if (id == null) return; this.tried.add(id); this.gaveUp.set(id, this.t); }
+  /** is the vehicle with this id one not to take (given up on for this goal, or a moment ago)? */
+  shuns(id) { return this.tried.has(id) || (this.gaveUp.has(id) && this.t - this.gaveUp.get(id) < SHUN); }
   /** go to (x, y): o.foot keeps it on foot (out of a vehicle first); o.car: drive there in this vehicle; o.stay: stop
    *  there seated; o.style: 'calm' | 'careful' | 'player' | 'race'; o.radius: near enough; o.z: the goal's height (a
    *  deck: driven to the lane up there); o.hold: never give up the vehicle it drives (a job's own: a jam it can't drive
@@ -68,7 +73,7 @@ export class AutoPlayer {
     const I = clearIntent(this.I); this.t += dt; this._w = w; if (!this.goal || p.dead) return I;
     const g = this.goal, v = p.seat && p.seat.vehicle, d = Math.hypot(g.x - p.x, g.y - p.y);
     // a boarding the ped gave up on (its door out of reach: a car alongside, a post): twice, another door or car
-    if (this._wasBoarding && !p.boarding && !v && this.car) { this._bfails = (this._bfails || 0) + 1; if (this._bfails >= 2) { this._bfails = 0; if (g.board) this._door = (this._door || 0) + 1; else { this.tried.add(this.car.id); this.car = null; this.state = 'walk'; } } }
+    if (this._wasBoarding && !p.boarding && !v && this.car) { this._bfails = (this._bfails || 0) + 1; if (this._bfails >= 2) { this._bfails = 0; if (g.board) this._door = (this._door || 0) + 1; else { this._giveUp(this.car.id); this.car = null; this.state = 'walk'; } } }
     this._wasBoarding = !!p.boarding && !!p.boarding.plan && p.boarding.v === this.car;
     if (p.boarding || p.held || p.floored) return I;   // (the scene plays getting in and out)
     if (g.board) {   // into that vehicle: there already, out of another first, or to its door
@@ -140,7 +145,7 @@ export class AutoPlayer {
   _pickCar(p) {
     let best = null, bd = CAR_REACH + JACK;
     for (const v of this.fleet.near(p.x, p.y, CAR_REACH)) {
-      if (this.tried.has(v.id) || !pickable(v) || v.speed > 30) continue;
+      if (this.shuns(v.id) || !pickable(v) || v.speed > 30) continue;
       const d = Math.hypot(v.x - p.x, v.y - p.y), k = d + (occupied(v) ? JACK : 0); if (d < CAR_REACH && k < bd) { bd = k; best = v; }
     }
     return best;
@@ -154,11 +159,11 @@ export class AutoPlayer {
   // to the vehicle's door, then △ (the scene boards: get in, or jack the driver); keep: this one only (never another).
   // The scene boards the nearest vehicle in reach, so △ waits until this one's door is the nearest
   _board(dt, p, keep = false) {
-    const I = this.I, v = this.car; if (!v || v.wrecked || (!keep && (v.speed > 40 || Math.hypot(v.x - p.x, v.y - p.y) > CAR_REACH * 2))) { if (keep) return I; this.tried.add(v && v.id); this.car = null; this.state = 'walk'; return I; }   // (gone, driven off, or left far behind: another)
+    const I = this.I, v = this.car; if (!v || v.wrecked || (!keep && (v.speed > 40 || Math.hypot(v.x - p.x, v.y - p.y) > CAR_REACH * 2))) { if (keep) return I; this._giveUp(v && v.id); this.car = null; this.state = 'walk'; return I; }   // (gone, driven off, or left far behind: another)
     const plan = boardingFor(p, v, 0);
     if (plan && inReach(p, v) && plan.dist < 16 && !this._nearer(p, v, plan.dist)) {   // (at the door itself: △, the scene's own walk a step or two)
-      I.tap.interact = true; I.down.interact = true; this._tries = (this._tries || 0) + 1; if (this._tries > 90 && !keep) { this.tried.add(v.id); this.car = null; this.state = 'walk'; this._tries = 0; } return I; }
-    this._boardT = (this._boardT || 0) + dt; if (this._boardT > 20 && !keep) { this._boardT = 0; this.tried.add(v.id); this.car = null; this.state = 'walk'; return I; }   // (no way to it: another, or on foot)
+      I.tap.interact = true; I.down.interact = true; this._tries = (this._tries || 0) + 1; if (this._tries > 90 && !keep) { this._giveUp(v.id); this.car = null; this.state = 'walk'; this._tries = 0; } return I; }
+    this._boardT = (this._boardT || 0) + dt; if (this._boardT > 20 && !keep) { this._boardT = 0; this._giveUp(v.id); this.car = null; this.state = 'walk'; return I; }   // (no way to it: another, or on foot)
     // to a door: the nearest, or (no nearer for a while: another car in the way) the next one round
     const doors = v.model.doors; if (!doors.length) return this._walkTo(dt, p, v.x, v.y, 'car' + v.id);
     const at = k => { const d = doors[k % doors.length], c = Math.cos(v.heading), sn = Math.sin(v.heading); return [v.x + d.x * c - d.y * sn, v.y + d.x * sn + d.y * c]; };
@@ -270,7 +275,7 @@ export class AutoPlayer {
   // a jammed exit kept off: the lane past it out of the routes for this goal
   _keepOff(c) { (this.avoid || (this.avoid = new Set())).add(c.to); this._jam = null; }
   // stuck for good (a gridlock, boxed in again and again): out, and that vehicle not taken again for this goal
-  _bail(v) { this.tried.add(v.id); this.car = null; this.esc = null; this.state = 'exit'; this._dropBrain(); const I = clearIntent(this.I); I.tap.interact = true; I.down.interact = true; return I; }
+  _bail(v) { this._giveUp(v.id); this.car = null; this.esc = null; this.state = 'exit'; this._dropBrain(); const I = clearIntent(this.I); I.tap.interact = true; I.down.interact = true; return I; }
   // round something in the way: back off a second, then on at a slant to one side, then the route again
   _round(dt, v) {
     const R = this.round, I = clearIntent(this.I); R.t += dt;

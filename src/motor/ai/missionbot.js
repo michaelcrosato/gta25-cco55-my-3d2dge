@@ -155,12 +155,12 @@ export class MissionBot {
   // a vehicle to drive: the nearest one that would do (the AutoPlayer's pick), boarded (not in it in 12 s, the scene's
   // walks to a door it can't reach among them: another)
   _car(dt, p, w) {
-    if (this.car && this.car === this._carFor && this.t - this._carAt > 12 && !(p.seat && p.seat.vehicle === this.car)) { this.auto.tried.add(this.car.id); this.car = null; }
+    if (this.car && this.car === this._carFor && this.t - this._carAt > 12 && !(p.seat && p.seat.vehicle === this.car)) { this.auto._giveUp(this.car.id); this.car = null; }
     if (this.car !== this._carFor) { this._carFor = this.car; this._carAt = this.t; }
-    if (!this.car || this.car.wrecked || this.auto.tried.has(this.car.id) || Math.hypot(this.car.x - p.x, this.car.y - p.y) > CAR_NEAR * 1.5 || (this.car.driver && this.car.driver !== p && this.car.driver.owner === 'mission')) this.car = this.auto._pickCar(p) || this._anyCar(p);
+    if (!this.car || this.car.wrecked || this.auto.shuns(this.car.id) || Math.hypot(this.car.x - p.x, this.car.y - p.y) > CAR_NEAR * 1.5 || (this.car.driver && this.car.driver !== p && this.car.driver.owner === 'mission')) this.car = this.auto._pickCar(p) || this._anyCar(p);
     return this.car ? this._board(dt, p, this.car, w) : null;
   }
-  _anyCar(p) { let best = null, bd = CAR_NEAR * 3 + 60; for (const v of this.fleet.near(p.x, p.y, CAR_NEAR * 3)) { if (!pickable(v) || this.auto.tried.has(v.id)) continue; const d = Math.hypot(v.x - p.x, v.y - p.y), k = d + (v.seats.some(q => q && !q.dead) ? 60 : 0); if (d < CAR_NEAR * 3 && k < bd) { bd = k; best = v; } } return best; }   // (an empty one before a carjack, as the AutoPlayer's pick)
+  _anyCar(p) { let best = null, bd = CAR_NEAR * 3 + 60; for (const v of this.fleet.near(p.x, p.y, CAR_NEAR * 3)) { if (!pickable(v) || this.auto.shuns(v.id)) continue; const d = Math.hypot(v.x - p.x, v.y - p.y), k = d + (v.seats.some(q => q && !q.dead) ? 60 : 0); if (d < CAR_NEAR * 3 && k < bd) { bd = k; best = v; } } return best; }   // (an empty one before a carjack, as the AutoPlayer's pick)
   _goto(dt, p, R, h, w) {
     const at = h.at || (h.route && h.route[0]);
     if (h.vehicle) { const t = R.actors.tagged(h.vehicle).find(alive); if (t && (!p.seat || p.seat.vehicle !== t)) return this._board(dt, p, t, w); }

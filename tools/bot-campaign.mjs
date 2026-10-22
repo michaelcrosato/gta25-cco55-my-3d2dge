@@ -80,14 +80,15 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     for (const v of gtm.fleet.vehicles) {
       if (v.wrecked || (v.locked && !need) || v.cls === 'rail' || v.cls === 'boat' || v.cls === 'heli') continue;   // (the player's own counts: the Pumper the last call was answered in)
       if (need ? !fits(need, v) : !M.pickable(v) || v.cls !== 'car') continue;
-      const driven = !!(v.driver && v.driver !== P()); if (driven !== jack || unboardable.has(v.id) || (v.z || 0) > 10) continue;   // (at street level: one parked up on the Loop is walked to from under it)
+      const driven = !!(v.driver && v.driver !== P()); if (driven !== jack || shunned(v.id) || (v.z || 0) > 10) continue;   // (at street level: one parked up on the Loop is walked to from under it)
       if (jack && !(v.speed < 2 && v.brain && v.brain.cause === 'signal' && !v.duty && !v.gang && v.owner !== 'mission')) continue;   // (never a unit on a call, a gang's or a job's)
       const d = Math.hypot(v.x - x, v.y - y); if (d > r) continue; const s = top(v) - d * .2 - rank(v) * 400 - way(v, to) * 8; if (s > bs) { bs = s; best = v; }
     }
     return best;
   };
-  const unboardable = new Set();   // (a car no door of which the player reached: the one on show in Club Chrome's window, until H1)
-  const board = v => { if (P().seat && P().seat.vehicle === v) return true; teleport(v.x, v.y); A.board(v); if (auto(60, () => P().seat && P().seat.vehicle === v)) return true; unboardable.add(v.id); say(`could not board the ${v.def.id}#${v.id} at ${Math.round(v.x)},${Math.round(v.y)},${Math.round(v.z || 0)} (the player at ${Math.round(P().x)},${Math.round(P().y)},${Math.round(P().z || 0)})`); return false; };
+  const unboardable = new Map();   // (a car no door of which the player reached, and when: the one on show in Club Chrome's window, until H1)
+  const shunned = id => unboardable.has(id) && t - unboardable.get(id) < 600;   // (for ten minutes: the only Pumper, a while out of reach, had been passed over for good)
+  const board = v => { if (P().seat && P().seat.vehicle === v) return true; teleport(v.x, v.y); A.board(v); if (auto(60, () => P().seat && P().seat.vehicle === v)) return true; unboardable.set(v.id, t); say(`could not board the ${v.def.id}#${v.id} at ${Math.round(v.x)},${Math.round(v.y)},${Math.round(v.z || 0)} (the player at ${Math.round(P().x)},${Math.round(P().y)},${Math.round(P().z || 0)})`); return false; };
   // the first of picks' cars the player gets into (a pick that can't be boarded passed over for the next), or null
   const takeCar = (...picks) => { let last = null; for (let k = 0; k < 4; k++) { const v = picks.reduce((q, f) => q || f(), null); if (!v) return { v: last, ok: false }; last = v; if (board(v)) return { v, ok: true }; } return { v: last, ok: false }; };
   // a job, an activity or a mission played out by the bot from its start (true: passed); why: what kept it from
@@ -157,13 +158,14 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     C().phone(); const it = C().card && C().card.items.find(q => q.label === a.title.toUpperCase());
     if (!it) { why = 'not on the phone (' + (C().card ? C().card.items.map(q => q.label).join(', ') : 'no phone') + ')'; C().close(); return false; } it.act(); run(1); return ours(null);
   });
+  // (arrived is within reach, not yet stopped: held a moment for the start's card, which asks a stopped car)
   const activity = a => play(a.kind, a.id, () => {
     const at = startAt(a), need = a.start.vehicle;
     if (a.start.foot || !need) { teleport(at[0], at[1]); return walk(at[0], at[1], { until: () => ours(a.id) }) && ours(a.id); }
     teleport(at[0], at[1]); run(2);   // (there first, as a player takes a car there: the traffic about it filled in)
     const nd = need === true ? null : need, { v, ok: aboard } = takeCar(() => carNear(at[0], at[1], nd, 600, false, at), () => carNear(at[0], at[1], nd, 300, true, at), () => carNear(P().x, P().y, nd, 1e9, false, at));
     if (!v) { why = 'no ' + (need === true ? 'car' : [].concat(need).join('/')) + ' near its start'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
-    A.goto(at[0], at[1], { car: v, stay: true }); const ok = auto(240, () => ours(a.id)) && ours(a.id); if (!ok) why = `drove to ${Math.round(P().x)},${Math.round(P().y)}: ${Math.round(Math.hypot(at[0] - P().x, at[1] - P().y))} u from the start`; return ok;
+    A.goto(at[0], at[1], { car: v, stay: true }); const ok = auto(240, () => ours(a.id)) && (ours(a.id) || pilot(() => { const I = M.clearIntent(idle); I.down.handbrake = true; return I; }, 6, () => ours(a.id))); if (!ok) why = `drove to ${Math.round(P().x)},${Math.round(P().y)}: ${Math.round(Math.hypot(at[0] - P().x, at[1] - P().y))} u from the start`; return ok;
   });
   const token = s => {
     const way = [...(s.via || []), s.at], t0 = t; teleport(way[0][0], way[0][1]);

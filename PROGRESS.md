@@ -1185,6 +1185,13 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
     while the car rolled back, which in this engine drives it back, at 80 u/s into the canal behind the run-up. It
     stops against the way it rolls now, and the canal lands. A failed jump now says why (how it came down, or that it
     never left the ground in its circle).
+  - **The campaign's stalls, each fixed where it lives** (D30): H1's bike ride queued for good behind a long truck turned
+    across Dock Road at the Loop's foot (a car off its line, out of the full simulation, never went over to the far
+    LOD: one wedged 8 s is now put back on its path, a sim test); a retry of H1's garage put Dex the far side of where
+    the Loop's ramp meets the sidewalk from Lefty (now beside him); H4's getaway gave its car up in a jam ("Dex left
+    the getaway car": `m.reach`'s `inVehicle` now reaches the bot, which holds the car); the gym's kill found the
+    player's fighter stepping to and fro behind a parked truck while two Rats shot it (it now goes round once 3 s of
+    steps clear nothing, a unit test).
   - **The shots** (`tools/shot-matrix.mjs`, PLAN.md 10's matrix): `docs/media/shots/`: the 4 neighbourhoods by day,
     dusk and night in ISO (`<hood>-<time>-iso.png`) and every view on the contact sheets (`sheet-iso-clear.jpg`,
     `sheet-top-clear.jpg`, `sheet-side7-clear.jpg`, and ISO in rain, `sheet-iso-rain.jpg`); the bank's lobby in each

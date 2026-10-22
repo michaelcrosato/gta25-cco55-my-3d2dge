@@ -28103,6 +28103,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var NODE_NEAR2 = 9;
   var FINAL = 170;
   var JACK = 60;
+  var SHUN = 60;
   var occupied = (v) => v.seats.some((q) => q && !q.dead);
   var OFF_LIMITS = /* @__PURE__ */ new Set(["police", "medic", "fire", "service"]);
   var pickable = (v) => !v.wrecked && !v.locked && v.cls !== "heli" && v.cls !== "boat" && v.cls !== "rail" && v.owner !== "service" && !OFF_LIMITS.has(v.def.role);
@@ -28146,6 +28147,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.last = [0, 0];
       this.t = 0;
       this.tried = /* @__PURE__ */ new Set();
+      this.gaveUp = /* @__PURE__ */ new Map();
+    }
+    // a car given up on (no way to its door, boxed in): kept off for this goal (tried) and, whatever the goals that
+    // follow, for SHUN s (gaveUp): a fresh goal had cleared tried and the same car out of reach was taken again, for ever
+    _giveUp(id) {
+      if (id == null) return;
+      this.tried.add(id);
+      this.gaveUp.set(id, this.t);
+    }
+    /** is the vehicle with this id one not to take (given up on for this goal, or a moment ago)? */
+    shuns(id) {
+      return this.tried.has(id) || this.gaveUp.has(id) && this.t - this.gaveUp.get(id) < SHUN;
     }
     /** go to (x, y): o.foot keeps it on foot (out of a vehicle first); o.car: drive there in this vehicle; o.stay: stop
      *  there seated; o.style: 'calm' | 'careful' | 'player' | 'race'; o.radius: near enough; o.z: the goal's height (a
@@ -28202,7 +28215,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           this._bfails = 0;
           if (g.board) this._door = (this._door || 0) + 1;
           else {
-            this.tried.add(this.car.id);
+            this._giveUp(this.car.id);
             this.car = null;
             this.state = "walk";
           }
@@ -28341,7 +28354,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _pickCar(p) {
       let best = null, bd = CAR_REACH + JACK;
       for (const v of this.fleet.near(p.x, p.y, CAR_REACH)) {
-        if (this.tried.has(v.id) || !pickable(v) || v.speed > 30) continue;
+        if (this.shuns(v.id) || !pickable(v) || v.speed > 30) continue;
         const d = Math.hypot(v.x - p.x, v.y - p.y), k = d + (occupied(v) ? JACK : 0);
         if (d < CAR_REACH && k < bd) {
           bd = k;
@@ -28369,7 +28382,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const I = this.I, v = this.car;
       if (!v || v.wrecked || !keep && (v.speed > 40 || Math.hypot(v.x - p.x, v.y - p.y) > CAR_REACH * 2)) {
         if (keep) return I;
-        this.tried.add(v && v.id);
+        this._giveUp(v && v.id);
         this.car = null;
         this.state = "walk";
         return I;
@@ -28380,7 +28393,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         I.down.interact = true;
         this._tries = (this._tries || 0) + 1;
         if (this._tries > 90 && !keep) {
-          this.tried.add(v.id);
+          this._giveUp(v.id);
           this.car = null;
           this.state = "walk";
           this._tries = 0;
@@ -28390,7 +28403,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this._boardT = (this._boardT || 0) + dt;
       if (this._boardT > 20 && !keep) {
         this._boardT = 0;
-        this.tried.add(v.id);
+        this._giveUp(v.id);
         this.car = null;
         this.state = "walk";
         return I;
@@ -28624,7 +28637,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // stuck for good (a gridlock, boxed in again and again): out, and that vehicle not taken again for this goal
     _bail(v) {
-      this.tried.add(v.id);
+      this._giveUp(v.id);
       this.car = null;
       this.esc = null;
       this.state = "exit";
@@ -29004,20 +29017,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     // walks to a door it can't reach among them: another)
     _car(dt, p, w8) {
       if (this.car && this.car === this._carFor && this.t - this._carAt > 12 && !(p.seat && p.seat.vehicle === this.car)) {
-        this.auto.tried.add(this.car.id);
+        this.auto._giveUp(this.car.id);
         this.car = null;
       }
       if (this.car !== this._carFor) {
         this._carFor = this.car;
         this._carAt = this.t;
       }
-      if (!this.car || this.car.wrecked || this.auto.tried.has(this.car.id) || Math.hypot(this.car.x - p.x, this.car.y - p.y) > CAR_NEAR * 1.5 || this.car.driver && this.car.driver !== p && this.car.driver.owner === "mission") this.car = this.auto._pickCar(p) || this._anyCar(p);
+      if (!this.car || this.car.wrecked || this.auto.shuns(this.car.id) || Math.hypot(this.car.x - p.x, this.car.y - p.y) > CAR_NEAR * 1.5 || this.car.driver && this.car.driver !== p && this.car.driver.owner === "mission") this.car = this.auto._pickCar(p) || this._anyCar(p);
       return this.car ? this._board(dt, p, this.car, w8) : null;
     }
     _anyCar(p) {
       let best = null, bd = CAR_NEAR * 3 + 60;
       for (const v of this.fleet.near(p.x, p.y, CAR_NEAR * 3)) {
-        if (!pickable(v) || this.auto.tried.has(v.id)) continue;
+        if (!pickable(v) || this.auto.shuns(v.id)) continue;
         const d = Math.hypot(v.x - p.x, v.y - p.y), k = d + (v.seats.some((q) => q && !q.dead) ? 60 : 0);
         if (d < CAR_NEAR * 3 && k < bd) {
           bd = k;
