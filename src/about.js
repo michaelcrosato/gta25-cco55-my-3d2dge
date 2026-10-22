@@ -18,5 +18,19 @@ export const ENGINE_SUMMARY = [
   'One change: make the world scale - a chunked, streamed TileMap (floors baked per chunk on demand, walls culled to the view, cells with space under bridges).',
 ];
 
+/** the engine's credit and its licence, as the Credits & About screen shows them */
+export const ENGINE_CREDIT = [
+  'my-3D2dge v0.46.1 by Michael Crosato: https://github.com/michaelcrosato/my-3d2dge. Vendored in vendor/my-3d2dge, patched only where vendor/my-3d2dge/PATCHES.md says, and extended by MOTOR, this game\'s own layer.',
+  'MIT License. Copyright (c) 2026 Michael Crosato.',
+  'Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:',
+  'The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.',
+  'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.',
+];
+/** the game's own credit */
+export const GAME_CREDIT = [
+  'An original game in the spirit of Grand Theft Auto 2, with depth drawn from Grand Theft Auto V. Lowtown, its people, its gangs, its vehicles, its radio and every line are made up for it: no names, logos, music or text from those games.',
+  'Every picture and sound is drawn and played by code at run time: no image or audio files.',
+];
+
 /** the game's identity */
 export const GAME = { title: 'GRAND THEFT MOTO', id: 'GrandTheftMoto-5S', tagline: 'If it has a motor, it\'s yours.' };

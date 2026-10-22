@@ -74,8 +74,9 @@ def('provingZones', 'range', {
         fx.draw(stage, combat, [me.x, me.y]);
         drawAimMarks(stage, me, game.real);
         stage.end();
-        r.overlay(g => { drawPedHud(g, r.W, r.H, me, { color: '#ff5a4a', name: 'RANGE' }); wheel.draw(g, r.W, r.H); });
       },
+      /** the HUD on the UI layer (the proving scene's hud(pen) calls it) */
+      uiHud(P) { drawPedHud(P, me, { color: '#ff5a4a', name: 'RANGE' }); wheel.draw(P); },
       hud() {
         const spec = me.inv.spec(), rd = me.inv.rounds(), lines = [`${spec.name.toUpperCase()}  ${rd ? rd.mag + '/' + rd.total : ''}  KILLS ${combat.kills}  FIRE ${combat.fire ? combat.fire.count : 0}`];
         if (bench) for (const b of bench) lines.push(`${b.weapon.toUpperCase().padEnd(10)} ${b.dps.toFixed(1).padStart(6)} DPS  SPEC ${b.spec.toFixed(1).padStart(6)}  ${(b.ratio * 100).toFixed(0)}%`);

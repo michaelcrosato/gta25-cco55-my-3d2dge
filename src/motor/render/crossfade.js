@@ -31,7 +31,9 @@ export class CrossFade {
       for (let l = this.level; l < want; l++) { cg.fillStyle = cg.createPattern(this._tile(l), 'repeat'); cg.fillRect(0, 0, this.cv.width, this.cv.height); }
       cg.globalCompositeOperation = 'source-over'; this.level = want;
     }
-    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.drawImage(this.cv, 0, 0); g.restore(); g._c = null;
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.imageSmoothingEnabled = false;
+    if (g.canvas && (g.canvas.width !== this.cv.width || g.canvas.height !== this.cv.height)) g.drawImage(this.cv, 0, 0, g.canvas.width, g.canvas.height); else g.drawImage(this.cv, 0, 0);   // (the buffer resized under it: Sharp MODE 7 came or went)
+    g.restore(); g._c = null;
   }
   // a 4x4 tile with the one pixel of Bayer rank l
   _tile(l) {

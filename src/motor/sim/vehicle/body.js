@@ -22,7 +22,7 @@ import { E } from '../../engine.js';
 
 /** surface grip multipliers by floor tag (unknown tags: 1); weather multiplies again (wet: .8) */
 export const SURFACE_GRIP = { road: 1, asphalt: 1, deck: 1, bridge: 1, walk: .95, curb: .95, crosswalk: .97, alley: .95, plaza: .95, quay: .9, pier: .9, rail: .9,
-  lot: .8, yard: .8, dirt: .7, grass: .6, park: .6, sand: .5, water: .3, deep: .3, oil: .25 };
+  lot: .8, yard: .8, wet: .8, dirt: .7, grass: .6, park: .6, sand: .5, water: .3, deep: .3, oil: .25, ice: .15 };
 const CURB = 4;   // a wall cell this low (or lower) is climbed, not hit
 const PEAK = .12; // the slip angle (radians) where a tyre's grip peaks
 const MAX_STEP = 6;   // units a substep may travel

@@ -31,7 +31,7 @@ export class Weather {
   }
   /** step: dt seconds of game time, hours of game time on the clock */
   update(dt, hours) {
-    if (!this.fixed && (this.left -= hours) <= 0) { this.state = this.rs.pickW(ODDS); this.left = this.rs.range(TUNE.weatherHoursMin, TUNE.weatherHoursMax); }
+    if (!this.fixed && !this.held && (this.left -= hours) <= 0) { this.state = this.rs.pickW(ODDS); this.left = this.rs.range(TUNE.weatherHoursMin, TUNE.weatherHoursMax); }
     const [c, r, f] = LOOK[this.state], k = Math.min(1, dt / 5);   // (about five seconds to change over)
     this.cloud += (c - this.cloud) * k; this.rain += (r - this.rain) * k; this.fog += (f - this.fog) * k;
     const mins = hours * 60;
@@ -39,6 +39,14 @@ export class Weather {
     this.flash = Math.max(0, this.flash - dt);
     if (this.state === 'storm' && (this.nextStrike -= dt) <= 0) { this.flash = .35; this.nextStrike = this.rs.range(4, 14); }
   }
+  /** a job's weather (m.weather): that state at once (its sky, its rain, the streets soaked with it), held until
+   *  release() */
+  set(state) {
+    if (!WEATHERS.includes(state)) return;
+    const [c, r, f] = LOOK[state]; this.state = state; this.held = true; this.cloud = c; this.rain = r; this.fog = f; this.wet = r > 0 ? 1 : 0;
+  }
+  /** the job's hold let go: the weather changes again when its time is up */
+  release() { this.held = false; }
   /** is it raining (for peds, the radio's weather lines)? */
   get raining() { return this.rain > .15; }
   /** the traction factor for tyres: 1 dry, 0.8 soaked (PLAN.md 8.6) */

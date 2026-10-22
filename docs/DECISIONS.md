@@ -824,3 +824,133 @@ and where it landed.
       each activity at every level), 32 of 32 through the pad on seed 1 (Firefighter's L3 after the fix above;
       all twelve of its runs again, both ways), and the bot gym 13 of 13 both ways.
 - **Answered:** no. **Landed in:** M8.
+
+## D23 · 2026-10-21 · M9's 10-foot UI: our own layer and our own pause, cards on the kit, settings that reach play
+- **Principle:** PLAN.md 8.18's rules (canvas UI primary; the UI layer at an integer scale by HUD size; six items a
+  page; ✕/○/L1-R1/△/□/Options; 5% safe area; pad, keyboard and mouse; a sound on each move) and 7.3 (a deterministic,
+  replayable simulation); the engine's public API only.
+- **Calls:**
+  - **The HUD and every menu draw on MOTOR's UI layer** (`#ui` over the game's canvas, `src/motor/ui/layer.js`): its
+    scale is the game's S (Standard), S + 1 (Large) or S + 2 (Huge), never so big that 320 x 180 UI pixels no longer
+    fit; text only in the 5 x 7 font at scale 1 or more. The HUD's labels had used the engine's 3 x 5 `tiny` font: all
+    of them moved to the 5 x 7 one, and the HUD to the safe area (the radar a sixth of the screen's height, the
+    ability's name left off where the foot's prompt needs the room, the vehicle's panel at the bottom right, the
+    objective and the subtitles between them). Every frame records what it drew (text with its scale, prompts with any
+    unresolved glyph token, the focus, each list's rows, panels, tabs) for `tools/ui-audit.mjs`.
+  - **Our own pause, read in the step.** The pause button (Options, Esc, P) and the map button (the touchpad, M, Tab)
+    are a step's input like any other: the pause screen opens in the step, and while a screen that pauses is open the
+    scene's update doesn't run (the engine's timers and particles aside, which no simulation reads: the hash stands
+    still, a test says so). The engine pauses by itself only for what it alone sees (the page hidden, the window left,
+    a controller unplugged): the play scene's `pausable` is false while its own pause key is down or a screen is open,
+    and the UI frame, the one hook that runs while the engine holds, hands its pause to ours (`uiFrame`). The engine's
+    PAUSED overlay never shows, and the music ducks under our pause.
+  - **The screen stack** draws the top screen alone over the game (a question draws over the screen it asks about);
+    ○ goes back one; Options closes down to a sticky screen (the title's menu stays; a card answers it as ○).
+  - **The career's cards keep their model** (`career.card`: id, items, act; the bot and `tools/bot-campaign.mjs`
+    answer it) and are shown as screens of the kit (`cardScreen`). A purchase's question puts NO first (the safe answer
+    under the thumb): the campaign tool picks BUY by its label. JOB DONE's medal and cash are big.
+  - **The phone** is CONTACTS (each job's giver, a waypoint on a press, and Lowtown Cabs), TEXTS (a line from each giver
+    with a job on offer), JOBS (each vehicle job, and the one the vehicle you sit in can start: also first on the
+    phone itself), SNAP (photo mode: M12) and SETTINGS; big rows with an icon, one column, at the bottom right; back
+    from an app returns to its row.
+  - **Settings:** the engine's store with MOTOR's added (`ui/settings.js`), in five tabs. PLAN's controller
+    *sensitivity* is the stick's dead zone (the twin-stick aim is a direction: there is no speed to scale); the button
+    symbols are Auto, PlayStation, Xbox, Nintendo or Keyboard; *Sharp MODE 7* gives the game's buffer the screen's own
+    resolution while MODE 7 is the view (the stress test's `depthResolution`: `screen.setOptions`), with the overlays'
+    pixels drawn at the game's size and the UI layer keeping the game's scale; colourblind markers move the markers'
+    hues onto the Okabe-Ito palette (the shapes and the turf's patterns say it as well). **Difficulty** (the damage the
+    crew takes: 0.7, 1, 1.35) and **aim assist** (off, low, standard) are simulation inputs the player chooses: a
+    session replays with the settings it was played with, and the bot and the tests always play the defaults.
+    ACCESS: sprint and aim toggled latch on a press; crouch is a toggle by default (as it was) and can be held; the
+    wheels toggled open on a press and pick on the next.
+  - **Rebinding** is per context (on foot, in a vehicle, photo mode), paged by group (MOVING, DOING, FIGHTING, CAMERA
+    AND MENUS), the device in use's buttons: ✕ waits for the next press (Options or Esc cancels), a button another
+    action of the context holds is refused and said; the menus' keys, chords, held modifiers and release taps stay
+    fixed. The capture ignores its first step: the engine's raw presses arrive a step after the bindings see them, and
+    the ✕ that began it had bound itself.
+  - **Keys PLAN left open:** △ (more) is R and □ (filter) is F on the keyboard; a right click goes back with the mouse;
+    the map zooms on L2/R2, - and = and the wheel.
+  - **The map** is the radar's own picture of the district, panned, zoomed, filtered by kind, with a legend and a
+    waypoint; in a vehicle the radar draws the GPS line to the waypoint, or to the running job's marker.
+  - **Onboarding:** a hint the first time each verb becomes possible (`ui/onboarding.js`, the verbs in
+    `src/game/ui/tips.js`), once ever (kept in the settings as `tipsSeen`), never for the bot.
+- **Why:** the engine's HTML menus are not TV-scaled (PLAN 8.18, rule 1); a pause handled in a draw would leave a
+  headless replay stuck paused; the cards' model is what the bot plays.
+- **Answered:** no. **Landed in:** M9.
+
+## D24 · 2026-10-21 · M10's sound: MOTOR's own sequencer on the engine's buses, radio timelines on the play clock
+- **Principle:** PLAN.md 8.17 (the engine's `music()` not reused for the radio; its note syntax kept; everything through
+  the engine's buses); 7.3 (sound is presentation: no simulation reads it); section 12 (patch only to reach private
+  state).
+- **Calls:**
+  - **GTM-PATCH 5:** `audio.bus('sfx' | 'music' | 'master')`, the gain nodes the engine's own sounds and music play
+    through, so MOTOR's voices follow the master volume, the effects and music levels, mute and the ducking.
+  - **The sequencer** (`audio/sequencer.js`) schedules ahead on any context (the realtime one in play, an offline one
+    in the tests), many sequences at once, each on its own timeline (a song started at t0 is heard (now - t0) in), with
+    its own seeded noise and a voice cap that drops notes rather than grow the graph.
+  - **The composer** (`audio/composer.js`) makes songs in the engine's note syntax from a genre's template and a seed:
+    synth-punk (CRASH FM), boom-bap chip beats (WHEELZ), synthwave (NEON DRIVE), a talk bed (LOWDOWN TALK), and two
+    score cues (chase, tension). The same seed makes the same song.
+  - **The radio** (`audio/radio.js`): each station a timeline (song, the DJ's line, song, an ad, ... the jingle;
+    LOWDOWN TALK's six call-ins and three ads over its bed), built from its spec and the game's seed. Its clock is the
+    save's play time, so tuning in finds a station where it has got to, and a loaded game picks the radio up where it
+    was. The DJs', the ads' and the callers' words show as subtitles with the speaker's name (Settings, Audio: DJ
+    chatter); the radio has its own volume, under the music level.
+  - **A job's score:** `m.music('chase' | 'tension' | null)`; the radio ducks to 35% under it, and the job's end lets
+    it go. Cued in R1's stakeout, R2's sneak, G2's evade, H4's sewer and its deck chase.
+  - **AudioX** (`audio/audiox.js`): the four nearest engines (the player's own first; the pitch from the speed, a
+    squeal by the tyres' slip), up to three sirens (two-tone for the police, a wail for the rest) with a Doppler shift,
+    rain and wind by the weather, the crowd's murmur by the people near and the city's hum; panned and falling off with
+    distance, on the effects bus.
+  - **The SFX map** (`audio/sfxmap.js`): the BUS's events (explosions, crashes, hits, pickups, cash, stunts, a respray,
+    a job passed or failed, WRECKED, NABBED, a star gained, a save) heard near the listener and quieter farther off;
+    doors and takedowns the player's own only; footsteps by the surface; horns held, by class; each gang's payphone
+    ringing near a job on offer. The guns and swings stay combat's; the menus' sounds, the screens'.
+  - **The title's tune** is the engine's `music()` (the one thing PLAN leaves it), a composed synthwave loop.
+  - **Headless there is no sound** (the director never starts), and nothing in the simulation reads any of it.
+- **Answered:** no. **Landed in:** M10.
+
+## D25 · 2026-10-21 · M11's show: reels the bot plays, a director with a watchdog, the play scene as its stage, taps that stay
+- **Principle:** PLAN.md 8.20 (into and out of the attract mode, the AutoPlayer, the director, kiosk and mobile, its
+  Accept), 9.11 (the five reels) and M11; D21 (the bot plays any objective from its hint); the simulation deterministic
+  and the views presentation only.
+- **Calls:**
+  - **Reels are content staged as missions** (`defReel`, `src/game/reels/`): the MissionRuntime plays one as kind
+    `reel` (it pays nothing, is never recorded, and says each stage as an `attractBeat`), the mission bot plays it from
+    its hints, and each stage names its view (the camera plan) and a caption. "The AutoPlayer's full behaviours" are the
+    mission bot's (which drives through the AutoPlayer): drive, carjack, shoot and throw, take down, evade, follow hints.
+  - **The play scene is the demo's stage** (`PLAY.make(app, demo)`): each reel in a fresh world (`RNG.seed(attract seed
+    + the reels so far)`, its own state objects, the city's layout the game's own), a blank save never written, and the
+    career's demo mode: no offers, random events, hold-ups or cards, never a write. No pause, no phone; the views are
+    the director's; the HUD's place-and-time line gives way to the logo's bug and DEMO badge; a job's objective, timer and
+    checkpoints are not shown (the captions say what is happening). The rumble is off; the streams are handed back as
+    a boot leaves them (`RNG.seed(app.seed)`) when the demo ends, so it never shapes a game.
+  - **MOTOR's Director** (`ai/director.js`): the reels in an order its seed shuffles each time round (never the same
+    one twice running), a card after two reels, then after three (the title card, HOW TO PLAY with a DualSense drawn
+    and every button's job read from the bindings, LOWTOWN'S MOST WANTED from the save slots and the city's legends),
+    and the watchdog: a cut when the camera's focus has not moved and no op has begun for TUNE.attractStall (6 s), a
+    reel past its time, or one failed. It counts what the show has shown for the soak (reels run, ended and cut; the
+    views; the bank; the most stars; explosions; switches made by the switch camera, not a mission's possess).
+  - **Any input leaves within one step:** MOTOR's `wokeBy` reads GTM-PATCH(4)'s raw state (a key bound or not, a pad's
+    button, stick or trigger, a pad newly connected, the mouse, a touch); the pads are counted at the demo's first step
+    (the engine fills them in its tick, so a pad there at boot is no new connection).
+  - **The kiosk** (`?kiosk=1`, or a coarse pointer and no fine one): a tap stays in the demo; the MENU button (top right,
+    in the margin over the HUD) opens sound, volume, the view (the show's, or one throughout) and About; a tap anywhere
+    else says BEST WITH A CONTROLLER at most every 30 s; a key or a controller opens the title. A finger's tap is a
+    click on the UI layer, so every M9 menu answers taps. `createApp` turns the engine's touch stick off everywhere.
+  - **The title's menus count as the title** for the idle timer, except while a rebind waits for its button (it gives
+    up after 8 s of its own).
+  - **Where the bot needed a hand, the reels say so in their scripting:** Hot Pursuit's three stars run down Motor
+    Avenue ahead of the roadblock 3★ brings, then cut to Spray & Pray's apron, because the shop's door is out of a car's
+    reach from Canal Street (the bot's evade could never respray there: carried to M13 as a map fix); Joyride climbs
+    the north-west ramp because the Loop's west leg runs south; Turf War's Gus leads with his Molotov (a fighter with
+    no gun now throws first), backs off the fire and fights alone (his spray found his own ally); Heist Tease starts
+    Viv at the counter's gate as the lobby guard's round comes by; Switch! plays the vignettes (`m.switchTo(id, {
+    vignette: true })`).
+  - **Small MOTOR pieces for it:** `m.slowmo(k)` (a job's slow motion, undone at its end), `m.weather` held till the
+    job ends (`Weather.set`/`release`: the m API's call had nothing to call), the `drive` hint (full throttle on a
+    heading), a `switch` event's `camera`.
+  - **The soak** (`tools/attract-soak.mjs`): 30 virtual minutes on seeds 1-3 headless and 5 drawn in Chromium, judged
+    as PLAN.md 8.20 asks (errors, counts, heap, every reel, the views, the bank, three stars, an explosion, a switch);
+    `tools/record-attract.mjs` captures the show to MP4 and GIF with ffmpeg.
+- **Answered:** no. **Landed in:** M11.

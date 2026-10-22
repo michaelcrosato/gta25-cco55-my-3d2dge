@@ -36,6 +36,7 @@ export class Fighter {
     this.thrown = ped.inv.list().find(id => { const s = spec(id); return s && (s.projectile === 'molotov' || s.projectile === 'grenade'); }) || null;
     if (this.gun && o.refill !== false) ped.inv.give(this.gun, 999, true);
     if (this.thrown && o.refill !== false) ped.inv.give(this.thrown, 3, true);
+    if (!this.gun && this.thrown) this.throwT = 0;   // (no gun: it leads with the throw, from a throw's distance)
   }
   _p(k) { const v = this.profile[k]; return typeof v === 'function' ? v() : v; }
   /** the weapon in hand for a fight at distance d: a throw now and then, else the gun, else the bat */

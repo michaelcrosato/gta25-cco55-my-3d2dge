@@ -246,3 +246,27 @@ test('GTM-PATCH(8): weaponDraw draws a weapon of its own among the limbs, in pla
     assert.equal(g.log.indexOf('BACK'), 0, style + ': far parts first'); assert.equal(g.log.lastIndexOf('FRONT'), g.log.length - 1, style + ': near parts last');
   }
 });
+
+/** the engine in a context with a stand-in Web Audio: every node records what it connects to */
+function engineWithAudio() {
+  const nodes = [], node = kind => { const n = { kind, to: [], gain: { value: 1 }, connect(t) { n.to.push(t); return t; }, disconnect() {} }; nodes.push(n); return n; };
+  class FakeAC {
+    constructor() { this.state = 'running'; this.sampleRate = 8000; this.currentTime = 0; this.destination = node('destination'); }
+    createGain() { return node('gain'); }
+    createBuffer(ch, len) { return { getChannelData: () => new Float32Array(len) }; }
+    resume() { return Promise.resolve(); }
+  }
+  const win = { AudioContext: FakeAC, addEventListener() {} };
+  const ctx = { console: { log() {}, warn() {}, error() {} }, navigator: { getGamepads: () => [] }, window: win, addEventListener() {} };
+  vm.createContext(ctx); vm.runInContext(readFileSync(ENGINE, 'utf8'), ctx, { filename: 'my-3d2dge.js' });
+  return { E: ctx.My3D2dge || win.My3D2dge, nodes };   // (with a window, the engine hangs itself on it)
+}
+test('GTM-PATCH(5): audio.bus gives the effects, music and master buses the engine itself plays through', () => {
+  const { E } = engineWithAudio(), game = new E.Game({ headless: true }).start({ update() {}, draw() {} }), A = game.audio;
+  A.failed = null;   // (a headless game turns its sound off: the stand-in context plays the browser's part)
+  const sfx = A.bus('sfx'), music = A.bus('music'), master = A.bus('master');
+  assert.ok(sfx && music && master, 'made with the context'); assert.equal(A.bus('nothing'), null);
+  assert.ok(sfx.to.includes(master) && music.to.includes(master), 'both feed the master');
+  A.setVolume(.4); assert.equal(master.gain.value, .4); A.mute(true); assert.equal(master.gain.value, 0, 'mute holds for whatever plays through them');
+  A.mute(false); A.musicVolume = .5; A.duck(true); assert.ok(Math.abs(music.gain.value - .5 * .35) < 1e-9, 'the ducking too');
+});

@@ -29,18 +29,24 @@ def('scenes', 'proving', {
         selftest = links.query.get('selftest') === '1' && zone.selftest ? { zone: id, frame: 0, result: null } : null;
         expose('selftest', selftest ? () => selftest.result : () => ({ zone: id, ok: null, note: 'no self-test asked (?selftest=1)' }));
       },
+      exit() { if (zone && zone.exit) zone.exit(); },   // (a city zone puts its knobs back, its play scene away)
       update(dt) { zone.update(dt); },
+      hud(P) { if (zone && zone.uiHud) zone.uiHud(P); },   // (a zone's HUD on the UI layer)
       draw(r) {
         const st = game.stats; hud.draw += (st.renderMs - hud.draw) * .1; hud.update += (st.updateMs - hud.update) * .1;
         if (rec) { rec.update.push(+st.updateMs.toFixed(3)); rec.render.push(+st.renderMs.toFixed(3)); rec.frames++; }
         zone.draw(r);
         const d = stage.depth, title = get('provingZones', id).title.toUpperCase(), lines = [
           `${title}  ${views.active.toUpperCase()}`,
-          `DRAW ${hud.draw.toFixed(1)} MS  UPDATE ${hud.update.toFixed(2)} MS  ${d ? `QUADS ${d.stats.quads}  ITEMS ${d.stats.items}` : `ITEMS ${st.items}`}`,
+          zone.uiHud ? `DRAW ${hud.draw.toFixed(1)}  UPD ${hud.update.toFixed(1)}  ITEMS ${d ? d.stats.items : st.items}` : `DRAW ${hud.draw.toFixed(1)} MS  UPDATE ${hud.update.toFixed(2)} MS  ${d ? `QUADS ${d.stats.quads}  ITEMS ${d.stats.items}` : `ITEMS ${st.items}`}`,   // (the city zones' box is narrower)
           ...zone.hud()];
         if (selftest && !selftest.result) { selftest.result = zone.selftest(selftest) || null; selftest.frame++; }
         if (selftest) lines.push(selftest.result ? `SELF-TEST ${selftest.result.ok ? 'PASSED' : 'FAILED'}` : `SELF-TEST RUNNING (${selftest.frame})`);
-        r.overlay(g => { E.ui.box(g, 4, 4, 220, lines.length * 9 + 6, { alpha: .75 }); lines.forEach((s, i) => E.font.text(g, s, 8, 8 + i * 9, i ? '#d8e4f0' : '#ffe066')); });
+        // (the box sized to its lines; a zone with the play scene's HUD has it low in the middle, between the radar and the
+        // vehicle's panel, its lines wrapped to fit: clear of the HUD's corners, its banner and the player)
+        const side = !!zone.uiHud, maxW = side ? Math.round(r.bw * .44) : r.bw - 8, rows = side ? lines.flatMap((s, i) => E.font.wrap(s, maxW - 8, {}).map(t => [t, i])) : lines.map((s, i) => [s, i]);
+        const bw = Math.min(maxW, Math.max(side ? 120 : 220, ...rows.map(([s]) => E.font.width(s) + 8))), bh = rows.length * 9 + 6, bx = side ? Math.round((r.bw - bw) / 2) : 4, by = side ? r.bh - bh - Math.round(r.bh * .13) : 4;
+        r.overlay(g => { E.ui.box(g, bx, by, bw, bh, { alpha: .75 }); rows.forEach(([s, i], k) => E.font.text(g, s, bx + 4, by + 4 + k * 9, i ? '#d8e4f0' : '#ffe066')); });
       },
     };
   },

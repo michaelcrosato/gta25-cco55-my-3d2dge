@@ -100,7 +100,7 @@ export class Ped {
   _update(dt, I, w) {
     const m = this.mover, v = this.vitals, map = w.map;
     m.climbMax = TUNE.climbMax; m.jumpSpeed = TUNE.jumpSpeed;
-    v.damageTaken = this.ability ? this.ability.damageTaken : 1;
+    v.damageTaken = (this.ability ? this.ability.damageTaken : 1) * (this.hurtScale || 1);   // (hurtScale: the difficulty's, on the crew)
     v.update(dt); this.flinch = Math.max(0, this.flinch - dt); this.inCombat = Math.max(0, this.inCombat - dt); this.upGrace = Math.max(0, (this.upGrace || 0) - dt);
     if (this.ability) this.ability.update(dt, { aiming: this.aiming });
     if (this.burning > 0) { this.burning -= dt; if (w.combat) w.combat.burnBody(this, dt); if (this.burning <= 0) this.burnGrace = 1; }   // (out: a moment before the fire it stands in lights it again)

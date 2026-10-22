@@ -6186,6 +6186,11 @@ class ChipAudio {
   }
   /** true once the browser lets the game make sound */
   get ready() { return !!this.ctx && this.ctx.state === 'running'; }
+  // GTM-PATCH(5): a game's own voices (a sequencer, continuous sounds) play through the engine's buses, so the master
+  // volume, the effects and music levels, mute and the ducking all hold for them
+  /** the gain node a bus plays through: 'sfx' (the effects), 'music' or 'master'; made with the context (the first
+   *  sound); null where there is no Web Audio */
+  bus(name) { if (!this._init()) return null; return name === 'music' ? this._musBus : name === 'sfx' ? this._sfxBus : name === 'master' ? this._master : null; }
   _levels() { if (!this.ctx) return; this._master.gain.value = this.muted ? 0 : this.volume; this._sfxBus.gain.value = this.sfxVolume; this._musBus.gain.value = this.musicVolume * (this._ducked || this.ducked ? .35 : 1); }
   /** set the master volume, 0..1 */
   setVolume(v) { this.volume = clamp(v, 0, 1); this._levels(); }

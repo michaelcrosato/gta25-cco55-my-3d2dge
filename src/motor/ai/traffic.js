@@ -31,7 +31,7 @@ import { Ped } from '../actors/ped.js';
 import { pedLook, pickPed, pedFits } from '../actors/peds.js';
 import { DriverBrain } from './driver.js';
 
-knob('Traffic', 'trafficCars', 'Traffic cars', 34, 0, 60, 1, 'Moving traffic around the focus at full density (the neighbourhood, time and weather scale it)');
+knob('Traffic', 'trafficCars', 'Traffic cars', 34, 0, 200, 1, 'Moving traffic around the focus at full density (the neighbourhood, time and weather scale it)');
 knob('Traffic', 'trafficNight', 'Night traffic', .6, 0, 1.5, .05, 'Traffic density at night, against the day');
 knob('Traffic', 'trafficRain', 'Rain traffic', .8, 0, 1.5, .05, 'Traffic density in rain or storm');
 knob('Traffic', 'panicRange', 'Panics within', 220, 0, 800, 10, 'A shot, blast or killing scares drivers this near (u)');
@@ -161,6 +161,8 @@ export class Traffic {
   /** a unit nobody will drive again (its crew dead): out of the traffic, the car left standing where it is */
   abandon(c) { if (!c || !this.cars.includes(c)) return; if (c.duty) c.duty.lost = true; c.v.duty = null; c.v.siren = false; this._drop(c, false); }
   // a new car somewhere in the annulus, on a lane, with room, of a definition the neighbourhood and the hour allow
+  /** cars put down anywhere on the lanes, in sight or not, until there are n (the stress pad's); how many there are */
+  fill(n, ctx = {}) { for (let k = 0; k < n * 3 && this.cars.length < n; k++) this._spawn(ctx, 0); return this.cars.length; }
   _spawn(ctx, inR = TUNE.fpSpawnIn) {
     const fp = this.fp, outR = TUNE.fpSpawnOut, cand = [];
     for (const p of this.points) { const d = Math.hypot(p.x - fp.x, p.y - fp.y); if (d >= inR && d <= outR && !(p.lane.bridge && ctx.bridgeUp && ctx.bridgeUp(p.lane.bridge))) cand.push(p); }

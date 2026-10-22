@@ -2,7 +2,7 @@
 // one slot a kind, clockwise from the fists at the top; point with the stick, WASD or the mouse, step through a slot
 // holding more than one with the d-pad's left and right, let go to take it.
 // The scene slows the game while it is open (TUNE.wheelSlow). wheelPointer is shared with the character wheel.
-//   const ww = new WeaponWheel(bindings);  ww.update(realDt, ped, { blocked })  ·  ww.open  ·  ww.draw(g, W, H)
+//   const ww = new WeaponWheel(bindings);  ww.update(realDt, ped, { blocked })  ·  ww.open  ·  ww.draw(pen)
 import { TUNE } from '../core/tune.js';
 import { get } from '../core/registry.js';
 import { Wheel } from './wheel.js';
@@ -34,10 +34,12 @@ export class WeaponWheel {
     return { items, sel: Math.max(0, items.findIndex(i => i.id === inv.current)) };
   }
   /** step (real seconds): open after the hold, point, pick on release. o: { game (for the mouse), blocked (it can't
-   *  open now: a switch, a menu) } */
+   *  open now: a switch, a menu), toggle (a press opens it, the next picks) } */
   update(real, p, o = {}) {
-    const held = this.B.down('wheel', 'onFoot') && !o.blocked && p && !p.dead;
-    if (held) { this.hold += real; if (!this.wheel.open && this.hold >= TUNE.wheelHold) { const w = this.items(p); this.wheel.show(w.items, w.sel); this.from = null; } }
+    // held open, or (o.toggle: Settings, ACCESS) a press opens it and the next picks
+    if (o.toggle) { if (this.B.tap('wheel', 'onFoot')) this.latched = !this.latched; } else this.latched = false;
+    const held = (o.toggle ? this.latched : this.B.down('wheel', 'onFoot')) && !o.blocked && p && !p.dead; if (!held) this.latched = false;
+    if (held) { this.hold += real; if (!this.wheel.open && (o.toggle || this.hold >= TUNE.wheelHold)) { const w = this.items(p); this.wheel.show(w.items, w.sel); this.from = null; } }
     else { if (this.wheel.open) { const it = this.wheel.hide(); if (it && p) p.inv.select(it.id); } this.hold = 0; this.from = null; }
     if (this.wheel.open && o.game) { const ptr = wheelPointer(o.game, this.B, this.from); if (ptr.mouse && !this.from) this.from = ptr.mouse; this.wheel.update(real, { dir: ptr.dir }); }
     // a slot holding more than one: d-pad left and right step through it
@@ -45,5 +47,5 @@ export class WeaponWheel {
     if (cur && step && cur.slot !== 'fists' && p.inv.inSlot(cur.slot).length > 1) { p.inv.cycleSlot(cur.slot, step); const w = this.items(p); this.wheel.items = w.items; }
     return this.wheel.open;
   }
-  draw(g, W, H) { this.wheel.draw(g, W, H); }
+  draw(P) { this.wheel.draw(P); }
 }

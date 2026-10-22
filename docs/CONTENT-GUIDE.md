@@ -14,7 +14,8 @@ Every recipe below names the test to run. From M12 on, `tests/recipes/*.test.js`
 | A small test map | `def('maps', id, { build() { return new E.TileMap({...}) } })` | `npm test` |
 | A vehicle model | `def('vehicleModels', id, { name, class, length, width, height, ...carParts({...}), kits })` in `src/game/vehicles/` | `node --test tests/unit/handling.test.mjs` (the model's data) |
 | A vehicle (or a variant of a model) | `def('vehicles', id, { name, model, kit, role, handling, spec, palette, ... })` in `src/game/vehicles/` | `GTM_VEHICLES=<id> node --test tests/unit/handling.test.mjs`; the look: `tools/model-sheet.mjs --only <id>` |
-| A radio station (M4's stub) | `def('stations', id, { name, freq, dj, genre, color })` in `src/game/radio/` | `npm test` |
+| A radio station | `def('stations', id, { name, freq, dj, genre ('synth-punk' \| 'boom-bap' \| 'synthwave' \| 'talk'), color, seed, songs: [{ title, artist }], djLines, ads: [radioAd ids], jingle, talk: [[lines]] })` in `src/game/radio/` (the music is the composer's: no notes to write) | `node --test tests/unit/audio.test.mjs`; `node tests/e2e/audio.mjs` (its first 10 s not silent) |
+| A radio ad | `def('radioAds', id, { name, lines })` | the same |
 | An interior | `def('interiors', id, { name, blocks, legend, types, floor, rooms, doors, guards, cameras, lights, music })` in `src/game/interiors/`, and a city door: a `{ kind: 'door', interior: id }` point of interest beside the building | `validateInterior(buildInterior(id))` has no errors (`tests/sim/interior.test.mjs` for the bank); `node vendor/my-3d2dge/tools/check.mjs 'dist/index.html#interior/<id>'` |
 
 | A mission | `defMission(id, { title, giver, gang, tier, requires, plays, brief, rewards, bonus, stages })` in a file of its own under `src/game/missions/` (`s1-holy-rollers.js` is the template) | `node tools/bot.mjs --mission <id>` (the bot, seeds 1-3) and `--pad` (through a gamepad); `node --test tests/sim/mission-links.test.mjs` |
@@ -24,7 +25,47 @@ Every recipe below names the test to run. From M12 on, `tests/recipes/*.test.js`
 | Moto Tokens, stunt jumps | `def('collectibles', id, { name, reward, bonus, spots: [{ id, at: [x, y, z], via }] })`, `def('stunts', id, { name, takeoff, r, landing, minDist, minAir, reward, approach })` (registered in order: the first takeoff circle holding an airborne point owns the jump); a stunt's ramps are a landmark's `decks` of kind `ramp` (`def('landmarks', id, { district, name, decks: [{ id, kind: 'ramp', z, width, path, ramps, openEnd }] })`: terrain only, no lanes and nothing piled on them) | `node --test tests/sim/side-content.test.mjs`; the bot campaign |
 | A random event | `defActivity(id, { kind: 'event', levels: 1, where(W, P), rewardsFor, stages })` under `src/game/events/` (one stage; a failure ends it quietly; its setup sets `m.data.at` when a deep link starts it) | `node tools/bot.mjs --mission <id>` |
 
-More recipes are added as each system lands: vehicle, variant, weapon, ped, outfit, gang, station, song, reel, district.
+| A screen (M9) | a plain object for `app.ui.screens.open(screen)`: `{ id, title, list: new List({ items }), tabs, cards, info, body, legend, pause, back() }` drawn by the 10-foot kit (`src/motor/ui/`); MOTOR's own: `confirmScreen`, `settingsScreen`, `slotsScreen`, `guideScreen`, `docScreen`, `tabbedScreen`, `mapPage` | `node tools/ui-audit.mjs` (add the screen to its walk) |
+| A first-time hint (M9) | `{ id, text, when(ctx) }` in `src/game/ui/tips.js` (glyph tokens name their context: `{onFoot:interact}`) | `node --test tests/sim/ui.test.mjs` |
+| A help page (M9) | `{ title, lines }` in `src/game/ui/guide.js` | the audit's help stops |
+| An attract reel (M11) | `defReel(id, { title, shows, views, time, stages: [{ id, view, caption, setup(m), *run(m) }] })` in `src/game/reels/` (a mission's stages: see "Attract reels" below) | `#attract/<id>` plays it over and over; `node --expose-gc tools/attract-soak.mjs --mins 6` |
+
+More recipes are added as each system lands: vehicle, variant, weapon, ped, outfit, gang, station, song, district.
+
+## Attract reels
+
+The attract mode (PLAN.md 8.20, D25) plays the reels in `src/game/reels/`, each in a fresh Lowtown, with a card between
+every two or three. A reel is a mission's stages (the same `m` API, the same bot hints: the mission bot plays it), with
+three differences: it pays nothing and is never recorded; each stage may name its `view` (`iso`, `top`, `side7`: the
+director's camera plan, set as the stage starts) and a `caption` (shown under the reel's title); and it has a `time`
+(seconds) past which the director cuts to the next. The director also cuts when nothing has moved for six seconds (the
+camera's focus still, no op begun): so a reel never waits long on one op without movement (a guard's round to come by,
+a line said over a still shot), and puts its people where the action starts (a reel is an edit: a stage's setup may
+place the car on the next street, under a change of view). A reel's first stage sets the protagonist, the hour and the
+weather (`m.as`, `m.time`, `m.weather`: held till the reel ends) and spawns what it needs; `m.slowmo(k)` slows the game
+for a moment (a stunt's flight), `m.switchTo(id, { vignette: true })` switches as a player does, the vignette played,
+and the `drive` hint (`{ kind: 'drive', heading, nitro }`) holds the throttle down on a heading (a stunt's run-up). Lowtown's
+one-way streets (and the Loop's ring) decide which way a reel's route can go: check it with `#attract/<id>` and a probe
+of the bot's state before trusting a line of checkpoints.
+
+## The 10-foot UI
+
+Everything the player reads is drawn on MOTOR's UI layer by its kit (PLAN.md 8.18, D23), so content keeps to a few
+rules the audit (`tools/ui-audit.mjs`) checks on every screen:
+- **A glyph token names its context** (`{onFoot:interact}`, `{vehicle:handbrake}`, `{menu:confirm}`): a token without
+  one resolves in the context live when it is drawn, and under a menu that is `menu`, where `interact` is nobody's
+  button. An objective or a line in a mission is plain text; a prompt that shows a button names its context.
+- **Six items a page at most:** a `List` pages longer lists itself (`2/4` at the panel's top right); a card's
+  `items` are the same.
+- **The 5 x 7 font only**, at scale 1 or more (`pen.text(s, x, y, color, { scale })`); never the engine's `tiny`.
+- **Inside the safe area** (5% each side): `pen.safe` is [x0, y0, x1, y1] in UI pixels; `hudLayout(pen)` says where
+  the HUD's own parts sit.
+- **Subtitles** come from `m.say(lines, { name, color })`: the speaker's name in their colour, the line after it;
+  the player may turn them off (Settings, Display).
+- **A job's score:** `m.music('chase' | 'tension')` under a chase or a sneak, `m.music(null)` after it (the job's end
+  clears it too); the radio ducks under it. Presentation only: the bot and the tests never hear it.
+- A career card (`career._open({ id, title, body, items })`) is a screen of the kit: `items` are `{ label, sub, right,
+  disabled, act }`, ✕ acts, ○ backs out (`back()`), and the bot answers a card's `auto()`.
 
 ## Missions
 

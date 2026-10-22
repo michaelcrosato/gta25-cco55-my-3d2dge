@@ -66,7 +66,7 @@ defMission('rats_below_deck', {
         for (const g of GUARDS) m.ensure.ped(g.tag, g.arch, g.at, { role: 'guard', facing: g.facing });
       },
       *run(m) {
-        m.failIf(made, 'they made you');
+        m.failIf(made, 'they made you'); m.music('tension');   // (the score under the sneaking)
         m.marker(SPOT, { color: '#c88aff', r: 10 });
         m.objective('Sneak in round the back: down the club\'s east side and along its front wall to the bench. Stay behind them', { hint: { kind: 'stealth', path: IN } });
         yield m.waitUntil(m => near(m, SPOT, 12));

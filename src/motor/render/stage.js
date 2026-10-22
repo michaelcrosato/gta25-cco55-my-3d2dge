@@ -56,8 +56,8 @@ export class Stage {
     this.game = game; this.views = views; this.items = []; this.world = null; this.last = 0; this.fx = null; this.zx = null;
     this.lamps = []; this.glows = []; this.floorFx = []; this.marks = []; this.backdrops = new Map(); this.skyNow = null; this._maxH = null; this.wfx = new WeatherFX();
     this.frameNo = 0; this._kept = new WeakMap();   // (crowd bodies' kept images in the depth views, by their key)
-    this.fade = new CrossFade(); this.bx = null; this._dt = 0; this.railHold = null;
-    views.onChange((now, prev) => { if (now === prev) return; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); this.bx = !views.spec || !views.spec.depth ? { t: 0 } : null; });
+    this.fade = new CrossFade(); this.bx = null; this._dt = 0; this.railHold = null; this.sharp = false; this.px = 1; this.baseS = 1;
+    views.onChange((now, prev) => { if (now === prev) return; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); this.bx = !views.spec || !views.spec.depth ? { t: 0 } : null; this.sharpSync(); });
     this.side7 = new Side7View({}); this.top = new TopView({});
     for (const v of [this.top, this.side7]) views.addView({ id: v.id, label: v.label, depth: v,
       screenDirToGround: (dx, dy) => v.screenDirToGround(dx, dy), screenVec: (x, y, z) => v.screenVec(x, y, z), groundDirToScreen: v.groundDirToScreen ? (x, y) => v.groundDirToScreen(x, y) : null,
@@ -135,7 +135,20 @@ export class Stage {
   /** each simulation step from the scene (o.vehicle: the focus is in one; o.vel: its velocity): MODE 7's Auto-rail
    *  turns the rail to the axis a vehicle has held 1.5 s, through the crossfade (TUNE.autoRail; here, between frames, so
    *  the fade starts from the last one drawn). Presentation only: the simulation never reads it */
+  /** Sharp MODE 7 (Settings, Display, PLAN.md 5.3): while MODE 7 is the view and the player asks for it, the game's
+   *  buffer at the screen's own resolution (the stress test's depthResolution: the framing comes from the field of view,
+   *  so more pixels only sharpen); back to the game's pixel size with the setting off or another view. px: the size a
+   *  pixel of the overlays (marks, signs' glows) is drawn at meanwhile, so they keep their size on screen; baseS: the
+   *  game's own scale (the UI layer keeps it). In the step: a view change, or each update */
+  sharpSync() {
+    const g = this.game, S = g.screen, want = !g.headless && !!S && this.depth === this.side7 && !!(g.settings && g.settings.sharpSide7);
+    if (want === this.sharp) return;
+    if (want) { this.baseS = Math.max(1, Math.floor(S.S)); this._res = g.o.res; S.setOptions({ res: null, minW: 1e6, minH: 1e6, maxW: 1e6, maxH: 1e6 }); }
+    else S.setOptions({ res: this._res });
+    this.sharp = want; this.px = want ? this.baseS : 1; g.cam.snap = true;
+  }
   update(dt, o = {}) {
+    this.sharpSync();
     const d = this.depth; if (d !== this.side7 || this.rig) return;
     if (this.railHold !== null) { if (d.heading !== this.railHold) this._railTo(this.railHold); d.steadyT = 0; return; }   // (a set piece holds it: m.view('side7', { heading }))
     const want = TUNE.autoRail && o.vehicle && o.vel ? d.autoRail(dt, o.vel[0], o.vel[1]) : (d.steadyT = 0, null);
@@ -236,10 +249,10 @@ export class Stage {
     const seen = new Set(), cut = this.cutaway ? this.cutaway.cut : null;
     for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
       const id = map.cell(cx, cy); if (id <= 0) continue;
-      const t = types[id], lot = C ? C.lot[cy * C.w + cx] : -1;
-      if (lot >= 0) {
+      const t = types[id], lot = C ? C.lot[cy * C.w + cx] : -1, L = lot >= 0 && C.lots ? C.lots[lot] : null;   // (an interior's wall cells are lots of their own with no record: a cell each)
+      if (L) {
         if (seen.has(lot)) continue; seen.add(lot);
-        const L = C.lots[lot], [a, b, c, d] = L.rect, h = cut && cut.has(lot) ? (t.cutH || 6) : t.h, top = h < t.h && t.cutTop ? t.cutTop : t.top;
+        const [a, b, c, d] = L.rect, h = cut && cut.has(lot) ? (t.cutH || 6) : t.h, top = h < t.h && t.cutTop ? t.cutTop : t.top;
         r.queue((a + c + 1) / 2 * T, (b + d + 1) / 2 * T, 0, g => r.box(g, a * T, b * T, 0, (c + 1) * T, (d + 1) * T, h, top, t.side), { occluder: true });
       } else r.queue((cx + .5) * T, (cy + .5) * T, 0, g => r.box(g, cx * T, cy * T, 0, cx * T + T, cy * T + T, t.h, t.top, t.side), { occluder: true });
     }
@@ -258,8 +271,13 @@ export class Stage {
     const d = this.depth;
     if (!d) { this.glows.push([x, y, z, draw, o.reflect || null, !!o.always]); return; }
     if (o.iso) return;
-    if (o.always) { this.marks.push(() => { const q = d.proj(x, y, z); if (q) draw(this.r.ctx, q[0], q[1], q[2]); }); return; }
-    this.items.push({ k: d.depth(x, y) - .01, fn: g => { const q = d.proj(x, y, z); if (q) draw(g, q[0], q[1], q[2]); } });
+    if (o.always) { this.marks.push(() => { const q = d.proj(x, y, z); if (q) this._glowAt(this.r.ctx, draw, q); }); return; }
+    this.items.push({ k: d.depth(x, y) - .01, fn: g => { const q = d.proj(x, y, z); if (q) this._glowAt(g, draw, q); } });
+  }
+  // a glow at its screen point; under Sharp MODE 7 drawn px times over (its pixels the game's size on screen)
+  _glowAt(g, draw, q) {
+    const px = this.px; if (px === 1) { draw(g, q[0], q[1], q[2]); return; }
+    g.save(); g.translate(Math.round(q[0]), Math.round(q[1])); g.scale(px, px); draw(g, 0, 0, q[2] / px); g.restore(); g._c = null;
   }
   /** a line that shines from a (where it is hidden-tested in ISO, like a glow) to b: a tracer, a zap's arc. draw(g, A,
    *  B, k) gets both screen points and the pixels a unit at a */
