@@ -31,7 +31,7 @@ handed off (D16), and the next sessions carried it from M5 on the branch `claude
 | M10 Audio + radio | done | GTM-PATCH 5 (the buses), MOTOR's sequencer, composer, radio and voices, four stations, the score cues (`b2ea884`, D24) · unit audio, sim audio (the hash the same with sound), e2e audio (each station's RMS, the music bus, mute, a bounded soak) · 277 tests |
 | M11 Attract + kiosk | done | the Director and its five reels, cards, the camera plan, the watchdog, leaving on any input, the kiosk and phone (`52b3980`, D25) · the soak 30 min x seeds 1-3 headless and 5 min drawn, all pass · director 4, attract sim 18, attract e2e 24 checks · `docs/media/m11/` (11 shots, the Joyride MP4 and GIF) |
 | M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
-| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, D28) · 320 unit + sim tests, 15 recipes |
+| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2) · 328 unit + sim tests, 15 recipes |
 
 ## Acceptance log
 
@@ -1113,4 +1113,10 @@ handed off (D16), and the next sessions carried it from M5 on the branch `claude
     analysis in a section of its own, the Credits & About screen's text (`src/about.js`).
   - **The gate:** `npm test` passes every step: 320 unit and sim tests, 15 recipes, the e2e suites, the engine's
     check outdoors and in the bank.
+- **M13 · the respray's bay, sodium streetlamps (part 2, D28):**
+  - **Spray & Pray** respray within reach of a bay at the curb in front of its door: a car stopped on Canal Street
+    there is resprayed, and the bot's evade drives in from down the street (`tests/sim/wanted.test.mjs`; the test fails
+    on the old rule: from the street the nearest a car got to the door was 50, and the reach is 44).
+  - **The streetlamps** light, glow and streak sodium orange (`render/city-render.js`, the depth views' pools in
+    `render/stage.js`). Shots: `docs/media/shots/` (M13's matrix, below).
 

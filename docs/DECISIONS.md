@@ -1113,5 +1113,12 @@ and where it landed.
     cars, deck cells, glows...), timed with its raster paid where it is drawn. Only with the flag: a clock read an
     item costs.
   - **The look notes:** the title's tagline and the attract mode's captions on bands (the signs behind them ran into
-    the words); WRECKED and NABBED on a band of their own (a world label showed through the big word).
-- **Answered:** no. **Landed in:** M13 (part 1).
+    the words); WRECKED and NABBED on a band of their own (a world label showed through the big word); the
+    streetlamps' light, halo and wet-street streak in sodium orange (PLAN.md 10: they had read a pale cream against the
+    neon).
+  - **Spray & Pray's bay** (D20's carried map fix): the respray happens within 44 of a bay out at the curb in front of
+    the door (six tenths of the way from the door to the nearest lane), not of the door itself. The door stands back
+    across the sidewalk between two lamp posts, and turning in off Canal Street a car's turning circle swung it into the
+    posts short of the door's reach: the bot's evade could never respray there, and a player had to shuffle in. The bot
+    is sent to the bay (`world.sprayBay()`); the Hot Pursuit reel's apron is within reach of it.
+- **Answered:** no. **Landed in:** M13 (parts 1 and 2).

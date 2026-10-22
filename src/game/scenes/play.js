@@ -142,9 +142,17 @@ export const PLAY = {
       toast = { text: (kind === 'nabbed' ? 'BAIL  -$' : 'HOSPITAL BILL  -$') + paid, t: 2.5 };
       BUS.emit('respawn', { kind, x: Math.round(at.x), y: Math.round(at.y) });
     }
+    // Spray & Pray's bay: its frontage out at the curb, in front of the door (the door stands back across the sidewalk,
+    // and turning in off Canal Street a car's turning circle swung it into the lamp posts short of the door's reach)
+    let bay = null;
+    const sprayBay = () => {
+      const shop = city && city.poi('spray-pray'); if (!shop) return null; if (bay && bay.shop === shop) return bay.at;
+      const G = roadsOf(city).graph, n = G.nearestLane(shop.x, shop.y, null, 0, 200), q = n && G.pointOn(n.lane, n.s);
+      bay = { shop, at: q ? [Math.round(shop.x + (q[0] - shop.x) * .6), Math.round(shop.y + (q[1] - shop.y) * .6)] : [shop.x, shop.y] }; return bay.at;
+    };
     // Spray & Pray: drive in wanted and out of sight, pay, and the car comes out another colour with the stars gone
     function respray(p, v) {
-      const W = wanted(), shop = city.poi('spray-pray'); if (!W || !W.stars || !shop || v.driver !== p || v.speed > 40 || Math.hypot(v.x - shop.x, v.y - shop.y) > 44) { inShop = false; return; }
+      const W = wanted(), at = sprayBay(); if (!W || !W.stars || !at || v.driver !== p || v.speed > 40 || Math.hypot(v.x - at[0], v.y - at[1]) > 44) { inShop = false; return; }
       if (W.seen) { if (!inShop) toast = { text: 'NOT WHILE THEY\'RE WATCHING', t: 2 }; inShop = true; return; }   // (said once a visit; out of sight, it goes ahead)
       if (inShop === 'broke') return; inShop = true;
       if (crew.fund < TUNE.resprayFee) { toast = { text: 'NO MONEY, NO PAINT  $' + TUNE.resprayFee, t: 2 }; inShop = 'broke'; return; }
@@ -248,6 +256,7 @@ export const PLAY = {
       get clock() { return clock; }, get weather() { return weather; }, get roads() { return city ? roadsOf(city) : null; }, get junctions() { return life ? life.junctions : null; },
       get bot() { return !!(career && career.bot); },
       wanted: () => wanted(),
+      sprayBay: () => sprayBay(),   // (where a car is resprayed: [x, y], or null)
       cash: (n, why) => { crew.fund = Math.max(0, crew.fund + n); BUS.emit('cash', { amount: n, reason: why }); },
       respect: (g, d, why) => { if (life && life.gangs) life.gangs.add(g, d, why); else save.respect[g] = Math.max(-100, Math.min(100, (save.respect[g] || 0) + d)); },
       possess: id => { if (crew.possess(id)) game.cam.snap = true; },

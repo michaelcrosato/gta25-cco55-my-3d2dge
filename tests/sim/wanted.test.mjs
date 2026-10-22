@@ -155,6 +155,23 @@ test('the respray: in a car at Spray & Pray, out of sight, the stars go for a fe
   }
 });
 
+test('the respray from the street: a car pulled up on Canal Street in front of Spray & Pray is in its bay, and the bot losing a star drives in there', async () => {
+  { const { game, gtm } = await play('spray-pray'), P = gtm.crew.ped, W = gtm.life.wanted, shop = gtm.city.poi('spray-pray'), log = listen(gtm.BUS, ['respray']);
+    clearAround(gtm, shop.x, shop.y, 600);
+    const G = gtm.motor.roadsOf(gtm.city).graph, n = G.nearestLane(shop.x, shop.y, null, 0, 200), q = G.pointOn(n.lane, n.s);
+    assert.ok(Math.hypot(q[0] - shop.x, q[1] - shop.y) > 60, 'the door stands back from the street');
+    const v = gtm.fleet.spawn('cortez', q[0], q[1], n.lane.dir ? Math.atan2(n.lane.dir[1], n.lane.dir[0]) : 0); v.sit(P, 0); W.set(1); game.advance(1.5);
+    assert.equal(log.length, 1, 'resprayed at the curb'); assert.equal(W.stars, 0); }
+  { const { game, gtm } = await play('spray-pray'), P = gtm.crew.ped, W = gtm.life.wanted, M = gtm.motor, shop = gtm.city.poi('spray-pray'), log = listen(gtm.BUS, ['respray']);
+    clearAround(gtm, shop.x, shop.y, 600);
+    const G = M.roadsOf(gtm.city).graph, n = G.nearestLane(shop.x + 180, shop.y, null, 0, 200), q = G.pointOn(n.lane, n.s);
+    const v = gtm.fleet.spawn('cortez', q[0], q[1], Math.atan2(n.lane.dir[1], n.lane.dir[0])); v.sit(P, 0); game.advance(.2); W.set(1);
+    const B = new M.MissionBot({ city: gtm.city, roads: M.roadsOf(gtm.city), fleet: gtm.fleet, junctions: gtm.life.junctions });
+    gtm.pilot((dt, p) => B.evade(dt, p, { t: gtm.life.t, pedsNear: (x, y, r) => gtm.life.pedsNear(x, y, r), wanted: W, police: gtm.life.police, respray: gtm.career._respray() }));
+    for (let t = 0; t < 60 && !log.length; t += .25) game.advance(.25);
+    assert.equal(log.length, 1, 'the bot\'s evade drove into the bay'); gtm.pilot(null); }
+});
+
 test('NABBED: cuffed on foot when slow or unarmed (not when quick and armed), at the door of a stopped car (not a moving one, nor from the street under the deck it stands on), never at no stars; then the precinct, bail, the guns gone', async () => {
   const DECK = [1600, 1267, 64];   // (the Loop's north leg, up on its deck over the street)
   const nab = async (o) => {

@@ -12755,10 +12755,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       lg.clearRect(0, 0, w8, h);
       lg.fillStyle = `rgba(${dk[0]},${dk[1]},${dk[2]},${a.toFixed(3)})`;
       lg.fillRect(0, 0, w8, h);
-      const warm = Math.round(40 * (L17.tint === void 0 ? 0.32 : L17.tint) / 0.32), hole = poolDisc("rgba(0,0,0,.95)", "rgba(0,0,0,0)");
+      const warm = Math.round(48 * (L17.tint === void 0 ? 0.32 : L17.tint) / 0.32), hole = poolDisc("rgba(0,0,0,.95)", "rgba(0,0,0,0)");
       lg.globalCompositeOperation = "destination-out";
       for (const [x, y, rad] of pools) lg.drawImage(hole, x - rad, y - rad * flat, rad * 2, rad * 2 * flat);
-      const gg = this._gcv.getContext("2d"), glow = poolDisc(`rgba(${warm},${Math.round(warm * 0.75)},${Math.round(warm * 0.4)},1)`, "rgba(0,0,0,1)");
+      const gg = this._gcv.getContext("2d"), glow = poolDisc(`rgba(${warm},${Math.round(warm * 0.62)},${Math.round(warm * 0.25)},1)`, "rgba(0,0,0,1)");
       gg.globalCompositeOperation = "source-over";
       gg.fillStyle = "#000";
       gg.fillRect(0, 0, w8, h);
@@ -19617,7 +19617,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const spr = SPRITES[p.kind];
       if (spr) {
         const lamp2 = p.kind === "lamp";
-        stage.prop(spr, p.x, p.y, p.z || 0, { light: night3 && lamp2, halo: false, lightRadius: 88, size: p.kind === "palm" ? 1.3 : 1 });
+        stage.prop(spr, p.x, p.y, p.z || 0, { light: night3 && lamp2, lightColor: SODIUM, halo: false, lightRadius: 88, size: p.kind === "palm" ? 1.3 : 1 });
         if (lamp2 && night3) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow, { reflect: lampSmear });
         return;
       }
@@ -19637,6 +19637,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   };
   var WALL_IN = { s: [0, -10], n: [0, 10], e: [-10, 0], w: [10, 0] };
   var DECK_SMALL = 12;
+  var SODIUM = "#ffa850";
   var LAMP_HEAD = 32;
   var GLOWS = /* @__PURE__ */ new Map();
   function lampGlow(g, sx, sy, k) {
@@ -19645,11 +19646,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     if (!cv) {
       cv = E.mkCanvas(R3 * 2 + 2, R3 * 2 + 2);
       const c = E.ctx2d(cv), gr = c.createRadialGradient(R3 + 1, R3 + 1, 0, R3 + 1, R3 + 1, R3);
-      gr.addColorStop(0, "rgba(255,252,232,1)");
-      gr.addColorStop(0.18, "rgba(255,240,190,.9)");
-      gr.addColorStop(0.42, "rgba(255,226,150,.42)");
-      gr.addColorStop(0.75, "rgba(255,210,130,.12)");
-      gr.addColorStop(1, "rgba(255,200,120,0)");
+      gr.addColorStop(0, "rgba(255,240,206,1)");
+      gr.addColorStop(0.18, "rgba(255,204,128,.9)");
+      gr.addColorStop(0.42, "rgba(255,168,80,.42)");
+      gr.addColorStop(0.75, "rgba(255,140,56,.12)");
+      gr.addColorStop(1, "rgba(255,128,48,0)");
       c.fillStyle = gr;
       c.fillRect(0, 0, cv.width, cv.height);
       GLOWS.set(key, cv);
@@ -19668,7 +19669,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       for (let y = 0; y < h; y++) {
         const f = 1 - y / h, half = Math.max(0, Math.round(w8 * (0.35 + 0.65 * f) * (E.hash2(y, 7) < 0.3 ? 0.5 : 1)));
         if (E.hash2(y * 3, 11) < 0.22 * (1 - f) + 0.08) continue;
-        c.fillStyle = `rgba(255,${210 + Math.round(30 * f)},${140 + Math.round(60 * f)},${(0.5 * f * f + 0.06).toFixed(3)})`;
+        c.fillStyle = `rgba(255,${170 + Math.round(40 * f)},${80 + Math.round(60 * f)},${(0.5 * f * f + 0.06).toFixed(3)})`;
         c.fillRect(w8 - half, y, half * 2 + 1, 1);
       }
       GLOWS.set(key, cv);
@@ -40903,10 +40904,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this.lab) return [];
       return all("missions").filter((m) => !done2.includes(m.id) && (m.requires || []).every((r7) => done2.includes(r7)) && (!m.unlock || m.unlock(S5, this.W)) && giverAt(this.W.city, m));
     }
-    // Spray & Pray's yard while the player can pay for a respray (the bot's way to lose the stars), else null
+    // Spray & Pray's bay while the player can pay for a respray (the bot's way to lose the stars), else null
     _respray() {
-      const q = this.W.city.poi("spray-pray");
-      return q && this.W.crew.fund >= (TUNE.resprayFee ?? 100) ? [q.x, q.y] : null;
+      const q = this.W.sprayBay ? this.W.sprayBay() : null;
+      return q && this.W.crew.fund >= (TUNE.resprayFee ?? 100) ? q : null;
     }
     /** where a mission's giver stands: [x, y] (its marker), or null */
     giverOf(m) {
@@ -41907,9 +41908,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         toast = { text: (kind === "nabbed" ? "BAIL  -$" : "HOSPITAL BILL  -$") + paid, t: 2.5 };
         BUS.emit("respawn", { kind, x: Math.round(at.x), y: Math.round(at.y) });
       }
+      let bay = null;
+      const sprayBay = () => {
+        const shop2 = city && city.poi("spray-pray");
+        if (!shop2) return null;
+        if (bay && bay.shop === shop2) return bay.at;
+        const G2 = roadsOf(city).graph, n = G2.nearestLane(shop2.x, shop2.y, null, 0, 200), q = n && G2.pointOn(n.lane, n.s);
+        bay = { shop: shop2, at: q ? [Math.round(shop2.x + (q[0] - shop2.x) * 0.6), Math.round(shop2.y + (q[1] - shop2.y) * 0.6)] : [shop2.x, shop2.y] };
+        return bay.at;
+      };
       function respray(p, v) {
-        const W26 = wanted(), shop2 = city.poi("spray-pray");
-        if (!W26 || !W26.stars || !shop2 || v.driver !== p || v.speed > 40 || Math.hypot(v.x - shop2.x, v.y - shop2.y) > 44) {
+        const W26 = wanted(), at = sprayBay();
+        if (!W26 || !W26.stars || !at || v.driver !== p || v.speed > 40 || Math.hypot(v.x - at[0], v.y - at[1]) > 44) {
           inShop = false;
           return;
         }
@@ -42158,6 +42168,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           return !!(career && career.bot);
         },
         wanted: () => wanted(),
+        sprayBay: () => sprayBay(),
+        // (where a car is resprayed: [x, y], or null)
         cash: (n, why) => {
           crew.fund = Math.max(0, crew.fund + n);
           BUS.emit("cash", { amount: n, reason: why });

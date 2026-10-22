@@ -469,11 +469,11 @@ export class Stage {
     for (const [x, y, , R] of this.lamps) { const q = d.proj(x, y, 0); if (q && R * q[2] >= 2 && q[0] > -R * q[2] && q[0] < W + R * q[2]) pools.push([q[0] / S, q[1] / S, R * q[2] / S]); }
     lg.globalCompositeOperation = 'source-over'; lg.clearRect(0, 0, w, h);
     lg.fillStyle = `rgba(${dk[0]},${dk[1]},${dk[2]},${a.toFixed(3)})`; lg.fillRect(0, 0, w, h);
-    const warm = Math.round(40 * (L.tint === undefined ? .32 : L.tint) / .32), hole = poolDisc('rgba(0,0,0,.95)', 'rgba(0,0,0,0)');
+    const warm = Math.round(48 * (L.tint === undefined ? .32 : L.tint) / .32), hole = poolDisc('rgba(0,0,0,.95)', 'rgba(0,0,0,0)');
     lg.globalCompositeOperation = 'destination-out';
     for (const [x, y, rad] of pools) lg.drawImage(hole, x - rad, y - rad * flat, rad * 2, rad * 2 * flat);
     // the dark, then the warmth added on top ('lighter'), each scaled up smoothly
-    const gg = this._gcv.getContext('2d'), glow = poolDisc(`rgba(${warm},${Math.round(warm * .75)},${Math.round(warm * .4)},1)`, 'rgba(0,0,0,1)');
+    const gg = this._gcv.getContext('2d'), glow = poolDisc(`rgba(${warm},${Math.round(warm * .62)},${Math.round(warm * .25)},1)`, 'rgba(0,0,0,1)');   // (sodium orange, as ISO's lamps)
     gg.globalCompositeOperation = 'source-over'; gg.fillStyle = '#000'; gg.fillRect(0, 0, w, h); gg.globalCompositeOperation = 'lighter';
     for (const [x, y, rad] of pools) { const q = rad * .8; gg.drawImage(glow, x - q, y - q * flat, q * 2, q * 2 * flat); }
     const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = S > 1;

@@ -81,8 +81,8 @@ export class Career {
     const S = this.save, done = S.missions.done; if (this.lab) return [];   // (another district: free roam alone, no job on offer)
     return all('missions').filter(m => !done.includes(m.id) && (m.requires || []).every(r => done.includes(r)) && (!m.unlock || m.unlock(S, this.W)) && giverAt(this.W.city, m));
   }
-  // Spray & Pray's yard while the player can pay for a respray (the bot's way to lose the stars), else null
-  _respray() { const q = this.W.city.poi('spray-pray'); return q && this.W.crew.fund >= (TUNE.resprayFee ?? 100) ? [q.x, q.y] : null; }
+  // Spray & Pray's bay while the player can pay for a respray (the bot's way to lose the stars), else null
+  _respray() { const q = this.W.sprayBay ? this.W.sprayBay() : null; return q && this.W.crew.fund >= (TUNE.resprayFee ?? 100) ? q : null; }
   /** where a mission's giver stands: [x, y] (its marker), or null */
   giverOf(m) { return giverAt(this.W.city, m); }
   /** the activities with a place to start: [{ spec, at }] (jobs start from the phone) */

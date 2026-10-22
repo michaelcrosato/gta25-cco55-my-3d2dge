@@ -129,7 +129,7 @@ export class CityRenderer {
     }
     const spr = SPRITES[p.kind];
     if (spr) {
-      const lamp = p.kind === 'lamp'; stage.prop(spr, p.x, p.y, p.z || 0, { light: night && lamp, halo: false, lightRadius: 88, size: p.kind === 'palm' ? 1.3 : 1 });
+      const lamp = p.kind === 'lamp'; stage.prop(spr, p.x, p.y, p.z || 0, { light: night && lamp, lightColor: SODIUM, halo: false, lightRadius: 88, size: p.kind === 'palm' ? 1.3 : 1 });
       if (lamp && night) stage.glow(p.x, p.y, (p.z || 0) + LAMP_HEAD, lampGlow, { reflect: lampSmear });
       return;
     }
@@ -148,14 +148,15 @@ export class CityRenderer {
 }
 const WALL_IN = { s: [0, -10], n: [0, 10], e: [-10, 0], w: [10, 0] };   // (from a sign on a building's side to inside its wall)
 const DECK_SMALL = 12;   // (pixels across: a deck cell smaller on screen is drawn plainly)
+const SODIUM = '#ffa850';   // (the streetlamps' light: sodium orange against the neon, PLAN.md 10)
 const LAMP_HEAD = 32;   // the streetlamp sprite's lamp, in world units over its foot (its glowAt: .13 of 52 pixels down, at sqrt 2 a unit)
 const GLOWS = new Map();
-/** a lamp's halo: two soft warm discs, added (one image per size) */
+/** a lamp's halo: two soft discs, sodium orange round a hot core, added (one image per size) */
 function lampGlow(g, sx, sy, k) {
   const R = Math.max(7, Math.round(12 * k)), key = R; let cv = GLOWS.get(key);
   if (!cv) {
     cv = E.mkCanvas(R * 2 + 2, R * 2 + 2); const c = E.ctx2d(cv), gr = c.createRadialGradient(R + 1, R + 1, 0, R + 1, R + 1, R);
-    gr.addColorStop(0, 'rgba(255,252,232,1)'); gr.addColorStop(.18, 'rgba(255,240,190,.9)'); gr.addColorStop(.42, 'rgba(255,226,150,.42)'); gr.addColorStop(.75, 'rgba(255,210,130,.12)'); gr.addColorStop(1, 'rgba(255,200,120,0)');
+    gr.addColorStop(0, 'rgba(255,240,206,1)'); gr.addColorStop(.18, 'rgba(255,204,128,.9)'); gr.addColorStop(.42, 'rgba(255,168,80,.42)'); gr.addColorStop(.75, 'rgba(255,140,56,.12)'); gr.addColorStop(1, 'rgba(255,128,48,0)');
     c.fillStyle = gr; c.fillRect(0, 0, cv.width, cv.height); GLOWS.set(key, cv);
   }
   const op = g.globalCompositeOperation; g.globalCompositeOperation = 'lighter'; g.drawImage(cv, Math.round(sx - R - 1), Math.round(sy - R - 1)); g.globalCompositeOperation = op;
@@ -169,7 +170,7 @@ function lampSmear(g, sx, sy, k, wet) {
     for (let y = 0; y < h; y++) {
       const f = 1 - y / h, half = Math.max(0, Math.round(w * (.35 + .65 * f) * (E.hash2(y, 7) < .3 ? .5 : 1)));
       if (E.hash2(y * 3, 11) < .22 * (1 - f) + .08) continue;   // (gaps, more of them down the streak)
-      c.fillStyle = `rgba(255,${210 + Math.round(30 * f)},${140 + Math.round(60 * f)},${(.5 * f * f + .06).toFixed(3)})`; c.fillRect(w - half, y, half * 2 + 1, 1);
+      c.fillStyle = `rgba(255,${170 + Math.round(40 * f)},${80 + Math.round(60 * f)},${(.5 * f * f + .06).toFixed(3)})`; c.fillRect(w - half, y, half * 2 + 1, 1);
     }
     GLOWS.set(key, cv);
   }
