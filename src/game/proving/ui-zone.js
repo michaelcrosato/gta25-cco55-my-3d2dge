@@ -13,6 +13,8 @@ import { creditsScreen } from '../ui/credits.js';
 import { GUIDE } from '../ui/guide.js';
 
 const STYLES = [['playstation', 'PLAYSTATION'], ['xbox', 'XBOX'], ['nintendo', 'NINTENDO'], ['keyboard', 'KEYBOARD']];
+// a jukebox song's notes: one written by hand as it is, one of a station's composed as the radio composes it
+const songOf = q => parseSong(q.spec || compose(q.st.genre, (q.st.seed || 1) * 7919 + 104729 + q.i * 31, q.title));
 // every screen, by name: how to open it (over the gallery: back comes home)
 function stops(app, play) {
   const S = app.ui.screens, C = handle.career, p = () => handle.crew.ped;
@@ -43,7 +45,8 @@ labZone('ui', 'UI gallery and jukebox', {
   enter: (app, play) => {
     const S = app.ui.screens, I = app.game.input, Z = { style: 'playstation', kept: { keys: PROMPTS.keys, glyphs: I.glyphs, dev: I.lastDevice }, seq: null, playing: null, results: [], self: app.links.query.get('selftest') === '1' };
     const list = stops(app, play);
-    const songs = all('stations').flatMap(st => (st.songs || []).map((q, i) => ({ st, i, title: q.title, artist: q.artist })));
+    const songs = [...all('stations').flatMap(st => (st.songs || []).map((q, i) => ({ st, i, title: q.title, artist: q.artist }))),
+      ...all('songs').map(q => ({ st: get('stations', q.station) || { id: q.station, name: q.station }, i: q.id, title: q.title, artist: q.artist, spec: q }))];   // (the composer's, then def('songs')'s: written by hand)
     const A = () => { const a = app.game.audio; if (a && a.bus && !a.ctx && !a.failed) a.bus('sfx'); return a && a.ready && a.ctx ? a : null; };   // (the context made at a key or a tap)
     const stop = () => { if (Z.playing) { Z.playing.q.stop(); Z.playing = null; } };
     const playSong = (key, song) => { const a = A(); if (!a) return; if (Z.playing && Z.playing.key === key) return stop(); stop(); Z.seq ||= new Sequencer(a.ctx, a.bus('music')); Z.playing = { key, q: Z.seq.play(song, { loop: true }) }; };
@@ -54,7 +57,7 @@ labZone('ui', 'UI gallery and jukebox', {
       { kind: 'choice', label: 'GLYPHS', help: 'Every prompt in these symbols', get: () => Z.style, set: v => { Z.style = v; glyphs(app, v); }, options: STYLES },
       ...list.map(([name, open]) => ({ label: name.toUpperCase(), act: () => { if (open) open(); else { Z.hudT = 5; S.closeAll(); } } }))] });   // (the HUD: five seconds with nothing over it)
     const stations = new List({ id: 'jukebox-stations', color: UI.pink, items: all('stations').map(st => ({ label: st.name, right: st.freq || '', help: st.about || st.genre, act: () => { const tl = stationTimeline(st); playSong('station:' + st.id, tl.segs[0].song); } })) });
-    const songList = new List({ id: 'jukebox-songs', color: UI.pink, items: songs.map(q => ({ label: q.title.toUpperCase(), right: q.st.name, help: q.artist || '', act: () => playSong('song:' + q.st.id + q.i, parseSong(compose(q.st.genre, (q.st.seed || 1) * 7919 + 104729 + q.i * 31, q.title))) })) });
+    const songList = new List({ id: 'jukebox-songs', color: UI.pink, items: songs.map(q => ({ label: q.title.toUpperCase(), right: q.st.name, help: q.artist || '', act: () => playSong('song:' + q.st.id + q.i, songOf(q)) })) });
     const fx = new List({ id: 'jukebox-effects', color: UI.pink, items: effects.map(k => ({ label: k.replace(/([A-Z])/g, ' $1').toUpperCase(), act: () => sfx(k) })) });
     Z.gallery = () => Object.assign(tabbedScreen({ id: 'gallery', title: 'UI GALLERY AND JUKEBOX', color: UI.pink, w: 400, back: () => true,
       tabs: [{ id: 'screens', label: 'SCREENS', page: { list: screens, tips: true } }, { id: 'stations', label: 'STATIONS', page: { list: stations } }, { id: 'songs', label: 'SONGS', page: { list: songList } }, { id: 'effects', label: 'EFFECTS', page: { list: fx } }] }), { sticky: true });   // (the zone is the gallery: back and Options leave it up)
@@ -96,7 +99,7 @@ labZone('ui', 'UI gallery and jukebox', {
     const checks = [{ check: `${Z.stops.length} screens x ${STYLES.length} glyph sets audited`, value: `${Z.results.length - failed.length}/${Z.results.length} clean`, ok: !failed.length && Z.results.length === T.order.length },
       ...failed.map(r => ({ check: r.name, value: r.bad.slice(0, 2).join('; '), ok: false })),
       { check: 'stations laid out, every segment with music', value: `${all('stations').length} stations, ${segs} segments`, ok: !empty.length && segs > 0 },
-      { check: 'songs composed', value: Z.songs.length, ok: Z.songs.every(q => parseSong(compose(q.st.genre, 1, q.title)).length > 0) },
+      { check: 'songs composed', value: Z.songs.length, ok: Z.songs.every(q => songOf(q).length > 0) },
       { check: 'effects played', value: `${fx}/${Z.effects.length}`, ok: !fxBad.length }];
     return { ok: checks.every(c => c.ok), checks };
   },

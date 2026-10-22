@@ -25,22 +25,29 @@ export function contentFiles() {
   return out.map(p => relative(base, p).split('\\').join('/')).sort();
 }
 
-const contentPlugin = {
+/** the content modules, sorted by path; extra ([{ file, as }]: a recipe test's fixtures) are imported as if each file
+ *  were at src/game/<as>, in its sorted place, its imports resolved from there */
+const contentPlugin = (extra = []) => ({
   name: 'content',
   setup(b) {
+    const list = [...contentFiles().map(f => ({ as: f })), ...extra].sort((a, b) => (a.as < b.as ? -1 : a.as > b.as ? 1 : 0));
     b.onResolve({ filter: /^virtual:content$/ }, () => ({ path: 'content', namespace: 'content' }));
     b.onLoad({ filter: /.*/, namespace: 'content' }, () => ({
-      contents: contentFiles().map(f => `import ${JSON.stringify('./' + f)};`).join('\n') + '\nexport const CONTENT_FILES = ' + JSON.stringify(contentFiles()) + ';\n',
+      contents: list.map(f => `import ${JSON.stringify(f.file ? 'virtual:extra:' + f.as : './' + f.as)};`).join('\n') + '\nexport const CONTENT_FILES = ' + JSON.stringify(list.map(f => f.as)) + ';\n',
       resolveDir: join(ROOT, 'src/game'), loader: 'js',
     }));
+    b.onResolve({ filter: /^virtual:extra:/ }, a => ({ path: a.path.slice('virtual:extra:'.length), namespace: 'extra' }));
+    b.onLoad({ filter: /.*/, namespace: 'extra' }, a => { const f = extra.find(q => q.as === a.path); return { contents: readFileSync(resolve(ROOT, f.file), 'utf8'), resolveDir: dirname(join(ROOT, 'src/game', f.as)), loader: 'js' }; });
+    b.onResolve({ filter: /^\./, namespace: 'extra' }, a => ({ path: resolve(a.resolveDir, a.path) }));   // (by path: its folder may be one no file is in yet)
   },
-};
+});
 
-/** the game bundle as one IIFE (a string) */
-export async function bundle({ minify = false } = {}) {
+/** the game bundle as one IIFE (a string); extra: content files bundled as if they were under src/game (the recipe
+ *  tests' fixtures: [{ file, as }]) */
+export async function bundle({ minify = false, extra = [] } = {}) {
   const r = await build({
     entryPoints: [join(ROOT, 'src/main.js')], bundle: true, format: 'iife', target: 'es2022', platform: 'browser',
-    write: false, plugins: [contentPlugin], legalComments: 'none', charset: 'utf8', logLevel: 'warning', minify,
+    write: false, plugins: [contentPlugin(extra)], legalComments: 'none', charset: 'utf8', logLevel: 'warning', minify,
   });
   return r.outputFiles[0].text;
 }

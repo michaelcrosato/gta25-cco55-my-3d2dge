@@ -19392,6 +19392,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     bin: { parts: [box(-4, -3.2, -3.2, 4, 3.2, 3.2, "#3a5a46"), box(4, -2.6, -2.6, 4.8, 2.6, 2.6, "#1a2a20", "cabin")] },
     payphone: { parts: [box(-3, -2, 0, 3, 2, 3, "#3a3a40"), box(-2, -1.5, 3, 2, 1.5, 4, "#c8c8d0", "cabin")] }
   };
+  var TINTED = /* @__PURE__ */ new Map();
+  function tinted(kind, paint2) {
+    const key = kind + paint2;
+    let m = TINTED.get(key);
+    if (!m && PROP_MODELS[kind]) {
+      m = { parts: PROP_MODELS[kind].parts.map((q) => ({ ...q, color: q.role === "body" ? paint2 : E.shade(paint2, -0.18) })) };
+      TINTED.set(key, m);
+    }
+    return m || null;
+  }
   var CONTAINERS = /* @__PURE__ */ new Map();
   function containerModel(color) {
     let m = CONTAINERS.get(color);
@@ -19511,7 +19521,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return;
       }
       if (p.roof && this.city.cutaway && this.city.cutaway.cut.has(p.lot)) return;
-      const m = p.kind === "container" ? containerModel(p.color) : PROP_MODELS[p.kind];
+      const m = p.kind === "container" ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind];
       if (m) stage.shape(p.x, p.y, p.z || 0, (g, P17) => drawBoxModel(g, P17, m, p.x, p.y, p.z || 0, p.facing || 0));
     }
     _deck(stage, { d, c, map }, fade) {
@@ -19712,7 +19722,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     g.fill();
   }
   function placeSign(C8, s) {
-    const [x0, y0, x1, y1] = s.rect, lot = C8.lots[s.lot], h = (C8.types[lot.typeId] || { h: 24 }).h;
+    const [x0, y0, x1, y1] = s.rect, lot = C8.lots[s.lot], h = s.h || (lot && C8.types[lot.typeId] || { h: 24 }).h;
     const street = (cx5, cy) => {
       const t = C8.surfaceAt(cx5, cy);
       return t === "walk" || t === "road" || t === "plaza" || t === "yard" ? 1 : 0;
@@ -24307,7 +24317,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     C8.zones = (spec.zones || []).map((z) => ({ ...z }));
     C8.tour = (spec.tour || []).map(([x, y]) => [(x + 0.5) * T20, (y + 0.5) * T20]);
     for (const h of C8.hoods) if (h.rects) for (const r7 of h.rects) C8.zones.push({ kind: "hood", hood: h.id, gang: h.gang || null, rect: r7 });
-    C8.signs = C8.lots.filter((l7) => l7.sign).map((l7) => ({ lot: l7.index, ...l7.sign, rect: l7.rect }));
+    C8.signs = [...C8.lots.filter((l7) => l7.sign).map((l7) => ({ lot: l7.index, ...l7.sign, rect: l7.rect })), ...(spec.signs || []).map((s) => ({ lot: -1, ...s }))];
     {
       const open = (i) => cells[i] <= 0 && C8.surface[i] !== SURF.water && C8.surface[i] !== SURF.deep, seen2 = new Uint8Array(W26 * H18), q = [];
       for (let i = 0; i < W26 * H18; i++) if (open(i) && (C8.surface[i] === SURF.road || C8.surface[i] === SURF.walk)) {
@@ -32138,6 +32148,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     // (a talk station's segments: [[lines]], callers and host, over a bed)
   }));
   declare("radioAds", shape({ name: { type: "string", req: true }, lines: { type: "array", req: true } }));
+  declare("songs", shape({
+    title: { type: "string", req: true },
+    artist: { type: "string", def: "" },
+    station: { type: "string", req: true },
+    bpm: { type: "number", def: 120, min: 40, max: 240 },
+    steps: { type: "number", def: 4, min: 1 },
+    tracks: { type: "array", req: true }
+  }));
   function stationLabel(id) {
     if (!id || id === "off") return "RADIO OFF";
     const s = get("stations", id);
@@ -32505,7 +32523,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       segs.push(s);
     };
     const jingle = parseSong(compose(st.genre === "talk" ? "talk" : st.genre, base3 + 99, "jingle")), jdur = Math.min(jingle.length, jingle.stepDur * 16 * JINGLE_BARS);
-    const songs = (st.songs || []).map((q, i) => ({ ...q, song: parseSong(compose(st.genre, base3 + i * 31, q.title)) }));
+    const songs = [
+      ...(st.songs || []).map((q, i) => ({ ...q, song: parseSong(compose(st.genre, base3 + i * 31, q.title)) })),
+      ...all("songs").filter((q) => q.station === st.id).map((q) => ({ title: q.title, artist: q.artist, song: parseSong(q) }))
+    ];
     const bed = parseSong(compose("talk", base3 + 7, "bed"));
     const ads = st.ads || [], dj = st.djLines || [];
     if (st.genre === "talk") {
@@ -35330,60 +35351,6 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   C("holdup", { name: "A hold-up", heat: 60, severity: 2 });
   C("copMurder", { name: "Killing an officer", heat: 160, violent: true, severity: 3 });
 
-  // src/game/districts/hello/map.js
-  var CONCRETE = { stones: ["#6e6c72", "#68666c", "#74727a"].map(E.hex), mortar: E.hex("#3a3840"), hi: E.hex("#85838c"), lo: E.hex("#55535a"), speck: E.hex("#5e5c64") };
-  var T5 = 16;
-  function asphalt(x, y) {
-    const n = (E.noise2(x * 0.31, y * 0.31) + 1) * 5 + ((Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663)) & 3);
-    const onX = Math.abs(x - 16 * T5) < 1.2 && y % 32 < 16, onY = Math.abs(y - 16 * T5) < 1.2 && x % 32 < 16;
-    if (onX && !(y > 14 * T5 && y < 18 * T5) || onY && !(x > 14 * T5 && x < 18 * T5)) return [214, 172, 52];
-    const v = 46 + n;
-    return [v, v + 1, v + 6];
-  }
-  def("maps", "hello", {
-    build() {
-      const W26 = 32, H18 = 32, g = Array.from({ length: H18 }, () => Array(W26).fill("."));
-      const rect = (x0, y0, x1, y1, ch) => {
-        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) g[y][x] = ch;
-      };
-      rect(0, 0, W26 - 1, 0, "#");
-      rect(0, H18 - 1, W26 - 1, H18 - 1, "#");
-      rect(0, 0, 0, H18 - 1, "#");
-      rect(W26 - 1, 0, W26 - 1, H18 - 1, "#");
-      rect(14, 1, 17, H18 - 2, "r");
-      rect(1, 14, W26 - 2, 17, "r");
-      rect(3, 3, 7, 7, "A");
-      rect(9, 3, 11, 9, "B");
-      rect(3, 9, 7, 11, "C");
-      rect(20, 3, 28, 6, "D");
-      rect(20, 8, 24, 11, "E");
-      rect(26, 8, 28, 11, "F");
-      rect(3, 20, 6, 28, "G");
-      rect(8, 20, 11, 24, "H");
-      rect(8, 26, 11, 28, "I");
-      rect(20, 20, 28, 28, "J");
-      g[12][12] = "@";
-      return new E.TileMap({
-        rows: g.map((r7) => r7.join("")),
-        legend: { "#": 1, r: { floor: "road" }, A: 2, B: 3, C: 4, D: 5, E: 6, F: 7, G: 8, H: 9, I: 10, J: 11, "@": "hero" },
-        types: {
-          1: { h: 10, top: "#4a4852", side: "#5c5a66", face: "stone", roof: "plain" },
-          2: { h: 64, top: "#5a5a66", side: "#9a6a52", face: "brick", roof: "slab", windows: { lit: 0.35 }, door: { chance: 0.3 } },
-          3: { h: 96, top: "#4a4e5a", side: "#7a8090", face: "stone", roof: "plain", windows: { w: 4, h: 10, lit: 0.4 }, cut: true, cutH: 8 },
-          4: { h: 40, top: "#6a4a3a", side: "#c8b49a", face: "plaster", roof: "tiles", windows: { lit: 0.3 }, shutters: "#2a4a6a", door: { chance: 0.5 } },
-          5: { h: 120, top: "#3e4250", side: "#5a6478", face: "stone", roof: "plain", windows: { w: 3, h: 12, step: 10, lit: 0.5 }, cut: true, cutH: 8 },
-          6: { h: 48, top: "#5a4a4a", side: "#a05a48", face: "brick", roof: "slab", windows: { lit: 0.25 }, balcony: { z: 28, color: "#2a2a30" } },
-          7: { h: 32, top: "#4a5a4a", side: "#b0a890", face: "plaster", roof: "slab", door: { chance: 0.6, color: "#3a2a22" } },
-          8: { h: 56, top: "#5a5060", side: "#8a7a6a", face: "brick", roof: "slab", windows: { lit: 0.3 } },
-          9: { h: 24, top: "#7a4a32", side: "#d0c0a0", face: "plaster", roof: "tiles", door: { chance: 0.6 }, windows: { from: 10, lit: 0.4 } },
-          10: { h: 36, top: "#4a4a52", side: "#6a7088", face: "stone", roof: "plain", windows: true },
-          11: { h: 80, top: "#4a4652", side: "#8a6a5a", face: "brick", roof: "slab", windows: { lit: 0.45 }, balcony: { z: 40 }, cut: true, cutH: 8 }
-        },
-        floorTex: (x, y, tag) => tag === "road" ? asphalt(x, y) : E.tex.flagstone(x, y, CONCRETE)
-      });
-    }
-  });
-
   // src/game/districts/lowtown/styles.js
   var HOODS = {
     palm: {
@@ -35466,9 +35433,114 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     } }
   };
 
+  // src/game/districts/district2/district.js
+  var EW = (at, from, to, kind, name) => ({ axis: "x", at, from, to, kind, name });
+  var NS = (at, from, to, kind, name) => ({ axis: "y", at, from, to, kind, name });
+  var EMBANKMENT = { h: 32, top: "#5a6a4a", side: "#7a7468", face: "stone", roof: "grass" };
+  var PARAPET = { h: 8, top: "#8a8478", side: "#6a645a", face: "stone", roof: "plain" };
+  var HOARDING = { h: 24, top: "#5a4a3a", side: "#8a6a4a", face: "plank", roof: "plain" };
+  def("districts", "district2", {
+    name: "District 2",
+    size: [48, 40],
+    seed: 2,
+    storey: 24,
+    hoods: { district2: { ...HOODS.brick, name: "District 2", gang: null, rects: [[0, 0, 47, 39]] } },
+    styles: STYLES3,
+    hoodMap: [[0, 0, 47, 39, "district2"]],
+    water: [{ rect: [44, 0, 47, 39], kind: "canal" }],
+    // (the canal the bridge crosses, on the east: Lowtown beyond it)
+    roads: [EW(8, 2, 42, "avenue", "Loop Avenue"), EW(31, 2, 42, "street", "Strike Street"), NS(6, 2, 37, "street", "Picket Row"), NS(38, 2, 37, "street", "Bridge Street")],
+    walls: [
+      { rect: [0, 0, 43, 1], type: EMBANKMENT },
+      { rect: [0, 2, 1, 39], type: EMBANKMENT },
+      { rect: [2, 38, 43, 39], type: EMBANKMENT },
+      { rect: [43, 2, 43, 3], type: EMBANKMENT },
+      { rect: [43, 13, 43, 37], type: EMBANKMENT },
+      // (the canal's bank, open where the bridge leaves it)
+      { rect: [44, 4, 46, 4], type: PARAPET },
+      { rect: [44, 12, 46, 12], type: PARAPET },
+      // (the bridge's parapets)
+      { rect: [47, 4, 47, 12], type: HOARDING }
+      // (the strikers' hoarding across it, mid-canal: Lowtown beyond)
+    ],
+    lots: [
+      { rect: [43, 4, 47, 12], kind: "pier", surface: "road" },
+      // (the bridge's west span, over the canal to Lowtown: closed)
+      { rect: [40, 2, 42, 3], kind: "building", storeys: 1, look: { side: "#7a5a3a", top: "#3a3a40", face: "brick", roof: "plain" }, sign: { text: "BRIDGE CLOSED: GNOMES ON STRIKE", color: "#ff5a3a", low: true } }
+    ],
+    props: { lampEvery: 6, clutter: 0.3 },
+    propList: [
+      ...[4, 6, 8, 10, 12].map((y) => ({ kind: "barrel", at: [42.5, y + 0.5], paint: "#d8a020", solid: { hx: 5, hy: 5, top: 9 } })),
+      // (the barricade across Loop Avenue)
+      { kind: "barrel", at: [41.2, 5.2], paint: "#3a3a40", solid: { hx: 5, hy: 5, top: 9 } },
+      { kind: "barrel", at: [41.4, 11.6], paint: "#3a3a40", solid: { hx: 5, hy: 5, top: 9 } }
+      // (the picket's braziers)
+    ],
+    pois: [
+      { id: "safehouse", kind: "safehouse", at: [20, 13], label: "The safehouse" },
+      { id: "hospital", kind: "hospital", at: [30, 27], label: "The clinic" },
+      { id: "precinct", kind: "police", at: [12, 27], label: "The precinct" },
+      { id: "picket", kind: "landmark", at: [40, 8], label: "The Gnomes' picket" }
+    ]
+  });
+
+  // src/game/districts/hello/map.js
+  var CONCRETE = { stones: ["#6e6c72", "#68666c", "#74727a"].map(E.hex), mortar: E.hex("#3a3840"), hi: E.hex("#85838c"), lo: E.hex("#55535a"), speck: E.hex("#5e5c64") };
+  var T5 = 16;
+  function asphalt(x, y) {
+    const n = (E.noise2(x * 0.31, y * 0.31) + 1) * 5 + ((Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663)) & 3);
+    const onX = Math.abs(x - 16 * T5) < 1.2 && y % 32 < 16, onY = Math.abs(y - 16 * T5) < 1.2 && x % 32 < 16;
+    if (onX && !(y > 14 * T5 && y < 18 * T5) || onY && !(x > 14 * T5 && x < 18 * T5)) return [214, 172, 52];
+    const v = 46 + n;
+    return [v, v + 1, v + 6];
+  }
+  def("maps", "hello", {
+    build() {
+      const W26 = 32, H18 = 32, g = Array.from({ length: H18 }, () => Array(W26).fill("."));
+      const rect = (x0, y0, x1, y1, ch) => {
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) g[y][x] = ch;
+      };
+      rect(0, 0, W26 - 1, 0, "#");
+      rect(0, H18 - 1, W26 - 1, H18 - 1, "#");
+      rect(0, 0, 0, H18 - 1, "#");
+      rect(W26 - 1, 0, W26 - 1, H18 - 1, "#");
+      rect(14, 1, 17, H18 - 2, "r");
+      rect(1, 14, W26 - 2, 17, "r");
+      rect(3, 3, 7, 7, "A");
+      rect(9, 3, 11, 9, "B");
+      rect(3, 9, 7, 11, "C");
+      rect(20, 3, 28, 6, "D");
+      rect(20, 8, 24, 11, "E");
+      rect(26, 8, 28, 11, "F");
+      rect(3, 20, 6, 28, "G");
+      rect(8, 20, 11, 24, "H");
+      rect(8, 26, 11, 28, "I");
+      rect(20, 20, 28, 28, "J");
+      g[12][12] = "@";
+      return new E.TileMap({
+        rows: g.map((r7) => r7.join("")),
+        legend: { "#": 1, r: { floor: "road" }, A: 2, B: 3, C: 4, D: 5, E: 6, F: 7, G: 8, H: 9, I: 10, J: 11, "@": "hero" },
+        types: {
+          1: { h: 10, top: "#4a4852", side: "#5c5a66", face: "stone", roof: "plain" },
+          2: { h: 64, top: "#5a5a66", side: "#9a6a52", face: "brick", roof: "slab", windows: { lit: 0.35 }, door: { chance: 0.3 } },
+          3: { h: 96, top: "#4a4e5a", side: "#7a8090", face: "stone", roof: "plain", windows: { w: 4, h: 10, lit: 0.4 }, cut: true, cutH: 8 },
+          4: { h: 40, top: "#6a4a3a", side: "#c8b49a", face: "plaster", roof: "tiles", windows: { lit: 0.3 }, shutters: "#2a4a6a", door: { chance: 0.5 } },
+          5: { h: 120, top: "#3e4250", side: "#5a6478", face: "stone", roof: "plain", windows: { w: 3, h: 12, step: 10, lit: 0.5 }, cut: true, cutH: 8 },
+          6: { h: 48, top: "#5a4a4a", side: "#a05a48", face: "brick", roof: "slab", windows: { lit: 0.25 }, balcony: { z: 28, color: "#2a2a30" } },
+          7: { h: 32, top: "#4a5a4a", side: "#b0a890", face: "plaster", roof: "slab", door: { chance: 0.6, color: "#3a2a22" } },
+          8: { h: 56, top: "#5a5060", side: "#8a7a6a", face: "brick", roof: "slab", windows: { lit: 0.3 } },
+          9: { h: 24, top: "#7a4a32", side: "#d0c0a0", face: "plaster", roof: "tiles", door: { chance: 0.6 }, windows: { from: 10, lit: 0.4 } },
+          10: { h: 36, top: "#4a4a52", side: "#6a7088", face: "stone", roof: "plain", windows: true },
+          11: { h: 80, top: "#4a4652", side: "#8a6a5a", face: "brick", roof: "slab", windows: { lit: 0.45 }, balcony: { z: 40 }, cut: true, cutH: 8 }
+        },
+        floorTex: (x, y, tag) => tag === "road" ? asphalt(x, y) : E.tex.flagstone(x, y, CONCRETE)
+      });
+    }
+  });
+
   // src/game/districts/lowtown/district.js
-  var NS = (at, from, to, kind = "street", name = "", oneway) => ({ axis: "y", at, from, to, kind, name, oneway });
-  var EW = (at, from, to, kind = "street", name = "", oneway) => ({ axis: "x", at, from, to, kind, name, oneway });
+  var NS2 = (at, from, to, kind = "street", name = "", oneway) => ({ axis: "y", at, from, to, kind, name, oneway });
+  var EW2 = (at, from, to, kind = "street", name = "", oneway) => ({ axis: "x", at, from, to, kind, name, oneway });
   def("districts", "lowtown", {
     name: "Lowtown",
     size: [160, 160],
@@ -35488,21 +35560,21 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       // avenues are two-way. Terrace Road, Seawall Drive, Brick Lane and Gnome Row make a clockwise ring; the streets
       // inside it alternate, and south of the canal Dock Road comes down, Wharf Street runs west and Chapel Street goes
       // back up, so every street can be driven to and away from (the stubs at the district's edges aside)
-      NS(6, 2, 122, "street", "Gnome Row", "N"),
-      NS(32, 2, 151, "street", "Chapel Street", "N"),
-      NS(56, 2, 122, "street", "Palm Walk", "S"),
-      NS(80, 2, 151, "avenue", "Motor Avenue"),
-      NS(104, 2, 122, "street", "Marquee Street", "N"),
-      NS(128, 2, 151, "street", "Dock Road", "S"),
-      NS(149, 2, 104, "street", "Seawall Drive", "S"),
+      NS2(6, 2, 122, "street", "Gnome Row", "N"),
+      NS2(32, 2, 151, "street", "Chapel Street", "N"),
+      NS2(56, 2, 122, "street", "Palm Walk", "S"),
+      NS2(80, 2, 151, "avenue", "Motor Avenue"),
+      NS2(104, 2, 122, "street", "Marquee Street", "N"),
+      NS2(128, 2, 151, "street", "Dock Road", "S"),
+      NS2(149, 2, 104, "street", "Seawall Drive", "S"),
       // west to east
-      EW(6, 2, 151, "street", "Terrace Road", "E"),
-      EW(30, 2, 151, "street", "Sunset Strip", "W"),
-      EW(54, 2, 151, "street", "Lantern Lane", "E"),
-      EW(78, 2, 153, "avenue", "Loop Avenue"),
-      EW(102, 2, 151, "street", "Brick Lane", "W"),
-      EW(118, 2, 137, "street", "Canal Street", "W"),
-      EW(140, 2, 137, "street", "Wharf Street", "W")
+      EW2(6, 2, 151, "street", "Terrace Road", "E"),
+      EW2(30, 2, 151, "street", "Sunset Strip", "W"),
+      EW2(54, 2, 151, "street", "Lantern Lane", "E"),
+      EW2(78, 2, 153, "avenue", "Loop Avenue"),
+      EW2(102, 2, 151, "street", "Brick Lane", "W"),
+      EW2(118, 2, 137, "street", "Canal Street", "W"),
+      EW2(140, 2, 137, "street", "Wharf Street", "W")
     ],
     decks: [
       {
@@ -35534,6 +35606,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       { rect: [0, 2, 1, 151], type: { h: 32, top: "#5a6a4a", side: "#7a7468", face: "stone", roof: "grass" } }
     ],
     props: { lampEvery: 6, clutter: 0.3 },
+    // the closed bridge's notice on the embankment at Loop Avenue's west end (PLAN.md 9.1: the hook for District 2)
+    signs: [{ rect: [0, 75, 1, 81], text: "BRIDGE CLOSED: GNOMES ON STRIKE", color: "#ff5a3a", h: 32, low: true }],
     // Dock Road's bridge over the canal lifts for the boats (PLAN.md 9.1): its span, sidewalks and all
     drawbridges: [{ id: "dock", rect: [124, 124, 132, 131], axis: "y" }],
     // a loop through all four neighbourhoods on the streets, under the Loop twice (perf runs, the attract camera)
@@ -36143,8 +36217,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   });
 
   // src/game/districts/proving/town.js
-  var NS2 = (at, name) => ({ axis: "y", at, from: 2, to: 61, kind: "avenue", name });
-  var EW2 = (at, name) => ({ axis: "x", at, from: 2, to: 61, kind: "avenue", name });
+  var NS3 = (at, name) => ({ axis: "y", at, from: 2, to: 61, kind: "avenue", name });
+  var EW3 = (at, name) => ({ axis: "x", at, from: 2, to: 61, kind: "avenue", name });
   var WALL = { h: 32, top: "#4a4a56", side: "#6a6a74", face: "stone", roof: "plain" };
   def("districts", "proving", {
     name: "The Proving Ground",
@@ -36154,7 +36228,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     hoods: { proving: { ...HOODS.neon, name: "The Proving Ground", gang: null, music: "neon", rects: [[0, 0, 63, 63]] } },
     styles: STYLES3,
     hoodMap: [[0, 0, 63, 63, "proving"]],
-    roads: [NS2(8, "West Avenue"), NS2(31, "Middle Avenue"), NS2(54, "East Avenue"), EW2(8, "North Avenue"), EW2(31, "Centre Avenue"), EW2(54, "South Avenue")],
+    roads: [NS3(8, "West Avenue"), NS3(31, "Middle Avenue"), NS3(54, "East Avenue"), EW3(8, "North Avenue"), EW3(31, "Centre Avenue"), EW3(54, "South Avenue")],
     walls: [{ rect: [0, 0, 63, 1], type: WALL }, { rect: [0, 2, 1, 63], type: WALL }, { rect: [61, 2, 63, 63], type: WALL }, { rect: [2, 61, 60, 63], type: WALL }],
     props: { lampEvery: 6, clutter: 0.3 },
     // the grid's four corners: somewhere to run to (the mission bot's evade drives to the point of interest farthest from
@@ -36219,7 +36293,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     props: { lampEvery: 6, clutter: 0 },
     propList: [
       ...ring(16, TRACK.skidpad.inner).map((at) => ({ kind: "bollard", at, solid: { hx: 2, hy: 2, top: 6 } })),
-      ...TRACK.slalom.barrels.map(([x, y]) => ({ kind: "barrel", at: [x / T10, y / T10], color: "#ff7a1a", solid: { hx: 5, hy: 5, top: 9 } })),
+      ...TRACK.slalom.barrels.map(([x, y]) => ({ kind: "barrel", at: [x / T10, y / T10], paint: "#ff7a1a", solid: { hx: 5, hy: 5, top: 9 } })),
       ...[6, 14, 22, 30, 38, 46, 54, 62, 78, 86].map((x) => ({ kind: "lamp", at: [x, 2.6], solid: { hx: 1.5, hy: 1.5, top: 44 }, facing: Math.PI / 2 })),
       ...[27, 33, 39].map((y) => ({ kind: "lamp", at: [31, y], solid: { hx: 1.5, hy: 1.5, top: 44 } }))
     ],
@@ -41565,7 +41639,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             start: (id, q) => career.startMission(id, q),
             zones: all("provingZones").map((z) => z.id),
             zone: (id) => game2.go("proving", { route: ["proving", id] }),
-            district2: get("districts", "district2") ? () => game2.go("play", { route: ["play", "district2"] }) : null
+            district2: get("districts", "district2") ? () => game2.go("play", { district: "district2" }) : null
           }
         }));
         return true;
@@ -41863,7 +41937,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         enter(data) {
           if (demo) RNG.seed(demo.seed());
           const dq = !demo && links2.query.get("dev") === "1" ? links2.query.get("district") : null;
-          district = opts.district || (dq && get("districts", dq) ? dq : "lowtown");
+          district = opts.district || [data && data.district, dq].find((id) => id && get("districts", id)) || "lowtown";
           ({ city, render: cityR } = cityFor(district, district === "lowtown" ? citySeed(links2) : get("districts", district).seed));
           if (!demo) {
             const dv = links2.query.get("view") || setting(game2, "defaultView", "iso");
@@ -43145,6 +43219,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
 
   // src/game/proving/ui-zone.js
   var STYLES4 = [["playstation", "PLAYSTATION"], ["xbox", "XBOX"], ["nintendo", "NINTENDO"], ["keyboard", "KEYBOARD"]];
+  var songOf = (q) => parseSong(q.spec || compose(q.st.genre, (q.st.seed || 1) * 7919 + 104729 + q.i * 31, q.title));
   function stops(app2, play) {
     const S5 = app2.ui.screens, C8 = handle.career, p = () => handle.crew.ped;
     return [
@@ -43191,7 +43266,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     enter: (app2, play) => {
       const S5 = app2.ui.screens, I = app2.game.input, Z = { style: "playstation", kept: { keys: PROMPTS.keys, glyphs: I.glyphs, dev: I.lastDevice }, seq: null, playing: null, results: [], self: app2.links.query.get("selftest") === "1" };
       const list = stops(app2, play);
-      const songs = all("stations").flatMap((st) => (st.songs || []).map((q, i) => ({ st, i, title: q.title, artist: q.artist })));
+      const songs = [
+        ...all("stations").flatMap((st) => (st.songs || []).map((q, i) => ({ st, i, title: q.title, artist: q.artist }))),
+        ...all("songs").map((q) => ({ st: get("stations", q.station) || { id: q.station, name: q.station }, i: q.id, title: q.title, artist: q.artist, spec: q }))
+      ];
       const A = () => {
         const a = app2.game.audio;
         if (a && a.bus && !a.ctx && !a.failed) a.bus("sfx");
@@ -43238,7 +43316,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         const tl = stationTimeline(st);
         playSong("station:" + st.id, tl.segs[0].song);
       } })) });
-      const songList = new List({ id: "jukebox-songs", color: UI.pink, items: songs.map((q) => ({ label: q.title.toUpperCase(), right: q.st.name, help: q.artist || "", act: () => playSong("song:" + q.st.id + q.i, parseSong(compose(q.st.genre, (q.st.seed || 1) * 7919 + 104729 + q.i * 31, q.title))) })) });
+      const songList = new List({ id: "jukebox-songs", color: UI.pink, items: songs.map((q) => ({ label: q.title.toUpperCase(), right: q.st.name, help: q.artist || "", act: () => playSong("song:" + q.st.id + q.i, songOf(q)) })) });
       const fx7 = new List({ id: "jukebox-effects", color: UI.pink, items: effects.map((k) => ({ label: k.replace(/([A-Z])/g, " $1").toUpperCase(), act: () => sfx(k) })) });
       Z.gallery = () => Object.assign(tabbedScreen({
         id: "gallery",
@@ -43319,7 +43397,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         { check: `${Z.stops.length} screens x ${STYLES4.length} glyph sets audited`, value: `${Z.results.length - failed.length}/${Z.results.length} clean`, ok: !failed.length && Z.results.length === T20.order.length },
         ...failed.map((r7) => ({ check: r7.name, value: r7.bad.slice(0, 2).join("; "), ok: false })),
         { check: "stations laid out, every segment with music", value: `${all("stations").length} stations, ${segs} segments`, ok: !empty.length && segs > 0 },
-        { check: "songs composed", value: Z.songs.length, ok: Z.songs.every((q) => parseSong(compose(q.st.genre, 1, q.title)).length > 0) },
+        { check: "songs composed", value: Z.songs.length, ok: Z.songs.every((q) => songOf(q).length > 0) },
         { check: "effects played", value: `${fx7}/${Z.effects.length}`, ok: !fxBad.length }
       ];
       return { ok: checks.every((c) => c.ok), checks };
@@ -45794,7 +45872,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   });
 
   // content:content
-  var CONTENT_FILES = ["activities/job-firefighter.js", "activities/job-moto-courier.js", "activities/job-vigilante.js", "activities/mayhem.js", "activities/race-harbor-hustle.js", "activities/race-loop-sprint.js", "characters/crew.js", "characters/vignette-props.js", "collectibles/moto-tokens.js", "crimes.js", "districts/hello/map.js", "districts/lowtown/district.js", "districts/lowtown/fleet.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/garage.js", "districts/proving/pad.js", "districts/proving/range.js", "districts/proving/scale-city.js", "districts/proving/town.js", "districts/proving/track.js", "economy.js", "events/gang-shootout.js", "events/police-chase.js", "events/purse-snatcher.js", "events/stalled-car.js", "gangs.js", "interiors/bank.js", "missions/g1-lawn-order.js", "missions/g2-bingo-night.js", "missions/g3-gutter-ball.js", "missions/h1-getaway.js", "missions/h2-blueprints.js", "missions/h3-big-drill.js", "missions/h4-big-withdrawal.js", "missions/p0-prologue.js", "missions/r1-rat-run.js", "missions/r2-below-deck.js", "missions/r3-crane-game.js", "missions/s1-holy-rollers.js", "missions/s2-confession-booth.js", "missions/s3-drag-mass.js", "peds/cast.js", "peds/civilians.js", "peds/gangs.js", "police.js", "proving/bench.js", "proving/city-zones.js", "proving/garage-zone.js", "proving/lab-zones.js", "proving/occluder-zone.js", "proving/pad-zone.js", "proving/range-zone.js", "proving/ui-zone.js", "radio/stations.js", "reels/heist-tease.js", "reels/hot-pursuit.js", "reels/joyride.js", "reels/switch.js", "reels/turf-war.js", "save.js", "scenes/attract.js", "scenes/career.js", "scenes/lowtown.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "stunts/jumps.js", "tune.js", "ui/attract-cards.js", "ui/credits.js", "ui/guide.js", "ui/pause.js", "ui/tips.js", "vehicles/bilgerat.js", "vehicles/brute.js", "vehicles/cortez.js", "vehicles/cruiser.js", "vehicles/eye.js", "vehicles/hauler.js", "vehicles/hookline.js", "vehicles/pumper.js", "vehicles/saint.js", "vehicles/sparrow.js", "vehicles/the-l.js", "vehicles/vandal.js", "vehicles/zephyr.js", "weapons/arsenal.js"];
+  var CONTENT_FILES = ["activities/job-firefighter.js", "activities/job-moto-courier.js", "activities/job-vigilante.js", "activities/mayhem.js", "activities/race-harbor-hustle.js", "activities/race-loop-sprint.js", "characters/crew.js", "characters/vignette-props.js", "collectibles/moto-tokens.js", "crimes.js", "districts/district2/district.js", "districts/hello/map.js", "districts/lowtown/district.js", "districts/lowtown/fleet.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/garage.js", "districts/proving/pad.js", "districts/proving/range.js", "districts/proving/scale-city.js", "districts/proving/town.js", "districts/proving/track.js", "economy.js", "events/gang-shootout.js", "events/police-chase.js", "events/purse-snatcher.js", "events/stalled-car.js", "gangs.js", "interiors/bank.js", "missions/g1-lawn-order.js", "missions/g2-bingo-night.js", "missions/g3-gutter-ball.js", "missions/h1-getaway.js", "missions/h2-blueprints.js", "missions/h3-big-drill.js", "missions/h4-big-withdrawal.js", "missions/p0-prologue.js", "missions/r1-rat-run.js", "missions/r2-below-deck.js", "missions/r3-crane-game.js", "missions/s1-holy-rollers.js", "missions/s2-confession-booth.js", "missions/s3-drag-mass.js", "peds/cast.js", "peds/civilians.js", "peds/gangs.js", "police.js", "proving/bench.js", "proving/city-zones.js", "proving/garage-zone.js", "proving/lab-zones.js", "proving/occluder-zone.js", "proving/pad-zone.js", "proving/range-zone.js", "proving/ui-zone.js", "radio/stations.js", "reels/heist-tease.js", "reels/hot-pursuit.js", "reels/joyride.js", "reels/switch.js", "reels/turf-war.js", "save.js", "scenes/attract.js", "scenes/career.js", "scenes/lowtown.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "stunts/jumps.js", "tune.js", "ui/attract-cards.js", "ui/credits.js", "ui/guide.js", "ui/pause.js", "ui/tips.js", "vehicles/bilgerat.js", "vehicles/brute.js", "vehicles/cortez.js", "vehicles/cruiser.js", "vehicles/eye.js", "vehicles/hauler.js", "vehicles/hookline.js", "vehicles/pumper.js", "vehicles/saint.js", "vehicles/sparrow.js", "vehicles/the-l.js", "vehicles/vandal.js", "vehicles/zephyr.js", "weapons/arsenal.js"];
 
   // src/main.js
   var links = readLinks();

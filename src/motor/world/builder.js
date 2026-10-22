@@ -27,7 +27,7 @@ function stream(seed, name) {
  *  east-west one), -1 the other way; 0 two-way. r.oneway: 'N' | 'S' | 'E' | 'W' */
 export function onewaySign(r) { const o = r.oneway; if (!o) return 0; return r.axis === 'y' ? (o === 'S' ? 1 : o === 'N' ? -1 : 0) : (o === 'E' ? 1 : o === 'W' ? -1 : 0); }
 /** build spec (a districts registry entry: { id, size: [w, h], seed, hoods, hoodMap, water, roads, decks, lots, styles,
- *  props, pois, zones }) into a CityMap */
+ *  props, pois, zones, signs }) into a CityMap */
 /** the prop kinds a vehicle knocks over instead of stopping at */
 export const BREAKABLE = new Set(['lamp', 'hydrant', 'bin', 'bench', 'newsstand', 'payphone']);
 export function buildDistrict(spec, o = {}) {
@@ -227,7 +227,7 @@ export function buildDistrict(spec, o = {}) {
   C.zones = (spec.zones || []).map(z => ({ ...z }));
   C.tour = (spec.tour || []).map(([x, y]) => [(x + .5) * T, (y + .5) * T]);   // a loop of road corners (perf runs, the attract camera)
   for (const h of C.hoods) if (h.rects) for (const r of h.rects) C.zones.push({ kind: 'hood', hood: h.id, gang: h.gang || null, rect: r });
-  C.signs = C.lots.filter(l => l.sign).map(l => ({ lot: l.index, ...l.sign, rect: l.rect }));
+  C.signs = [...C.lots.filter(l => l.sign).map(l => ({ lot: l.index, ...l.sign, rect: l.rect })), ...(spec.signs || []).map(s => ({ lot: -1, ...s }))];   // (spec.signs: { rect, text, color, h, low } on no lot: a wall's)
 
   // pockets: open ground walled in where no one can walk to (between buildings) joins the building beside it
   {

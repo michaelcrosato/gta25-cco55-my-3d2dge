@@ -5,11 +5,14 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { bundle, ENGINE, MOCAP } from '../tools/build.mjs';
 
-let code = null;
-/** a fresh game: { E, game, gtm, input, snap() }. hash and query stand in for the page's #hash and ?query */
-export async function loadGame({ hash = '', query = {}, quiet = true, pads = null } = {}) {
-  code ||= await bundle();
-  const con = quiet ? { log() {}, info() {}, warn() {}, error: (...a) => console.error(...a) } : console;
+const codes = new Map();
+/** a fresh game: { E, game, gtm, input, snap(), warns (the quiet console's warnings) }. hash and query stand in for
+ *  the page's #hash and ?query; extra ([{ file, as }]): content files bundled as if each were at src/game/<as> (a
+ *  recipe test's fixtures) */
+export async function loadGame({ hash = '', query = {}, quiet = true, pads = null, extra = [] } = {}) {
+  const key = JSON.stringify(extra); if (!codes.has(key)) codes.set(key, await bundle({ extra }));
+  const code = codes.get(key);
+  const warns = [], con = quiet ? { log() {}, info() {}, warn: (...a) => { warns.push(a.join(' ')); }, error: (...a) => console.error(...a) } : console;   // (warns: kept, for a test to read)
   // an ordinary global object (DONT_CONTEXTIFY): a contextified sandbox answers every global lookup through an
   // interceptor, and Math.floor in the game's hot loops then costs a hundred times what it costs in a browser
   const ctx = vm.createContext(vm.constants.DONT_CONTEXTIFY);
@@ -20,7 +23,7 @@ export async function loadGame({ hash = '', query = {}, quiet = true, pads = nul
   for (const f of MOCAP) { const src = readFileSync(f, 'utf8'); vm.runInContext(f.includes('/sets/') ? '(function (window) {\n' + src + '\n})(globalThis);' : src, ctx, { filename: f.split('/').pop() }); }
   vm.runInContext(code, ctx, { filename: 'game.js' });
   const E = ctx.My3D2dge, game = E.current;
-  return { ctx, E, game, gtm: ctx.__gtm, input: game.input, snap: () => game.debug.snapshot() };
+  return { ctx, E, game, gtm: ctx.__gtm, input: game.input, snap: () => game.debug.snapshot(), warns };
 }
 
 /** the engine on this process's global, for unit tests that import MOTOR modules directly */

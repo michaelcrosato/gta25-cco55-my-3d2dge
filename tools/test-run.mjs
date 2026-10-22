@@ -1,5 +1,6 @@
-// The test gate. npm test: lint and checks, a current dist, unit and sim tests, the browser smoke test and the engine's
-// checker on the build (about 1-6 minutes as the game grows). npm run test:full adds the heavy suites as they land.
+// The test gate. npm test: lint and checks, a current dist, unit and sim tests, the content recipes, the browser
+// smoke test and the engine's checker on the build (about 1-6 minutes as the game grows). npm run test:full adds the
+// heavy suites as they land.
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
@@ -13,6 +14,7 @@ const STEPS = [
   ['goal-sync', 'node', ['tools/goal-sync.mjs']],
   ['dist current', 'node', ['tools/build.mjs', '--check']],
   ['unit + sim', 'node', ['--test', 'tests/unit/**/*.test.mjs', 'tests/sim/**/*.test.mjs']],
+  ['recipes', 'node', ['--test', 'tests/recipes/*.test.mjs']],   // (PLAN.md M12: each docs/CONTENT-GUIDE.md recipe followed to the letter, about a minute)
   ['e2e smoke', 'node', ['tests/e2e/smoke.mjs']],
   ['e2e replay', 'node', ['tests/e2e/replay.mjs']],
   ['e2e selftests', 'node', ['tests/e2e/selftest.mjs']],

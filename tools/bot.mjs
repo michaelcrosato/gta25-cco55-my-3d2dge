@@ -9,10 +9,10 @@ import { loadGame } from '../tests/harness.mjs';
 import { pad as fakePad } from '../tests/fixtures/pads.mjs';
 
 /** one run: { id, seed, pad, passed, medal, secs (game time), retries, stage, failures, errors }. onStep(t, g) each
- *  step (a probe's: false stops the run) */
-export async function botRun({ id, seed = 1, pad = false, stage = null, level = null, secs = 900, verbose = false, query = {}, onStep = null }) {
+ *  step (a probe's: false stops the run); extra: content files bundled in (a recipe test's fixtures, harness.mjs) */
+export async function botRun({ id, seed = 1, pad = false, stage = null, level = null, secs = 900, verbose = false, query = {}, onStep = null, extra = [] }) {
   const P = pad ? fakePad(0) : null, q = { seed: String(seed), bot: pad ? 'pad' : '1', ...query }; if (level) q.level = String(level);
-  const g = await loadGame({ hash: '#mission/' + id + (stage ? '/' + stage : ''), query: q, pads: P ? [P] : null });
+  const g = await loadGame({ hash: '#mission/' + id + (stage ? '/' + stage : ''), query: q, pads: P ? [P] : null, extra });
   const { game, gtm } = g, C = gtm.career, R = C.R, M = gtm.motor;
   if (C.saves) C.saves.backend = M.memoryBackend();   // (no localStorage headless: a save in memory, written as a player's is)
   const pilot = P ? new M.PadPilot(P, gtm.bindings, gtm.views, game.input) : null, idle = M.makeIntent();

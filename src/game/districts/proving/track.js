@@ -42,7 +42,7 @@ def('districts', 'proving-track', {
   props: { lampEvery: 6, clutter: 0 },
   propList: [
     ...ring(16, TRACK.skidpad.inner).map(at => ({ kind: 'bollard', at, solid: { hx: 2, hy: 2, top: 6 } })),
-    ...TRACK.slalom.barrels.map(([x, y]) => ({ kind: 'barrel', at: [x / T, y / T], color: '#ff7a1a', solid: { hx: 5, hy: 5, top: 9 } })),
+    ...TRACK.slalom.barrels.map(([x, y]) => ({ kind: 'barrel', at: [x / T, y / T], paint: '#ff7a1a', solid: { hx: 5, hy: 5, top: 9 } })),
     ...[6, 14, 22, 30, 38, 46, 54, 62, 78, 86].map(x => ({ kind: 'lamp', at: [x, 2.6], solid: { hx: 1.5, hy: 1.5, top: 44 }, facing: Math.PI / 2 })),
     ...[27, 33, 39].map(y => ({ kind: 'lamp', at: [31, y], solid: { hx: 1.5, hy: 1.5, top: 44 } })),
   ],

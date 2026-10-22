@@ -40,6 +40,14 @@ const BROKEN = {
   bin: { parts: [box(-4, -3.2, -3.2, 4, 3.2, 3.2, '#3a5a46'), box(4, -2.6, -2.6, 4.8, 2.6, 2.6, '#1a2a20', 'cabin')] },
   payphone: { parts: [box(-3, -2, 0, 3, 2, 3, '#3a3a40'), box(-2, -1.5, 3, 2, 1.5, 4, '#c8c8d0', 'cabin')] },
 };
+const TINTED = new Map();
+/** a prop model painted a colour of its own (a prop's paint: a barricade's barrels): its body that colour, its trim a
+ *  shade darker */
+function tinted(kind, paint) {
+  const key = kind + paint; let m = TINTED.get(key);
+  if (!m && PROP_MODELS[kind]) { m = { parts: PROP_MODELS[kind].parts.map(q => ({ ...q, color: q.role === 'body' ? paint : E.shade(paint, -.18) })) }; TINTED.set(key, m); }
+  return m || null;
+}
 const CONTAINERS = new Map();
 /** a shipping container in a colour (one model per colour) */
 function containerModel(color) {
@@ -126,7 +134,7 @@ export class CityRenderer {
       return;
     }
     if (p.roof && this.city.cutaway && this.city.cutaway.cut.has(p.lot)) return;   // (a building the cut-away drops takes its roof with it)
-    const m = p.kind === 'container' ? containerModel(p.color) : PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0));
+    const m = p.kind === 'container' ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0));
   }
   _deck(stage, { d, c, map }, fade) {
     const x = (c.cx + .5) * T, y = (c.cy + .5) * T, z = Math.max(c.z0, c.z1);
@@ -267,7 +275,7 @@ function quad(g, q, color) { g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = col
 
 /** where a landmark's sign hangs: the middle of the lot's side with the most street beside it, out from the wall */
 function placeSign(C, s) {
-  const [x0, y0, x1, y1] = s.rect, lot = C.lots[s.lot], h = (C.types[lot.typeId] || { h: 24 }).h;
+  const [x0, y0, x1, y1] = s.rect, lot = C.lots[s.lot], h = s.h || (lot && C.types[lot.typeId] || { h: 24 }).h;   // (a district's own sign, on a wall: no lot, its height given)
   const street = (cx, cy) => { const t = C.surfaceAt(cx, cy); return t === 'walk' || t === 'road' || t === 'plaza' || t === 'yard' ? 1 : 0; };
   const sides = [['s', () => { let n = 0; for (let x = x0; x <= x1; x++) n += street(x, y1 + 1); return n; }], ['e', () => { let n = 0; for (let y = y0; y <= y1; y++) n += street(x1 + 1, y); return n; }],
     ['n', () => { let n = 0; for (let x = x0; x <= x1; x++) n += street(x, y0 - 1); return n; }], ['w', () => { let n = 0; for (let y = y0; y <= y1; y++) n += street(x0 - 1, y); return n; }]];

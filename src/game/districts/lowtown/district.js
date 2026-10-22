@@ -43,6 +43,8 @@ def('districts', 'lowtown', {
     { rect: [0, 2, 1, 151], type: { h: 32, top: '#5a6a4a', side: '#7a7468', face: 'stone', roof: 'grass' } },
   ],
   props: { lampEvery: 6, clutter: .3 },
+  // the closed bridge's notice on the embankment at Loop Avenue's west end (PLAN.md 9.1: the hook for District 2)
+  signs: [{ rect: [0, 75, 1, 81], text: 'BRIDGE CLOSED: GNOMES ON STRIKE', color: '#ff5a3a', h: 32, low: true }],
   // Dock Road's bridge over the canal lifts for the boats (PLAN.md 9.1): its span, sidewalks and all
   drawbridges: [{ id: 'dock', rect: [124, 124, 132, 131], axis: 'y' }],
   // a loop through all four neighbourhoods on the streets, under the Loop twice (perf runs, the attract camera)

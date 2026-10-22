@@ -954,3 +954,47 @@ and where it landed.
     as PLAN.md 8.20 asks (errors, counts, heap, every reel, the views, the bank, three stars, an explosion, a switch);
     `tools/record-attract.mjs` captures the show to MP4 and GIF with ffmpeg.
 - **Answered:** no. **Landed in:** M11.
+
+## D26 · 2026-10-22 · M12's tools: a photo is the Snap's, the Proving Ground as districts, a recipe a test, District 2 behind the bridge
+- **Principle:** PLAN.md 8.22 (photo mode), 8.23 (the Proving Ground, its zones and their self-tests; the dev tools),
+  M12 (the handoff docs: a recipe per content type, each followed to the letter by a test; District 2 as content);
+  section 4's "content is added, not architecture".
+- **Calls:**
+  - **A photo is the Snap's event** (`play/photo.js`): Create (or the phone's SNAP) freezes the simulation and hands the
+    camera to a free rig tethered to the player (TUNE.photoReach), its three views and zoom; ✕ emits the same `photo`
+    BUS event the Snap does (its subjects: what lies within TUNE.photoFrame of the picture's middle), so `m.photo`
+    completes either way, and a browser also saves the drawn frame as a PNG. The legend is on the UI layer, never in
+    the picture.
+  - **The dev tools are MOTOR's screens** (`ui/dev.js`, `debug/overlays.js`, `?dev=1`, the backquote key): the tuning
+    pages are every knob by its section, live; the overlays draw what the simulation thinks in any view through the
+    stage's projector and change nothing; GO starts any mission at any stage, any activity at a level, any zone, and
+    District 2.
+  - **The Proving Ground is districts** (`src/game/districts/proving/`): the town (64 x 64: three avenues each way, nine
+    signalled junctions, the three doors the play scene needs, its four corners as points of interest so the bot's
+    evade has somewhere to run) for the zones that need a city's simulation, and the handling ground (96 x 64: the
+    slalom and its kicker, the skidpad, six surface strips, the boat basin). Each zone is a `provingZones` entry; most
+    are `labZone`s over the play scene in one of them, its knobs held where the zone wants them. A lab district's
+    career offers nothing (the prologue's giver stands at any safehouse).
+  - **New surfaces** for the strips: wet, oil and ice (SURFACE_GRIP), painted and gripped like the others.
+  - **The mission bench is a kind of its own** (`defBench`: a reel's terms, never paid or recorded): one tiny job per
+    objective, each starting at the safehouse door and taking its car away when it passes, in a town held to 14 cars.
+    `m.collect`'s hint now moves to the nearest piece still about.
+  - **The 10-foot audit is MOTOR's** (`ui/record.js` auditRecord): the UI zone opens every screen in every glyph set in
+    Chromium and audits each drawn frame by the same rules as `tools/ui-audit.mjs`.
+  - **The stress pad** asks for the knobs' tops (200 cars, a crowd of 300); the town's lanes hold about fifty cars,
+    so its self-test wants 40 and the crowd 240 (Lowtown's own budgets are the perf suite's).
+  - **A recipe is a fixture and a test** (`tests/recipes/<type>.test.mjs`, `.mjs` as every test here): the fixture is the
+    one file the recipe describes, bundled in as if it were at the path the recipe names (`loadGame({ extra })`,
+    `bundle({ extra })`: its imports resolved from there, nothing else edited), and the test proves it end to end in
+    play (the fleet drives the new car, the bot passes the new mission and job, Threads sells the new outfit, the new
+    district loads...). Fifteen types; they run in `npm test` (about a minute).
+  - **Songs are content** (`def('songs')`: PLAN.md 8.17's note syntax, by hand): a station plays its composer's songs,
+    then the ones written for it. **Outfits stay data on the characters** (a look pushed onto each protagonist's
+    `outfits`, the same index for all three, and a shop item naming it): no `outfits` registry. **A prop may be
+    painted** (`paint`: a barricade's barrels), and **a district may hang a sign on a wall** (`signs`: Lowtown's
+    "BRIDGE CLOSED: GNOMES ON STRIKE" at Loop Avenue's west end, PLAN.md 9.1's hook for District 2, missing until now).
+    Both are drawn only: the simulation is the same.
+  - **District 2 is the block behind the closed bridge** (`src/game/districts/district2/`, 48 x 40): Loop Avenue carries
+    on west from the bridge the Gnomes have barricaded, a block of the Brickyard's warehouses between four streets, the
+    three doors; loaded only with `?dev=1` (`&district=district2`, or GO), free roam alone.
+- **Answered:** no. **Landed in:** M12.

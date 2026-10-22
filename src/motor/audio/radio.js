@@ -5,6 +5,7 @@
 // through MOTOR's sequencer into the engine's music bus, under the radio's own volume and a mission score's ducking.
 //   const R = new Radio({ stations: all('stations'), ads: { id: { name, lines } }, seed });  R.at(id, t) -> { seg, offset }
 //   R.line(id, t) -> the words showing  ·  playing it: audio/director.js
+import { all } from '../core/registry.js';
 import { compose } from './composer.js';
 import { parseSong } from './notes.js';
 
@@ -14,7 +15,8 @@ const DJ_TIME = 7, AD_TIME = 13, TALK_TIME = 16, JINGLE_BARS = 2;
 export function stationTimeline(st, seed = 1) {
   const base = (st.seed || 1) * 7919 + seed * 104729, segs = [], add = s => { s.t0 = segs.reduce((a, q) => a + q.dur, 0); segs.push(s); };
   const jingle = parseSong(compose(st.genre === 'talk' ? 'talk' : st.genre, base + 99, 'jingle')), jdur = Math.min(jingle.length, jingle.stepDur * 16 * JINGLE_BARS);
-  const songs = (st.songs || []).map((q, i) => ({ ...q, song: parseSong(compose(st.genre, base + i * 31, q.title)) }));
+  const songs = [...(st.songs || []).map((q, i) => ({ ...q, song: parseSong(compose(st.genre, base + i * 31, q.title)) })),
+    ...all('songs').filter(q => q.station === st.id).map(q => ({ title: q.title, artist: q.artist, song: parseSong(q) }))];   // (the composer's, then the ones written by hand: def('songs'))
   const bed = parseSong(compose('talk', base + 7, 'bed'));   // (under the talk, the DJ's lines and the ads)
   const ads = st.ads || [], dj = st.djLines || [];
   if (st.genre === 'talk') {

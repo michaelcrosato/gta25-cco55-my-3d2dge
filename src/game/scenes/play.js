@@ -178,7 +178,7 @@ export const PLAY = {
           vehicles: all('vehicles').map(d => d.id), spawn: id => { const p = hero(), v = fleet.spawn(id, p.x + 40, p.y, 0, { owner: 'world' }); if (v) fleet.wake(v); } },
         go: { missions: all('missions').map(m => ({ id: m.id, title: (m.title || m.id).toUpperCase(), stages: (m.stages || []).map(s => s.id) })), activities: all('activities').map(a => ({ id: a.id, title: (a.title || a.id).toUpperCase(), levels: a.levels || 1 })),
           start: (id, q) => career.startMission(id, q), zones: all('provingZones').map(z => z.id), zone: id => game.go('proving', { route: ['proving', id] }),
-          district2: get('districts', 'district2') ? () => game.go('play', { route: ['play', 'district2'] }) : null } }));
+          district2: get('districts', 'district2') ? () => game.go('play', { district: 'district2' }) : null } }));
       return true;
     }
     // into photo mode, when free to (not in the demo, a card, a wheel, the switch, a fade, WRECKED or NABBED)
@@ -314,7 +314,7 @@ export const PLAY = {
       enter(data) {
         if (demo) RNG.seed(demo.seed());   // (the attract mode: a fresh world from its seed, every stream from the start)
         const dq = !demo && links.query.get('dev') === '1' ? links.query.get('district') : null;   // (?dev=1&district=<id>)
-        district = opts.district || (dq && get('districts', dq) ? dq : 'lowtown');
+        district = opts.district || [data && data.district, dq].find(id => id && get('districts', id)) || 'lowtown';   // (the dev menu's GO to District 2 brings it in data)
         ({ city, render: cityR } = cityFor(district, district === 'lowtown' ? citySeed(links) : get('districts', district).seed));
         if (!demo) { const dv = links.query.get('view') || setting(game, 'defaultView', 'iso'); if (game.views.includes(dv) && views.active !== dv) game.setView(dv); }   // (Settings, Display: the view a game starts in; the attract's are its director's)
         map = city.map;
