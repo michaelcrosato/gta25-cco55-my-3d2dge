@@ -5,7 +5,9 @@
 // blocks the aim's line of sight; m.adopt lends a world car to a job and gives it back; the bank's CCTV on a loop;
 // wanted.clear lifts the heat before the cap; m.hour, m.blast, m.shoo, m.truce, m.fund, m.pay, m.eta, m.byId; MODE 7's
 // rail held by m.view; a racer's checkpoint with a height counted up there; a driver chasing a tagged actor; and the
-// boathouse and the lighthouse standing on their piers.
+// boathouse and the lighthouse standing on their piers. And the jobs' and extras' workers' requests: a route's point off
+// the lanes, a goal's height, a seat moved over, a cruiser's siren, a kill hint's vehicle, a fire that never spreads, a
+// ped the lock-on passes over, a landmark's ramps.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame, engineGlobal } from '../harness.mjs';
@@ -209,4 +211,57 @@ test('a leashed enemy gives up past its leash from where it was put and walks ba
   assert.ok(far() < 24 && !e.alerted, 'back at its post, calm (' + Math.round(far()) + ' u)');
   b.vitals.hit({ amount: 5, kind: 'test' }); g.game.advance(.2);
   assert.ok(e.alerted, 'hurt: it turns again'); assert.ok(P());
+});
+
+// (FAN-OUT A2's jobs and extras workers, DECISIONS D22: the rest checked here)
+test('a route\'s point off the lanes counts once the driver stops as near as the lanes go; a goal with no height is the ground\'s, from up on the deck too (D22)', async () => {
+  const g = await world(), { R } = g, G = g.M.roadsOf(g.gtm.city).graph, lane = id => G.lanes.find(L => L.id === id);
+  const m = g.fixture('fx_offlane', mm => {
+    const at = mm.lane('greasy-spoke'), c = Math.cos(at.heading), s = Math.sin(at.heading);   // (up the lane past the diner, 160 u short of it)
+    mm.spawn.vehicle('cortez', { x: at.x - c * 160, y: at.y - s * 160, heading: at.heading }, { tag: 'tour', heading: at.heading, driver: 'saint-grunt', drive: { route: ['greasy-spoke', 'pixel-palace'], style: 'calm' } });
+    const up = mm.lane([DECK[0], DECK[1]], Math.PI, DECK[2]);
+    mm.spawn.vehicle('cortez', up, { tag: 'down', heading: up.heading, driver: 'saint-grunt', drive: { to: mm.curb('greasy-spoke') } });
+  });
+  const diner = m.at('greasy-spoke'), tour = R.actors.entry(m.one('tour')), down = R.actors.entry(m.one('down'));
+  g.game.advance(.2);
+  const goal = lane(down.brain.goal.lane);
+  assert.ok(goal.ground, 'routed down to the street (' + goal.strip + '), not along the deck over it');
+  let near = 1e9; for (let t = 0; t < 20 && tour.drive.cp < 1; t += .5) { g.game.advance(.5); near = Math.min(near, Math.hypot(diner[0] - m.one('tour').x, diner[1] - m.one('tour').y)); }
+  assert.ok(tour.drive.cp >= 1 && near > 40, 'the diner\'s point counted from the lane outside it (' + Math.round(near) + ' u off at the nearest)');
+  g.game.advance(3); assert.equal(tour.brain.arrived, false, 'and on to the next');
+});
+
+test('m.place moves a ped to another seat of the car it sits in; a scripted cruiser\'s siren; a kill hint\'s vehicle; m.fire that never spreads; a ped the lock-on passes over (D22)', async () => {
+  const g = await world(), { R } = g, F = g.gtm.combat.fire;
+  const m = g.fixture('fx_bits2', mm => {
+    mm.spawn.vehicle('cortez', mm.curb('greasy-spoke'), { tag: 'car', driver: 'saint-grunt' });
+    mm.spawn.vehicle('cruiser', mm.curb('pixel-palace'), { tag: 'cops', driver: 'mpd', drive: { to: 'safehouse', siren: true } });
+    mm.spawn.ped('office', mm.at('safehouse'), { tag: 'victim', aimable: false });
+  }, function* (mm) { yield mm.kill('car', { vehicle: 'cops' }); });
+  const car = m.one('car'), d = car.driver;
+  m.place(d, { in: car, seat: 1 });
+  assert.equal(car.seats[1], d); assert.equal(car.seats[0], null); assert.equal(d.seat.index, 1, 'moved over to the passenger seat');
+  g.game.advance(.5);
+  const cops = m.one('cops');
+  assert.equal(cops.siren, true, 'the siren on'); assert.equal(R.actors.entry(cops).brain.siren, true, 'and the brain drives as one');
+  assert.equal(R.objective.hint.kind, 'kill'); assert.equal(R.objective.hint.vehicle, 'cops', 'the job\'s to be done from that one');
+  const park = m.at('palm-park'), n0 = (m.fire(park, 16, 12, { spread: false }), F.count);
+  let most = 0; for (let i = 0; i < 40; i++) { g.game.advance(.25); most = Math.max(most, F.count); }
+  assert.ok(n0 > 0 && most <= n0, 'it burned where it was set, no further (' + n0 + ' cells, at most ' + most + ')');
+  m.fire(park, 16, 12); let grew = 0; for (let i = 0; i < 40; i++) { g.game.advance(.25); grew = Math.max(grew, F.count); }
+  assert.ok(grew > n0, 'the grass took the fire set the usual way (' + grew + ' cells)');
+  const v = m.one('victim'), { pickLock } = await import('../../src/motor/combat/aim.js');
+  assert.equal(v.aimable, false);
+  const s = { x: v.x - 60, y: v.y, z: 0 }, thief = { x: v.x + 60, y: v.y, z: 0, hostile: false };
+  assert.equal(pickLock(s, [1, 0], [v, thief], { toScreen: (x, y) => [x, y], range: 300 }), thief, 'the lock-on passes her over');
+});
+
+test('a landmark\'s ramps are terrain: folded into its district\'s decks, no lanes on them, nothing piled on them (D22)', async () => {
+  const g = await world(), city = g.gtm.city, G = g.M.roadsOf(city).graph;
+  const ramps = city.decks.filter(d => d.kind === 'ramp');
+  assert.deepEqual([...ramps.map(d => d.id)], ['container-kicker', 'container-landing', 'car-park']);
+  const strips = new Set(G.lanes.map(L => String(L.strip).split(':')[0]));
+  for (const d of ramps) assert.ok(!strips.has(d.id), d.id + ': no lanes');
+  const top = city.decks.find(d => d.id === 'car-park'), x = 16.5 * city.T, y = 95.5 * city.T, q = city.deckAt(x, y);
+  assert.ok(q && q.deck === top && Math.abs(q.z - 48) < 1, 'a car can stand on the car park\'s top deck (' + (q ? q.deck.id + ' z ' + q.z : 'none') + ')');
 });

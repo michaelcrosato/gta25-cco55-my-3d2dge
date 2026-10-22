@@ -784,4 +784,43 @@ and where it landed.
       missions in sequence.
     - Every merged mission ran again on all of it: 33 runs on seeds 1-3, 11 through the pad, the gym 13/13 both
       ways, and H2's bribe branch on seeds 1-3.
+  - **Part 3c, the rest of A2 merged**: the jobs worker's six activities (the Moto Courier, Vigilante and
+    Firefighter jobs at three levels, the Loop Sprint and Harbor Hustle races, three MAYHEMs), the extras worker's
+    25 Moto Tokens, five stunt jumps and four random events (with `tests/sim/side-content.test.mjs`), the saints
+    worker's S2 and S3, and the prologue P0. Their 34 requests (J2-J16, E1-E6, S1-S6, P1-P6 in
+    `docs/handoff/m8-a2/motor-requests.md`) were each checked against the code; the real gaps are in MOTOR with tests
+    in `tests/sim/mission-motor.test.mjs` and `tests/sim/city-life.test.mjs`, the rest settled there with the reason:
+    - **Mission drivers** (J5, J6, E4, S1): a point with no height is the ground's, from up on a deck too (the guess
+      from the driver's own height routed Loop Sprint's ground checkpoints along the deck); a route's or a race's point
+      off the lanes counts once the driver has stopped as near as the lanes go (it sat at its route's end for good);
+      `drive: { siren: true }`; and the crew `m.spawn.vehicle` seats rides in its seats (the bodies stayed where the
+      car was made, so shots at it never found them).
+    - **Small m** (J7, J8, J9, E5, P3): `m.place(p, { in, seat })` moves a ped over to another seat of its car;
+      `m.fire(at, r, fuel, { vigor, spread: false })`; `m.kill(tag, { vehicle })` keeps the vehicle in its hint;
+      `m.spawn.ped(..., { aimable: false })` (the lock-on passes a victim over); `m.curb(at, { within })`.
+    - **Stunt ramps are terrain** (E1): a landmark may carry decks, and kind `ramp` gets no lanes and nothing piled on
+      it: the Container Stack's kicker and the half-built car park make two of the five jumps possible at all.
+    - **The bot** (S3, P6, P2): a drive-by only at a target with a clear line (its own car no blocker); one press of
+      △ each beat at a prompt (the chapel's SAVE wrote the slot 165 times in one stand); and headless runs keep their
+      saves in memory, so the career's SAVE and autosave work as a player's. J10's held vehicle pick was tried and
+      dropped: it sent Boom Gangs' rockets at far cars they never reached (seed 3 failed where the nearest-each-step
+      pick passes gold).
+    - **A gridlock breaker in traffic** (P4): a ring of stopped drivers, each waiting on the next with no room to back
+      off (two nose to nose at the Loop's north-east corner held S1 seed 2's bot on the ramp for 570 s; Gnome Row x
+      Loop Avenue gridlocked for minutes in the prologue worker's runs), breaks after `TUNE.gridlock` (4 s): the
+      one with the lowest id creeps through a moment.
+    - **Free roam's offers** (career.js): an activity's start asks only once the car in it is slow (driving past the
+      Neon Mile Kwik-Lux opened Loop Sprint's card, which held the AutoPlayer's input and stopped the car among a
+      gang war's dead); and a marker the player stands in when free roam begins (the prologue's giver at the chapel)
+      asks only after they have left it.
+    - **H4 after the stunt ramps**: the ramps change the city enough that a police car the bank's alarm brought was
+      parked in the getaway lane on seeds 2 and 3; H4's getaway now moves those to the curb as it already moved the
+      morning's wrecks (with the gridlock breaker, all three seeds pass).
+    - **Firefighter's calls**: on L3 seed 1's pad run a Rats turf war broke out by the Neon Mile Kwik-Lux; their
+      shotgun pellets set the call's car off (it is made at 30% health, smoking), and the blast chained through a
+      parked Saint into Engine 9. While a call runs its cars now take no hurt (only its clock sets them off), and
+      are cars like any other once it is out.
+    - Every merged mission, activity level and event ran again on all of it: 96 of 96 runs on seeds 1-3 (26 ids,
+      each activity at every level), 32 of 32 through the pad on seed 1 (Firefighter's L3 after the fix above;
+      all twelve of its runs again, both ways), and the bot gym 13 of 13 both ways.
 - **Answered:** no. **Landed in:** M8.

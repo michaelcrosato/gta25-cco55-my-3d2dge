@@ -11,8 +11,11 @@
 //   - 'idle' (by default): stands where it was put, facing o.facing.
 // A vehicle with o.driver (a ped archetype) at the wheel drives by o.drive: { to (a point or poi), route ([points],
 // loop), race ([checkpoints], laps), chase: 'player' or a tag (its first living actor: an escort's car to ambush),
-// flee: 'player', style ('calm' | 'fast' | 'race'), then: 'stop' |
-// 'flee' } with a DriverBrain on the GPS, as traffic does (its Intent through intentFor(v): the scene's fleet step asks).
+// flee: 'player', style ('calm' | 'fast' | 'race'), siren (true: lights and siren on, through reds, the traffic pulling
+// over), then: 'stop' | 'flee' } with a DriverBrain on the GPS, as traffic does (its Intent through intentFor(v): the
+// scene's fleet step asks). A point with no height is on the ground (a deck's point says so: [x, y, z]); a route's or a
+// race's point off the lanes (a junction's middle, a sidewalk) counts once the driver has stopped at the end of its
+// route to it, as near as the lanes go.
 // Deterministic: the RNG stream 'mission:<id>:actors'; only the simulation is read.
 import { E } from '../engine.js';
 import { get } from '../core/registry.js';
@@ -45,19 +48,20 @@ export const within = (q, x, y, z, r) => Math.hypot(q[0] - x, q[1] - y) < r && (
  *  vehicles on it (a car hl long), nothing solid */
 // would a vehicle o stand in the footprint (hl long, 11 wide) at q? (its box against points along and round ours)
 const overlaps = (o, q, hl) => { const c = Math.cos(q.heading), s = Math.sin(q.heading); for (const [f, r] of [[0, 0], [hl * .5, 0], [-hl * .5, 0], [hl, 0], [-hl, 0], [hl, 11], [hl, -11], [-hl, 11], [-hl, -11]]) if (boxDistance(o, q.x + f * c - r * s, q.y + f * s + r * c) < 4) return true; return false; };
-export function curbNear(city, at, fleet = null, hl = 30) {
+export function curbNear(city, at, fleet = null, hl = 30, o = {}) {
   const [x, y] = pointOf(city, at), T = city.T, cx = Math.floor(x / T), cy = Math.floor(y / T), seen = new Set(), cands = [];
   for (let r = 0; r <= 10; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
     if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
     for (const q of curbSpots(city, cx + dx, cy + dy).slice(0, 2)) { const k = Math.round(q.x) + ',' + Math.round(q.y); if (seen.has(k)) continue; seen.add(k); cands.push({ q, d: Math.hypot(q.x - x, q.y - y) }); }
   }
   cands.sort((a, b) => a.d - b.d);
-  for (const { q } of cands) {
-    if (fleet && fleet.near(q.x, q.y, hl * 3).some(o => o.body && o.speed < 8 && overlaps(o, q, hl))) continue;   // (a car parked there; traffic going by is no matter)
+  for (const { q, d } of cands) {
+    if (o.within && d > o.within) break;   // (none near enough: never another street's spot)
+    if (fleet && fleet.near(q.x, q.y, hl * 3).some(v => v.body && v.speed < 8 && overlaps(v, q, hl))) continue;   // (a car parked there; traffic going by is no matter)
     if (blockedSpot(city, q.x, q.y, q.heading, hl, 13)) continue;
     return { x: q.x, y: q.y, heading: q.heading };
   }
-  return { x, y, heading: 0 };
+  return o.within ? null : { x, y, heading: 0 };
 }
 /** the lane point nearest a point (running heading's way, if given; on the deck at height z, if given: the Loop's at
  *  its height): { x, y, z, heading } (where a driving one starts) */
@@ -93,9 +97,11 @@ export class MissionActors {
     return v;
   }
   /** a ped of an archetype at a point; o: { tag, role, facing, weapons, ammo, health, armor, faction, gang, look, name,
-   *  attack, alert, leash, follow (an ally's tag to follow), route ([points]: a patrol), profile (the fighter's), stage } */
+   *  attack, alert, leash, follow (an ally's tag to follow), route ([points]: a patrol), profile (the fighter's), aimable
+   *  (false: the lock-on passes it over: a victim standing nearer than her attacker), stage } */
   ped(arch, at, o = {}) {
     const [x, y] = this._at(at), p = this._newPed(arch, x, y, o), e = this._add(p, 'ped', o); e.home = [x, y];
+    if (o.aimable === false) p.aimable = false;
     if (e.role !== 'idle') e.brain = new Fighter(p, { walks: this.W.life ? this.W.life.walks : null, map: this.W.city.map, fleet: this.W.fleet, rng: this.rng, profile: o.profile });
     if (e.role === 'enemy' || e.role === 'guard') p.hostile = true;
     return p;
@@ -115,13 +121,13 @@ export class MissionActors {
     this._add(q, 'prop', o); return q;
   }
   /** move an actor (a Ped or a Vehicle) to a point, or a ped into a vehicle ({ in: vehicle, seat }); one already in
-   *  that vehicle stays, and o.within leaves one already that near the point where it is (a setup run on a stage
-   *  already under way changes nothing) */
+   *  that seat stays (one in another of its seats moves over), and o.within leaves one already that near the point
+   *  where it is (a setup run on a stage already under way changes nothing) */
   place(a, to, o = {}) {
     if (!a) return;
     if (to && to.in) {
       const v = to.in, seat = to.seat ?? 0; if (!v) return;
-      if (a.seat && a.seat.vehicle === v) return;
+      if (a.seat && a.seat.vehicle === v && a.seat.index === seat) return;
       if (a.seat) a.seat.vehicle.unseat(a);
       a.boarding = null; a.held = null;
       const prev = v.seats[seat]; if (prev && prev !== a) { v.unseat(prev); if (prev.owner !== 'mission') prev.place(v.x + v.hw + 12, v.y); else if (this.W.combat) this.W.combat.remove(prev); }
@@ -164,7 +170,7 @@ export class MissionActors {
   update(dt) {
     this.t += dt; const W = this.W, P = W.crew && W.crew.ped, PW = { map: W.city.map, city: W.city, combat: W.combat, fleet: W.fleet, aim: NOAIM };
     for (const e of this.list) {
-      if (e.kind === 'vehicle') { this._drive(dt, e, P); continue; }
+      if (e.kind === 'vehicle') { for (const q of e.crew || []) if (q !== P && !q.dead && q.seat && q.seat.vehicle === e.a) q.ride(); this._drive(dt, e, P); continue; }   // (its own crew in their seats, wherever it goes: shots find them)
       if (e.kind !== 'ped') continue;
       const p = e.a; if (p === P) continue;
       if (p.seat) { if (!p.dead) p.ride(); continue; }   // (a rider in its seat, wherever the vehicle goes: hits and draws find it there)
@@ -221,28 +227,32 @@ export class MissionActors {
     else if (D.flee === 'player' && P) { if (!D.dest || Math.hypot(D.dest[0] - v.x, D.dest[1] - v.y) < 80) D.dest = this._away(v, P); goal = D.dest; }
     else if (D.race) {
       const line = D.race.map(q => this._at(q)), c = line[D.cp % line.length];
-      if (within(c, v.x, v.y, v.z, 48)) { D.cp++; if (D.cp >= line.length * (D.laps || 1) && D.finishedAt === null) { D.finishedAt = this.R.t; D.done = true; } }
+      if (within(c, v.x, v.y, v.z, 48) || this._there(e, c)) { D.cp++; if (D.cp >= line.length * (D.laps || 1) && D.finishedAt === null) { D.finishedAt = this.R.t; D.done = true; } }
       goal = D.done ? null : line[D.cp % line.length];
     } else if (D.route) {
       const pts = D.route.map(q => this._at(q)), c = pts[D.cp];
-      if (c && within(c, v.x, v.y, v.z, 40)) { D.cp++; if (D.cp >= pts.length) { if (D.loop) D.cp = 0; else D.done = true; } }
+      if (c && (within(c, v.x, v.y, v.z, 40) || this._there(e, c))) { D.cp++; if (D.cp >= pts.length) { if (D.loop) D.cp = 0; else D.done = true; } }
       goal = D.done ? null : pts[D.cp];
     } else if (D.to && !D.done) { goal = this._at(D.to); if (Math.hypot(goal[0] - v.x, goal[1] - v.y) < 40 && v.speed < 30) { D.done = true; goal = null; } }
     if (!goal) {
       if (D.then === 'flee' && P) { D.flee = 'player'; D.dest = null; return; }
       const I = clearIntent(e.Ib || (e.Ib = makeIntent())); if (v.speed > 2) I.brake = 1; else I.down.handbrake = true; e.I = I; return;   // (there: it stops; stopped, the handbrake: a brake held at a stop backs it up)
     }
+    if (D.siren && v.hasSiren && !v.siren) v.siren = true;   // (the traffic pulls over for it: city life's sirens)
     D.replan -= dt;
     const key = Math.round(goal[0]) + ',' + Math.round(goal[1]);
     if (!e.brain || D.replan <= 0 || (!D.chase && e.brainGoal !== key)) {
-      if (!e.brain) e.brain = new DriverBrain(v, roads.graph, { junctions: W.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? 'race' : 'fast')] || STYLES.fast });
-      const r = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z, tz: goal[2] ?? (v.z > 10 ? v.z : 0) }); if (r) e.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); else if (D.flee) D.dest = null;   // (a goal up on a deck: routed up there; no way there: somewhere else to run to)
+      if (!e.brain) e.brain = new DriverBrain(v, roads.graph, { junctions: W.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? 'race' : 'fast')] || STYLES.fast, siren: !!D.siren });
+      const r = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z, tz: goal[2] ?? 0 }); if (r) e.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); else { e.brain.arrived = false; if (D.flee) D.dest = null; }   // (a goal up on a deck says so; no way there: not there, and somewhere else to run to)
       e.brainGoal = key; D.replan = D.chase || D.flee ? REPLAN : 1e9;
     }
     const L = W.life;
     e.I = e.brain.update(dt, { fleet: W.fleet, t: L ? L.t : this.t, pedsNear: L ? (x, y, r) => L.pedsNear(x, y, r) : null, wet: 0, sirens: null });
     if (D.chase && P && Math.hypot(goal[0] - v.x, goal[1] - v.y) < 70) { const a = Math.atan2(goal[1] - v.y, goal[0] - v.x); e.I.steer = E.clamp(E.angDiff(v.heading, a) * 2, -1, 1); e.I.throttle = 1; e.I.brake = 0; }   // (close: straight at it)
   }
+  // has the driver stopped at the end of its route to point c (the GPS's goal is on the lane nearest it: a point off
+  // the lanes is never within reach)?
+  _there(e, c) { return !!e.brain && e.brain.arrived && e.brainGoal === Math.round(c[0]) + ',' + Math.round(c[1]); }
   // a point to flee to: of a few ground lanes' starts, the one farthest from the player
   _away(v, P) {
     const G = this.W.roads.graph; let best = null, bd = -1;

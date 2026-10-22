@@ -19,6 +19,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   const title = gtm.career;
   game.go('play', { newGame: true });   // (NEW GAME: the title's own, deferred to the step's end)
   for (let k = 0; k < 400 && gtm.career === title; k++) game.advance(.25);
+  if (gtm.career.saves) gtm.career.saves.backend = M.memoryBackend();   // (no localStorage headless: the saves kept in memory)
   const C = () => gtm.career, R = () => gtm.career.R, P = () => gtm.crew.ped, S = () => gtm.career.save, city = gtm.city, roads = M.roadsOf(city);
   const A = new M.AutoPlayer({ city, roads, fleet: gtm.fleet, junctions: gtm.life ? gtm.life.junctions : null }), idle = M.makeIntent();
   let t = 0; const steps = [], limit = hours * 3600;
@@ -54,11 +55,12 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   const cool = () => { if (!stars()) return true; say(`losing ${stars()} star(s)`); const B = C().bot; return pilot((dt, p) => B.evade(dt, p, world()), 400, () => !stars()); };
   const fits = (need, v) => (Array.isArray(need) ? need : [need]).some(n => n === v.def.id || n === v.cls || n === v.def.role || n === v.def.model);
   const top = v => (v.def.handling && v.def.handling.top) || 0;
-  // a vehicle near (x, y) the campaign can take: fitting need (else any a player takes), parked; the fastest near
+  // a vehicle near (x, y) the campaign can take: fitting need (else any a player takes), parked; the fastest near. A
+  // locked one only when a job needs that kind (every police car is locked: Vigilante's, broken into as a player would)
   const carNear = (x, y, need = null, r = 600) => {
     let best = null, bs = -1;
     for (const v of gtm.fleet.vehicles) {
-      if (v.wrecked || v.locked || v.driver || v.cls === 'rail' || v.cls === 'boat' || v.cls === 'heli') continue;
+      if (v.wrecked || (v.locked && !need) || v.driver || v.cls === 'rail' || v.cls === 'boat' || v.cls === 'heli') continue;
       if (need ? !fits(need, v) : !M.pickable(v) || v.cls !== 'car') continue;
       const d = Math.hypot(v.x - x, v.y - y); if (d > r) continue; const s = top(v) - d * .2; if (s > bs) { bs = s; best = v; }
     }
@@ -101,11 +103,16 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     steps.push({ what: 'token', id: s.id, ok, secs: Math.round(t - t0), why: ok ? '' : `stood at ${P().x.toFixed(0)},${P().y.toFixed(0)},${(P().z || 0).toFixed(0)}` }); say(`token ${s.id}: ${ok ? 'found' : 'NOT found'}`);
     return ok;
   };
+  // a stunt over the drawbridge waits at its approach for a lift: the run starts once the leaves are on their way up
+  // and high enough that they stand half raised as the car reaches them (a try later, a little later in the lift)
+  const bridgeOf = s => (gtm.bridges || []).find(b => b.contains(s.takeoff[0], s.takeoff[1]) || Math.hypot((b.rect[0] + b.rect[2] + 1) * city.T / 2 - s.takeoff[0], (b.rect[1] + b.rect[3] + 1) * city.T / 2 - s.takeoff[1]) < s.r + 40);
+  const lift = (b, go) => pilot((dt, p) => { const I = M.clearIntent(idle); I.down.handbrake = true; return I; }, 4 * 3600 / 24, () => b.phase === 'raising' && b.lift >= go);
   const stunt = s => {
-    const t0 = t, ap = s.approach || [s.takeoff[0] - 300, s.takeoff[1]], [tx, ty] = s.takeoff; cool();
+    const t0 = t, ap = s.approach || [s.takeoff[0] - 300, s.takeoff[1]], [tx, ty] = s.takeoff, n = tried.get('s:' + s.id) || 1; cool();
     const v = carNear(ap[0], ap[1]); let ok = false;
     if (v && board(v)) {
-      A.goto(ap[0], ap[1], { car: v, stay: true, radius: 30 }); auto(240);
+      A.goto(ap[0], ap[1], { car: v, stay: true, radius: 30, z: ap[2] ?? null }); auto(240);   // (the Loop Gap's run-up is on the deck)
+      const b = bridgeOf(s); if (b) { const d = Math.hypot(tx - v.x, ty - v.y); lift(b, Math.max(0, .5 - d / 160 * (1 / Math.max(.1, M.TUNE.drawbridgeRaise))) + (n - 1) * .08); }
       // the run: flat out at the takeoff (held straight once over it), the nitro if fitted
       let over = false, h = 0;
       pilot((dt, p) => {

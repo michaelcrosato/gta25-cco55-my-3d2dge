@@ -12,7 +12,7 @@ test('Lowtown builds headless in under 1.5 s: 160x160, its four neighbourhoods, 
   assert.equal(C.w, 160); assert.equal(C.h, 160);
   assert.deepEqual([...C.hoods.map(h => h.id)], ['palm', 'neon', 'brick', 'harbor']);
   for (const id of ['safehouse', 'bank-door', 'hospital', 'gnomes-hq', 'marina']) assert.ok(C.poi(id), 'point of interest ' + id);
-  assert.deepEqual([...C.decks.map(d => d.id)], ['loop', 'loop-gap', 'L']);
+  assert.deepEqual([...C.decks.map(d => d.id)], ['loop', 'loop-gap', 'L', 'container-kicker', 'container-landing', 'car-park']);   // (the last three: the stunt-ramps landmark's)
   assert.ok(C.lots.filter(l => l.kind === 'building').length > 150, C.lots.length + ' lots');
   assert.ok(C.map.solids.length > 1000, C.map.solids.length + ' solids');
 });

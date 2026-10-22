@@ -25,7 +25,7 @@ knob('Missions', 'giverReach', 'Giver reach', 18, 6, 60, 1, 'How near a mission\
 knob('Missions', 'botRetries', 'Bot retries', 2, 0, 10, 1, 'How many times the bot retries a failed stage before it quits');
 const MEDAL = { gold: '#ffd23a', silver: '#d8dce8', bronze: '#d08a4a' };
 const REASON = { wrecked: 'YOU WERE WRECKED', busted: 'YOU WERE NABBED', time: 'OUT OF TIME' };
-const SHOP_R = 20, DRIVE_R = 44, PROP_R = 22, PAGE = 6;
+const SHOP_R = 20, DRIVE_R = 44, PROP_R = 22, PAGE = 6, START_STOP = 10;   // (START_STOP: an activity's start asks once the vehicle in it is this slow)
 const giverAt = (city, spec) => { const g = spec.giver || {}, gang = g.phone && get('gangs', g.phone), id = g.at || (gang ? gang.phone : null), q = id && city.poi(id); return q ? [q.x, q.y] : null; };
 
 export class Career {
@@ -114,13 +114,14 @@ export class Career {
     if (this.bot && !this.R.active && this.R.state === 'idle' && this.card && this.card.auto) this.card.auto();
     return I;
   }
-  // free roam's offers: a giver walked into, an activity's start, a drive-in shop, a door's prompt
+  // free roam's offers: a giver walked into, an activity's start, a drive-in shop, a door's prompt. A marker the player
+  // is standing in when free roam begins (a spawn at the chapel, on the prologue's) asks only once they have left it
   _free(p, v, I) {
-    const W = this.W, C = W.city, R2 = TUNE.giverReach;
-    if (!v && !p.boarding) for (const m of this.available()) { const at = giverAt(C, m); if (Math.hypot(at[0] - p.x, at[1] - p.y) < R2) { if (this.visited !== m.id) { this.visited = m.id; this._jobCard(m); } return; } }
+    const W = this.W, C = W.city, R2 = TUNE.giverReach, quiet = !this.armed; this.armed = true;
+    if (!v && !p.boarding) for (const m of this.available()) { const at = giverAt(C, m); if (Math.hypot(at[0] - p.x, at[1] - p.y) < R2) { if (this.visited !== m.id) { this.visited = m.id; if (!quiet) this._jobCard(m); } return; } }
     for (const { spec, at } of this.startable()) {
       const need = spec.start.vehicle; if (need && !v) continue; if (spec.start.foot && v) continue;
-      const P = v || p; if (Math.hypot(at[0] - P.x, at[1] - P.y) < (spec.start.radius || 26)) { if (this.visited !== spec.id) { this.visited = spec.id; this._activityCard(spec); } return; }
+      const P = v || p; if (Math.hypot(at[0] - P.x, at[1] - P.y) < (spec.start.radius || 26)) { if (v && v.speed > START_STOP) return; if (this.visited !== spec.id) { this.visited = spec.id; if (!quiet) this._activityCard(spec); } return; }   // (a vehicle stopped in the start: driving by it asks nothing)
     }
     this.visited = null;
     // a drive-in shop: the vehicle stopped in its yard

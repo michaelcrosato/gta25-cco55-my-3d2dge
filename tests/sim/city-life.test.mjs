@@ -2,7 +2,7 @@
 // emergency services and the Marching Mimes, headless. The 10-minute soaks run in test:full (tests/full/city-soak.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadGame } from '../harness.mjs';
+import { loadGame, engineGlobal } from '../harness.mjs';
 import { citySoak } from '../city-soak.mjs';
 
 const play = async (poi, q = {}) => { const g = await loadGame({ hash: '#play/' + poi, query: { seed: '1999', time: 'day', weather: 'clear', ...q } }); g.game.advance(3); return g; };
@@ -159,4 +159,14 @@ test('the AutoPlayer core: it walks a short way on the sidewalks, and drives a l
     const states = new Set(); for (let t = 0; t < 180 && !A.arrived; t += .25) { game.advance(.25); states.add(A.state); }   // (M6: the gangs' fights and the police's calls slow the streets: D19)
     assert.ok(states.has('board') && states.has('drive'), 'took a car and drove: ' + [...states]);
     assert.ok(A.arrived, `got there: ${A.state}, ${Math.hypot(gtm.crew.ped.x - goal.x, gtm.crew.ped.y - goal.y).toFixed(0)} u off`); }
+});
+
+test('a gridlock: a ring of stopped drivers each waiting on the next is found, and the one with the lowest id creeps on (D22)', async () => {
+  engineGlobal(); const { DriverBrain } = await import('../../src/motor/ai/driver.js');
+  const ring = ids => { const cs = ids.map(id => ({ id, speed: 0, brain: null })); cs.forEach((c, k) => { c.brain = Object.assign(Object.create(DriverBrain.prototype), { v: c, id: c.id, leader: { v: cs[(k + 1) % cs.length] } }); }); return cs; };
+  const [a] = ring([9, 4]); assert.equal(a.brain._ring(a.brain.leader), 4, 'two nose to nose: the lower id');
+  const [x] = ring([5, 3, 7]); assert.equal(x.brain._ring(x.brain.leader), 3, 'three round a box');
+  const [p, q] = ring([2, 6]); q.speed = 5; assert.equal(p.brain._ring(p.brain.leader), null, 'one of them moving: no gridlock');
+  const [s, u] = ring([1, 8]); u.brain.leader = null; assert.equal(s.brain._ring(s.brain.leader), null, 'a queue that ends (at a light): no ring');
+  const { TUNE } = await import('../../src/motor/core/tune.js'); assert.equal(TUNE.gridlock, 4, 'the knob');
 });

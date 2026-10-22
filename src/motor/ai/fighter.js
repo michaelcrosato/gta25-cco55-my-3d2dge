@@ -119,7 +119,7 @@ export class Fighter {
 
 /** the line of fire from a body to a target (chest to chest): true (clear), 'wall' (the map's cells, or a solid on the
  *  way as the shots meet it: a pillar, a container, a crate; map.ray sees the cells only) or 'car' (a vehicle in the
- *  way, not the target's own) */
+ *  way, not the target's own nor the shooter's: a drive-by's) */
 export function lineOfFire(p, tgt, map = null, fleet = null) {
   if (map && !map.ray(p, tgt, { eye: 18, target: 16 }).clear) return 'wall';
   if (map && map.solids && map.solids.length) {
@@ -127,8 +127,8 @@ export function lineOfFire(p, tgt, map = null, fleet = null) {
     for (let s = 14; s < L - 14; s += 8) { const k = s / L; if (map.heightAt(p.x + dx * k, p.y + dy * k) > z0 + (z1 - z0) * k) return 'wall'; }
   }
   if (fleet) {
-    const mx = (p.x + tgt.x) / 2, my = (p.y + tgt.y) / 2, r = Math.hypot(tgt.x - p.x, tgt.y - p.y) / 2 + 30, own = tgt.seat ? tgt.seat.vehicle : tgt.body ? tgt : null;
-    for (const v of fleet.near(mx, my, r)) if (v !== own && v.body && v.cls !== 'heli' && v.z < (p.z || 0) + 18 && crosses(v, p, tgt)) return 'car';
+    const mx = (p.x + tgt.x) / 2, my = (p.y + tgt.y) / 2, r = Math.hypot(tgt.x - p.x, tgt.y - p.y) / 2 + 30, own = tgt.seat ? tgt.seat.vehicle : tgt.body ? tgt : null, mine = p.seat ? p.seat.vehicle : null;
+    for (const v of fleet.near(mx, my, r)) if (v !== own && v !== mine && v.body && v.cls !== 'heli' && v.z < (p.z || 0) + 18 && crosses(v, p, tgt)) return 'car';
   }
   return true;
 }

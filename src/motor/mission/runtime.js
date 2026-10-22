@@ -238,7 +238,7 @@ export class MissionContext {
   at(p) { return pointOf(this.city, p); }
   /** the curb spot nearest a point ({ x, y, heading }: a parked car's place), and the lane point nearest it (a car
    *  that drives off from there; o.heading: running that way) */
-  curb(at) { return curbNear(this.city, at, this.fleet); }
+  curb(at, o = {}) { return curbNear(this.city, at, this.fleet, o.hl || 30, o); }
   lane(at, heading = null, z = null) { return laneNear(this.city, this.W.roads, at, heading, z); }
   /** how far the player (or the vehicle it rides in) is from a point or an actor */
   dist(to) { const q = isActor(to) ? [to.x, to.y] : this.at(to), P = this.mover; return Math.hypot(q[0] - P.x, q[1] - P.y); }
@@ -313,7 +313,9 @@ export class MissionContext {
   on(ev, fn) { return BUS.on(ev, fn, this.R.scope); }
   /** a fire on the city's grid at a point (radius, seconds of fuel): a firebomb's, a burning wreck's for the
    *  firefighters; and how hot it burns within r of a point now (0: out) */
-  fire(at, r = 16, fuel = 20) { const C = this.W.combat; if (!C || !C.fire) return; const [x, y] = this.at(at); C.fire.add(x, y, r, 1, fuel); }
+  /** set a disc alight: at, its radius, the fuel it brings (seconds); o: { vigor (0..1: how keenly it spreads; 1),
+   *  spread (false: it burns where it was set and no further: vigour 0), heat (0..1; 1) } */
+  fire(at, r = 16, fuel = 20, o = {}) { const C = this.W.combat; if (!C || !C.fire) return; const [x, y] = this.at(at); C.fire.add(x, y, r, o.heat ?? 1, fuel, o.spread === false ? 0 : o.vigor ?? 1); }
   heat(at, r = 24) { const C = this.W.combat, F = C && C.fire; if (!F) return 0; const [x, y] = this.at(at); let h = 0; for (let dy = -r; dy <= r; dy += 8) for (let dx = -r; dx <= r; dx += 8) h = Math.max(h, F.heatAt(x + dx, y + dy)); return h; }
   /** a protagonist's Ped (one not played: placed, seated, given a job's orders) */
   crewPed(id) { const q = this.crew.member(id); return q ? q.ped : null; }
@@ -437,7 +439,7 @@ export class MissionContext {
     const need = m => (o.count ? Math.min(o.count, m.tagged(tag).length) : m.tagged(tag).length), isDone = o.done ? a => done(a) || !!o.done(a) : done;
     return op(m => (m.tagged(tag).filter(isDone).length >= need(m) ? { value: true } : undefined),
       { nav: m => { const P = m.mover; let b = null, bd = 1e9; for (const a of m.tagged(tag)) if (!isDone(a)) { const d = Math.hypot(a.x - P.x, a.y - P.y); if (d < bd) { bd = d; b = a; } } return b; },
-        start: m => { m.objective(o.text || 'Take them out', { hint: { kind: 'kill', targets: tag, done: o.done || null } }); for (const a of m.tagged(tag)) if (alive(a) && o.mark !== false) m.marker(a, { color: '#ff5a4a', ring: false }); } });
+        start: m => { m.objective(o.text || 'Take them out', { hint: { kind: 'kill', targets: tag, done: o.done || null, vehicle: o.vehicle || null } }); for (const a of m.tagged(tag)) if (alive(a) && o.mark !== false) m.marker(a, { color: '#ff5a4a', ring: false }); } });
   }
   /** pick up the mission pickups tagged tag (all of them, or o.count) */
   collect(tag, o = {}) {

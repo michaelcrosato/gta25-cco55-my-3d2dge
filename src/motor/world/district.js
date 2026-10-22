@@ -24,13 +24,13 @@ declare('interiors', shape({
   floor: { type: 'string', def: 'concrete' }, rooms: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, doors: { type: 'array', def: [] },
   guards: { type: 'array', def: [] }, cameras: { type: 'array', def: [] }, lights: { type: 'array', def: [] }, music: { type: 'string', def: '' }, seed: { type: 'number', def: 1 },
 }));
-declare('landmarks', shape({ district: { type: 'string', req: true }, name: { type: 'string', req: true }, lots: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, props: { type: 'array', def: [] } }));
+declare('landmarks', shape({ district: { type: 'string', req: true }, name: { type: 'string', req: true }, lots: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, props: { type: 'array', def: [] }, decks: { type: 'array', def: [] } }));
 
 /** build district id (its landmarks folded in) with a seed: a CityMap, with city.painter (a SurfacePainter) */
 export function buildCity(id, seed) {
   const spec = get('districts', id); if (!spec) throw new Error('MOTOR: unknown district "' + id + '"');
   const marks = all('landmarks').filter(l => l.district === id);
-  const full = { ...spec, lots: [...spec.lots, ...marks.flatMap(m => m.lots.map(l => ({ landmark: m.id, ...l })))], pois: [...spec.pois, ...marks.flatMap(m => m.pois.map(p => ({ landmark: m.id, ...p })))], propList: [...spec.propList, ...marks.flatMap(m => m.props)] };
+  const full = { ...spec, lots: [...spec.lots, ...marks.flatMap(m => m.lots.map(l => ({ landmark: m.id, ...l })))], pois: [...spec.pois, ...marks.flatMap(m => m.pois.map(p => ({ landmark: m.id, ...p })))], propList: [...spec.propList, ...marks.flatMap(m => m.props)], decks: [...spec.decks, ...marks.flatMap(m => m.decks || [])] };   // (a landmark's decks after the district's own: a stunt's ramps)
   const city = buildDistrict(full, { seed: seed ?? spec.seed });
   city.painter = new SurfacePainter(city);
   city.pickupSpots = spec.pickups.map(p => { const [cx, cy] = city.nearestWalkable(p.at[0], p.at[1]); return { ...p, x: (cx + .5) * city.T, y: (cy + .5) * city.T }; });

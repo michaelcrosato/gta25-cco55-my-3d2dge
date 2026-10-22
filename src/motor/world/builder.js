@@ -189,6 +189,7 @@ export function buildDistrict(spec, o = {}) {
   // bollards along the quays. Their own stream, so the street props above never shift
   const rr = stream(seed, 'roofs'), NEON = ['#ff4ad8', '#5af0ff', '#ffe066', '#ff7a3a', '#7aff8a', '#ff5a5a'], held = new Uint8Array(W * H);   // (cells a yard prop already stands on)
   for (const pr of spec.propList || []) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inside(Math.floor(pr.at[0]) + dx, Math.floor(pr.at[1]) + dy)) held[I(Math.floor(pr.at[0]) + dx, Math.floor(pr.at[1]) + dy)] = 1;
+  for (const d of C.decks) if (d.kind === 'ramp') for (const c of d.cells) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inside(c.cx + dx, c.cy + dy)) held[I(c.cx + dx, c.cy + dy)] = 1;   // (nothing piled on or against a stunt's ramp)
   const shops = spec.shopNames || SHOP_NAMES, brands = spec.billboards || BILLBOARDS;
   for (const lot of C.lots) {
     if (lot.kind === 'building' && lot.typeId) {

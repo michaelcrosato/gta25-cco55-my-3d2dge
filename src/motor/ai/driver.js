@@ -17,6 +17,8 @@
 //     exit makes it pick another turn; pinned against something (physics), it backs off and tries again; behind a unit
 //     parked at its scene with no way round (no room before the junction, the far lane busy, its crew in the street) it
 //     waits for it, its cause the scene ('scene'), still trying to go round;
+//   - a gridlock (a ring of stopped drivers each waiting on the next, none with room to back off): after TUNE.gridlock
+//     seconds the one with the lowest id creeps on through a moment, and its bump moves the rest;
 //   - panic (shots, a blast nearby): faster, the lights and the reservations ignored; a crash: a pause, then on;
 //   - a siren behind it: it pulls over into a gap on its right wide enough to clear the siren's way and waits there;
 //     with none (a street parked up on both sides) it drives on ahead of it at its own speed.
@@ -39,6 +41,7 @@ knob('Traffic', 'honkAfter', 'Honks after', 2, .5, 10, .25, 'Seconds blocked bef
 knob('Traffic', 'stopHalt', 'Stop-sign halt', .5, 0, 3, .1, 'Seconds a driver waits stopped at a stop sign before going');
 knob('Traffic', 'passAfter', 'Goes round after', 2.5, .5, 15, .25, 'Seconds behind something stopped (not queueing) before a driver goes round it');
 knob('Traffic', 'exitWait', 'Takes another turn after', 5, 1, 30, .5, 'Seconds a driver waits for a jammed exit before choosing another way');
+knob('Traffic', 'gridlock', 'Breaks a gridlock after', 4, 1, 30, .5, 'Seconds a ring of stopped drivers, each waiting on the next (two nose to nose in a box with cars behind them, a gridlocked junction), stands before the one with the lowest id creeps on through');
 knob('Traffic', 'pedPatience', 'Edges past peds after', 5, 1, 60, .5, 'Seconds a calm driver waits for people about a crossing (a crowd at a corner) before it waits only for those in its way');
 const TURN_W = { straight: .58, right: .24, left: .18, uturn: 0, change: 0 };
 const SAMPLE = 6;   // units between the samples along the path ahead
@@ -201,6 +204,12 @@ export class DriverBrain {
       }
     }
     return best;
+  }
+  // the lowest brain id in the ring of stopped drivers whose leaders lead from L back to this one, or null (no ring)
+  _ring(L) {
+    let o = L && L.v, low = this.id;
+    for (let n = 0; o && n < 8; n++) { if (o === this.v) return low; const b = o.brain; if (!b || !b.leader || o.speed > 2) return null; low = Math.min(low, b.id); o = b.leader.v; }
+    return null;
   }
   // is a vehicle at rest clear of every lane (a car parked at a curb)? Worked out once each time it comes to rest there
   _laneClear(o) {
@@ -409,8 +418,15 @@ export class DriverBrain {
     if (this.pass) { this.pass.d += sp * dt; if (this.pass.d >= this.pass.end) this.pass = null; }
     const look = 46 + sp * 1.35, S = this._samples(look);
     const L = this._leader(w, S); this.leader = L;
+    // a gridlock: a ring of stopped drivers each waiting on the next (none can back off: cars behind each). After
+    // TUNE.gridlock s the one of them with the lowest id creeps on a moment as if the way were clear, and its bump
+    // shoves the others aside
+    const ring = L && sp < 2 && !(this.creepT > 0) ? this._ring(L) : null;
+    this.ringT = ring !== null ? (this.ringT || 0) + dt : 0;
+    if (this.ringT > TUNE.gridlock && ring === this.id) { this.creepT = 2.5; this.ringT = 0; }
+    const creep = this.creepT > 0; if (creep) { this.creepT -= dt; v0 = Math.min(v0, 18); }
     let gap = Infinity, lv = 0;
-    if (L) { gap = L.gap; lv = L.speed; if (L.gap < 34 && L.speed < 3 && this._queued(L.v)) this.cause = 'queue'; }
+    if (L && !creep) { gap = L.gap; lv = L.speed; if (L.gap < 34 && L.speed < 3 && this._queued(L.v)) this.cause = 'queue'; }
     const stop = this._junction(dt, w, sp, S); if (stop !== null && stop < gap) { gap = stop; lv = 0; }
     const pg = this._peds(w, S); if (pg !== null && pg < gap) { gap = pg; lv = 0; this.cause = 'ped'; }
     this.pedT = this.cause === 'ped' && sp < 3 ? (this.pedT || 0) + dt : sp > 20 ? 0 : this.pedT || 0;   // (how long held by people near its way; patience back once it is moving)

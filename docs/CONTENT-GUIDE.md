@@ -21,7 +21,8 @@ Every recipe below names the test to run. From M12 on, `tests/recipes/*.test.js`
 | An activity (a job, a race, a MAYHEM, a random event) | `defActivity(id, { title, kind, start, levels, brief, rewardsFor(level), stages })` under `src/game/activities/` | `node tools/bot.mjs --mission <id> --level <n>` |
 | A shop | `def('shops', id, { name, poi, items: [{ id, name, kind, item, amount, price }], drive, holdup })` in `src/game/economy.js` (prices are `Prices` knobs) | `node --test tests/sim/economy.test.mjs` |
 | A property | `def('properties', id, { name, poi, price, income, cap })` | the same |
-| Moto Tokens, stunt jumps | `def('collectibles', id, { name, reward, bonus, spots: [{ id, at: [x, y, z], via }] })`, `def('stunts', id, { name, takeoff, r, landing, minDist, minAir, reward, approach })` | the same; the bot campaign |
+| Moto Tokens, stunt jumps | `def('collectibles', id, { name, reward, bonus, spots: [{ id, at: [x, y, z], via }] })`, `def('stunts', id, { name, takeoff, r, landing, minDist, minAir, reward, approach })` (registered in order: the first takeoff circle holding an airborne point owns the jump); a stunt's ramps are a landmark's `decks` of kind `ramp` (`def('landmarks', id, { district, name, decks: [{ id, kind: 'ramp', z, width, path, ramps, openEnd }] })`: terrain only, no lanes and nothing piled on them) | `node --test tests/sim/side-content.test.mjs`; the bot campaign |
+| A random event | `defActivity(id, { kind: 'event', levels: 1, where(W, P), rewardsFor, stages })` under `src/game/events/` (one stage; a failure ends it quietly; its setup sets `m.data.at` when a deep link starts it) | `node tools/bot.mjs --mission <id>` |
 
 More recipes are added as each system lands: vehicle, variant, weapon, ped, outfit, gang, station, song, reel, district.
 
@@ -34,8 +35,10 @@ already under way (or twice) it changes nothing. The tools for that:
 
 - `m.ensure.vehicle(tag, def, at, o)` / `m.ensure.ped(tag, arch, at, o)`: the tagged one if it is still about, else a
   new one; `m.place('player', at, { within })` leaves a player already that near where they are;
-  `m.place(actor, { in: vehicle, seat })` leaves one already in it.
-- `m.curb(at)` is the free curb spot nearest a point (a parked car's place: never on another car); `m.lane(at,
+  `m.place(actor, { in: vehicle, seat })` leaves one already in that seat (one in another of its seats moves over: a
+  suspect cuffed in the passenger seat).
+- `m.curb(at, { within })` is the free curb spot nearest a point (a parked car's place: never on another car; with
+  `within`, null when none is that near, never another street's); `m.lane(at,
   heading, z)` the lane point nearest it (a car that drives off from there; with `z`, on the deck at that height: the
   Loop's lanes are in the road graph up there).
 - A point is a poi's id, `[x, y]`, or `[x, y, z]`: with a height (a deck, a roof), `m.reach` and `m.race` count it
@@ -44,8 +47,12 @@ already under way (or twice) it changes nothing. The tools for that:
 **Spawning** (all of it the mission's: `owner: 'mission'`, released when it ends; a retry releases what the stage
 spawned and its setup makes it again): `m.spawn.vehicle(def, at, { tag, heading, color, locked, health, gang, driver,
 passengers, weapons, drive })` (a `drive` of `{ to } | { route, loop } | { race, laps } | { chase: 'player' | tag } |
-{ flee: 'player' }` and a `style` of `calm | fast | race` puts a driver on the GPS), `m.spawn.ped(arch, at, { tag,
-role, facing, weapons, health, armor, attack, alert, leash, route, follow })` (roles: `enemy` fights once alerted, `guard`
+{ flee: 'player' }` and a `style` of `calm | fast | race` puts a driver on the GPS; `siren: true`, a police car's
+lights and siren on, through the reds, the traffic pulling over; a point with no height is on the ground, and a
+`route`'s or a `race`'s point off the lanes, a sidewalk or a junction's middle, counts once the driver has stopped as
+near as the lanes go), `m.spawn.ped(arch, at, { tag,
+role, facing, weapons, health, armor, attack, alert, leash, route, follow, aimable })` (`aimable: false`: the lock-on
+passes it over, a victim standing nearer than her attacker; roles: `enemy` fights once alerted, `guard`
 watches a post or walks a round, `ally` follows and fights the alerted, `flee`, `idle`; an `enemy` or `guard` with a
 `leash` (u) gives up past that far from where it was put and walks back: a showroom's bouncers never chase a car
 across town), `m.spawn.pickup(kind, at, {
@@ -59,8 +66,9 @@ city: a stray hit on one rallies its members and a kill costs respect, so leave 
 **Ops** (yield them; each sets the objective line and the bot's hint itself, and its markers go when it ends):
 `m.reach(at, { text, radius, foot, inVehicle, vehicle, stopped })`, `m.enter(tag)`, `m.deliver({ what, to, radius,
 stopped, health, tow })` (`tow`: the tow truck's tag, for a car brought on its hook), `m.follow(tag, { dist, lose,
-near, to, until })`, `m.chase(tag)`, `m.kill(tag, { count, done })` (`done(actor)`: when a target counts before it is
-dead or wrecked, a car once it smokes),
+near, to, until })`, `m.chase(tag)`, `m.kill(tag, { count, done, vehicle })` (`done(actor)`: when a target counts
+before it is dead or wrecked, a car once it smokes; `vehicle`: the tag of the car the job is done from, which the bot
+boards and never leaves: a police car ramming suspects),
 `m.protect(tag, { until })`, `m.collect(tag)`, `m.photo(tag | [x, y], { from, range })`, `m.evade()`,
 `m.race(course, { racers })` (its value: the place), `m.say(lines, { name, color })`, `m.cutscene(shots)`,
 `m.wait(s)`, `m.waitUntil(pred, { timeout })`, `m.choice(options, { title, bot })` (its value: the option's id),
@@ -80,11 +88,12 @@ paid in or out: a bribe), `m.eta(at)` (the road's time from the player to a poin
 `m.outside()`, `m.loadout({ weapons, ammo, select, health, armor })`, `m.data` (kept across the stages and retries),
 `m.save` (the save, to read: respect, missions done), `m.allowWanted()` (the stage goes on with stars: on the way
 somewhere the bot loses any stars first otherwise, unless a timer runs),
-`m.on(event, fn)` (a BUS listener for the stage), `m.fire(at, r, fuel)` and `m.heat(at, r)` (a fire on the grid, and
-how hot it is now), `m.crewPed(id)` (a protagonist's body: seat Dex at a getaway car's wheel while Viv shoots), `m.stash(vehicle, id)` and
+`m.on(event, fn)` (a BUS listener for the stage), `m.fire(at, r, fuel, { vigor, spread })` and `m.heat(at, r)` (a
+fire on the grid, and how hot it is now; `spread: false`, a fire that burns where it was set and no further: a burning
+car a job keeps fed), `m.crewPed(id)` (a protagonist's body: seat Dex at a getaway car's wheel while Viv shoots), `m.stash(vehicle, id)` and
 `m.garaged(id)` (a car kept in the save's garage, back where it was left in later missions), `m.view(id, { heading })` (a set
 piece's view: presentation only; `heading`, MODE 7's rail held looking that way, `'north'`, `'east'`, `'south'`,
-`'west'`, till the next `m.view` or the job's end). A mission's seated ped rides in its seat wherever the vehicle goes;
+`'west'`, till the next `m.view` or the job's end). A mission's seated ped (and the crew `m.spawn.vehicle` seats) rides in its seat wherever the vehicle goes;
 `m.inside.run.loopCameras(true)` puts an interior's CCTV on a loop (a crew's hacker); `m.inside.run.pass(true)` is a
 staff pass (a bribed janitor's mop: nobody minds the player past the counter, though a gun out, a wanted face or the
 alarm still count); `m.inside.run.watch()` is what a mission may read of a running interior, a copy: `{ t, alarm,

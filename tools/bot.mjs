@@ -14,6 +14,7 @@ export async function botRun({ id, seed = 1, pad = false, stage = null, level = 
   const P = pad ? fakePad(0) : null, q = { seed: String(seed), bot: pad ? 'pad' : '1', ...query }; if (level) q.level = String(level);
   const g = await loadGame({ hash: '#mission/' + id + (stage ? '/' + stage : ''), query: q, pads: P ? [P] : null });
   const { game, gtm } = g, C = gtm.career, R = C.R, M = gtm.motor;
+  if (C.saves) C.saves.backend = M.memoryBackend();   // (no localStorage headless: a save in memory, written as a player's is)
   const pilot = P ? new M.PadPilot(P, gtm.bindings, gtm.views, game.input) : null, idle = M.makeIntent();
   const fails = []; let t = 0, last = '', lastStage = R.stage ? R.stage.id : null;
   const un = gtm.BUS.on('stageFail', e => fails.push(`${e.stage}: ${e.reason}`), 'global');
@@ -40,7 +41,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (has('all')) {
     const { gtm } = await loadGame({ hash: '#title' });
     for (const m of gtm.motor.all('missions')) jobs.push({ id: m.id });
-    for (const a of gtm.motor.all('activities')) if (a.kind !== 'event') for (let l = 1; l <= (a.levels || 1); l++) jobs.push({ id: a.id, level: l });
+    for (const a of gtm.motor.all('activities')) for (let l = 1; l <= (a.levels || 1); l++) jobs.push({ id: a.id, level: l });   // (the random events too: each plays from its deep link)
   } else jobs.push({ id: arg('mission'), stage: arg('stage', null), level: arg('level', null) ? +arg('level') : null });
   let bad = 0;
   const par = +arg('par', 1);

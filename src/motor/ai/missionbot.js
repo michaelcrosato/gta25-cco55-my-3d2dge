@@ -151,7 +151,7 @@ export class MissionBot {
       if (d < (h.reach || 110)) { const I = clearIntent(this.I), a = Math.atan2(sp[1] - P.y, sp[0] - P.x); I.aim = [Math.cos(a), Math.sin(a)]; I.aimPoint = [sp[0], sp[1], 0]; const ws = !p.seat && p.inv.spec(), auto = !ws || ws.rate >= 6; I.down.fire = true; I.down.attack = auto || (this.t * 4 | 0) % 2 === 0; I.tap.attack = !auto && I.down.attack; I.down.aim = !p.seat; if (p.seat && P.speed > 6) I.brake = 1; if (p.seat) { let da = a - P.heading; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) > .9 && P.speed < 20) { I.throttle = .3; I.steer = Math.sign(da); } } return I; }
       return this._go(dt, p, sp[0], sp[1], { stay: true, radius: (h.reach || 110) * 1.2, slack: 30 }, w);
     }
-    if (h.interact && !p.seat && Math.hypot(at[0] - p.x, at[1] - p.y) < Math.min(16, h.radius || 16)) { const I = clearIntent(this.I); if ((this.t * 4 | 0) % 2 === 0) { I.tap.interact = true; I.down.interact = true; } return I; }   // (there: △, a door's or a prompt's)
+    if (h.interact && !p.seat && Math.hypot(at[0] - p.x, at[1] - p.y) < Math.min(16, h.radius || 16)) { const I = clearIntent(this.I); const beat = this.t * 4 | 0; if (beat % 2 === 0) { I.down.interact = true; if (beat !== this._tapBeat) { this._tapBeat = beat; I.tap.interact = true; } } return I; }   // (there: △, a door's or a prompt's)
     return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2] }, w);
   }
   _deliver(dt, p, R, h, w) {
@@ -223,7 +223,7 @@ export class MissionBot {
     if (fire) return this._away(fire.x, fire.y, p);   // (one on fire: away before it goes up)
     if (!t) return this._idle(clearIntent(this.I), v);
     if (v) {
-      if (v.driver !== p) return this._driveBy(p, t);   // (a passenger: out of the window)
+      if (v.driver !== p) return this._driveBy(p, t, R.actors.tagged(h.targets).filter(live));   // (a passenger: out of the window)
       if (t.body) {   // (a vehicle: rammed; rams that do it no harm a while, pushed where the car can't get at it, and out to finish it on foot)
         const share = t.damage ? t.damage.share : 1, S = this.ramW && this.ramW.t === t ? this.ramW : (this.ramW = { t, share, at: this.t });
         if (share < S.share - .02 || td > 200) { S.share = Math.min(S.share, share); S.at = this.t; }
@@ -237,12 +237,15 @@ export class MissionBot {
     return this._fight(dt, p, t, w);
   }
   // a drive-by from a passenger seat: a pistol or the SMG in hand, aimed at the target, the trigger held
-  _driveBy(p, t) {
+  _driveBy(p, t, list = [t]) {
     const I = clearIntent(this.I), gun = p.inv.list().find(id => { const s = p.inv.spec(id); return s && (s.slot === 'pistol' || s.slot === 'smg') && p.inv.rounds(id) && p.inv.rounds(id).total + p.inv.rounds(id).mag > 0; });
     if (!gun) return I;
     if (p.inv.current !== gun) return this._step(I, p, gun);
-    const d = Math.hypot(t.x - p.x, t.y - p.y) || 1; I.aim = [(t.x - p.x) / d, (t.y - p.y) / d]; I.aimPoint = [t.x, t.y, t.z || 0];
-    if (d < (p.inv.spec(gun).range || 300) * .8) { I.down.fire = true; I.down.attack = true; if (!p.inv.loaded()) I.tap.reload = true; }
+    // the nearest target with a clear line (never through a building or the traffic beside the car); none, the nearest
+    // aimed at and the trigger held off
+    let c = null, cd = 1e9; for (const a of list) { const dd = Math.hypot(a.x - p.x, a.y - p.y); if (dd < cd && lineOfFire(p, a, this.city.map, this.fleet) === true) { cd = dd; c = a; } }
+    const q = c || t, d = Math.hypot(q.x - p.x, q.y - p.y) || 1; I.aim = [(q.x - p.x) / d, (q.y - p.y) / d]; I.aimPoint = [q.x, q.y, q.z || 0];
+    if (c && d < (p.inv.spec(gun).range || 300) * .8) { I.down.fire = true; I.down.attack = true; if (!p.inv.loaded()) I.tap.reload = true; }
     return I;
   }
   // a vehicle rammed: at it flat out; pressed against it at a crawl (a push does no harm), backed off for another run

@@ -331,6 +331,7 @@ const getawayStage = {
     const quiet = m.data.plan === 'quiet', at = laneSpot(m, CAR_OUT, m.garaged('getaway') || m.one('getaway'));
     const v = getaway(m, at, { within: 30 });
     for (const tag of ['strongbox', 'ram']) { const o = m.one(tag); if (o && laneAt(m, o)) put(m, o, m.curb(o), { heading: m.curb(o).heading }); }   // (LOUD's wrecks of the morning pushed to the curb, out of the way)
+    for (const o of m.fleet.near(v.x + 150, v.y, 190)) if (o !== v && o.body && !o.driver && o.def.role === 'police' && laneAt(m, o)) put(m, o, m.curb(o), { heading: m.curb(o).heading });   // (and the cars the alarm brought, parked in the lane ahead with their crews out)
     if (v.damage.share < .5) v.damage.repair();   // (a retry: the car as it was at the bank)
     seat(m, 'dex', v, 0); seat(m, 'viv', v, 1);
     m.data.at = null;

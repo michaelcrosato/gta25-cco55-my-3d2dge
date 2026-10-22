@@ -48,7 +48,7 @@ export class RoadGraph {
       this.strips.push({ id: r.id, kind: r.kind === 'avenue' ? 'avenue' : r.kind === 'alley' ? 'alley' : r.oneway ? 'oneway' : 'street', a, b, z0: 0, z1: 0, road: r, ground: true, half: (ns ? x1 - x0 + 1 : y1 - y0 + 1) * T / 2, oneway: r.oneway || 0 });
     }
     for (const d of C.decks) {
-      if (d.kind === 'rail' || !d.path || d.path.length < 2) continue;
+      if (d.kind === 'rail' || d.kind === 'ramp' || !d.path || d.path.length < 2) continue;   // (a stunt's ramp is terrain: no lanes)
       const pts = d.path.map(([cx, cy]) => [(cx + .5) * T, (cy + .5) * T]), n = d.closed ? pts.length : pts.length - 1, kind = d.lanes >= 4 ? 'deck' : 'stub', half = d.width * T / 2;
       for (let i = 0; i < n; i++) this.strips.push({ id: d.id + ':' + i, kind, a: pts[i], b: pts[(i + 1) % pts.length], z0: d.z, z1: d.z, deck: d, half, open: !d.closed && i === n - 1 ? 'end' : null });
       for (const R of d.ramps || []) {
@@ -62,7 +62,7 @@ export class RoadGraph {
     const C = this.city;
     for (const n of C.intersections) { const [x0, y0, x1, y1] = n.rect; this.regions.push({ id: 'j' + this.regions.length, box: [x0 * T, y0 * T, (x1 + 1) * T, (y1 + 1) * T], z: 0, kind: 'junction', signals: n.signals, roads: n.roads }); }
     for (const d of C.decks) {
-      if (d.kind === 'rail' || !d.path) continue;
+      if (d.kind === 'rail' || d.kind === 'ramp' || !d.path) continue;
       const half = d.width * T / 2, pts = d.path.map(([cx, cy]) => [(cx + .5) * T, (cy + .5) * T]);
       pts.forEach((p, i) => { if (d.closed || (i > 0 && i < pts.length - 1)) this.regions.push({ id: 'd' + this.regions.length, box: [p[0] - half, p[1] - half, p[0] + half, p[1] + half], z: d.z, kind: 'corner', deck: d.id }); });
       // an open path whose first point lies on another deck's leg: a T where it leaves that deck
