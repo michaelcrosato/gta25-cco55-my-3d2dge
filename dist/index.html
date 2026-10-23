@@ -37708,6 +37708,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           at.forEach((q, i) => m.spawn.ped(i ? S5.peds.grunt : S5.peds.enforcer, q, { tag: "crew", role: "ally", follow: "cover", health: 220, armor: 60, weapons: ["fists", "snub38"], facing: toward(q, mid) }));
           rv.forEach((q, i) => m.spawn.ped(i === 1 ? F.peds.enforcer : F.peds.grunt, q, { tag: "rivals", role: "enemy", attack: true, profile: AIM, health: i === 1 ? 110 : 75, weapons: ["fists", "snub38"], facing: toward(q, at[0]) }));
           m.failIf((mm) => !mm.one("crew"), "the crew's all down");
+          m.data.won = false;
+          m.data.helped = false;
+          m.on("hit", (e) => {
+            if (e.by === m.player.id && e.damage > 0 && m.tagged("rivals").some((a) => a.id === e.target)) m.data.helped = true;
+          });
+          m.failIf((mm) => mm.data.won && !mm.data.helped, "the crew won it on its own");
         },
         *run(m) {
           const S5 = get("gangs", m.data.side), F = get("gangs", m.data.foe), BOSS2 = { name: S5.name, color: S5.colors[0] };
@@ -37715,6 +37721,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             m.say([`The ${F.name} jumped us! Give us a hand here!`], BOSS2),
             m.kill("rivals", { text: `A gang shoot-out: help the ${S5.name} drive off the ${F.name}` })
           ])]);
+          m.data.won = true;
+          yield m.wait(0.1);
           yield m.say(["Ha! That'll teach them.", `The ${S5.name} don't forget a friend. Here.`], BOSS2);
         }
       }

@@ -1263,7 +1263,10 @@ and where it landed.
     campaign's bot left the Pumper across the road the courier's first drop ran down, and the bike sat behind it,
     retry after retry. A player who leaves cars in the road blocks it the same way.
   - **Content:** a retry of H1's garage stage puts Dex beside Lefty (it had put him the far side of where the Loop's
-    ramp meets the sidewalk, with no way round on foot).
+    ramp meets the sidewalk, with no way round on foot). The gang shoot-out's tip is for a hand in it: the crew putting
+    the rivals down with no rival hit by the player (a gun's, a fist's or their car's) ends it quietly, as the crew
+    wiped out does. test:full's gang sim found it: an idle player's respect moved when the random event came up beside
+    them and the crew won on its own.
   - **The campaign's tool:** a stunt's line-up stops against the way the car rolls (holding the brake while it backed
     drove it back faster, into the canal behind the Canal's run-up); a failed jump says why. A race's start card asks a
     stopped car, so the campaign holds it still a moment there (Harbor Hustle had "not started" 10 u from its start).

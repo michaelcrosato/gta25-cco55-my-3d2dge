@@ -6,7 +6,9 @@
 // shooting; the stars the player had before are back after). The rivals here are no gang members of the city's (a
 // stray round rallies none of the city's crews), only dressed as them. The ambient runtime (mission/ambient.js) starts it
 // in free roam with its spot in m.data.at; a deep link without one (the bot's test) puts it at the junction of Chapel
-// Street and Lantern Lane, the player at the safehouse.
+// Street and Lantern Lane, the player at the safehouse. The tip is for a hand in it: the crew winning on its own (the
+// player looking on, or nowhere near) ends it quietly, as the crew wiped out does (test:full's gang sim had found an
+// idle player's respect moved by one).
 import { defActivity, get } from '../../motor/index.js';
 
 const HOME = [520, 872];   // (a deep link's spot: Chapel Street and Lantern Lane, the safehouse a block off)
@@ -76,6 +78,10 @@ defActivity('event_gang_shootout', {
         at.forEach((q, i) => m.spawn.ped(i ? S.peds.grunt : S.peds.enforcer, q, { tag: 'crew', role: 'ally', follow: 'cover', health: 220, armor: 60, weapons: ['fists', 'snub38'], facing: toward(q, mid) }));
         rv.forEach((q, i) => m.spawn.ped(i === 1 ? F.peds.enforcer : F.peds.grunt, q, { tag: 'rivals', role: 'enemy', attack: true, profile: AIM, health: i === 1 ? 110 : 75, weapons: ['fists', 'snub38'], facing: toward(q, at[0]) }));
         m.failIf(mm => !mm.one('crew'), 'the crew\'s all down');
+        // (the player's hand in it: a rival hit by them, a gun's, a fist's or their car's)
+        m.data.won = false; m.data.helped = false;
+        m.on('hit', e => { if (e.by === m.player.id && e.damage > 0 && m.tagged('rivals').some(a => a.id === e.target)) m.data.helped = true; });
+        m.failIf(mm => mm.data.won && !mm.data.helped, 'the crew won it on its own');
       },
       *run(m) {
         const S = get('gangs', m.data.side), F = get('gangs', m.data.foe), BOSS = { name: S.name, color: S.colors[0] };
@@ -83,6 +89,7 @@ defActivity('event_gang_shootout', {
           m.say([`The ${F.name} jumped us! Give us a hand here!`], BOSS),
           m.kill('rivals', { text: `A gang shoot-out: help the ${S.name} drive off the ${F.name}` }),
         ])]);
+        m.data.won = true; yield m.wait(.1);   // (won with no hand of the player's: it ends there, quietly)
         yield m.say(['Ha! That\'ll teach them.', `The ${S.name} don't forget a friend. Here.`], BOSS);
       },
     },

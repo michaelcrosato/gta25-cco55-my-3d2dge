@@ -81,3 +81,36 @@ test('the four random events: registered as events, each with a where, a reward 
   assert.deepEqual(bad, [], bad.join('\n'));
   assert.deepEqual([...gtm.BUS.errors], []);
 });
+
+// the shoot-out's tip is for a hand in it: the crew putting the rivals down on its own (the player looking on) ends it
+// quietly, no cash and no respect; a rival hit by the player first and it pays (test:full's gang sim had found an idle
+// player's respect moved)
+test('a gang shoot-out the crew wins on its own pays nothing; one the player had a hand in pays its tip', async () => {
+  for (const hand of [false, true]) {
+    const { game, gtm } = await loadGame({ hash: '#play/safehouse', query: { seed: '1', time: 'day', weather: 'clear' } });
+    game.advance(2);
+    const C = gtm.career, A = C.events, P = gtm.crew.ped, spec = gtm.motor.get('activities', 'event_gang_shootout'), log = [];
+    for (const n of ['cash', 'respect']) gtm.BUS.on(n, e => log.push({ n, ...e }), 'global');
+    // the ambient runtime's own start, at a junction ahead of the player (as AmbientEvents.update does)
+    let at = null; for (let k = 0; k < 40 && !at; k++) { P.mover.facing = k * .3; at = spec.where(C.W, P); }
+    assert.ok(at, 'a spot for the shoot-out');
+    A.R.start('event_gang_shootout', { activity: true, data: { at } });
+    game.advance(1);
+    const rivals = A.R.actors.tagged('rivals'), crew = A.R.actors.tagged('crew');
+    assert.ok(A.active && rivals.length === 4 && crew.length === 3, 'the shoot-out is on, the crew and the rivals at it');
+    // the rivals down by the crew's guns (the first hit by the player's before, when they had a hand in it)
+    if (hand) gtm.combat.hurt(rivals[0], { amount: 5, kind: 'bullet', by: P.id });
+    for (const r of rivals) gtm.combat.hurt(r, { amount: 999, kind: 'bullet', by: crew[0].id });
+    for (let s = 0; s < 30 && A.active; s++) game.advance(1);
+    const paid = log.filter(e => (e.reason || e.why) === 'activity:event_gang_shootout'), R = A.R.result;
+    assert.ok(!A.active, 'it has ended');
+    if (hand) {
+      assert.ok(R && R.passed, `with the player's hand in it, passed: ${JSON.stringify(R)}`);
+      assert.deepEqual(paid.map(e => e.n === 'cash' ? e.amount : e.delta).sort((a, b) => a - b), [-2, 3, 200], `the tip and the respect: ${JSON.stringify(paid)}`);
+    } else {
+      assert.ok(R && !R.passed && R.reason === 'the crew won it on its own', `the crew on its own, ended quietly: ${JSON.stringify(R)}`);
+      assert.deepEqual(paid, [], 'no cash and no respect');
+    }
+    assert.deepEqual([...gtm.BUS.errors], []);
+  }
+});
