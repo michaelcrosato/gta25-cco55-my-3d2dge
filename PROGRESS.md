@@ -1208,6 +1208,12 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
     and token passed, and three stunts failed on the drive to their run-ups (a junction's exit held on the way up to
     the Loop Gap's stub; 30 u short of the canal's with no room to turn): a stunt's car is now put down at its run-up
     by the dev teleport, and all five land in a probe.
+  - **test:full and the campaign at 96% on part 5i** (`d64b788`): test:full stopped at the 10-minute city soak (a far
+    car stood 25.7 s behind a Medic that had run past its stop and stood at its lane's end, its speed running on: a
+    goal passed on the way's last lane is now where it stops, `a5d4d0b`, a sim test; both soaks pass again). The
+    campaign passed everything but the two stunts over the drawbridge, which never lifted: a cop stood on its span,
+    a unit's crew left as a body when the traffic despawned their car out of sight, then knocked along Dock Road onto
+    the bridge (a despawned car now takes its crew with it, a sim test).
   - **The shots** (`tools/shot-matrix.mjs`, PLAN.md 10's matrix): `docs/media/shots/`: the 4 neighbourhoods by day,
     dusk and night in ISO (`<hood>-<time>-iso.png`) and every view on the contact sheets (`sheet-iso-clear.jpg`,
     `sheet-top-clear.jpg`, `sheet-side7-clear.jpg`, and ISO in rain, `sheet-iso-rain.jpg`); the bank's lobby in each

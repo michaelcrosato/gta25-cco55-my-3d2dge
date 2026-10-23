@@ -231,7 +231,7 @@ export class Traffic {
   _drop(c, jacked, despawn = false) {
     const i = this.cars.indexOf(c); if (i >= 0) this.cars.splice(i, 1);
     c.brain.dispose(); const v = c.v; v.brain = null; v.kinematic = false; v.traffic = false;
-    if (despawn) { this.fleet.remove(v); this.despawned++; return; }
+    if (despawn) { const C = this.fleet.combat; if (C) for (const q of c.crew || [c.driver]) if (q) C.remove(q); this.fleet.remove(v); this.despawned++; return; }   // (its crew with it: a unit's, back to the traffic as combat bodies, had been left out of sight as bodies nobody moved, and one pushed along Dock Road by the cars stood on the drawbridge for good, which never lifted again)
     if ((!v.driver || v.driver.dead) && v.owner !== 'mission') v.abandonT = this.t;   // (left with nobody at the wheel: the tow takes it, out of sight)
     if (jacked && c.driver && v.driver !== c.driver && this.onDriverOut) this.onDriverOut(c.driver, v, c.driver.dead ? 'dead' : 'jacked');
   }

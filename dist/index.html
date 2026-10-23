@@ -26320,6 +26320,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       v.kinematic = false;
       v.traffic = false;
       if (despawn) {
+        const C8 = this.fleet.combat;
+        if (C8) {
+          for (const q of c.crew || [c.driver]) if (q) C8.remove(q);
+        }
         this.fleet.remove(v);
         this.despawned++;
         return;

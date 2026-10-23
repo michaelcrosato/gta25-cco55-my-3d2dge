@@ -236,3 +236,11 @@ test('a far car that runs past its goal on its way\'s last lane stops there, arr
   assert.ok(c.v.speed < 1 && b.speed < 1, `stopped (${b.speed.toFixed(1)})`);
   assert.ok(b.s <= L.len + .01, `not run off its lane (${b.s.toFixed(0)} of ${L.len.toFixed(0)})`);
 });
+
+test('a traffic car despawned takes its crew with it: none left standing as a body nobody moves (a unit\'s crew, back to the traffic, had been; one pushed along Dock Road stood on the drawbridge, which never lifted again)', async () => {
+  const { gtm } = await play('greasy-spoke'), T = gtm.life.traffic, CB = gtm.combat;
+  const c = T.cars.find(q => !q.duty && q.driver && q.v.cls === 'car'); assert.ok(c, 'a traffic car');
+  CB.add(c.driver);   // (as a released unit's crew are: combat bodies riding in it)
+  assert.equal(T.clear(c.v.x, c.v.y, 4), 1, 'despawned');
+  assert.ok(!CB.bodies.includes(c.driver), 'its driver gone with it');
+});

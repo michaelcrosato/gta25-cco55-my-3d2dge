@@ -1248,6 +1248,14 @@ and where it landed.
     Loop over Gutterball Lanes, counted the Gnomes' Brute below as near, got out on the deck and walked it for good.
     And the AutoPlayer gets out of a car boxed in a fourth time at street level only, as a stall's: out on a deck, a
     walk has no way down.
+  - **A car past its goal on its way's last lane stops there** (`DriverBrain`): a Medic braking for its stop behind a
+    car had run past it, read the goal behind it as the next time round, and with nowhere on stood at its lane's end
+    for good, its speed running on in place; the queue behind never queued, and test:full's city soak failed on it (a
+    stall of 25.7 s with no cause). It came in with FAN-OUT B's part 4, whose timings first ran a unit past its stop.
+  - **A traffic car despawned takes its crew with it.** A police unit goes back to the traffic with its crew aboard as
+    combat bodies; despawned out of sight, it left them standing there as bodies nobody moved. One, knocked along
+    Dock Road by the cars, came to rest on the drawbridge, whose lift waits for its span to clear: it never lifted
+    again, and the campaign's two stunts over it failed hours later.
   - **A car the player gets out of is towed once out of sight,** as the traffic's own abandoned cars already were: 10 s
     beyond the spawn ring's inner edge, nobody in it, not burning, never a job's. One parked when the world was made
     (the curbs', a landmark's own, which keep their spot as `home`) goes back to its spot instead, when that is clear
