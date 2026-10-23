@@ -1,5 +1,6 @@
-// Dev server: serves dist/ on http://localhost:5173 (no dependencies). --watch rebuilds dist/index.html when src/ or
-// the vendored engine changes. Reload the page to see a rebuild.
+// Dev server: serves dist/ on http://localhost:5173 (no dependencies; PORT=0 takes a free port, and the line it
+// prints says which). --watch rebuilds dist/index.html when src/ or the vendored engine changes. Reload the page to
+// see a rebuild.
 import { createServer } from 'node:http';
 import { readFileSync, watch, existsSync } from 'node:fs';
 import { join, extname } from 'node:path';
@@ -18,4 +19,4 @@ createServer((req, res) => {
   if (!file.startsWith(join(ROOT, 'dist')) || !existsSync(file)) { res.writeHead(404); res.end('not found'); return; }
   res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' });
   res.end(readFileSync(file));
-}).listen(PORT, () => console.log(`GRAND THEFT MOTO on http://localhost:${PORT}`));
+}).listen(PORT, function () { console.log(`GRAND THEFT MOTO on http://localhost:${this.address().port}`); });

@@ -1228,6 +1228,13 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
     an idle player's respect moved (the Saints +3, the Rats -2), the random gang shoot-out come up beside them and won
     by the crew on its own, its tip paid all the same. The tip is now for a hand in it (a rival hit by the player; else
     it ends quietly, a sim test); the gang sim passes again, and the event through the bot on seeds 1-3 and the pad.
+  - **The page from a static server** (PLAN.md 15.3): served by `tools/serve.mjs`, it played, but the browser asked the
+    server for `/favicon.ico` (a 404 in the page's console; from file:// nothing is asked). The page now carries its
+    tab icon inline (MOTO's M in the title's colours, an SVG in the page's head), and `tests/e2e/smoke.mjs` plays the
+    page both ways, from file:// and from a static server on a free port: the title, NEW GAME, a walk, a deep link, no
+    error and no request beyond the page. Three builds hash the same (a rebuild is byte-identical). The icon
+    (`docs/media/shots/tab-icon.png`, at 128, 32 and 16 px): legible down to 16 px, the title's yellow, orange and
+    magenta on its near-black; good.
   - **The shots** (`tools/shot-matrix.mjs`, PLAN.md 10's matrix): `docs/media/shots/`: the 4 neighbourhoods by day,
     dusk and night in ISO (`<hood>-<time>-iso.png`) and every view on the contact sheets (`sheet-iso-clear.jpg`,
     `sheet-top-clear.jpg`, `sheet-side7-clear.jpg`, and ISO in rain, `sheet-iso-rain.jpg`); the bank's lobby in each

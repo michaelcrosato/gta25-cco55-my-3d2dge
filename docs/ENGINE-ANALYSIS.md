@@ -56,10 +56,11 @@ guards' rounds inside the bank.
 and the bat's chains.
 
 **Input, sound and saves.** The Input class under MOTOR's own per-context bindings: DualSense detection, the dead
-zones, `rumble` (15 call sites) and `consumeAll`, with the raw device state GTM-PATCH 4 adds (analog triggers, the
-active pad, the activity clock the attract mode's idle timer reads). `ChipAudio`'s effects and presets for the SFX map
-(14 call sites), and its buses (GTM-PATCH 5) for MOTOR's own sequencer, radio and engine voices. `E.store` keeps the
-three save slots; `game.settings` holds the settings the 10-foot screens edit.
+zones, `rumble` (one call site: MOTOR's `Rumble` plays its five profiles through it) and `consumeAll`, with the raw
+device state GTM-PATCH 4 adds (analog triggers, the active pad, the activity clock the attract mode's idle timer
+reads). `ChipAudio`'s effects and presets for the SFX map (14 call sites), and its buses (GTM-PATCH 5) for MOTOR's own
+sequencer, radio and engine voices. `E.store` keeps the three save slots; `game.settings` holds the settings the
+10-foot screens edit.
 
 **Determinism and tools.** The engine's session recorder (`?record=1`) and `replay.mjs` prove a recorded drive replays
 checksum for checksum (`tests/e2e/replay.mjs`). `check.mjs` (look lint, no external requests, frame times) runs on the
