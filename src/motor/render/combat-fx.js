@@ -8,7 +8,7 @@ import { drawWeaponIcon } from './weapon-models.js';
 import { get } from '../core/registry.js';
 
 const BLOOD = ['#8a1a1a', '#a82424', '#6a1010'];
-const PICKUP_LOOK = { health: ['#ff4a5a', '+'], armor: ['#5ab0ff', 'A'], cash: ['#5aff8a', '$'], bribe: ['#ffd23a', '*'], token: ['#ff7ac8', 'M'], ammo: ['#e8c040', 'a'], weapon: ['#e8e8f0', ''] };
+const PICKUP_LOOK = { health: ['#ff4a5a', '+'], armor: ['#5ab0ff', 'A'], cash: ['#5aff8a', '$'], bribe: ['#ffd23a', '*'], token: ['#ff7ac8', 'M'], item: ['#ffe066', '!'], ammo: ['#e8c040', 'a'], weapon: ['#e8e8f0', ''] };
 
 export class CombatFX {
   constructor(game) { this.game = game; this._done = new WeakSet(); this.t = 0; }
@@ -95,8 +95,10 @@ export class CombatFX {
   }
   // a pickup's token: a disc of its kind's colour with its letter or weapon's silhouette, cached
   _token(p, k) {
-    const r = Math.max(3, Math.round(3.4 * k)), key = p.kind + ':' + p.item + ':' + r, T = this._tokens || (this._tokens = new Map());
+    // (by radius to 12 px, a bigger one in steps of 4 to 24: MODE 7's lens makes k continuous; a bounded cache)
+    const r0 = Math.max(3, Math.round(3.4 * k)), r = r0 <= 12 ? r0 : Math.min(24, Math.ceil(r0 / 4) * 4), key = p.kind + ':' + p.item + ':' + r, T = this._tokens || (this._tokens = new Map());
     let cv = T.get(key); if (cv) return cv;
+    if (T.size >= 48) T.clear();
     const [col, ch] = PICKUP_LOOK[p.kind] || ['#ffffff', '?'], S = r * 2 + 4; cv = E.mkCanvas(S, S); const g = cv.getContext('2d'), c = S / 2;
     E.px.disc(g, c, c, r + 1, '#0b0814'); E.px.disc(g, c, c, r, col);
     const model = p.kind === 'weapon' && get('weapons', p.item)?.model;

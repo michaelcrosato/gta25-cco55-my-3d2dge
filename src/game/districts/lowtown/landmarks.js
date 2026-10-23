@@ -36,7 +36,7 @@ L('lead-farm', 'Lead Farm', [{ rect: [133, 19, 140, 25], kind: 'building', store
 L('pixel-palace', 'Pixel Palace', [{ rect: [87, 41, 95, 49], kind: 'building', storeys: 2, look: neon('#2a2a4a', '#1e1e30', { windows: { lit: .8, w: 6, h: 6 } }), sign: { text: 'PIXEL PALACE', color: '#5af0ff' } }],
   [{ id: 'pixel-palace', kind: 'property', property: 'arcade', at: [91, 50], label: 'Pixel Palace' }]);
 L('bank', 'First Lowtown Bank', [{ rect: [109, 35, 123, 49], kind: 'plaza', surface: 'plaza' }, { rect: [111, 37, 121, 47], kind: 'building', storeys: 8, look: neon('#8a8070', '#4a4440', { face: 'stone', windows: { w: 4, h: 14, step: 12, lit: .5 }, floor: '#c8bca8' }), sign: { text: 'FIRST LOWTOWN BANK', color: '#ffe066' } }],
-  [{ id: 'bank-door', kind: 'door', interior: 'bank', at: [116, 49], label: 'First Lowtown Bank' }]);
+  [{ id: 'bank-door', kind: 'door', interior: 'bank', at: [116, 49], label: 'First Lowtown Bank' }, { id: 'bank-sewer', kind: 'door', interior: 'bank', door: 'sewer', at: [108, 44], label: 'Sewer grate' }]);
 L('club-chrome', 'Club Chrome', [{ rect: [133, 45, 144, 49], kind: 'plaza', surface: 'plaza' }, { rect: [134, 36, 143, 44], kind: 'building', storeys: 2, look: neon('#a8b0c0', '#5a6070', { face: '#a8b0c0 metal', windows: { lit: .7 } }), sign: { text: 'CLUB CHROME', color: '#7ae0ff' } }],
   [{ id: 'saints-hq', kind: 'gang', gang: 'saints', at: [138, 46], label: 'Club Chrome' }, { id: 'phone-saints', kind: 'payphone', gang: 'saints', at: [133, 50] }]);
 L('precinct', 'MPD 5th Precinct', [{ rect: [87, 59, 99, 67], kind: 'building', storeys: 4, look: neon('#5a6a8a', '#3a4458', { windows: { lit: .6, w: 5 } }), sign: { text: 'MPD', color: '#5a8aff' } }, { rect: [87, 68, 99, 71], kind: 'yard', surface: 'yard' }],
@@ -68,7 +68,7 @@ L('kwik-lux-harbor', 'Kwik-Lux (Harbor)', [{ rect: [94, 107, 99, 113], kind: 'bu
   [{ id: 'kwik-lux-harbor', kind: 'shop', shop: 'kwiklux', holdup: true, at: [96, 114], label: 'Kwik-Lux' }]);
 L('marina', 'The Marina', [{ rect: [133, 107, 139, 123], kind: 'yard', surface: 'quay' }, { rect: [140, 111, 148, 112], kind: 'pier', surface: 'pier' }, { rect: [140, 117, 148, 118], kind: 'pier', surface: 'pier' }],
   [{ id: 'marina', kind: 'marina', at: [137, 115], label: 'The Marina' }]);
-L('boathouse', 'Harbor Rats Boathouse', [{ rect: [142, 134, 151, 145], kind: 'pier', surface: 'pier' }, { rect: [144, 136, 150, 142], kind: 'building', storeys: 2, look: shed('#8a6a4a', '#5a4a3a', { face: 'plank' }), sign: { text: 'BOATHOUSE', color: '#ffd23a' } }, { rect: [138, 138, 141, 139], kind: 'pier', surface: 'pier' }],
+L('boathouse', 'Harbor Rats Boathouse', [{ rect: [142, 134, 151, 145], kind: 'pier', surface: 'pier' }, { rect: [146, 136, 150, 142], kind: 'building', storeys: 2, look: shed('#8a6a4a', '#5a4a3a', { face: 'plank' }), sign: { text: 'BOATHOUSE', color: '#ffd23a' } }, { rect: [138, 138, 141, 139], kind: 'pier', surface: 'pier' }],
   [{ id: 'rats-hq', kind: 'gang', gang: 'rats', at: [147, 143], label: 'Harbor Rats Boathouse' }, { id: 'phone-rats', kind: 'payphone', gang: 'rats', at: [134, 139] }]);
 L('lighthouse', 'The Lighthouse', [{ rect: [148, 146, 153, 151], kind: 'pier', surface: 'quay' }, { rect: [149, 147, 152, 150], kind: 'building', storeys: 6, look: { side: '#e8e8ec', top: '#c8423a', face: 'plaster', roof: 'tiles', windows: { lit: .3, w: 4 } } }],
   [{ id: 'lighthouse', kind: 'landmark', at: [148, 146], label: 'The Lighthouse' }]);

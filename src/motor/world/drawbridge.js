@@ -1,5 +1,6 @@
 // The drawbridge (PLAN.md 9.1): a bridge's span in two leaves hinged at the banks. Every few game hours it closes its
-// gates, lifts both leaves for the boats, holds them up, and lowers them again; it waits while anyone stands on it.
+// gates, waits for the span to clear (no one on it, no vehicle, parked or not), lifts both leaves for the boats, holds
+// them up, and lowers them again; the traffic and the crowd keep off it from the moment the gates close.
 // While it is not down its cells are blocked (no one walks into the canal), and the leaves' surfaces are a deck whose
 // height a vehicle can read (heightAt): half raised, they are the stunt jump. Simulation state: it steps with the
 // clock, deterministically. Drawing is render/city-render.js (drawLeaf), over the water the painter leaves under it.
@@ -17,22 +18,23 @@ export class Drawbridge {
     Object.assign(this, { id: b.id, rect: b.rect, axis: b.axis, city, T: city.T });
     this.leaves = b.leaves.map(l => ({ ...l }));
     /** phase: 'down' | 'raising' | 'up' | 'lowering'; lift 0 (down) .. 1 (up); wait: game hours to the next lift */
-    this.phase = 'down'; this.lift = 0; this.held = 0; this.wait = o.wait ?? TUNE.drawbridgeEvery;
+    this.phase = 'down'; this.lift = 0; this.held = 0; this.wait = o.wait ?? TUNE.drawbridgeEvery; this.gate = false;   // (gate: closed, the span not clear yet)
     this._block(false);   // (the city's map outlives a scene: a span left up by the last one comes down with this one)
   }
   /** jump straight to fully up (screenshots, tests) */
-  raiseNow() { this.phase = 'up'; this.lift = 1; this.held = 0; this._block(true); }
+  raiseNow() { this.phase = 'up'; this.lift = 1; this.held = 0; this.gate = true; this._block(true); }
   /** the leaves' angle (radians, eased) */
   get angle() { const t = this.lift; return MAX * t * t * (3 - 2 * t); }
-  /** are the gates closed (anything but down)? */
-  get closed() { return this.phase !== 'down'; }
-  /** step: dt seconds, hours of game time on the clock; busy(bridge) -> true while someone is on it (it waits) */
+  /** are the gates closed (a lift due and the span clearing, or anything but down)? */
+  get closed() { return this.phase !== 'down' || this.gate; }
+  /** step: dt seconds, hours of game time on the clock; busy(bridge) -> true while anyone or any vehicle is on it (the
+   *  gates closed, it waits) */
   update(dt, hours, busy = () => false) {
     const raise = Math.max(.1, TUNE.drawbridgeRaise);
-    if (this.phase === 'down') { if ((this.wait -= hours) <= 0 && !busy(this)) { this.phase = 'raising'; this._block(true); } }
+    if (this.phase === 'down') { if ((this.wait -= hours) <= 0) { this.gate = true; if (!busy(this)) { this.phase = 'raising'; this._block(true); } } }
     else if (this.phase === 'raising') { if ((this.lift += dt / raise) >= 1) { this.lift = 1; this.phase = 'up'; this.held = 0; } }
     else if (this.phase === 'up') { if ((this.held += dt) >= TUNE.drawbridgeUp) this.phase = 'lowering'; }
-    else if ((this.lift -= dt / raise) <= 0) { this.lift = 0; this.phase = 'down'; this.wait = TUNE.drawbridgeEvery; this._block(false); }
+    else if ((this.lift -= dt / raise) <= 0) { this.lift = 0; this.phase = 'down'; this.gate = false; this.wait = TUNE.drawbridgeEvery; this._block(false); }
   }
   /** start a lift now (missions, the dev menu, tests) */
   open() { if (this.phase === 'down') this.wait = 0; }

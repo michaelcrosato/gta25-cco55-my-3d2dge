@@ -7,9 +7,14 @@
 //     none for fists and thrown things. A long gun brings the left hand to its foregrip, by two-bone IK on the rig's
 //     joints after its own pose; where the grip is out of reach the hand stops short at the shoulder (a stylized
 //     shouldered pose: DECISIONS D14).
-//   const pr = new PedRig({ build: 'heroic', outfit: 'coat', hair: 'spiky', colors });  pr.hold('smg')
+//   - A clip: the state's clip (a mocap clip's name: a phone call, sitting on a bench) plays over the rig's own pose,
+//     faded in and out, where GTM's cut set has it (engine.js mocap()); without it the held pose stands in.
+//   - The clock: the engine's Humanoid starts its own at a random time (its idle sway); a PedRig starts it at its
+//     phase instead (the Ped's: from its id), since the possessed one's shots leave from its posed hand and the game
+//     must play the same twice.
+//   const pr = new PedRig({ build: 'heroic', outfit: 'coat', hair: 'spiky', colors }, { phase });  pr.hold('smg')
 //   pr.update(dt, mover.rigState({ point: true, aim: 0 }))  ·  pr.draw(g, x, y, view)  ·  pr.muzzle() -> [x, y, z]
-import { E } from '../engine.js';
+import { E, mocap } from '../engine.js';
 import { drawWeaponInRig, weaponModel, muzzleLocal, gripLocal } from '../render/weapon-models.js';
 
 /** the engine's weapon kind behind each model */
@@ -17,13 +22,14 @@ const HOLD = { pistol: 'gun', smg: 'gun', shotgun: 'gun', launcher: 'gun', flame
 export const RIG_BUILDS = ['chibi', 'heroic', 'bulky'];
 
 export class PedRig {
-  /** look: { build, size, outfit, sleeves, hair, hat, colors, style } */
-  constructor(look = {}) { this.model = null; this.flash = 0; this.lit = false; this.setLook(look); }
+  /** look: { build, size, outfit, sleeves, hair, hat, colors, style }; o.phase: where its clock starts (s) */
+  constructor(look = {}, o = {}) { this.model = null; this.flash = 0; this.lit = false; this.phase = o.phase || 0; this.setLook(look); }
   /** put on a look (an outfit): the rig is made again where it stands */
   setLook(look) {
-    const old = this.rig; this.look = look;
+    const old = this.rig; this.look = look; this._driven = false;
     this.rig = new E.Humanoid({ size: look.size || 1, build: RIG_BUILDS.includes(look.build) ? look.build : 'heroic', outfit: look.outfit || 'shirt', sleeves: look.sleeves || 'short',
       hair: look.hair || 'short', hat: look.hat || null, style: look.style || 'hd', weapon: null, colors: { ...(look.colors || {}) }, weaponDraw: api => this._drawWeapon(api) });
+    this.rig.t = old ? old.t : this.phase;   // (never the engine's Math.random start: the posed hand is the muzzle)
     if (old) { this.rig.x = old.x; this.rig.y = old.y; this.rig.z = old.z; this.rig.facing = old.facing; }
     if (this.model) this.hold(this.model, true);
   }
@@ -40,9 +46,20 @@ export class PedRig {
   /** step the pose: s is the Mover's rigState plus MOTOR's own fields (point, aim, attack, down, pose, hurt...) */
   update(dt, s) {
     this.flash = Math.max(0, this.flash - dt * 14);
+    if (s.clip || this.clip) this._clip(dt, s.clip || null);
     this.rig.update(dt, s);
     this.pointW = E.approach(this.pointW || 0, s.point ? 1 : 0, dt * (s.point ? 30 : 8));   // (the rig's own easing of point, 30 in and 8 out a second, kept here)
     if (this.twoHanded && this.pointW > .3) this._foregrip();
+  }
+  // a mocap clip over the rig's own pose: a new one starts at its beginning; it fades in, and out when the state drops it
+  _clip(dt, name) {
+    const M = mocap(), c = name && M && M.lib.clip(name); if (!M) { this.clip = null; return; }
+    if (c && name !== this.clip) { this.clip = name; this.clipT = 0; }
+    this.clipW = E.approach(this.clipW || 0, c ? 1 : 0, dt * 5); this.clipT = (this.clipT || 0) + dt;
+    if (!this._driven) { M.Mocap.drive(this.rig, M.lib); this._driven = true; }
+    const cur = this.clip && M.lib.clip(this.clip);
+    if (this.clipW > 0 && cur) { this.rig.mocap = M.lib.sample(cur, this.clipT, this._pose || (this._pose = new Float32Array(M.lib.P * 3))); this.rig.mocapW = this.clipW; }
+    else { this.rig.mocap = null; this.clip = null; }
   }
   // the left hand to the foregrip: two-bone IK from the left shoulder, the elbow bent down and out
   _foregrip() {

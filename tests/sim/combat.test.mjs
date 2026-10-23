@@ -52,11 +52,17 @@ test('explosives and specials: a rocket\'s direct hit, a grenade\'s falling-off 
   me.inv.select('zapomatic'); me.inv.cool = 0; step(.3);
   for (let i = 0; i < 3; i++) { fire(1 / 60, 'zapomatic'); assert.ok(z.vitals.stun > 0 && !z.dead, 'stunned, alive after zap ' + (i + 1)); step(.3); }
   fire(1 / 60, 'zapomatic'); assert.ok(z.dead, 'the fourth zap in a row kills (the GTA2 Electrogun)');
-  // the Snap: a photo of what is in front, told on the BUS
-  const seen = []; M.BUS.on('photo', e => seen.push(e), 'test');
+  // the Snap: a photo of what is in front, told on the BUS (a picture: no muzzle, no crime for the street to phone in)
+  const seen = [], crimes = []; M.BUS.on('photo', e => seen.push(e), 'test'); M.BUS.on('crime', e => crimes.push(e.type), 'test');
   const subject = ped({ x: me.x + 90, y: me.y, faction: 'civilian' });
   fire(1 / 60, 'snap'); M.BUS.clear('test');
   assert.equal(seen.length, 1); assert.ok(seen[0].targets.includes(subject.id), 'the photo saw the subject');
+  assert.deepEqual(crimes, [], 'no shooting filed');
+  // sight: a crouched body shows lower and less to a watcher's eyes (the engine reads target.crouch)
+  const watcher = { x: subject.x + 100, y: subject.y, z: 0, facing: Math.PI };
+  const standing = M.E.sees(watcher, subject, { range: 200, fov: 2, map: R.map }).exposure;
+  subject.crouching = true; const low = M.E.sees(watcher, subject, { range: 200, fov: 2, map: R.map }).exposure;
+  assert.ok(low < standing, `crouched ${low} < standing ${standing}`);
 });
 
 test('lock-on in the gallery: the press locks the nearest dummy in the cone, a threat first; a flick moves to the next one that way', async () => {
@@ -229,4 +235,68 @@ test('pickups in Lowtown: health heals a hurt protagonist, a weapon pickup puts 
   assert.ok(p.health >= 89, `healed: ${p.health}`); assert.ok(health.away > 0, 'the health is away until it respawns');
   p.place(gun.x, gun.y); game.advance(.1);
   assert.ok(p.inv.has('buzzsaw'), 'the Buzzsaw is carried');
+});
+
+test('the same shots twice: the possessed protagonist\'s muzzle (its posed hand) starts from no random clock', async () => {
+  const run = async () => {
+    const { game, gtm } = await loadGame({ hash: '#play/safehouse', query: { seed: '7', time: 'day', weather: 'clear', traffic: '0' } });
+    game.advance(.5); const p = gtm.crew.ped, M = gtm.motor, I = M.makeIntent(), out = [];
+    p.inv.give('buzzsaw', 300, true); p.inv.select('buzzsaw'); game.advance(.5);
+    gtm.pilot(() => { M.clearIntent(I); I.down.aim = true; I.aim = [1, 0]; I.aimPoint = [p.x + 200, p.y, 0]; I.down.attack = true; return I; });
+    for (let k = 0; k < 30; k++) { game.advance(.05); for (const b of gtm.combat.shots.pool.list) out.push(b.x, b.y, b.z); }
+    gtm.pilot(null);
+    return out;
+  };
+  const a = await run(), b = await run();
+  assert.ok(a.length > 30, 'shots in flight: ' + a.length / 3);
+  assert.deepEqual(b, a, 'the second run\'s bullets where the first\'s were');
+});
+
+test('a fighter\'s line of fire sees what the shots meet: a pillar or a crate on the way is a wall to go round, not cover to empty a gun into', async () => {
+  const { M } = await motor(), R = range(M), { ped, map } = R, y = 38 * T;
+  const me = ped({ x: 6 * T, y, faction: 'gang', weapons: ['snub38'], current: 'snub38', facing: 0 }), them = ped({ x: 6 * T + 160, y, faction: 'crew' });
+  const F = new M.Fighter(me, { map, rng: M.RNG.stream('combat') });
+  assert.equal(F._lineTo(them), true, 'nothing on the way');
+  map.addSolids([{ x: me.x + 80, y, z: 0, top: 40, hx: 6, hy: 6 }]);   // (a pillar between them)
+  F._lineT = -1; assert.equal(F._lineTo(them), 'wall', 'the pillar');
+  // and the shots agree: one from me at them stops at the pillar
+  const before = them.vitals.health; me.mover.facing = 0; me.aimer.dir = [1, 0];
+  for (let k = 0; k < 6; k++) { R.C.shoot(me, me.inv.spec('snub38')); R.step(.3); }
+  assert.equal(them.vitals.health, before, 'no shot got through');
+});
+
+test('point blank: one in the possessed protagonist\'s face (nearer than the posed gun\'s muzzle) takes the shots as one farther off does', async () => {
+  const lost = async d => {
+    const { game, gtm } = await loadGame({ hash: '#play/safehouse', query: { seed: '3', time: 'day', weather: 'clear', traffic: '0' } });
+    game.advance(.5); const p = gtm.crew.ped, M = gtm.motor, I = M.makeIntent();
+    p.inv.give('buzzsaw', 300, true); p.inv.select('buzzsaw'); game.advance(.4);
+    const t = gtm.combat.add(new M.Ped({ x: p.x + d, y: p.y, look: {}, faction: 'gang', health: 1000, maxHealth: 1000 })); t.anchored = true;
+    gtm.pilot(() => { M.clearIntent(I); I.down.aim = true; I.aim = [1, 0]; I.aimPoint = [t.x, t.y, 0]; I.down.attack = true; return I; });
+    game.advance(1.1); gtm.pilot(null);
+    return 1000 - t.vitals.health;
+  };
+  const near = await lost(9), far = await lost(40);
+  assert.ok(far > 50 && near >= far * .9, `9 u: ${near} lost, 40 u: ${far}`);
+});
+
+test('a reload runs its time while the trigger can\'t be pulled (stunned, staggered, knocked down): a beating doesn\'t hold it off for good', async () => {
+  const { M } = await motor(), R = range(M), { step, ped } = R, y = 38 * T;
+  const me = ped({ x: 6 * T, y, faction: 'crew', weapons: ['buzzsaw'], ammo: { buzzsaw: 90 }, current: 'buzzsaw', facing: 0 });
+  me.inv.mag.buzzsaw = 0; assert.ok(me.inv.reload(), 'a reload under way');
+  const time = me.inv.spec('buzzsaw').reload; me.vitals.stun = time + 2;   // (stunned the whole while: no trigger step)
+  step(time + .2);
+  assert.equal(me.inv.reloading, 0); assert.ok(me.inv.mag.buzzsaw > 0, 'loaded: ' + me.inv.mag.buzzsaw);
+});
+
+test('a body set alight burns its time and goes out, sprinting off over grass or standing on a sidewalk: its own trail of fire doesn\'t keep it alight', async () => {
+  for (const [poi, run] of [['palm-park', true], ['safehouse', false]]) {
+    const { game, gtm } = await loadGame({ hash: '#play/' + poi, query: { seed: '5', time: 'day', weather: 'clear', traffic: '0' } });
+    game.advance(.5); const p = gtm.crew.ped, M = gtm.motor, I = M.makeIntent();
+    p.ignite(2.5); let out = null;
+    gtm.pilot(() => { M.clearIntent(I); if (run) { I.move[0] = 1; I.down.sprint = true; } return I; });
+    for (let t = 0; t < 4 && out === null; t += .1) { game.advance(.1); if (!(p.burning > 0)) out = t; }
+    gtm.pilot(null);
+    assert.ok(out !== null && out < 3, `out after its time (${run ? 'sprinting over grass' : 'standing'}): ${out}`);
+    assert.ok(!p.dead && p.vitals.health > 20, `alive: ${p.vitals.health}`);
+  }
 });

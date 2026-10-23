@@ -16,6 +16,12 @@ export const PALETTE = {
   dirt: { base: '#7a5a3a', dark: '#5e4430', light: '#8e6c48' }, sand: { base: '#c8b07a', dark: '#a8905e', light: '#dcc68e' },
   water: { base: '#1e4a7a', dark: '#163a62', light: '#4a7aaa' }, deep: { base: '#163a62', dark: '#102c4c', light: '#3a6a9a' },
   quay: { base: '#6a6a70', dark: '#58585e', light: '#7a7a80' }, pier: { base: '#7a5a3a', line: '#4a3422' }, rail: { base: '#3a3434', var: 6 },
+  // interiors' floors (PLAN.md 8.21)
+  marble: { stones: ['#d8d2c4', '#cec8ba', '#e2dccc'], mortar: '#9a9488', hi: '#f0eadc', lo: '#b4aea0', speck: '#c4beb0' },
+  carpet: { base: '#6a2a32', dark: '#58222a', light: '#7a343c' }, steel: { base: '#5a5e66', line: '#3e4248', rivet: '#8a8e96' },
+  concrete: { base: '#5e5c5a', dark: '#504e4c', light: '#6a6866' }, sewer: { base: '#2a3a2a', dark: '#1e2c20', light: '#4a5a3a' },
+  // the handling strips (PLAN.md 8.23): asphalt under standing water, a black oil spill, sheet ice
+  wet: { base: '#1e2230', var: 4 }, oil: { base: '#121016', var: 12 }, ice: { base: '#c8dcea', dark: '#a6c2d6', light: '#eaf6ff' },
   paint: { yellow: '#d6ac34', white: '#d8d8dc', kerb: '#9a98a0', kerbDark: '#5a5860' },
 };
 const TILE = 64;
@@ -32,7 +38,11 @@ export class SurfacePainter {
       let c;
       if (surf === 'walk' || surf === 'plaza') { const p2 = { stones: pal.stones.map(hex), mortar: hex(pal.mortar), hi: hex(pal.hi), lo: hex(pal.lo), speck: hex(pal.speck) }; c = E.tex.flagstone(x, y, p2, surf === 'plaza' ? 8 : 16); }
       else if (surf === 'grass' || surf === 'park') c = E.tex.grass(x, y, pal);
-      else if (surf === 'dirt' || surf === 'sand' || surf === 'lot' || surf === 'yard' || surf === 'quay') c = E.tex.dirt(x, y, pal);
+      else if (surf === 'dirt' || surf === 'sand' || surf === 'lot' || surf === 'yard' || surf === 'quay' || surf === 'concrete' || surf === 'ice') c = E.tex.dirt(x, y, pal);
+      else if (surf === 'marble') { const p2 = { stones: pal.stones.map(hex), mortar: hex(pal.mortar), hi: hex(pal.hi), lo: hex(pal.lo), speck: hex(pal.speck) }; c = E.tex.flagstone(x, y, p2, 32); }
+      else if (surf === 'carpet') { const b = hex(((x >> 3) + (y >> 3)) & 1 ? pal.base : pal.dark), n = E.hash2(x, y) < .2 ? 6 : 0; c = [b[0] + n, b[1] + n, b[2] + n]; }   // (a woven check)
+      else if (surf === 'steel') { const edge = (x & 31) === 0 || (y & 31) === 0, rivet = ((x & 31) === 4 || (x & 31) === 28) && ((y & 31) === 4 || (y & 31) === 28); c = hex(rivet ? pal.rivet : edge ? pal.line : pal.base); if (!edge && !rivet) { const n = (E.noise2(x * .2, y * .9) + 1) * 3; c = [c[0] + n, c[1] + n, c[2] + n]; } }   // (plates, their seams and rivets)
+      else if (surf === 'sewer') c = E.tex.water(x, y, pal);
       else if (surf === 'water' || surf === 'deep') c = E.tex.water(x, y, pal);
       else if (surf === 'pier') c = E.tex.planks(x, y, { base: pal.base, dark: E.shade(pal.base, -.15), line: pal.line });
       else { const b = hex(pal.base || '#2e2e36'), n = (E.noise2(x * .27, y * .27) + 1) * (pal.var || 6) * .5 + (E.hash2(x, y) < .07 ? -6 : E.hash2(x + 5, y) > .96 ? 7 : 0); c = [b[0] + n, b[1] + n, b[2] + n + 2]; }
@@ -78,6 +88,19 @@ export class SurfacePainter {
         }
       };
       if (r.median) { line(mid - 3, 2, false, P.yellow); line(mid + 3, 2, false, P.yellow); const lane = (across1 - across0) / 4; line(across0 + lane, 1.5, true, P.white); line(across1 - lane, 1.5, true, P.white); }
+      else if (r.oneway) {   // a one-way street: the parking lane's line on the right of the way it runs, arrows down the lane
+        const right = r.axis === 'y' ? -r.oneway : r.oneway, lane = mid - right * 10;   // (the lane keeps 10 u left of the middle: a truck passes a parked truck)
+        line(mid + right * 11, 1, true, P.white);
+        g.fillStyle = P.white;
+        for (let k = a0 + 3; k <= a1 - 3; k += 7) {
+          if (k < (ns ? r0 : c0) - 1 || k > (ns ? r1 : c1) + 1 || busy(ns ? Math.floor(lane / T) : k, ns ? k : Math.floor(lane / T))) continue;
+          const c = (k + .5) * T, d = r.oneway;   // (the arrow points the way the street runs)
+          for (let t = -7; t <= 7; t++) {   // shaft 2 wide, then a head that narrows to the tip
+            const w = t > 2 ? Math.max(1, Math.round((7 - t) * .9)) : 1, along = c + t * d;
+            ns ? g.fillRect(lane - w, along, w * 2, 1) : g.fillRect(along, lane - w, 1, w * 2);
+          }
+        }
+      }
       else line(mid, 2, true, P.yellow);
     }
     // crosswalks: zebra bars across the crossing (bars run with the road), and a stop line before each

@@ -4,7 +4,7 @@
 // are filled flat, shaded by their normal against the light. Never r.shape (its facing snaps to 32 steps) or r.sprite
 // (no rotation).
 //   model: { parts: [{ box: [x0, y0, z0, x1, y1, z1], color, role: 'body' | 'cabin' | 'glass' | 'wheel' | 'light' |
-//   'tail' | 'siren' | 'bumper' | 'trim' | 'rotor', paint (true: in the vehicle's paint whatever its role) }], length,
+//   'tail' | 'siren' | 'bumper' | 'trim' | 'rotor' | 'neon', paint (true: in the vehicle's paint whatever its role) }], length,
 //   width } (sizes for the dents)
 import { E } from '../engine.js';
 
@@ -67,7 +67,7 @@ export function drawBoxModel(g, P, model, x, y, z, heading, o = {}) {
         let fx = nx, fy = ny; if (turn) { fx = nx * tc - ny * ts; fy = nx * ts + ny * tc; }
         const ry = fy * cr - nz * sr, rz = fy * sr + nz * cr, mx = fx * cp + rz * sp, mz = -fx * sp + rz * cp;
         const wx = mx * c - ry * s, wy = mx * s + ry * c, lit = wx * LIGHT[0] + wy * LIGHT[1] + mz * LIGHT[2];
-        g.fillStyle = shadeFor(color, mz > .7 ? .14 : lit > .2 ? .06 : lit < -.2 ? -.28 : -.1);
+        g.fillStyle = shadeFor(color, role === 'neon' ? (mz > .7 ? .2 : .08) : mz > .7 ? .14 : lit > .2 ? .06 : lit < -.2 ? -.28 : -.1);   // (neon: lit from within, every face bright)
         g.beginPath(); g.moveTo(Math.round(A[0]), Math.round(A[1])); g.lineTo(Math.round(B[0]), Math.round(B[1])); g.lineTo(Math.round(C[0]), Math.round(C[1])); g.lineTo(Math.round(D[0]), Math.round(D[1])); g.closePath(); g.fill();
       }
     }

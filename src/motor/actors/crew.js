@@ -9,6 +9,8 @@
 // The crew only keeps time and says where the camera is; the scene moves the camera and draws the vignette.
 //   crew.add('dex', ped);  crew.request('viv', { wanted: 0, mission: null }) -> { ok, reason }
 //   crew.update(dt) -> { phase, x, y, H } while switching, or null
+// M8: a mission's own switch (request with forced: wanted or not, no vignette), and crew.possess(id) (a stage's setup,
+// a loaded save: control passes at once, no camera).
 import { TUNE, knob } from '../core/tune.js';
 import { BUS } from '../core/bus.js';
 import { get } from '../core/registry.js';
@@ -33,6 +35,7 @@ export class Crew {
     if (!this.members.has(id)) return { ok: false, reason: 'unknown' };
     if (id === this.active) return { ok: false, reason: 'same' };
     if (this.seq) return { ok: false, reason: 'busy' };
+    if (ctx.forced) return this.members.get(id).ped.dead ? { ok: false, reason: 'down' } : { ok: true };   // (a mission's own switch: wanted or not)
     if ((ctx.wanted || 0) > 0) return { ok: false, reason: 'wanted' };
     if (ctx.mission && !ctx.mission.allowSwitch) return { ok: false, reason: 'mission' };
     const p = this.members.get(id).ped; if (p.dead) return { ok: false, reason: 'down' };
@@ -43,7 +46,7 @@ export class Crew {
   request(id, ctx = {}, place = null) {
     const ok = this.canSwitch(id, ctx); if (!ok.ok) return ok;
     const from = this.members.get(this.active), to = this.members.get(id), a = from.ped, b = to.ped;
-    const fresh = !to.played || this.t - to.leftAt >= TUNE.awayFresh;
+    const fresh = !ctx.forced && (!to.played || this.t - to.leftAt >= TUNE.awayFresh);
     const target = fresh && ctx.vignetteAt ? ctx.vignetteAt(id) : [b.x, b.y];
     this.seq = { from: from.id, to: id, phase: 'up', t: 0, x0: a.x, y0: a.y, x1: target[0], y1: target[1], H0: ctx.H0 || 320, fresh, place };
     this.seq.panTime = Math.max(.35, Math.hypot(this.seq.x1 - this.seq.x0, this.seq.y1 - this.seq.y0) / TUNE.switchPan);
@@ -71,7 +74,17 @@ export class Crew {
     this.active = s.to; to.played = true; this.switches++;
     const ch = get('characters', s.to);
     this.vignette = s.fresh && ch && ch.vignette ? { who: s.to, t: 0, ...ch.vignette } : null;
-    BUS.emit('switch', { from: s.from, to: s.to });
+    BUS.emit('switch', { from: s.from, to: s.to, camera: true });   // (camera: the switch camera's, not a possession)
+  }
+  /** call a switch under way off (the one being left went down: they are still the one played) */
+  abort() { if (!this.seq) return false; const from = this.members.get(this.seq.from); this.seq = null; if (from) from.leftAt = -1e9; return true; }
+  /** control passes to id at once (a mission's setup, a load): no switch camera, no vignette */
+  possess(id) {
+    const to = this.members.get(id); if (!to || id === this.active) return false;
+    const from = this.members.get(this.active); if (from) from.leftAt = this.t;
+    this.seq = null; this.vignette = null; this.active = id; to.played = true;
+    BUS.emit('switch', { from: from ? from.id : null, to: id });
+    return true;
   }
   /** the player moved: the vignette ends */
   endVignette() { this.vignette = null; }

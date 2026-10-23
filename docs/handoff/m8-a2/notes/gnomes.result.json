@@ -1,0 +1,175 @@
+{
+ "files": [
+  "src/game/missions/g1-lawn-order.js",
+  "src/game/missions/g2-bingo-night.js",
+  "src/game/missions/g3-gutter-ball.js"
+ ],
+ "runs": [
+  {
+   "id": "gnomes_lawn_order",
+   "seed": 1,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 117,
+   "note": "0 retries"
+  },
+  {
+   "id": "gnomes_lawn_order",
+   "seed": 2,
+   "pad": false,
+   "passed": true,
+   "medal": "silver",
+   "secs": 119,
+   "note": "0 retries (one bonus missed)"
+  },
+  {
+   "id": "gnomes_lawn_order",
+   "seed": 3,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 113,
+   "note": "0 retries"
+  },
+  {
+   "id": "gnomes_lawn_order",
+   "seed": 1,
+   "pad": true,
+   "passed": true,
+   "medal": "gold",
+   "secs": 132,
+   "note": "0 retries"
+  },
+  {
+   "id": "gnomes_bingo_night",
+   "seed": 1,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 71,
+   "note": "0 retries"
+  },
+  {
+   "id": "gnomes_bingo_night",
+   "seed": 2,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 71,
+   "note": "0 retries"
+  },
+  {
+   "id": "gnomes_bingo_night",
+   "seed": 3,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 56,
+   "note": "0 retries"
+  },
+  {
+   "id": "gnomes_bingo_night",
+   "seed": 1,
+   "pad": true,
+   "passed": true,
+   "medal": "gold",
+   "secs": 65,
+   "note": "0 retries"
+  },
+  {
+   "id": "gnomes_gutter_ball",
+   "seed": 1,
+   "pad": false,
+   "passed": true,
+   "medal": "silver",
+   "secs": 119,
+   "note": "0 retries; bot escapes by road, so no boat bonus"
+  },
+  {
+   "id": "gnomes_gutter_ball",
+   "seed": 2,
+   "pad": false,
+   "passed": true,
+   "medal": "silver",
+   "secs": 83,
+   "note": "0 retries; by road"
+  },
+  {
+   "id": "gnomes_gutter_ball",
+   "seed": 3,
+   "pad": false,
+   "passed": true,
+   "medal": "silver",
+   "secs": 86,
+   "note": "0 retries; by road"
+  },
+  {
+   "id": "gnomes_gutter_ball",
+   "seed": 1,
+   "pad": true,
+   "passed": true,
+   "medal": "silver",
+   "secs": 105,
+   "note": "0 retries; by road"
+  }
+ ],
+ "notes": "I made G1-G3 as the only three new files. No MOTOR or other file is touched; no MOTOR change was made locally or left behind. Every final bot run passed with 0 retries. eslint is clean, boundary-check reports 165 files with no reach-through, and mission-links passes 2/2.\n\nG1 Lawn Order: smash eight locked Saints cars about Palm Terraces with the bat (only) in 2:00. A car counts once it smokes. Heat piles up during the 2:00 but the stars are capped at 0. When the eighth is done, a 1-star cap applies (an arrest patrol, no shooting): lose them, or hide at the lanes' door. Gus gets a fresh vest per car, and a passer-by who swings back is sent running.\n\nG2 Bingo Night: at night, take Nana's Retiree to the lanes' door and she boards. Then 3 stars (Eye plus roadblocks) up Chapel Street and onto Lantern Lane to the Greasy Spoke. The girls' call draws the Eye off (3 to 2 stars), then lose the 2 stars.\n\nG3 Gutter Ball: torch three fuel drums on the boathouse pier (Party Starters or the Hot Mess); the planking goes up. Hold Dock Road's corner with two of Nana's girls against three waves of Rats. Escape by the Rats' speedboat out to sea, or by Brute to the L's Harbor station. A war op keeps the stars at 0 and refunds the city Rats' respect costs.\n\nDeviations from PLAN.md and why are in /tmp/claude-0/-home-user-gta25-cco55-my-3d2dge/6d81a67c-9c5a-5aae-be2e-a310b60973ab/scratchpad/a2/gnomes/notes.md:\n- smoking counts as smashed, because burning cars explode in chains;\n- G2's 3 stars are driven through, not lost (the bot cannot lose 3 stars);\n- the boathouse building has no walls (builder bug), so its pier burns instead;\n- the bot torches with the flamer, because bots cannot throw.\n\nContent uses m.W in three places: the clock hour, a drum blast, and city ped brains.",
+ "motorRequests": [
+  {
+   "file": "src/motor/mission/actors.js",
+   "change": "In update(): replace `const p = e.a; if (p.seat || p === P) continue;` with `const p = e.a; if (p === P) continue; if (p.seat) { if (!p.dead) p.ride(); continue; }`.",
+   "why": "A seated mission ped is never stepped, so its body stays where it got in while the vehicle drives on. traffic.js rides its crews; mission actors don't. As a result m.deliver of a passenger never completes, and hits and draws use the old spot. G2 works around this with an op that calls ride() on Nana every step."
+  },
+  {
+   "file": "src/motor/ai/fighter.js",
+   "change": "Add a first line to _arm(): `if (this.thrown && this.ped.throwing) return this.thrown;`. In attack()'s molotov/grenade branch, keep the aim but replace the unconditional `I.tap.attack = true; this.throwT = ...` with `if (!p.throwing && p.inv.cool <= 0) { I.tap.attack = true; this.throwT = THROW_EVERY * (.8 + .4 * this._r()); }`.",
+   "why": "Fighters never throw. select() adds .25 s to inv.cool, so the one tap on the switching step fires nothing. throwT is reset anyway and the gun is selected again on the next step, and ped.js only steps a throw while the thrown weapon is in hand. Measured with scratchpad molotov.mjs: three 5000-hp rat-grunts carrying Party Starters at 153-264 u threw 0 in 40 s, and their rounds stayed {mag 5, total 5}. PLAN 9.3 arms the Rats with Molotovs; G3's Rats carry Snubs instead."
+  },
+  {
+   "file": "src/motor/ai/missionbot.js",
+   "change": "In the _goto() spray branch, replace `I.down.fire = true; I.down.attack = true;` with `const ws = p.inv.spec(), auto = !ws || ws.rate >= 6; I.down.fire = true; I.down.attack = auto || (this.t * 4 | 0) % 2 === 0; I.tap.attack = !auto && I.down.attack;`.",
+   "why": "ped.js throws only on I.tap.attack and swings only on taps, so a spray hint (button held) can never throw a Party Starter or swing a bat. It only works with automatic weapons, which is why G3's bot torches the drums with the Hot Mess."
+  },
+  {
+   "file": "src/motor/ai/missionbot.js",
+   "change": "In _fight()'s vehicle-melee branch, before `if (bd > 10) return F._go(dt, I, t.x, t.y, true, 'car' + t.id);`, add `if (bd > 40) { F.path = null; return this._go(dt, p, t.x, t.y, { foot: true, stay: true, radius: 8 }, w); }`.",
+   "why": "The Fighter's _go paths to the sidewalk node nearest the car and re-plans to that same node when something is in the way. In an early G1 the bot stood against a lamp post for the rest of the timer, and a stale path flip-flopped between two cars. G1's hint works around it: a foot goto until the bot is within 10 u (box distance), then kill."
+  },
+  {
+   "file": "src/motor/ai/missionbot.js",
+   "change": "Remember the last body to hurt the player (BUS 'hit' with target === player id: { by, t }). In update(), on foot: if that body is an alive crowd ped (ped.crowd, no gang, not police) within 30 u that hit in the last 2 s, `return this._fight(dt, p, foe, w)` before following the hint.",
+   "why": "A passer-by the bot's swing clips fights back (crowd.js sends a whole skater troupe), and the bot keeps walking to its next target. In G1 seed 3, Gus went from 100 health + 100 armor to 0 in 20 s (scratchpad g1-s3-fight.log). G1 works around it by making such a ped and its troupe flee (crowd member brain.react('flee', { force: true }))."
+  },
+  {
+   "file": "src/motor/ai/missionbot.js",
+   "change": "In _board(): time the boarding of one vehicle (this.boardT, reset when boardFor changes, += dt). After about 12 s still not seated: `this.auto.tried.add(v.id); this.car = null; this.boardFor = null;` and pick another vehicle.",
+   "why": "In an early G2 (3 stars, on foot) the bot sat in AutoPlayer state 'board' on one spot from 110 s to 400 s of game, seen by the Eye throughout (scratchpad g2-lose-s2.log)."
+  },
+  {
+   "file": "src/motor/ai/missionbot.js",
+   "change": "In _evade() and _far(): while police.heli is up, prefer destinations under cover (under the Loop or L decks), and leave lanes within about 120 u of police.blocks out of the route.",
+   "why": "The bot cannot lose 3 stars: the Eye sees 520 u except under decks, and roadblocks laid 620-760 u ahead on its route stopped it. G2's early designs failed every seed; G2 now draws the Eye off at the drop-off (3 to 2 stars)."
+  },
+  {
+   "file": "src/motor/mission/runtime.js",
+   "change": "Change m.wanted.clear from `w.floor(0); w.cap(5); w.clear('mission');` to `w.clear('mission'); w.floor(0); w.cap(5);`.",
+   "why": "Lifting the cap before the heat is gone re-stars for a moment: at G1's hide-out a 'wanted' event went 1 to 2, then 2 to 0 (scratchpad g1-s2-probe3.log). Patrols react to that event. G1 and G3 call m.wanted.set(0) before clear() to avoid it."
+  },
+  {
+   "file": "src/motor/world/builder.js",
+   "change": "In addLot(): when a pier or quay lot is laid over water, make its cells ground for the lots after it. Add `if (overWater && taken[i] === 1) taken[i] = 0;` in the rect callback. Alternatively, in content, add onWater: true to those building lots in landmarks.js.",
+   "why": "A building lot over water is skipped cell by cell (`taken[i] === 1 && !overWater && !lot.onWater`). So the Harbor Rats Boathouse and the Lighthouse are in city.lots but have no walls and no roof: map.cell is 0 across the boathouse (scratchpad boathouse.mjs). G3 burns the boathouse's pier instead."
+  },
+  {
+   "file": "src/motor/mission/runtime.js",
+   "change": "Add m.kill(tag, { done: a => bool }): a predicate for when a target counts (default: dead, wrecked, out or burning), used by the op's count and by the bot's alive filter.",
+   "why": "G1 counts a car smashed once it smokes by setting the vehicle's `out` flag from a 'hit' listener, because kill and the bot only read out, wrecked and burning."
+  },
+  {
+   "file": "src/motor/mission/runtime.js",
+   "change": "Add MissionContext calls so content needn't reach into m.W: `get hour()` (W.clock.hour); `blast(at, { damage, splash, fire })` (W.combat.explosives.blast with by: null, plus fire.add); `shoo(ped)` (a crowd ped and its troupe flee); and a truce(gang) under which kills of that gang's city members cost no respect while the mission runs. This generalises the Rats' requests 7 and 8.",
+   "why": "G2 reads m.W.clock.hour. G3 calls m.W.combat.explosives.blast for its drums and refunds respect via m.W.life.gangs.add. G1 calls crowd member brains through m.W.life.crowd."
+  }
+ ]
+}

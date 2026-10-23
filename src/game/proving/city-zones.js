@@ -2,7 +2,8 @@
 // lab (spike S1's 64x64 with 40 walkers; M3 adds the scale yard: the three protagonists in hand with three weapons
 // and a parked Cortez beside them, where the lap starts). The focus drives a lap at car speed; ?mode=walk hands it to
 // the player ([ and ] turn the camera); ?zoom=.65 sets a driving zoom; ?rail=90 faces MODE 7's rail east. The view
-// lab's ?selftest=1 draws the same spot in ISO, TOP-DOWN and MODE 7 and checks each drew its bodies.
+// lab's ?selftest=1 draws the same spot in ISO, TOP-DOWN and MODE 7 and checks each drew its bodies; the scale yard's drives
+// the lap and checks the floor baked round it.
 import { E, def, get, FloorChunks, Actor, RNG, PedRig, drawBoxModel, carModel } from '../../motor/index.js';
 
 const SPEED = 300;   // the lap's speed: a sports car's top speed (PLAN.md 7.6)
@@ -70,7 +71,7 @@ function cityZone(id, size, nWalkers) {
           game.focus(hero.x, hero.y, 16);
         },
         draw(r) {
-          stage.begin(r, { focus: [hero.x, hero.y], vel: [hero.vx || 0, hero.vy || 0], speed01: walk ? 0 : 1 });
+          stage.begin(r, { focus: [hero.x, hero.y], vel: [hero.vx || 0, hero.vy || 0], speed01: walk ? 0 : 1, vehicle: !walk });
           const ci = Math.floor(hero.x / 256), cj = Math.floor(hero.y / 256);
           for (let j = cj - 3; j <= cj + 3; j++) for (let i = ci - 3; i <= ci + 3; i++) for (const [lx, ly] of lamps.get(j * 64 + i) || []) {
             if (Math.abs(lx - hero.x) > 700 || Math.abs(ly - hero.y) > 700) continue;
@@ -89,9 +90,16 @@ function cityZone(id, size, nWalkers) {
         perf() { return { floor: { ...floor.stats, kept: floor.chunks.size }, walls: map.wallCache(), solids: map.solids.length }; },
         stateHash() { return [Math.round(hero.x * 8), Math.round(hero.y * 8), leg]; },
         handle() { return { map, floor }; },
-        /** ?selftest=1 (the view lab): the same spot drawn in ISO, TOP-DOWN and MODE 7, 40 frames each; each view must
-         *  draw its bodies (the crew, the walkers near) inside the frame budget's double */
-        selftest: id !== 'views' ? undefined : st => {
+        /** ?selftest=1 (the scale yard): 300 frames of the lap: the lap driven, the floor baked round it */
+        selftest: id !== 'views' ? st => {
+          if (st.frame === 0) { st.d = 0; st.last = [hero.x, hero.y]; st.ms = []; }
+          st.d += Math.hypot(hero.x - st.last[0], hero.y - st.last[1]); st.last = [hero.x, hero.y]; st.ms.push(game.stats.renderMs);
+          if (st.frame < 300) return null;
+          const ms = [...st.ms].sort((a, b) => a - b)[st.ms.length >> 1];
+          const checks = [{ check: 'the lap driven', value: Math.round(st.d) + ' u', ok: st.d > 1000 }, { check: 'floor chunks baked', value: floor.chunks.size, ok: floor.chunks.size > 0 }, { check: 'draw ms (median)', value: +ms.toFixed(1), ok: true }];
+          return { zone: id, ok: checks.every(c => c.ok), checks };
+        } : st => {   // (the view lab: the same spot drawn in ISO, TOP-DOWN and MODE 7, 40 frames each; each view must draw
+          // its bodies, the crew and the walkers near)
           const order = ['iso', 'top', 'side7'], i = Math.floor(st.frame / 40);
           if (st.frame === 0) { st.rows = []; walk = true; }   // (hold the lap: the spot stays put)
           if (i < 3) {

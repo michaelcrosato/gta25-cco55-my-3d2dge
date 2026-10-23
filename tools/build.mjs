@@ -1,5 +1,5 @@
 // Build GRAND THEFT MOTO into one self-contained page: dist/index.html = the template + the vendored engine (a classic
-// script that defines My3D2dge) + the game bundle (src/main.js and every content module under src/game, bundled by
+// script that defines My3D2dge, then its mocap player and GTM's cut of the clips) + the game bundle (src/main.js and every content module under src/game, bundled by
 // esbuild into one IIFE). A rebuild of an unchanged tree is byte-identical: no dates, no hashes, sorted inputs.
 //   node tools/build.mjs            write dist/index.html
 //   node tools/build.mjs --check    fail if dist/index.html is not what the sources build (CI, the test gate)
@@ -13,6 +13,8 @@ import vm from 'node:vm';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const ENGINE = join(ROOT, 'vendor/my-3d2dge/engine/my-3d2dge.js');
+/** the engine's mocap player and GTM's cut of its clips, each a classic script loaded after the engine (in this order) */
+export const MOCAP = ['mocap/readable.js', 'mocap/mocap.js', 'mocap/sets/gtm.js'].map(f => join(ROOT, 'vendor/my-3d2dge', f));
 const outArg = process.argv.indexOf('--out'), OUT = outArg > 0 ? resolve(process.argv[outArg + 1]) : join(ROOT, 'dist/index.html');
 
 /** every .js file under src/game, sorted by path: content registers itself when imported */
@@ -23,22 +25,29 @@ export function contentFiles() {
   return out.map(p => relative(base, p).split('\\').join('/')).sort();
 }
 
-const contentPlugin = {
+/** the content modules, sorted by path; extra ([{ file, as }]: a recipe test's fixtures) are imported as if each file
+ *  were at src/game/<as>, in its sorted place, its imports resolved from there */
+const contentPlugin = (extra = []) => ({
   name: 'content',
   setup(b) {
+    const list = [...contentFiles().map(f => ({ as: f })), ...extra].sort((a, b) => (a.as < b.as ? -1 : a.as > b.as ? 1 : 0));
     b.onResolve({ filter: /^virtual:content$/ }, () => ({ path: 'content', namespace: 'content' }));
     b.onLoad({ filter: /.*/, namespace: 'content' }, () => ({
-      contents: contentFiles().map(f => `import ${JSON.stringify('./' + f)};`).join('\n') + '\nexport const CONTENT_FILES = ' + JSON.stringify(contentFiles()) + ';\n',
+      contents: list.map(f => `import ${JSON.stringify(f.file ? 'virtual:extra:' + f.as : './' + f.as)};`).join('\n') + '\nexport const CONTENT_FILES = ' + JSON.stringify(list.map(f => f.as)) + ';\n',
       resolveDir: join(ROOT, 'src/game'), loader: 'js',
     }));
+    b.onResolve({ filter: /^virtual:extra:/ }, a => ({ path: a.path.slice('virtual:extra:'.length), namespace: 'extra' }));
+    b.onLoad({ filter: /.*/, namespace: 'extra' }, a => { const f = extra.find(q => q.as === a.path); return { contents: readFileSync(resolve(ROOT, f.file), 'utf8'), resolveDir: dirname(join(ROOT, 'src/game', f.as)), loader: 'js' }; });
+    b.onResolve({ filter: /^\./, namespace: 'extra' }, a => ({ path: resolve(a.resolveDir, a.path) }));   // (by path: its folder may be one no file is in yet)
   },
-};
+});
 
-/** the game bundle as one IIFE (a string) */
-export async function bundle({ minify = false } = {}) {
+/** the game bundle as one IIFE (a string); extra: content files bundled as if they were under src/game (the recipe
+ *  tests' fixtures: [{ file, as }]) */
+export async function bundle({ minify = false, extra = [] } = {}) {
   const r = await build({
     entryPoints: [join(ROOT, 'src/main.js')], bundle: true, format: 'iife', target: 'es2022', platform: 'browser',
-    write: false, plugins: [contentPlugin], legalComments: 'none', charset: 'utf8', logLevel: 'warning', minify,
+    write: false, plugins: [contentPlugin(extra)], legalComments: 'none', charset: 'utf8', logLevel: 'warning', minify,
   });
   return r.outputFiles[0].text;
 }
@@ -62,7 +71,7 @@ export async function page() {
     '{{VERSION}}': version, '{{BUILD}}': 'dev-build',
     '{{SOURCE_INFO}}': block(about.SOURCE_INFO), '{{ENGINE_SUMMARY}}': block(about.ENGINE_SUMMARY),
     '<!-- @boot -->': bootSplash(about.GAME.title),
-    '<!-- @engine -->': '<script>\n' + esc(readFileSync(ENGINE, 'utf8')) + '\n</script>',
+    '<!-- @engine -->': [ENGINE, ...MOCAP].map(f => '<script>\n' + esc(readFileSync(f, 'utf8')) + '\n</script>').join('\n'),
     '<!-- @bundle -->': '<script>\n' + esc(await bundle()) + '\n</script>',
   };
   let html = template;

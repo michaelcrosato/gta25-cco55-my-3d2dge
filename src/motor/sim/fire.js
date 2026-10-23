@@ -10,10 +10,10 @@ import { TUNE, knob } from '../core/tune.js';
 knob('Combat', 'fireSpread', 'Fire spread', .9, 0, 5, .05, 'Chance a second that a hot cell lights a neighbour that burns well');
 knob('Combat', 'fireDps', 'Fire damage', 14, 0, 100, 1, 'Damage a second to a body in a fully burning cell');
 knob('Combat', 'rainDamp', 'Rain damping', 2.5, 0, 10, .1, 'How much faster fire dies in a downpour');
-knob('Combat', 'fireHop', 'Fire vigour per hop', .8, 0, 1, .02, 'The vigour a cell lit by a neighbour keeps (1: it spreads without end)');
+knob('Combat', 'fireHop', 'Fire vigour per hop', .62, 0, 1, .02, 'The vigour a cell lit by a neighbour keeps (1: it spreads without end)');
 /** how well each surface burns (0 never .. 1 well) and the seconds of its own fuel once lit */
 export const FLAMMABLE = { grass: [1, 7], park: [1, 7], dirt: [.25, 2], sand: [.05, 1], pier: [.9, 10], lot: [.3, 3], yard: [.3, 3], walk: [.12, 1.5], plaza: [.12, 1.5],
-  road: [.08, 1.2], alley: [.2, 2], bridge: [.08, 1.2], quay: [.1, 1.5], rail: [.15, 2], curb: [.1, 1], water: [0, 0], deep: [0, 0] };
+  road: [.08, 1.2], alley: [.2, 2], bridge: [.08, 1.2], quay: [.1, 1.5], rail: [.15, 2], curb: [.1, 1], water: [0, 0], deep: [0, 0], wet: [.02, .5], oil: [.9, 6], ice: [0, 0] };
 
 export class Fire {
   /** city: a CityMap (surfaceAt, w, h, T) */
@@ -23,32 +23,38 @@ export class Fire {
     this.heat = new Float32Array(this.w * this.h); this.fuel = new Float32Array(this.w * this.h); this.vigor = new Float32Array(this.w * this.h); this.live = new Set();
     /** cells that have burned out: scorched (drawn dark) and not lit again by a neighbour (petrol still burns on them) */
     this.burnt = new Uint8Array(this.w * this.h);
+    /** who set each burning cell alight (an actor's id: a thrown Molotov's, a flamethrower's), spread fire keeping its
+     *  starter's: a body that catches in it is hurt in their name (presentation of blame only: it steers nothing) */
+    this.src = new Map();
     this.rs = RNG.stream('fire');
   }
   _flam(i) { const f = FLAMMABLE[this.city.surfaceAt(i % this.w, (i / this.w) | 0)]; return f || [.2, 2]; }
   /** set a disc alight: a world point, its radius (u), heat (0..1), the fuel it brings (seconds: petrol) and its vigour */
-  add(x, y, r = 0, heat = 1, fuel = 0, vigor = 1) {
+  add(x, y, r = 0, heat = 1, fuel = 0, vigor = 1, by = null) {
     const T = this.T, c0 = Math.floor((x - r) / T), c1 = Math.floor((x + r) / T), r0 = Math.floor((y - r) / T), r1 = Math.floor((y + r) / T);
     for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
       if (cx < 0 || cy < 0 || cx >= this.w || cy >= this.h || Math.hypot((cx + .5) * T - x, (cy + .5) * T - y) > r + T * .5) continue;
       const i = cy * this.w + cx, [flam, own] = this._flam(i); if (flam <= 0 && fuel <= 0) continue;
       this.heat[i] = Math.max(this.heat[i], heat); this.fuel[i] = Math.max(this.fuel[i], own + fuel); this.vigor[i] = Math.max(this.vigor[i], vigor); this.live.add(i);
+      if (by !== null && by !== undefined) this.src.set(i, by);
     }
   }
+  /** who started the fire under a world point (null: nobody known) */
+  sourceAt(x, y) { const cx = Math.floor(x / this.T), cy = Math.floor(y / this.T); return cx < 0 || cy < 0 || cx >= this.w || cy >= this.h ? null : this.src.get(cy * this.w + cx) ?? null; }
   /** put out the cells within r of a point (the Pumper's water cannon): they stop burning, scorched */
   douse(x, y, r = 8) {
     const T = this.T; let n = 0;
-    for (const i of [...this.live]) { const cx = i % this.w, cy = (i / this.w) | 0; if (Math.hypot((cx + .5) * T - x, (cy + .5) * T - y) > r + T * .5) continue; this.heat[i] = 0; this.fuel[i] = 0; this.vigor[i] = 0; this.burnt[i] = 1; this.live.delete(i); n++; }
+    for (const i of [...this.live]) { const cx = i % this.w, cy = (i / this.w) | 0; if (Math.hypot((cx + .5) * T - x, (cy + .5) * T - y) > r + T * .5) continue; this.src.delete(i); this.heat[i] = 0; this.fuel[i] = 0; this.vigor[i] = 0; this.burnt[i] = 1; this.live.delete(i); n++; }
     return n;
   }
-  /** a burning body crossing a point lights it (if it burns at all) */
-  ignite(x, y) { this.add(x, y, 0, .7, 0, .6); }
+  /** a burning body crossing a point lights it (if it burns at all), in the name of whoever set the body alight */
+  ignite(x, y, by = null) { this.add(x, y, 0, .7, 0, .6, by); }
   /** step: dt seconds; wet: the streets' wetness 0..1 (rain damps the fire) */
   update(dt, wet = 0) {
     const W = this.w, damp = 1 + TUNE.rainDamp * wet, lit = [];
     for (const i of this.live) {
       this.fuel[i] -= dt * damp;
-      if (this.fuel[i] <= 0) { this.heat[i] -= dt * .8 * damp; if (this.heat[i] <= 0) { this.heat[i] = 0; this.fuel[i] = 0; this.vigor[i] = 0; this.burnt[i] = 1; this.live.delete(i); continue; } }
+      if (this.fuel[i] <= 0) { this.heat[i] -= dt * .8 * damp; if (this.heat[i] <= 0) { this.heat[i] = 0; this.fuel[i] = 0; this.vigor[i] = 0; this.burnt[i] = 1; this.live.delete(i); this.src.delete(i); continue; } }
       else this.heat[i] = Math.min(1, this.heat[i] + dt * .5);
       if (this.heat[i] < .5) continue;
       const cx = i % W, cy = (i / W) | 0;
@@ -56,10 +62,10 @@ export class Fire {
         const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= this.h) continue;
         const j = ny * W + nx; if (this.heat[j] > 0 || this.burnt[j]) continue;
         const [flam, own] = this._flam(j);
-        if (flam > 0 && this.rs.next() < TUNE.fireSpread * flam * this.heat[i] * this.vigor[i] * dt / damp) lit.push([j, own, this.vigor[i] * TUNE.fireHop]);
+        if (flam > 0 && this.rs.next() < TUNE.fireSpread * flam * this.heat[i] * this.vigor[i] * dt / damp) lit.push([j, own, this.vigor[i] * TUNE.fireHop, this.src.get(i)]);
       }
     }
-    for (const [j, own, v] of lit) { this.heat[j] = .55; this.fuel[j] = own; this.vigor[j] = v; this.live.add(j); }
+    for (const [j, own, v, by] of lit) { this.heat[j] = .55; this.fuel[j] = own; this.vigor[j] = v; this.live.add(j); if (by !== undefined) this.src.set(j, by); }
   }
   /** the heat of the cell under a world point (0 not burning .. 1) */
   heatAt(x, y) { const cx = Math.floor(x / this.T), cy = Math.floor(y / this.T); return cx < 0 || cy < 0 || cx >= this.w || cy >= this.h ? 0 : this.heat[cy * this.w + cx]; }

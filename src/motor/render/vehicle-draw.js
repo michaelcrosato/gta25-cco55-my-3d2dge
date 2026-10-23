@@ -3,7 +3,9 @@
 //   - the model with its paint, dents, steering front wheels, open doors, lights (head, brake, reverse), the siren's
 //     alternating lamps; a wreck charred, on its roof if it landed so; a bike leaning into turns and wheelieing off the
 //     line; a boat bobbing; a heli tilted into its push with its rotor turning and its spotlight on the ground; the L;
-//   - parked vehicles are kept images (D13), redrawn only when their look changes;
+//   - parked vehicles are kept images (D13), redrawn only when their look changes; in ISO a moving car's image is kept
+//     too, while its heading and look hold, and in MODE 7 while it is small on screen and its bearing from the lens
+//     holds too (2 degree steps; the Stage redraws a depth view's kept image every 8 frames and at 6% of size anyway);
 //   - at night: headlight pools and beams, tail lights, the siren's lights;
 //   - VehicleFX: skid marks on the floor, tyre smoke, sparks off scrapes, engine smoke and fire, debris, the wake, the
 //     water cannon's jet, oil slicks and mines, the hydrant's spray.
@@ -12,6 +14,7 @@ import { TUNE } from '../core/tune.js';
 import { drawBoxModel } from './box-model.js';
 
 const SKID_LIFE = 40;   // seconds a skid mark lasts (it fades over its life)
+const HEADING_STEP = Math.PI / 90;   // (a moving car's kept image: redrawn when its heading, or in MODE 7 its bearing, moves 2 degrees)
 
 /** ease a vehicle's cosmetic look toward what its body feels (dt: real seconds since its last frame) */
 export function easeLook(v, dt) {
@@ -57,10 +60,16 @@ export function drawVehicle(stage, v, o = {}) {
   }
   const opts = { roll: look.roll, pitch: look.pitch, steer: v.cls === 'bike' || v.cls === 'boat' ? 0 : b.steerAngle, rotor: b.rotor || 0, lit, braking: v.lights.brake, reversing: v.lights.reverse,
     siren, paint: v.color, burnt: wreck, cracked: v.damage.share < .5, dents: v.damage.dents, extra };
-  const still = b.speed < .5 && !v.damage.smoking && siren === undefined && !b.airborne && v.cls !== 'heli' && v.cls !== 'boat' && !v.sinking;
-  const sig = still ? `${b.heading.toFixed(3)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}|${doorSig}|${v.color}|${b.steerAngle.toFixed(2)}` : '';
+  const plain = !v.damage.smoking && siren === undefined && !b.airborne && v.cls !== 'heli' && v.cls !== 'boat' && !v.sinking, still = plain && b.speed < .5;
+  // ISO's projection is the same everywhere, so a car on the move looks the same wherever it is: its image is kept too,
+  // redrawn when its heading (2 degree steps), lean, steering, lights or paint change (a car driving straight: once);
+  // in MODE 7 a car looks the same while its bearing from the lens holds (TOP-DOWN leans it by where it is on screen)
+  const d7 = stage.depth && stage.depth === stage.side7 ? stage.depth : null, moving = plain && !still && (!stage.depth || d7) && v.cls !== 'bike';
+  const sig = still ? `${b.heading.toFixed(3)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}|${doorSig}|${v.color}|${b.steerAngle.toFixed(2)}`
+    : moving ? `m${Math.round(b.heading / HEADING_STEP)}|${Math.round(look.roll / .03)}|${Math.round(look.pitch / .02)}|${Math.round(b.steerAngle / .1)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}${v.lights.reverse ? 1 : 0}|${doorSig}|${v.color}|${wreck ? 1 : 0}${d7 ? '|' + Math.round(Math.atan2(d7.lateral(b.x, b.y), d7.depth(b.x, b.y)) / HEADING_STEP) : ''}` : '';
   const draw = (g, P) => drawBoxModel(g, P, v.model, b.x, b.y, z, b.heading, opts);
-  stage.shape(b.x, b.y, z, draw, still ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig } } : undefined);
+  const reach = [v.hl + 6, z, z + v.height + 8];   // (what MODE 7's walls may hide)
+  stage.shape(b.x, b.y, z, draw, still || moving ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig }, kind: 'car', reach } : { kind: 'car', reach });
   if (v.cls === 'heli') drawHeliExtras(stage, v, o);
   if (o.night && !wreck) drawNightLights(stage, v, z);
   if (siren !== undefined) {   // the bar's lamps: alternating red and blue glows, and a light either side
@@ -99,8 +108,13 @@ function beam(g, A, B, k) {
 function drawHeliExtras(stage, v, o) {
   const b = v.body, g0 = o.ground ? o.ground(b.x, b.y) : 0;
   stage.floor((g, P) => { const q = P.proj(b.x, b.y, g0); if (!q) return; const k = q[2], rx = Math.max(4, v.hl * .8 * k), ry = Math.max(2, v.hw * .9 * k); g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(q[0], q[1], rx, ry, 0, 0, Math.PI * 2); g.fill(); });
-  if (b.spot && !v.wrecked) {
-    const [sx, sy] = b.spot; stage.light(sx, sy, 0, 64, 1.5);
+  if (b.spot && !v.wrecked && o.night) {   // (its searchlight: after dark only; by day the beam doesn't show)
+    const [sx, sy] = b.spot, gs = o.ground ? o.ground(sx, sy) : 0; stage.light(sx, sy, 0, 64, 1.5);
+    stage.floor((g, P) => {   // (the pool itself: a hard-edged white disc on the ground, brighter than any street lamp's)
+      const q = P.proj(sx, sy, gs); if (!q) return; const k = q[2], rx = 26 * k, ry = rx * (stage.depth === stage.top ? 1 : .5), op = g.globalCompositeOperation;
+      g.globalCompositeOperation = 'lighter'; const gr = g.createRadialGradient(q[0], q[1], 0, q[0], q[1], rx); gr.addColorStop(0, 'rgba(255,255,240,.55)'); gr.addColorStop(.75, 'rgba(240,245,255,.35)'); gr.addColorStop(1, 'rgba(240,245,255,0)');
+      g.fillStyle = gr; g.beginPath(); g.ellipse(q[0], q[1], rx, ry, 0, 0, Math.PI * 2); g.fill(); g.globalCompositeOperation = op; g._c = null;
+    });
     stage.glowLine([b.x, b.y, b.z - 2], [sx, sy, 0], (g, A, B, k) => { const op = g.globalCompositeOperation; g.globalCompositeOperation = 'lighter'; const gr = g.createLinearGradient(A[0], A[1], B[0], B[1]); gr.addColorStop(0, 'rgba(230,240,255,.22)'); gr.addColorStop(1, 'rgba(230,240,255,.05)'); g.fillStyle = gr; const dx = B[0] - A[0], dy = B[1] - A[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, w = Math.max(6, 22 * k); g.beginPath(); g.moveTo(A[0] + nx * 2, A[1] + ny * 2); g.lineTo(B[0] + nx * w, B[1] + ny * w); g.lineTo(B[0] - nx * w, B[1] - ny * w); g.lineTo(A[0] - nx * 2, A[1] - ny * 2); g.closePath(); g.fill(); g.globalCompositeOperation = op; });
   }
 }
@@ -108,7 +122,7 @@ function drawHeliExtras(stage, v, o) {
 export function drawTrain(stage, tr, model, o = {}) {
   for (const c of tr.cars) {
     const m = model, color = o.color || '#9aa2aa';
-    stage.shape(c.x, c.y, c.z, (g, P) => drawBoxModel(g, P, m, c.x, c.y, c.z, c.heading, { paint: color, lit: o.night }));
+    stage.shape(c.x, c.y, c.z, (g, P) => drawBoxModel(g, P, m, c.x, c.y, c.z, c.heading, { paint: color, lit: o.night }), { kind: 'car' });
     if (o.night) { stage.light(c.x, c.y, c.z + 10, 70, .6); }
   }
 }
@@ -133,23 +147,26 @@ export class VehicleFX {
     // burning wrecks and fires: flickering light
     for (const v of F.vehicles) if (v.damage.burning && near(v.x, v.y)) stage.light(v.x, v.y, v.z + 10, 80 + Math.sin(now * 23 + v.x) * 8, 1.1);
     // the hydrants' spray: a fountain of drops while it lasts
-    for (const p of F.broken) if (p.broken && p.broken.spray > 0 && near(p.x, p.y) && P && Math.random() < .7) P.add({ x: p.x + (Math.random() - .5) * 3, y: p.y + (Math.random() - .5) * 3, z: 6, vx: (Math.random() - .5) * 30, vy: (Math.random() - .5) * 30, vz: 140 + Math.random() * 60, life: .9, max: .9, g: 380, kind: 'dust', color: '#d8ecff', size: 1.4 });
-    // the water cannon: a white jet arcing out
-    for (const j of F.jets) if (near(j.x, j.y) && P && j.t === 0) for (let i = 0; i < 3; i++) P.add({ x: j.x, y: j.y, z: j.z, vx: j.dx * (300 + i * 40), vy: j.dy * (300 + i * 40), vz: 40, life: .5, max: .5, g: 200, kind: 'dust', color: '#e8f6ff', size: 1.8 });
+    for (const p of F.broken) if (p.broken && p.broken.spray > 0 && near(p.x, p.y) && P && Math.random() < .7) P.add({ x: p.x + (Math.random() - .5) * 3, y: p.y + (Math.random() - .5) * 3, z: 6, vx: (Math.random() - .5) * 30, vy: (Math.random() - .5) * 30, vz: 140 + Math.random() * 60, max: .9, g: 380, kind: 'dust', color: '#d8ecff', size: 1.4 });
+    // the water cannon: a white jet arcing out, fanning a little as it goes
+    for (const j of F.jets) if (!this._done.has(j) && this._done.add(j) && near(j.x, j.y) && P) for (let i = 0; i < 7; i++) {   // (each jet once, when first drawn: the Fleet has aged it by then)
+      const a = Math.atan2(j.dy, j.dx) + (Math.random() - .5) * .12, s = 260 + Math.random() * 130; P.add({ x: j.x, y: j.y, z: j.z, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: 50 + Math.random() * 30, max: .55, g: 240, kind: 'dust', color: i % 3 ? '#e8f6ff' : '#bfe2ff', size: 2.4 }); }
     // the wake: a fading V of foam behind each boat under way
     for (const v of F.vehicles) {
       if (v.cls !== 'boat' || !v.body) continue;
       let w = this._wake.get(v); if (!w) this._wake.set(v, w = []);
       if (v.speed > 20) { const [x, y] = v.toWorld(-v.hl, 0); if (!w.length || Math.hypot(w[w.length - 1][0] - x, w[w.length - 1][1] - y) > 6) w.push([x, y, now, v.heading, Math.min(1, v.speed / 150)]); }
       while (w.length && now - w[0][2] > 2.5) w.shift();
-      if (w.length && near(v.x, v.y)) stage.floor((g, Pj) => drawWake(g, Pj, w, now));
+      if (w.length && near(v.x, v.y)) stage.floor((g, Pj) => drawWake(g, Pj, w, now, stage.r));
     }
     // skid marks, slicks and mines on the floor
     const marks = F.skids.filter(m => near(m[0], m[1]) && now - m[4] < SKID_LIFE);
     if (marks.length || F.slicks.length || F.mines.length) stage.floor((g, Pj) => {
+      const R = stage.r;
       for (const m of marks) {
         const A = Pj.proj(m[0], m[1], m[5]), B = Pj.proj(m[2], m[3], m[5]); if (!A || !B) continue;
-        g.globalAlpha = .38 * (1 - (now - m[4]) / SKID_LIFE); E.px.line(g, A[0], A[1], B[0], B[1], '#141216', Math.max(1, Math.round(1.8 * A[2])));
+        const w = Math.max(1, Math.round(1.8 * A[2])), c = clipSeg(A, B, R, w); if (!c) continue;   // (off the buffer: MODE 7's lens puts the marks under it hundreds of pixels below)
+        g.globalAlpha = .38 * (1 - (now - m[4]) / SKID_LIFE); E.px.line(g, c[0], c[1], c[2], c[3], '#141216', w);
       }
       g.globalAlpha = 1;
       for (const s of F.slicks) { const q = Pj.proj(s.x, s.y, s.z); if (!q) continue; g.fillStyle = 'rgba(10,8,14,.7)'; g.beginPath(); g.ellipse(q[0], q[1], s.r * q[2], s.r * q[2] * .6, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(120,90,200,.18)'; g.beginPath(); g.ellipse(q[0] - 2, q[1] - 1, s.r * q[2] * .5, s.r * q[2] * .25, 0, 0, Math.PI * 2); g.fill(); }
@@ -157,13 +174,25 @@ export class VehicleFX {
     });
   }
 }
-function drawWake(g, P, w, now) {
+function drawWake(g, P, w, now, R) {
   for (let i = 1; i < w.length; i++) {
     const a = w[i - 1], b = w[i], age = (now - b[2]) / 2.5, spread = 3 + age * 22;
     for (const side of [-1, 1]) {
       const nx = -Math.sin(b[3]) * side * spread, ny = Math.cos(b[3]) * side * spread, A = P.proj(a[0] + nx * .9, a[1] + ny * .9, 0), B = P.proj(b[0] + nx, b[1] + ny, 0); if (!A || !B) continue;
-      g.globalAlpha = (1 - age) * .55 * b[4]; E.px.line(g, A[0], A[1], B[0], B[1], '#f0f8ff', Math.max(1, Math.round(A[2] * 1.4)));
+      const lw = Math.max(1, Math.round(A[2] * 1.4)), c = clipSeg(A, B, R, lw); if (!c) continue;
+      g.globalAlpha = (1 - age) * .55 * b[4]; E.px.line(g, c[0], c[1], c[2], c[3], '#f0f8ff', lw);
     }
   }
   g.globalAlpha = 1;
+}
+/** a floor line from screen point A to B cut to the buffer (R: the renderer, bw x bh) and m pixels round it: [ax, ay,
+ *  bx, by], or null when none of it is on the buffer (a line drawn a pixel a step costs a fill a pixel, on it or not) */
+export function clipSeg(A, B, R, m = 0) {
+  if (!R || !R.bw) return [A[0], A[1], B[0], B[1]];
+  const x0 = -m, y0 = -m, x1 = R.bw + m, y1 = R.bh + m, dx = B[0] - A[0], dy = B[1] - A[1]; let t0 = 0, t1 = 1;
+  for (const [p, q] of [[-dx, A[0] - x0], [dx, x1 - A[0]], [-dy, A[1] - y0], [dy, y1 - A[1]]]) {
+    if (p === 0) { if (q < 0) return null; continue; }
+    const t = q / p; if (p < 0) { if (t > t1) return null; if (t > t0) t0 = t; } else { if (t < t0) return null; if (t < t1) t1 = t; }
+  }
+  return [A[0] + dx * t0, A[1] + dy * t0, A[0] + dx * t1, A[1] + dy * t1];
 }

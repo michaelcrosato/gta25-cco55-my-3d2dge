@@ -1,5 +1,5 @@
 // Where a frame's draw time goes (dev tool): wraps the renderer's parts in the page and reports the mean ms of each over
-// a few seconds. node tools/profile-frame.mjs [--at '#proving/scale'] [--query perf=1] [--seconds 6] [--eval 'js run first']
+// a few seconds. node tools/profile-frame.mjs [--at '#proving/scale'] [--query perf=1] [--seconds 6] [--eval 'js run first'] [--dist dist/index.html]
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
-await page.goto(pathToFileURL(resolve('dist/index.html')).href + '?' + arg('query', 'perf=1') + arg('at', '#proving/scale'));
+await page.goto(pathToFileURL(resolve(arg('dist', 'dist/index.html'))).href + '?' + arg('query', 'perf=1') + arg('at', '#proving/scale'));
 await page.waitForFunction(() => window.__gtm && window.__gtm.ready, null, { timeout: 20000 });
 if (arg('eval', null)) await page.evaluate(arg('eval', null));
 await page.waitForTimeout(2500);

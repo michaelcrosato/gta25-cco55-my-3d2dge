@@ -32,6 +32,16 @@ export class Inventory {
     if (!quiet && fresh && this.current === 'fists' && s.slot !== 'melee' && s.slot !== 'special') this.select(id);   // (a first gun goes to the hand)
     return old;
   }
+  /** lose every weapon keep(id, spec) doesn't keep (NABBED: the police take the guns, not a mission's things); the
+   *  fists stay. Returns the ids taken */
+  strip(keep = () => false) {
+    const gone = this.owned.filter(id => !keep(id, get('weapons', id)));
+    for (const id of gone) { delete this.ammo[id]; delete this.mag[id]; const s = get('weapons', id); if (this.slots[s.slot] === id) delete this.slots[s.slot]; }
+    this.owned = this.owned.filter(id => !gone.includes(id));
+    for (const id of this.owned) { const s = get('weapons', id); if (!this.slots[s.slot]) this.slots[s.slot] = id; }
+    if (!this.has(this.current)) { this.current = 'fists'; this.reloading = 0; }
+    return gone;
+  }
   /** weapon ids held, in wheel order */
   list() { return ['fists', ...this.owned]; }
   select(id) {
@@ -57,6 +67,7 @@ export class Inventory {
   /** step the trigger: held (automatic fire), tapped (semi-automatic: a press). Returns how many shots to fire now, and
    *  takes the rounds. A dry magazine reloads by itself, once the last shot has cycled */
   trigger(dt, held, tapped) {
+    this.stepped = true;
     const id = this.current, s = this.spec(); if (!s) return 0;
     this.cool -= dt;   // (it may run below 0 within a step, so a fast weapon keeps its exact rate between steps)
     if (this.reloading > 0) {
@@ -77,6 +88,12 @@ export class Inventory {
       if (!auto) break;
     }
     return n;
+  }
+  /** a step its trigger isn't stepped in (a stagger, a knockdown, a stun, a ride): its clocks go on, so a reload under
+   *  way ends in its time (a beating every second had held one off for good) */
+  idle(dt) {
+    this.cool = Math.max(0, this.cool - dt); this._tap = 0;
+    if (this.reloading > 0) { this.reloading -= dt; if (this.reloading <= 0) { const s = this.spec(); this.reloading = 0; if (s) this.mag[this.current] = Math.min(s.mag, this.ammo[this.current] ?? 0); } }
   }
   /** the save's part: weapons and ammo */
   toJSON() { return { weapons: this.list(), ammo: { ...this.ammo }, current: this.current }; }

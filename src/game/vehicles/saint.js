@@ -67,7 +67,7 @@ def('vehicleModels', 'saint', {
 def('vehicles', 'saint', {
   name: 'Saint', model: 'saint', class: 'car', role: 'civilian', seats: 4, radio: 'neon', health: 120, horn: 'car',
   palette: ['#16161a', '#ece8de', '#6a1c2a', '#c8a24a', '#a8acb4'],
-  handling: { mass: 1700, top: 285, accel: 119, brake: 640, grip: 470, drift: .34, steer: .5, steerRate: 2.8, drive: 'rwd', wheelbase: 43 },
+  handling: { mass: 1700, top: 285, accel: 119, brake: 640, grip: 470, drift: .34, steer: .62, steerRate: 2.8, drive: 'rwd', wheelbase: 43 },   // (.62: it turns inside the city's junction arcs, D17)
   spec: { t200: 2.7, top: 285, brake200: 40 },
   spawn: { zones: ['neon', 'palm'], weight: 2, timeOfDay: ['day', 'night'] }, price: 0, tags: ['luxury', 'saints'],
   about: 'The Chrome Saints\' favourite: long, heavy and blessed. Floats over bumps, wallows in corners, never hurries.',

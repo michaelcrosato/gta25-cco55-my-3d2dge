@@ -29,6 +29,11 @@ test('a held button survives a context switch (the engine use() trap) and does n
 test('analog triggers: half an R2 is half throttle', () => {
   const I = fakeInput([pad(0, { values: { 7: .5 } })]), b = new Bindings(I); b.setContext('vehicle'); step(b);
   assert.equal(b.value('throttle'), .5);
+  // a browser calls a trigger pressed from about an eighth of its travel (Chromium: 30/255): its value still counts
+  I.raw.pads[0].buttons[7] = { pressed: true, value: .3 }; step(b);
+  assert.equal(b.value('throttle'), .3, 'a pressed trigger keeps its travel');
+  I.raw.pads[0].buttons[7] = { pressed: true, value: 0 }; step(b);
+  assert.equal(b.value('throttle'), 1, 'a press that reports no value is a full one');
 });
 test('L3 + R3 together is the ability; L3 alone is crouch after the chord window', () => {
   const I = fakeInput([pad(0)]), b = new Bindings(I); b.setContext('onFoot');

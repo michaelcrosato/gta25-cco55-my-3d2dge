@@ -1,0 +1,138 @@
+{
+ "files": [
+  "src/game/missions/h4-big-withdrawal.js"
+ ],
+ "runs": [
+  {
+   "id": "heist_big_withdrawal",
+   "seed": 1,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 242,
+   "note": "LOUD (the choice's bot), full run from plan, 0 retries"
+  },
+  {
+   "id": "heist_big_withdrawal",
+   "seed": 2,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 186,
+   "note": "LOUD, full run, 0 retries"
+  },
+  {
+   "id": "heist_big_withdrawal",
+   "seed": 3,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 181,
+   "note": "LOUD, full run, 0 retries"
+  },
+  {
+   "id": "heist_big_withdrawal",
+   "seed": 1,
+   "pad": true,
+   "passed": true,
+   "medal": "gold",
+   "secs": 233,
+   "note": "pad, LOUD, full run, 0 retries"
+  },
+  {
+   "id": "heist_big_withdrawal/drill",
+   "seed": 1,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 217,
+   "note": "QUIET branch from --stage drill (drill, vault, getaway at 2 stars, window, tow, home, split), 0 retries"
+  },
+  {
+   "id": "heist_big_withdrawal/drill",
+   "seed": 2,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 251,
+   "note": "QUIET branch from --stage drill, 0 retries"
+  },
+  {
+   "id": "heist_big_withdrawal/drill",
+   "seed": 3,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 274,
+   "note": "QUIET branch from --stage drill, 0 retries"
+  }
+ ],
+ "notes": "I wrote H4 heist_big_withdrawal (\"The Big Withdrawal\") in src/game/missions/h4-big-withdrawal.js. It is the only file I created and I changed no existing file. All seven final bot runs passed with gold medals and no retries (LOUD seeds 1-3, LOUD pad seed 1, QUIET from --stage drill seeds 1-3). eslint, the boundary check and the mission-links test (2/2) all pass.\n\nStages: plan (m.choice LOUD/QUIET; QUIET is disabled unless rats or saints respect is at least 40; bot picks 'loud'), ram and lobby (LOUD), drill and vault (QUIET), then getaway, window, tow, home and split for both plans. Each branch stage sets m.data.plan when started directly, and the other plan's stages do nothing, so every stage deep-links. Rewards are $60,000 plus +10 respect to the gang that helped. Bonuses are \"Under 12:00\" and \"The getaway car above half\".\n\nDeviations from PLAN.md 9.4:\n- Stars are 4 (LOUD) or 2 (QUIET) on the ground, capped at 0 at the Loop's east ramp, and cleared after the off-ramp. A 4-star chase on the ramps wrecked the car and the bot can't shake 4 stars there.\n- Viv shoots out the engine of one SWAT van parked right behind the car, not a set of chasing cruisers. Driven chasers fail on the deck because of the MOTOR bugs listed below.\n- Viv's shooting is in the ISO view. The SIDE7 camera looks the way Dex drove, so the van behind him is out of view. The drive along the deck, the tow and the off-ramp are in SIDE7.\n- Viv uses the Snub .38 for the window (accurate) and the Buzzsaw in the lobby.\n- The roadblock is one mission cruiser, the one Gus tows.\n- The cameras are switched off by setting each interior camera's range to 0.\n\nThe fixes that made the standoff pass on every seed:\n- The van parks tight on the car's tail, so no traffic can cut in between.\n- Two troopers sit in its back seats, kept at chest height, so the aim assist locks onto the van.\n- The bot holds fire while anything crosses the line of fire, and Viv puts the gun away once the engine is out.\n- After the tow, the cruiser is removed and the Hookline is parked at the curb.\n- 12 s out of the car fails the home stage, so it retries.\n\nNotes are in /tmp/claude-0/-home-user-gta25-cco55-my-3d2dge/6d81a67c-9c5a-5aae-be2e-a310b60973ab/scratchpad/a2/heist-finale/notes.md; the file copy is in the files/ folder next to it. No MOTOR file was touched, and the commit and tree are unchanged (e88f1e2).",
+ "motorRequests": [
+  {
+   "file": "src/motor/mission/actors.js",
+   "change": "place(), vehicle branch: replace `b.vx = b.vy = b.vz = 0; b.speed = 0;` with `b.setVelocity(0, 0); b.vz = 0; b.w = 0;`",
+   "why": "VehicleBody's vx, vy and speed are getters only. In strict-mode modules the assignment throws a TypeError after x/y/z/heading are already set, so m.place(vehicle, ...) can't be used without try/catch. Content wraps it in put()."
+  },
+  {
+   "file": "src/motor/mission/actors.js",
+   "change": "vehicle(): after fleet.spawn, `const z = o.z ?? (Array.isArray(at) ? at[2] : at && at.z); if (v.body && typeof z === 'number') v.body.z = z;`",
+   "why": "A vehicle spawned at a deck point (m.lane on the Loop returns z 64) lands on the street under it. Content puts every deck vehicle again with a z."
+  },
+  {
+   "file": "src/motor/mission/actors.js",
+   "change": "_drive(): pass the goal's height to the GPS, `routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z, tz: goal[2] ?? 0 })`, with chase goals as `[t.x, t.y, t.z || 0]`. At the stop, replace `I.brake = 1` with `if (v.speed > 2) I.brake = 1; else I.down.handbrake = true;`. For a driven mission vehicle with no drive (`!D`, a driver who is not the player, not wrecked), return an Intent with `down.handbrake = true` instead of null.",
+   "why": "Mission chasers on the Loop routed down to the street lane under their goal and backed away once stopped (vehicle.js: the brake held at a stop reverses). A crewed parked van with no orders got the scene's idle Intent (no handbrake), never slept, and was nudged by traffic into the getaway car. Content uses driverless parked vehicles instead."
+  },
+  {
+   "file": "src/motor/mission/actors.js",
+   "change": "update(): seated mission peds are skipped (`if (p.seat ...) continue`). Keep them on their seat, e.g. `if (p.seat) { const v = p.seat.vehicle; p.place(v.x, v.y, (v.z || 0) + 6); continue; }`, or step them with an idle Intent so Ped._seated syncs them.",
+   "why": "The van's troopers stayed where they were put, at the vehicle's z rather than seated height, while the van was nudged. The aim assist then lost them. Content places them at the van's middle every step."
+  },
+  {
+   "file": "src/motor/mission/runtime.js",
+   "change": "deliver(): `hint: { kind: 'deliver', what: o.what, to, tow: o.tow }`",
+   "why": "dsl.js documents deliver's tow, but m.deliver({ tow }) makes the bot drive the towed car itself. Content sets its own objective with the tow hint plus a waitUntil."
+  },
+  {
+   "file": "src/motor/ai/missionbot.js",
+   "change": "_towTo(): pass heights to the AutoPlayer, `this._go(dt, p, S[0], S[1], { stay: true, radius: 16, slack: 10, z: car.z }, w)` and `{ stay: true, style: 'careful', radius: 50, z: h.to[2] }`",
+   "why": "On the Loop's deck, the staging point next to the car resolves to the street lane underneath. Content parks Gus at the staging point already, facing away from the cruiser."
+  },
+  {
+   "file": "src/motor/ai/missionbot.js",
+   "change": "_stealth(): add `&& !g.ped.dead` to the uneasy-guard wait, `run.guards.some(g => g.mind && g.mind.state !== 'calm' && g.mind.state !== 'down' && !g.down && !g.ped.dead)`",
+   "why": "interior.js stops updating a dead guard's mind (the `p.dead || g.down` continue), so a guard killed while noticing keeps its state and the bot waits forever."
+  },
+  {
+   "file": "src/motor/actors/fleet.js",
+   "change": "In the blasts loop, before boxDistance: `if (Math.abs((v.z || 0) - (b.z || 0)) > 40) continue;` (blasts already carry z)",
+   "why": "The chain is 2D. A car blowing up on the street under the Loop chained into the deck's cars 64 u above, including the getaway car. Content keeps the standoff vehicles apart."
+  },
+  {
+   "file": "src/motor/combat/aim.js",
+   "change": "losClear(map, a, b, decks = []): at each sample also test the deck slabs as shots.js does (`const top = d.heightAt(x, y); if (top !== null && z <= top && z >= top - (d.thickness || 6)) return false;`), and have play.js pass city.decks in both aim contexts.",
+   "why": "From the deck, Viv's assisted aim was pulled to peds on the street 64 u below and the shots were pitched into the deck slab. Content puts two troopers in the van at chest height so the assist locks onto them."
+  },
+  {
+   "file": "src/motor/ai/autoplayer.js",
+   "change": "In the boxed-in check (boxT), don't count a queue: skip when `b.cause === 'queue'` or when the leader's brain is waiting at a signal or in a queue.",
+   "why": "Queued behind cars at the light at the foot of the Loop's west ramp, the bot counted itself boxed in three times, got out and walked, so a reach with inVehicle never completed (seed 1). Content moved the goal to the lower ramp and fails the stage after 12 s out of the car."
+  },
+  {
+   "file": "src/motor/mission/runtime.js",
+   "change": "Add m.adopt(v, tag): put a world vehicle on the mission's actor list with a tag (owner 'mission' while the mission runs, back to 'world' at the end, not released by a retry).",
+   "why": "H1's Zephyr from m.garaged('getaway') can't be named by an enterVehicle or vehicle hint (R.actors.tagged finds nothing), so the bot can't be sent back to it."
+  },
+  {
+   "file": "src/motor/world/interior.js",
+   "change": "Add an interior run API, e.g. run.loopCameras(on), that blinds every CCTV camera and restores it.",
+   "why": "QUIET's hacker loops the cameras. Content sets m.inside.run.cameras[i].range = 0 directly."
+  },
+  {
+   "file": "src/motor/render/view-manager.js",
+   "change": "Let a mission point the SIDE7 rail: m.view('side7', { heading }) passing the heading to Side7View.setHeading.",
+   "why": "For Viv's window shot the van is behind the rail's camera, which looks the way Dex drove. Content switches the standoff to ISO."
+  }
+ ]
+}

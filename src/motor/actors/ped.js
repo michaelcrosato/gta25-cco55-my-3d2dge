@@ -8,7 +8,8 @@
 //     the aim (a strafe); the rig points the weapon and pitches it at what it aims at;
 //   - fighting: the trigger fires the weapon (the Combat world makes the shots), punches combos, swings the bat,
 //     throws; reload, and the weapon in hand steps with the d-pad;
-//   - being hurt: armour first, a flinch, a knockdown slide and the get-up, a stun, death.
+//   - being hurt: armour first, a flinch, a knockdown slide and the get-up (a moment after it a swing hurts but doesn't
+//     floor again: TUNE.upGrace), a stun, death.
 // Everything here is simulation: fixed steps, no drawing state read (D3: the same intents give the same game).
 //   const p = new Ped({ x, y, look, weapons, faction: 'crew' });  p.update(dt, intent, world);  p.draw(stage)
 import { E } from '../engine.js';
@@ -21,10 +22,12 @@ import { Stats } from '../combat/stats.js';
 import { Ability } from '../combat/abilities.js';
 import { PedRig } from './ped-rig.js';
 import { BUS } from '../core/bus.js';
+import { boxDistance } from './fleet.js';
 
 knob('On foot', 'climbMax', 'Climb height', 34, 0, 82, 1, 'The highest ledge a jump climbs: a one-storey roof (24), a garage (32), a container');
 knob('On foot', 'jumpSpeed', 'Jump speed', 140, 60, 300, 5, 'A jump\'s upward speed: 140 peaks about 14 units up, knee to hip (the engine\'s 220 clears a ped\'s head)');
 knob('On foot', 'aimWalk', 'Aiming walk', .5, .2, 1, .05, 'The stick push while aiming (half: a walk)');
+knob('On foot', 'upGrace', 'Back-up grace', 1.4, 0, 5, .1, 'After getting up, how long a swing hurts but cannot floor again (no beating someone down for good) (s)');
 knob('On foot', 'rollDist', 'Roll distance', 34, 10, 60, 1, 'How far a dodge roll goes (it stops short of a wall)');
 knob('On foot', 'staminaBack', 'Stamina recovery', .5, 0, 3, .05, 'Seconds of sprint won back a second at rest');
 
@@ -32,7 +35,21 @@ knob('On foot', 'staminaBack', 'Stamina recovery', .5, 0, 3, .05, 'Seconds of sp
 const COMBOS = { fists: () => ['jab', 'cross', 'hook', 'uppercut'],
   slugger: () => [new E.Attack('overhead', { wind: .22, active: .1, recover: .33 }), new E.Attack('slash', { wind: .12, active: .1, recover: .28 })] };
 const MELEE_ARC = 1.1;   // radians either side of the facing a swing reaches
+const NEAR_MISS = 6;   // (u between two vehicles' boxes: a near miss at speed, untouched)
+// is the nearest point of box b (a vehicle, a prop: { x, y, z, hl, hw, heading }) within range of ped a, inside the
+// arc either side of its facing, and at its height?
+const boxInArc = (a, facing, b, range, half) => {
+  const c = Math.cos(b.heading || 0), s = Math.sin(b.heading || 0), dx = a.x - b.x, dy = a.y - b.y;
+  const lx = Math.max(-b.hl, Math.min(b.hl, dx * c + dy * s)), ly = Math.max(-b.hw, Math.min(b.hw, -dx * s + dy * c));
+  const px = b.x + lx * c - ly * s, py = b.y + lx * s + ly * c, d = Math.hypot(px - a.x, py - a.y);
+  if (d > range || Math.abs((b.z || 0) - (a.z || 0)) > 24) return false;
+  if (d < 4) return true;   // (against it: any swing lands)
+  let da = Math.atan2(py - a.y, px - a.x) - facing; da = Math.atan2(Math.sin(da), Math.cos(da)); return Math.abs(da) <= half;
+};
 const OPEN = new Set(['bike', 'boat']);   // vehicles whose riders are seen
+const SEATED = { crouch: true };   // (a rider's pose)
+/** where a ped's rig clock starts (s): from its id, so each sways in its own time and the same ped the same way twice */
+const phaseOf = id => { let h = 7; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return (h % 1000) / 100; };
 
 export class Ped {
   /** o: { x, y, z, faction, look (PedRig), weapons, ammo, current, health, armor, stats, ability, abilityMeter, id,
@@ -41,7 +58,7 @@ export class Ped {
     this.mover = new E.Mover({ x: o.x || 0, y: o.y || 0, z: o.z || 0, r: 5, climbMax: TUNE.climbMax, facing: o.facing || 0 });
     this.actor = new Actor('ped', { id: o.id, x: o.x, y: o.y, z: o.z, faction: o.faction || 'civilian' });
     this.id = this.actor.id; this.character = o.character || null; this.faction = this.actor.faction;
-    this.rig = new PedRig(o.look || {});
+    this.rig = new PedRig(o.look || {}, { phase: phaseOf(this.id) });
     this.vitals = new Vitals({ health: o.health ?? o.maxHealth ?? 100, maxHealth: o.maxHealth ?? 100, armor: o.armor ?? 0 });
     /** anchored: never knocked about (a range dummy) */ this.anchored = !!o.anchored;
     this.inv = new Inventory(o.weapons || ['fists'], o.ammo || {}); if (o.current) this.inv.select(o.current);
@@ -55,11 +72,20 @@ export class Ped {
      *  shooter. boarding: getting in or out (boarding.js's plan, the walk to the door, the beats). held: the action
      *  someone else plays on this body (a carjack's victim) */
     this.seat = null; this.boarding = null; this.held = null;
+    /** prop: a model held in place of the weapon (a crowd ped's phone), raised at propAim (radians up) when that is a
+     *  number; clip: a mocap clip the rig plays while the body stands still (PedRig: a phone call, sitting). lazyRig:
+     *  the rig is posed only when the body is drawn (crowd peds, which never shoot: nothing in the simulation reads
+     *  their joints), so a crowd costs its bodies' physics, not their animation */
+    this.prop = null; this.propAim = null; this.clip = null; this.lazyRig = !!o.lazyRig; this._rigS = null;
+    /** coast: gliding far from the focus (the crowd's): vehicles and trains leave it be (none drive where it walks) */
+    this.coast = false; this.gliding = false;
   }
   // the body for hit tests and the aim (Shots, Explosives and Aimer read x, y, z, r, h, dead, id)
   get x() { return this.mover.x; } get y() { return this.mover.y; } get z() { return this.mover.z; }
   get dead() { return this.vitals.dead; } get alive() { return !this.vitals.dead; }
   get facing() { return this.mover.facing; }
+  /** crouched (the engine's sight reads it: a crouched body shows lower and less) */
+  get crouch() { return this.crouching; }
   get health() { return this.vitals.health; } get armor() { return this.vitals.armor; }
   /** on the ground (knocked down or getting up) */
   get floored() { return this.vitals.down > 0 || (this.mover.action && this.mover.action.name === 'getUp'); }
@@ -69,12 +95,19 @@ export class Ped {
   /** one step. I: the Intent; w: { map, city, combat (fires, throws, melee), aim: { candidates, toScreen, los, level,
    *  threat } } */
   update(dt, I, w = {}) {
+    this.inv.stepped = false; const r = this._update(dt, I, w);
+    if (!this.inv.stepped) this.inv.idle(dt);   // (no trigger this step: the reload's clock goes on all the same)
+    return r;
+  }
+  _update(dt, I, w) {
     const m = this.mover, v = this.vitals, map = w.map;
     m.climbMax = TUNE.climbMax; m.jumpSpeed = TUNE.jumpSpeed;
-    v.damageTaken = this.ability ? this.ability.damageTaken : 1;
-    v.update(dt); this.flinch = Math.max(0, this.flinch - dt); this.inCombat = Math.max(0, this.inCombat - dt);
+    v.damageTaken = this.god ? 0 : (this.ability ? this.ability.damageTaken : 1) * (this.hurtScale || 1);   // (hurtScale: the difficulty's, on the crew; god: a bot's run that may not die, D29)
+    v.update(dt); this.flinch = Math.max(0, this.flinch - dt); this.inCombat = Math.max(0, this.inCombat - dt); this.upGrace = Math.max(0, (this.upGrace || 0) - dt);
     if (this.ability) this.ability.update(dt, { aiming: this.aiming });
-    if (this.burning > 0) { this.burning -= dt; if (w.combat) w.combat.burnBody(this, dt); }
+    if (this.burning > 0) { this.burning -= dt; if (w.combat) w.combat.burnBody(this, dt); if (this.burning <= 0) this.burnGrace = 1; }   // (out: a moment before the fire it stands in lights it again)
+    else this.burnGrace = Math.max(0, (this.burnGrace || 0) - dt);
+    this.gliding = false;
     if (v.dead) { this._dieT += dt; this.aiming = false; this._pose(dt, { pose: 'die' }); return this; }
     // knocked down: slide out the knockback with friction, then get up
     if (v.down > 0) {
@@ -82,10 +115,11 @@ export class Ped {
       const f = m.friction; m.friction = 7; E.Body.prototype.update.call(m, dt, map); m.friction = f;
       this._pose(dt, { down: 1 }); return this._sync();
     }
-    if (this._down) { this._down = false; m.vx = m.vy = 0; m.play('getUp'); }
+    if (this._down) { this._down = false; m.vx = m.vy = 0; m.play('getUp'); this.upGrace = TUNE.upGrace; }
     if (this.held) {   // moved by another's action (yanked out of a car): then down, and up again
-      if (this.held.done) { this.held = null; v.down = Math.max(v.down, .9); m.vx = m.vy = 0; }
-      else { this._pose(dt, this.held.otherState()); return this._sync(); }
+      const H = this.held, by = H.holder, live = !by || (!by.dead && by.boarding && by.boarding.act === H);   // (the jacker shot, knocked down or respawned mid-yank: let go)
+      if (H.done || !live) { this.held = null; v.down = Math.max(v.down, .9); m.vx = m.vy = 0; if (!H.done && H.vehicle && H.door) H.vehicle.doorWant[H.door] = 0; }
+      else { this._pose(dt, H.otherState()); return this._sync(); }
     }
     if (v.stun > 0) { m.update(dt, map, { move: [0, 0] }); this._pose(dt, { hurt: true }); return this._sync(); }
     if (this.boarding) return this._boarding(dt, I, w);
@@ -100,7 +134,8 @@ export class Ped {
     if (I.tap.ability && this.ability) this.ability.toggle();
     // the aim: locked, assisted or free (the facing when nothing aims)
     const A = w.aim || {}, range = spec ? spec.range : 300;
-    this.aimer.update(dt, { held: !!I.down.aim && ranged, dir: I.aim, facing: m.facing, shooter: this, candidates: A.candidates || [], toScreen: A.toScreen || ((x, y, z) => [x, y - z]),
+    const idleAim = !I.down.aim && !I.aim && !I.aimPoint && !I.down.attack && !I.tap.attack;
+    this.aimer.update(dt, { held: !!I.down.aim && ranged, idle: idleAim, dir: I.aim, facing: m.facing, shooter: this, candidates: A.candidates || [], toScreen: A.toScreen || ((x, y, z) => [x, y - z]),
       los: A.los, range, level: A.level || 'standard', threat: A.threat, point: I.aimPoint, stick: I.aimStick || 0 });
     // moving: sprint on stamina, a walk while aiming, standing still to swing
     let mv = I.move, len = Math.hypot(mv[0], mv[1]);
@@ -129,13 +164,34 @@ export class Ped {
     if (this.flinch > 0) s.hurt = true;
     if (this.crouching && !m.action) s.crouch = true;
     if (this.posing && !m.action && len < .1 && !attack) s.pose = this.posing;   // (a vignette's pose: 'kneel', 'hips'...)
+    if (this.clip && !m.action && len < .1 && !attack && !this.aiming) s.clip = this.clip;   // (a mocap clip played standing: a phone call, a bench)
     this._pose(dt, s);
     return this._sync();
   }
   // in a vehicle's seat (PLAN.md 8.12's drive-by): the body rides along; the pistol or SMG fires out of the window
   // toward the aim stick, or at the nearest target off either side (30 to 150 degrees from the heading) when it rests
+  /** this ped's factor on a vehicle's handling at its wheel (PLAN.md 8.11): its Driving stat, and OVERDRIVE while on */
+  handling() { return this.stats.handling() * (this.ability ? this.ability.handling : 1); }
+  // a protagonist at the wheel plays in character (PLAN.md 8.11): a second at speed (over half the top speed) and a near
+  // miss (another vehicle's box passed within NEAR_MISS u at 120 u/s or more, untouched, once a vehicle in 2 s) feed the
+  // Driving stat and OVERDRIVE
+  _driving(dt, w) {
+    const v = this.seat.vehicle, b = v.body; if (!b || !b.h) return;
+    this._driveT = (this._driveT || 0) + dt;
+    if (v.speed > b.h.top * .5) { this.stats.did('driveFast', dt); if (this.ability) this.ability.feed('driveFast', dt); }
+    if (v.speed < 120 || !w.fleet) return;
+    const seen = this._misses || (this._misses = new Map());
+    for (const [id, t] of seen) if (this._driveT - t > 2) seen.delete(id);
+    for (const o of w.fleet.near(v.x, v.y, v.hl + 40)) {
+      if (o === v || o.wrecked || !o.body || seen.has(o.id)) continue;
+      const gap = Math.min(...[[o.hl, o.hw], [o.hl, -o.hw], [-o.hl, o.hw], [-o.hl, -o.hw]].map(([lx, ly]) => { const [x, y] = o.toWorld(lx, ly); return boxDistance(v, x, y); }), ...[[v.hl, v.hw], [v.hl, -v.hw], [-v.hl, v.hw], [-v.hl, -v.hw]].map(([lx, ly]) => { const [x, y] = v.toWorld(lx, ly); return boxDistance(o, x, y); }));
+      if (gap > .5 && gap < NEAR_MISS && Math.abs(o.z - v.z) < 12) { seen.set(o.id, this._driveT); this.stats.did('nearMiss'); if (this.ability) this.ability.feed('nearMiss'); }
+    }
+  }
   _seated(dt, I, w) {
     const m = this.mover, b = this.seat.body, C = w.combat, A = w.aim || {};
+    if (I.tap.ability && this.ability) this.ability.toggle();   // (the Ability button works at the wheel too: OVERDRIVE is a driver's)
+    if (this.faction === 'crew' && (this.seat.index || 0) === 0 && this.seat.vehicle) this._driving(dt, w);
     const at = b.seatAt ? b.seatAt(this.seat.index || 0) : [b.x, b.y];
     m.x = at[0]; m.y = at[1]; m.z = (b.z || 0) + (b.cls === 'bike' ? 7 : 6); m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
     const spec = this.inv.spec(), ok = !!spec && (spec.slot === 'pistol' || spec.slot === 'smg') && !(b.armed && this.seat.index === 0), trigger = !!(I.down.fire || I.down.attack);   // (the driver's ○ is the vehicle's own weapon when it has one)
@@ -157,13 +213,21 @@ export class Ped {
     this._pose(dt, { crouch: true, point: this.aiming, aim: 0 });
     return this._sync();
   }
+  /** keep a rider's body in its seat without the rest of its step (a driver the AI drives: nothing to aim or fire) */
+  ride() {
+    const st = this.seat; if (!st) return this;
+    const m = this.mover, b = st.body, at = b.seatAt ? b.seatAt(st.index || 0) : [b.x, b.y];
+    m.x = at[0]; m.y = at[1]; m.z = (b.z || 0) + (b.cls === 'bike' ? 7 : 6); m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
+    if (this.lazyRig) this._rigS = SEATED; else this._pose(1 / 120, { crouch: true });
+    return this._sync();
+  }
   /** get into a vehicle by a boarding plan (boarding.js: boardingFor): walk to the door, then play the beats */
   board(plan) { if (!plan || this.seat || this.dead) return false; this.boarding = { plan, v: plan.vehicle, phase: 'walk', t: 0, act: null }; this.aiming = false; return true; }
   /** get out of the vehicle this ped sits in (plan: boarding.js's exitFor) */
   leave(plan) {
     if (!plan || !this.seat) return false;
     const v = plan.vehicle; v.unseat(this);
-    this.boarding = { plan, v, phase: 'act', t: 0, exiting: true, act: new E.Action(plan.kind, { body: this.mover, vehicle: v, door: plan.door, seatSpot: plan.seatSpot }) };
+    this.boarding = { plan, v, phase: 'act', t: 0, exiting: true, act: new E.Action(plan.kind, { body: this.mover, vehicle: v, door: plan.door, seatSpot: plan.seatSpot, reach: plan.reach }) };   // (reach: how far a bail-out's dive may go)
     if (plan.kind !== 'bailOut') v.doorWant[plan.door.id] = 1;
     return true;
   }
@@ -183,10 +247,10 @@ export class Ped {
         const victim = v.seats[P.seat]; if (!victim) { P.kind = 'enterCar'; return this._sync(); }
         v.unseat(victim); victim.boarding = null; o.other = victim.mover; B.victim = victim;
         BUS.emit('carjack', { vehicle: v.id, by: this.id, victim: victim.id });
-        BUS.emit('crime', { type: 'carjack', x: m.x, y: m.y, by: this.id, victim: victim.id, severity: 2 });
+        BUS.emit('crime', { type: 'carjack', x: m.x, y: m.y, by: this.id, victim: victim.id, vehicle: v.id, severity: 2 });
       }
-      B.act = new E.Action(kind, o); B.phase = 'act'; B.kind = kind; if (B.victim) B.victim.held = B.act;
-      if (kind === 'breakIn') BUS.emit('crime', { type: 'breakIn', x: m.x, y: m.y, by: this.id, victim: null, severity: 1 });
+      B.act = new E.Action(kind, o); B.phase = 'act'; B.kind = kind; if (B.victim) { B.victim.held = B.act; Object.assign(B.act, { holder: this, vehicle: v, door: P.door.id }); }
+      if (kind === 'breakIn') BUS.emit('crime', { type: 'breakIn', x: m.x, y: m.y, by: this.id, victim: null, vehicle: v.id, severity: 1 });
     }
     // the beats: the door swings with them
     const act = B.act, running = act.update(dt);
@@ -206,7 +270,22 @@ export class Ped {
     return this._sync();
   }
   _sync() { const m = this.mover, a = this.actor; a.x = m.x; a.y = m.y; a.z = m.z; a.facing = m.facing; a.health = this.vitals.health; a.dead = this.vitals.dead; return this; }
-  _pose(dt, extra) { this.rig.hold(this.inv.spec() ? this.inv.spec().model || null : null); this.rig.update(dt, this.mover.rigState(extra)); }
+  _pose(dt, extra) {
+    const spec = this.inv.spec(); this.rig.hold(this.prop || (spec ? spec.model || null : null));
+    if (this.prop && typeof this.propAim === 'number' && !extra.point && !extra.attack && !extra.down) { extra.point = true; extra.aim = this.propAim; }
+    if (this.lazyRig) { this._rigS = extra; return; }
+    this.rig.update(dt, this.mover.rigState(extra));
+  }
+  /** pose a lazy rig now, s seconds after it was last posed (the stage calls it just before it draws a crowd body) */
+  poseNow(s = 1 / 60) { if (this.lazyRig) this.rig.update(Math.min(s, .25), this.mover.rigState(this._rigS || {})); }
+  /** move the body without its physics (a far crowd ped walking its sidewalk line): placed at (x, y, z) with velocity
+   *  (vx, vy) for its walk, facing the way it goes; its rig is posed when it is drawn */
+  glide(x, y, z, vx, vy) {
+    const m = this.mover; m.x = x; m.y = y; m.z = z; m.vx = vx; m.vy = vy; m.vz = 0; m.action = null; m.onGround = true; this.gliding = true;
+    const s = {}; if (vx || vy) m.facing = Math.atan2(vy, vx); else { if (this.posing) s.pose = this.posing; if (this.clip) s.clip = this.clip; }
+    this._pose(0, s);
+    return this._sync();
+  }
   // the gun's pitch (radians up) toward what the aim points at
   _pitch() {
     const p = this.aimer.pitchTo; if (!p) return 0;
@@ -229,7 +308,10 @@ export class Ped {
       this._swingCool = Math.max(0, (this._swingCool || 0) - dt); this._swingBuf = I.tap.attack ? .3 : Math.max(0, (this._swingBuf || 0) - dt);
       if (this._swingBuf > 0 && this._swingCool <= 0 && this.combo.press()) { this._swingBuf = 0; this._swingCool = 1 / spec.rate; this.inCombat = 6; C.swing(this, spec); }
       this.combo.update(dt);
-      if (this.combo.active) this.combo.hits(C.bodiesNear(this, spec.range + 12), t => t !== this && !t.dead && E.inArc(this, this.mover.facing, t, spec.range, MELEE_ARC, 16), t => C.meleeHit(this, t, spec, this.combo.current.spec));
+      if (this.combo.active) {
+        this.combo.hits(C.bodiesNear(this, spec.range + 12), t => t !== this && !t.dead && E.inArc(this, this.mover.facing, t, spec.range, MELEE_ARC, 16), t => C.meleeHit(this, t, spec, this.combo.current.spec));
+        this.combo.hits(C.boxesNear(this, spec.range + 40), b => !b.wrecked && boxInArc(this, this.mover.facing, b, spec.range, MELEE_ARC), b => C.meleeHit(this, b, spec, this.combo.current.spec));   // (a car, a prop: its nearest side in reach)
+      }
       return this.combo.state;
     }
     if (spec.projectile === 'molotov' || spec.projectile === 'grenade') {
@@ -251,7 +333,7 @@ export class Ped {
     if (this.vitals.dead) return null;
     const rolling = this.mover.action && this.mover.action.name === 'roll' && this.mover.action.invulnerable;
     if (rolling && o.kind === 'melee') return null;   // (a roll is a dodge: the swing misses)
-    const r = this.vitals.hit({ amount: o.amount, kind: o.kind, by: o.by, knock: o.knockdown });
+    const r = this.vitals.hit({ amount: o.amount, kind: o.kind, by: o.by, knock: o.knockdown && !(o.kind === 'melee' && this.upGrace > 0) });   // (just up: a swing hurts, but doesn't floor again)
     this.flinch = .25; this.inCombat = 6;
     if (this.ability) this.ability.feed('hurt', r.health + r.armor);
     if (this.anchored) { this.vitals.down = 0; return r; }
@@ -261,15 +343,17 @@ export class Ped {
   /** back on its feet at (x, y, z) with full health (after WASTED: the hospital) */
   revive(x, y, z = 0) {
     const v = this.vitals; v.dead = false; v.health = v.maxHealth; v.armor = 0; v.down = 0; v.stun = 0; v.sinceHit = 1e9; v.zaps = 0;
-    this.burning = 0; this.flinch = 0; this._dieT = 0; this._down = false; this.throwing = null; this.combo = null; this._comboFor = '';
-    this.place(x, y, z); this.stamina = this.stats.sprintTime(); return this._sync();
+    this.burning = 0; this.burnGrace = 0; this.flinch = 0; this.upGrace = 0; this._dieT = 0; this._down = false; this.throwing = null; this.combo = null; this._comboFor = '';
+    this.place(x, y, z); this.stamina = this.stats.sprintTime();
+    for (let i = 0; i < 24; i++) this._pose(1 / 60, {});   // (up on its feet at once: the rig's get-up, a third of a second, played out here, never a frame of the fall where it wakes)
+    return this._sync();
   }
   /** catch fire for some seconds (a Molotov, the flamethrower, standing in the flames) */
-  ignite(s = 4) { this.burning = Math.max(this.burning, s); }
+  ignite(s = 4, by = null) { if (this.burning <= 0 && !(this.burnGrace > 0)) this.burnBy = null; this.burning = Math.max(this.burning, s); if (by !== null && by !== undefined) this.burnBy = by; }   // (by: who set them alight; the burn hurts in their name)
   /** draw on the Stage (o: the actor options, { xray, crowd, key }) */
   draw(stage, o = {}) {
     if (this.seat && this.seat.vehicle && !OPEN.has(this.seat.vehicle.cls)) return;   // (inside a car: the roof hides them)
-    const m = this.mover; stage.actor(m.x, m.y, m.z, (g, x, y, v) => this.rig.draw(g, x, y, v), { shadow: this.seat ? 0 : 5, ...o });
+    const m = this.mover; stage.actor(m.x, m.y, m.z, (g, x, y, v) => this.rig.draw(g, x, y, v), { shadow: this.seat ? 0 : 5, ...(this.lazyRig ? { pose: s => this.poseNow(s) } : {}), ...o });
   }
   /** the save's part of a protagonist */
   toJSON() { return { pos: [Math.round(this.x), Math.round(this.y), Math.round(this.z)], health: Math.round(this.vitals.health), armor: Math.round(this.vitals.armor), ...this.inv.toJSON(), stats: this.stats.toJSON(), ability: this.ability ? +this.ability.meter.toFixed(3) : 0 }; }

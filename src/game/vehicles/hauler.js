@@ -96,12 +96,13 @@ def('vehicleModels', 'hauler', {
 });
 
 // one chassis, so they share a wheelbase and front-wheel drive with the weight over the back (the box, loaded); the
-// slow ones steer slower and, to hold a skidpad at a crawl, a little more lock
+// slow ones steer slower and, to hold a skidpad at a crawl, a little more lock; every van turns inside the city's
+// junction arcs (TURN_R 72) at a van's pace: .62 of lock on this wheelbase (D17)
 const VAN = { wheelbase: 43, drive: 'fwd', cg: .65, brake: 640, steerFade: .45 };
 def('vehicles', 'hauler', {
   name: 'Hauler', model: 'hauler', class: 'truck', role: 'civilian', seats: 3, radio: 'wheelz', health: 160, horn: 'truck',
   palette: ['#e8e8e4', '#d8c8a0', '#8e9198', '#8ec0e8'],
-  handling: { ...VAN, mass: 2600, top: 201, accel: 54, grip: 306, drift: .48, steer: .5, steerRate: 2.4, cgHeight: .35, rolling: .008 },
+  handling: { ...VAN, mass: 2600, top: 201, accel: 54, grip: 306, drift: .48, steer: .62, steerRate: 2.4, cgHeight: .35, rolling: .008 },
   spec: { t100: 2.2, top: 195, brake100: 15 },
   spawn: { zones: ['harbor', 'brick'], weight: 2, timeOfDay: ['day'] }, tags: ['van', 'box', 'delivery'],
   about: 'A delivery box van: slow off the line, heavy in a hit, a wide turning circle.',
@@ -109,21 +110,21 @@ def('vehicles', 'hauler', {
 def('vehicles', 'medic', {
   name: 'Medic', model: 'hauler', kit: 'medic', class: 'truck', role: 'medic', siren: true, seats: 3, radio: 'off', health: 140, horn: 'truck',
   palette: ['#f0f0ee'],
-  handling: { ...VAN, mass: 2500, top: 215, accel: 57, grip: 336, drift: .48, steer: .5, steerRate: 2.4, cgHeight: .35, rolling: .01 },
+  handling: { ...VAN, mass: 2500, top: 215, accel: 57, grip: 336, drift: .48, steer: .62, steerRate: 2.4, cgHeight: .35, rolling: .01 },
   spec: { t100: 2.0, top: 210, brake100: 14 }, tags: ['van', 'ambulance', 'emergency'],
   about: 'The ambulance: the Hauler with a stronger engine, better brakes and the lights.',
 });
 def('vehicles', 'rhino', {
   name: 'MPD Rhino', model: 'hauler', kit: 'swat', class: 'truck', role: 'police', locked: true, siren: true, seats: 3, radio: 'lowdown', health: 260, toughness: .6, horn: 'truck',
   palette: ['#1e2a4a', '#18181e'],
-  handling: { ...VAN, mass: 3400, top: 197, accel: 45, grip: 290, drift: .45, steer: .52, steerRate: 1.6, cgHeight: .4, rolling: .008 },
+  handling: { ...VAN, mass: 3400, top: 197, accel: 45, grip: 290, drift: .45, steer: .62, steerRate: 1.6, cgHeight: .4, rolling: .008 },
   spec: { t100: 2.6, top: 190, brake100: 16 }, tags: ['van', 'police', 'swat', 'armored'],
   about: 'The SWAT truck: armour plates and a ram, slow to get going and hard to stop.',
 });
 def('vehicles', 'strongbox', {
   name: 'Strongbox', model: 'hauler', kit: 'armored', class: 'truck', role: 'special', locked: true, seats: 2, radio: 'off', health: 400, toughness: .4, horn: 'truck',
   palette: ['#7e868e', '#2f5e44'],
-  handling: { ...VAN, mass: 4200, top: 176, accel: 43, grip: 272, drift: .42, steer: .575, steerRate: 1.2, cgHeight: .4, rolling: .006 },
+  handling: { ...VAN, mass: 4200, top: 176, accel: 43, grip: 272, drift: .42, steer: .62, steerRate: 1.2, cgHeight: .4, rolling: .006 },
   spec: { t100: 3.0, top: 170, brake100: 17 }, tags: ['van', 'armored', 'bank'],
   about: 'The bank\'s armoured car: the heaviest thing on four wheels in Lowtown, and the slowest.',
 });

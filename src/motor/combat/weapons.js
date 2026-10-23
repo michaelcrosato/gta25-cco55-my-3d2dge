@@ -15,6 +15,7 @@ declare('weapons', shape({
   ammo: { type: 'number', def: 0, min: 0 }, price: { type: 'number', def: 0, min: 0 }, unlock: { type: 'string', def: '' },
   model: { type: 'string', def: '' }, sound: { type: 'string', def: '' }, recoil: { type: 'number', def: 0 }, rumble: { type: 'number', def: 0 },
   twoHanded: { type: 'boolean', def: false }, fuse: { type: 'number', def: 0 }, burn: { type: 'number', def: 0 }, chain: { type: 'number', def: 0 }, stun: { type: 'number', def: 0 },
+  keep: { type: 'boolean', def: false },   // (kept when NABBED: a job's tool, not a weapon the police take)
 }));
 /** a weapon's damage a second held on a target for a long time, reloads included (the range's check) */
 export function sustainedDps(w) {

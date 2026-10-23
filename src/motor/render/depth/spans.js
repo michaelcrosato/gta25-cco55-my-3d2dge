@@ -5,6 +5,8 @@
 export class Spans {
   /** map: the TileMap; size: the chunk size in world units (FloorChunks' 256) */
   constructor(map, size = 256) { this.map = map; this.size = size; this.cells = Math.round(size / map.T); this.cache = new Map(); this.version = map.version; }
+  /** the span over world point (x, y), or null */
+  at(x, y) { const S = this.size; for (const s of this.chunk(Math.floor(x / S), Math.floor(y / S))) if (x >= s.x0 && x < s.x1 && y >= s.y0 && y < s.y1) return s; return null; }
   /** the spans of chunk (i, j) */
   chunk(i, j) {
     const M = this.map; if (M.version !== this.version) { this.cache.clear(); this.version = M.version; }

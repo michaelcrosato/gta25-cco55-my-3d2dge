@@ -32,7 +32,7 @@ export function skyAt(hour, w = null) {
   s.sky = s.sky.map(col => mixHex(col, '#5a6070', .6 * c)); s.top = mixHex(s.top, '#3e424c', .5 * c);
   s.fog = mixHex(s.fog, s.ambient > .6 ? '#a4aab4' : '#3a3c48', Math.min(1, .8 * f + .35 * c));
   s.lamps = s.ambient < .8; s.night = s.ambient < .66;   // (a storm by day puts the lamps on)
-  s.haze = f; s.rain = w.rain || 0; s.wet = w.wet || 0; s.flash = w.flash || 0;
+  s.haze = f; s.rain = w.rain || 0; s.wet = w.wet || 0; s.flash = (w.flash || 0) * (w.flashK ?? 1);
   if (s.flash > 0) s.ambient = Math.min(1, s.ambient + s.flash * 2.2);   // lightning lights the whole city for a moment
   return s;
 }
@@ -47,4 +47,12 @@ function clearSky(hour) {
     sky: a.sky.map((c, k) => mixHex(c, b.sky[k], t)), fog: mixHex(a.fog, b.fog, t), top: mixHex(a.top, b.top, t),
     phase: t < .5 ? a.phase : b.phase, lamps: ambient < .8, night: ambient < .66, haze: 0, rain: 0, wet: 0, flash: 0,
   };
+}
+
+/** indoors (an interior, PLAN.md 5.4): the room's own light, the same at every hour but dimmer after closing (o.dim
+ *  0..1), no weather; a dark ceiling for MODE 7's sky and no ISO backdrop past the walls (indoor: true) */
+export function indoorSky(hour, o = {}) {
+  const h = ((hour % 24) + 24) % 24, open = h >= 8 && h < 18, dim = o.dim ?? (open ? 0 : 1), ambient = .78 - .3 * dim;
+  return { hour: h, ambient, tint: .2 + .1 * dim, dark: [18, 14, 30], sky: ['#0c0a12', '#16131e', '#221d2c'], fog: '#1a1622', top: '#0a0812',
+    phase: 'night', lamps: true, night: true, haze: 0, rain: 0, wet: 0, flash: 0, indoor: true };
 }

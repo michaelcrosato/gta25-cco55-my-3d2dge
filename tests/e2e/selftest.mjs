@@ -1,11 +1,14 @@
 // The Proving Ground's self-tests (PLAN.md 8.23): each zone that has one is opened with ?selftest=1 in headless
 // Chromium; its script runs over drawn frames and publishes { ok, checks } as __gtm.selftest(). Every zone must pass,
-// with no page errors. More zones join as their systems land (M12: all eight).
+// with no page errors: PLAN's eight (handling, traffic, range, wanted, views, ui, bench, stress) and the fixtures
+// beside them (the garage, the occluder, the scale yard, the vehicle pad). --zones a,b runs those alone.
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const ZONES = ['range', 'views', 'garage'];
+const ALL = ['handling', 'traffic', 'range', 'wanted', 'views', 'ui', 'bench', 'stress', 'garage', 'occluder', 'scale', 'pad'];
+const LONG = { bench: 300000, handling: 120000, ui: 120000 };   // (ms a zone's self-test may take: the bench plays thirteen jobs)
+const ai = process.argv.indexOf('--zones'), ZONES = ai > 0 ? process.argv[ai + 1].split(',') : ALL;
 const url = pathToFileURL(resolve('dist/index.html')).href, fails = [];
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 try {
@@ -15,7 +18,8 @@ try {
     await page.goto(url + `?selftest=1#proving/${zone}`);
     await page.waitForFunction(() => window.__gtm && window.__gtm.ready, null, { timeout: 15000 });
     let r = null;
-    try { await page.waitForFunction(() => window.__gtm.selftest && window.__gtm.selftest(), null, { timeout: 60000, polling: 250 }); r = await page.evaluate(() => window.__gtm.selftest()); } catch (e) { r = { ok: false, checks: [{ check: 'finished in 60 s', ok: false }] }; }
+    const ms = LONG[zone] || 60000;
+    try { await page.waitForFunction(() => window.__gtm.selftest && window.__gtm.selftest(), null, { timeout: ms, polling: 250 }); r = await page.evaluate(() => window.__gtm.selftest()); } catch (e) { r = { ok: false, checks: [{ check: `finished in ${ms / 1000} s`, ok: false }] }; }
     const bad = (r.checks || []).filter(c => !c.ok);
     console.log(`${r.ok && !errors.length ? 'ok  ' : 'FAIL'} ${zone}: ${(r.checks || []).map(c => `${c.check}${c.ok ? '' : ' (FAILED)'}${c.value !== undefined ? ' = ' + c.value : ''}`).join('; ')}${errors.length ? ' | page errors: ' + errors.join(' | ') : ''}`);
     if (!r.ok || errors.length || bad.length) fails.push(zone);

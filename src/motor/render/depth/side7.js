@@ -2,11 +2,15 @@
 // vendor/my-3d2dge/reference/stress.game.js 615-844) generalized from one hall to a chunked city. A camera on a rail
 // (level, its lens shifted to put the horizon where the stress test's 14° pitch puts it, so walls and figures stay
 // upright: DECISIONS D8): heading locked to an axis (north by default; 90° steps), it follows the focus sideways and keeps it near..far
-// ahead, moving in depth only past those. The floor is drawn a screen row at a time from the floor chunks' canvases
+// ahead, moving in depth only past those. On foot it stands 70 up and keeps the focus 110-260 ahead; in a vehicle 90 up,
+// 160-380 ahead, its field widening with speed (rig); Auto-rail turns it to the axis a vehicle has held 1.5 s. The sky
+// above the horizon is the hour's backdrop, its skyline turning with the rail. The floor is drawn a screen row at a time from the floor chunks' canvases
 // (Mode 7); the TileMap's walls come as box spans, sliced a tile deep along the rail and drawn back to front with the
-// scene's actors, each face an exact quad filled with its wall texture under an affine map; rigs are the engine's own,
+// scene's actors, each face an exact quad filled with its wall texture under an affine map (a front face, square on
+// to the level camera, an upright rectangle on screen: its texture in plain scaled blits); rigs are the engine's own,
 // drawn through a View at the scale their distance gives (view7). The engine's own lighting and particles stay off in
-// this view; MOTOR draws its own.
+// this view; MOTOR draws its own. Each face says where it stands on screen, so the Stage can leave out whatever the
+// nearer walls hide (Stage._cull7).
 //   Sort keys (depth D along the rail, far first): a side-face slice by its far edge, a front face by its depth, an actor
 //   by its own. An actor on the camera's side of a wall then always draws over it, and one beyond is hidden by the
 //   nearer slices that cross its line of sight.
@@ -19,6 +23,10 @@ const DEG = Math.PI / 180;
  *  focus, looking north), 90 east, 180 south, 270 west */
 export const RAIL = { 0: { f: [0, -1], r: [1, 0] }, 90: { f: [1, 0], r: [0, 1] }, 180: { f: [0, 1], r: [-1, 0] }, 270: { f: [-1, 0], r: [0, -1] } };
 const NEAR_D = 10;   // nothing nearer than this along the rail is drawn
+/** the rail's lens on foot and in a vehicle (PLAN.md 5.3): height, the focus kept near..far ahead, the field of view
+ *  (widen: degrees more at top speed) */
+export const RIGS = { foot: { h: 70, near: 110, far: 260, fov: 50, widen: 0 }, vehicle: { h: 90, near: 160, far: 380, fov: 50, widen: 12 }, indoor: { h: 50, near: 64, far: 190, fov: 58, widen: 0 } };   // (indoor: a room's own, nearer and lower)
+const AUTO_RAIL = 1.5, AUTO_SPEED = 40, AUTO_SHARE = .9;   // (s of steady travel along an axis; the least speed; its share along the axis)
 
 export class Side7View {
   /** o: { map (TileMap), floor (FloorChunks), spans (Spans), sky: [colors top to bottom], fog: colour, farClip: 600,
@@ -33,6 +41,21 @@ export class Side7View {
     deg = ((Math.round(deg / 90) * 90) % 360 + 360) % 360; if (deg === this.heading && this.ready) return;
     const d = (this.near + this.far) / 2, a = RAIL[deg]; this.heading = deg;
     if (fx !== undefined) { this.x = fx - a.f[0] * d; this.y = fy - a.f[1] * d; this.ready = true; }
+  }
+  /** the lens for where the focus is (in a vehicle or not) and how fast (speed01, 0..1 of top speed): eased, so getting
+   *  in or out moves the camera rather than cutting it */
+  rig(dt, vehicle, speed01 = 0) {
+    const R = this.indoor ? RIGS.indoor : vehicle ? RIGS.vehicle : RIGS.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R.fov + R.widen * E.clamp(speed01, 0, 1);
+    this.h += (R.h - this.h) * k; this.near += (R.near - this.near) * k; this.far += (R.far - this.far) * k; this.fov += (fov - this.fov) * k;
+  }
+  /** Auto-rail: given a vehicle's velocity each step, the heading of the axis it has held steady for 1.5 s (going
+   *  faster than 40, nine tenths of it along that axis) once it differs from the rail's own, else null */
+  autoRail(dt, vx, vy) {
+    const sp = Math.hypot(vx, vy), ax = Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? 90 : 270) : (vy > 0 ? 180 : 0);
+    if (sp < AUTO_SPEED || Math.max(Math.abs(vx), Math.abs(vy)) < sp * AUTO_SHARE || ax === this.heading) { this.steadyT = 0; this.steadyAx = null; return null; }
+    if (ax !== this.steadyAx) { this.steadyAx = ax; this.steadyT = 0; }
+    if ((this.steadyT += dt) < AUTO_RAIL) return null;
+    this.steadyT = 0; this.steadyAx = null; return ax;
   }
   /** the camera follows the focus: sideways always (smoothed), in depth only when it comes nearer than near or goes past
    *  far. Presentation only: the simulation never reads it */
@@ -77,6 +100,9 @@ export class Side7View {
   /** a world offset on screen, linear: across the rail to the right, along it up the screen (foreshortened by the
    *  pitch), height up */
   screenVec(x, y, z = 0) { const a = RAIL[this.heading]; return [x * a.r[0] + y * a.r[1], -(x * a.f[0] + y * a.f[1]) * .3 - z]; }
+  /** the stick's push screenDirToGround reads as the ground direction (x, y): its inverse (screenVec squashes the
+   *  depth for the lock-on's cone on screen; a stick pushed up is straight along the rail) */
+  groundDirToScreen(x, y) { const a = RAIL[this.heading]; return [x * a.r[0] + y * a.r[1], -(x * a.f[0] + y * a.f[1])]; }
   screenDirToGround(dx, dy) {
     if (!dx && !dy) return [0, 0];
     const a = RAIL[this.heading], gx = a.r[0] * dx - a.f[0] * dy, gy = a.r[1] * dx - a.f[1] * dy, l = Math.hypot(gx, gy) || 1, m = Math.min(1, Math.hypot(dx, dy));
@@ -99,38 +125,54 @@ export class Side7View {
   fogAt(D) { return E.clamp((D - this.fogStart) / (this.farClip - this.fogStart), 0, 1); }
 
   /* ---- drawing ---- */
-  /** the sky above the horizon: a gradient (the backdrop with yaw parallax comes with M7's sky) */
-  drawSky(g, top) {
-    const P = this.P, gr = g.createLinearGradient(0, 0, 0, Math.max(1, top));
+  /** the sky above the horizon (top: its buffer row): the hour's backdrop bd (render/sky.js: its stars, moon and
+   *  skyline) drawn through the engine renderer r into the band above it, the skyline turning with the rail (a quarter
+   *  turn moves it on a long way, the rail's sideways run a little: the yaw parallax); with none, a gradient */
+  drawSky(g, top, bd = null, r = null) {
+    const P = this.P;
+    if (bd && r) {
+      const a = RAIL[this.heading], R = this._R && this._Rof === r ? this._R : (this._Rof = r, this._R = Object.create(r));   // (kept: its own caches, the sky's baked strips, last)
+      g.fillStyle = this.fog; g.fillRect(0, 0, P.W, P.H);   // (below the band, where no floor row is drawn: the fog's colour)
+      const own = { ctx: g, bh: Math.max(4, Math.ceil((top + 2) / 4) * 4), ix: this.heading * 4 + (this.x * a.r[0] + this.y * a.r[1]) * .25, iy: 0 };
+      for (const k in own) Object.defineProperty(R, k, { value: own[k], writable: true, configurable: true });   // (own values over the renderer's getters)
+      bd.draw(R);
+      // (the skyline's foot fades into the haze, as the far streets do: farther is paler, never darker)
+      const [fr, fgr, fb] = this.fogRGB, b = own.bh, hz = g.createLinearGradient(0, b * .45, 0, b);
+      hz.addColorStop(0, `rgba(${fr},${fgr},${fb},0)`); hz.addColorStop(1, `rgba(${fr},${fgr},${fb},.92)`);
+      g.fillStyle = hz; g.fillRect(0, Math.floor(b * .45), P.W, Math.ceil(b * .55) + 1);
+      return;
+    }
+    const gr = g.createLinearGradient(0, 0, 0, Math.max(1, top));
     this.sky.forEach((c, i) => gr.addColorStop(i / Math.max(1, this.sky.length - 1), c));
     g.fillStyle = gr; g.fillRect(0, 0, P.W, P.H);
   }
-  /** the floor, a buffer row at a time, from the floor chunks (one drawImage per row per chunk it crosses) */
+  /** the floor as one raster (Mode 7 proper): each buffer row's pixels read straight from the floor chunks' texels (a
+   *  chunk's pixels read once and kept with it), past the far clip or off the map the fog's colour, and put in with one
+   *  putImageData (a drawImage a row a chunk was about 420 calls a frame) */
   drawFloor(g, floor) {
-    const P = this.P, S = floor.size, pad = floor.pad, ns = P.f[0] === 0, top = Math.max(0, Math.ceil(P.hy) + 1);
+    const P = this.P, W = P.W, H = P.H, top = Math.max(0, Math.ceil(P.hy) + 1); if (top >= H) return;
+    let img = this._img; if (!img || img.width !== W || img.height !== H) { img = this._img = g.createImageData(W, H); this._px = new Uint32Array(img.data.buffer); }
+    const out = this._px, S = floor.size, pad = floor.pad, n = S + 2 * pad, ns = P.f[0] === 0, s = ns ? P.r[0] : P.r[1];   // s: +1 or -1, the screen's x with or against the world axis
+    const along0 = ns ? this.x : this.y, lenA = ns ? floor.W : floor.H, lenF = ns ? floor.H : floor.W, [fr, fg, fb] = this.fogRGB, FOG = ((255 << 24) | (fb << 16) | (fg << 8) | fr) >>> 0;
     let rows = 0;
-    for (let by = top; by < P.H; by++) {
-      const D = this.rowDepth(by + .5); if (!D || D > this.farClip) continue;
-      const u = D / P.F, L0 = -P.cx * u, L1 = (P.W - P.cx) * u;
-      // the row's world line: C + D f + L r, L in [L0, L1]; along x on a north or south rail, along y on east or west
-      const lx = this.x + P.f[0] * D, ly = this.y + P.f[1] * D;
-      const a0 = (ns ? lx : ly) + L0 * (ns ? P.r[0] : P.r[1]), a1 = (ns ? lx : ly) + L1 * (ns ? P.r[0] : P.r[1]), lo = Math.min(a0, a1), hi = Math.max(a0, a1);
-      const fixed = ns ? ly : lx, cj = Math.floor(fixed / S); if (fixed < 0 || fixed >= (ns ? floor.H : floor.W)) continue;
-      const s = ns ? P.r[0] : P.r[1];   // +1 or -1: the screen's x runs with or against the world axis
-      for (let ci = Math.max(0, Math.floor(lo / S)); ci <= Math.min((ns ? floor.nx : floor.ny) - 1, Math.floor(hi / S)); ci++) {
-        const cv = ns ? floor.canvas(ci, cj) : floor.canvas(cj, ci); if (!cv) continue;
-        const o0 = ci * S - pad, oF = cj * S - pad, t = Math.floor(fixed) - oF;   // the chunk's origin along the row, across it; the texel line
-        const ta = Math.max(0, Math.floor(lo) - o0 - 1), tb = Math.min(S + 2 * pad, Math.ceil(hi) - o0 + 1); if (tb <= ta) continue;
-        // texel (along, t) -> screen x = cx + (o0 + along - C.axis) * s / u, screen y = by
-        const e = P.cx + ((o0 - (ns ? this.x : this.y)) * s) / u;
-        if (ns) { g.setTransform(s / u, 0, 0, 1, e, by - t); g.drawImage(cv, ta, t, tb - ta, 1, ta, t, tb - ta, 1); }
-        else { g.setTransform(0, 1, s / u, 0, e, by - t); g.drawImage(cv, t, ta, 1, tb - ta, t, ta, 1, tb - ta); }
-        rows++;
+    for (let by = top; by < H; by++) {
+      // the row's world line: C + D f + L r; along x on a north or south rail, along y on east or west, the other fixed
+      const D = this.rowDepth(by + .5), o = by * W, fixed = ns ? this.y + P.f[1] * D : this.x + P.f[0] * D;
+      if (!D || D > this.farClip || fixed < 0 || fixed >= lenF) { out.fill(FOG, o, o + W); continue; }
+      const step = s * D / P.F, cj = Math.floor(fixed / S), t = Math.floor(fixed) - cj * S + pad;   // the texel line across the row, in its chunk
+      for (let x = 0; x < W;) {   // a run of pixels a chunk
+        let a = along0 + (x + .5 - P.cx) * step;   // (the pixel's centre, along the row)
+        if (a < 0 || a >= lenA) { out[o + x++] = FOG; continue; }
+        const ci = Math.floor(a / S), lo = ci * S, hi = lo + S, px = ns ? floor.pixels(ci, cj) : floor.pixels(cj, ci);
+        if (!px) { for (; x < W && a >= lo && a < hi; x++, a += step) out[o + x] = FOG; continue; }
+        if (ns) { const b = t * n + pad - lo; for (; x < W && a >= lo && a < hi; x++, a += step) out[o + x] = px[b + (a | 0)]; }
+        else { const b = pad - lo; for (; x < W && a >= lo && a < hi; x++, a += step) out[o + x] = px[(b + (a | 0)) * n + t]; }
       }
+      rows++;
     }
-    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.putImageData(img, 0, 0, 0, top, W, H - top);
     // the far end fades into the fog: a gradient from the horizon down to where the fog starts
-    const yF = this._q(this.fogStart, 0, 0), yE = this._q(this.farClip, 0, 0), [fr, fg, fb] = this.fogRGB;
+    const yF = this._q(this.fogStart, 0, 0), yE = this._q(this.farClip, 0, 0);
     if (yF && yE) {
       const gr = g.createLinearGradient(0, Math.max(0, top - 2), 0, yF[1]);
       gr.addColorStop(0, `rgba(${fr},${fg},${fb},1)`); gr.addColorStop(Math.max(0, Math.min(1, (yE[1] - top) / Math.max(1, yF[1] - top))), `rgba(${fr},${fg},${fb},.95)`); gr.addColorStop(1, `rgba(${fr},${fg},${fb},0)`);
@@ -143,6 +185,28 @@ export class Side7View {
     const fog = this.fogAt(Math.min(D0, D1)), [fr, fg, fb] = this.fogRGB;
     if (fog >= .97) return;
     this.stats.quads += texturedFace(g, (s, t) => this._q(D0 + (D1 - D0) * s, L0 + (L1 - L0) * s, h * (1 - t)), fog < .85 ? cv : null, u0, 0, Math.abs(D1 - D0) + Math.abs(L1 - L0), h, color, fog > .02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
+  }
+  /** a front face (depth D, across L0..L1): square on to the level camera, so an upright rectangle on screen with its
+   *  texture at one scale, drawn as plain scaled blits (a period of the texture each; an affine pattern costs several
+   *  times as much a pixel in a software canvas), its visible part only */
+  _front(g, D, L0, L1, h, cv, u0, color) {
+    const fog = this.fogAt(D); if (fog >= .97) return;
+    const P = this.P, k = P.F / D, x0 = P.cx + L0 * k, y0 = P.hy - (h - this.h) * k, X0 = Math.max(0, x0), X1 = Math.min(P.W, P.cx + L1 * k), Y0 = Math.max(0, y0), Y1 = Math.min(P.H, P.hy + this.h * k);
+    if (X1 <= X0 || Y1 <= Y0) return;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    if (cv && fog < .85) {
+      const v0 = (Y0 - y0) / k, vh = (Y1 - Y0) / k, end = u0 + (X1 - x0) / k;
+      for (let u = u0 + (X0 - x0) / k; u < end - 1e-6;) { const pu = ((u % FACE_PERIOD) + FACE_PERIOD) % FACE_PERIOD, w = Math.min(FACE_PERIOD - pu, end - u); g.drawImage(cv, pu, v0, w, vh, x0 + (u - u0) * k, Y0, w * k, Y1 - Y0); u += w; this.stats.quads++; }
+    } else { g.fillStyle = color; g.fillRect(X0, Y0, X1 - X0, Y1 - Y0); this.stats.quads++; }
+    if (fog > .02) { const [fr, fg, fb] = this.fogRGB; g.fillStyle = `rgba(${fr},${fg},${fb},${fog.toFixed(2)})`; g.fillRect(X0, Y0, X1 - X0, Y1 - Y0); }
+  }
+  /** a face's screen box [x0, x1, top] and its top edge as an occluder [xa, ya, xb, yb] (drawn opaque), from its top
+   *  corners at depths Da, Db and across La, Lb (null behind the camera) */
+  _box(Da, La, Db, Lb, h, item) {
+    const a = this._q(Da, La, h), b = this._q(Db, Lb, h); if (!a || !b) return item;
+    item.box = [Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1])];
+    if (this.fogAt(Math.min(Da, Db)) < .97) item.occ = [a[0], a[1], b[0], b[1]];
+    return item;
   }
   /** the draw items of the spans in view, pushed onto items as { k, fn(g) }: side-face slices a tile deep (key: the
    *  slice's far edge), front faces (key: their depth) and the tops of spans lower than the camera. focus: [x, y]; a
@@ -159,7 +223,7 @@ export class Side7View {
       }
       if (Df < NEAR_D || Dn > this.farClip) continue;
       if ((La > 0 ? La : Lb < 0 ? -Lb : 0) * P.F / Math.max(6, Df) > P.W / 2 + 8) continue;   // wholly off to a side, even at its far end
-      const cut = focus && Df < fD - 4 && La < fL + 40 && Lb > fL - 40, h = cut ? Math.min(s.h, s.t.cutH || 8) : s.h;
+      const cut = focus && Df < fD - 4 && (this.cutAll || (La < fL + 40 && Lb > fL - 40)), h = cut ? Math.min(s.h, s.t.cutH || 8) : s.h;   // (indoors, cutAll: every wall nearer than the focus)
       const v = (Math.floor(s.x0 / 64) * 7 + Math.floor(s.y0 / 64) * 13) & 3;
       // the side face the camera sees: the near-side one of a span off to one side (none while the camera is level with it)
       const side = La > 0 ? La : Lb < 0 ? Lb : null;
@@ -168,16 +232,16 @@ export class Side7View {
         for (let b = Dn; b < Df; b += T) {   // tile edges along the rail
           const d0 = Math.max(b, NEAR_D), d1 = Math.min(Df, b + T); if (d1 <= d0) continue; if (d0 > this.farClip) break;
           const u0 = mod(cAlong + b, PER) + (d0 - b);   // the texture's phase: windows stay on their tiles
-          items.push({ k: d1, fn: g => this._face(g, d0, d1, side, side, h, cv, u0, col) });
+          items.push(this._box(d0, side, d1, side, h, { k: d1, m: d0, kind: 'side', fn: g => this._face(g, d0, d1, side, side, h, cv, u0, col) }));
         }
       }
       if (Dn >= NEAR_D) {   // the front face, toward the camera
         const sh = shadeOf(-a.f[0], -a.f[1]), cv = faceTexture(s.id, s.t, h, sh, v, night), col = faceColor(s.t, sh), u0 = mod(cAcross + La, PER);
-        items.push({ k: Dn, fn: g => this._face(g, Dn, Dn, La, Lb, h, cv, u0, col) });
+        items.push(this._box(Dn, La, Dn, Lb, h, { k: Dn, m: Dn, kind: 'front', fn: g => this._front(g, Dn, La, Lb, h, cv, u0, col) }));
       }
       if (this.h > h + 1) {   // the top, seen from above
-        const d0 = Math.max(NEAR_D, Dn);
-        items.push({ k: d0, fn: g => {
+        const d0 = Math.max(NEAR_D, Dn), cs = [this._q(Df, La, h), this._q(Df, Lb, h), this._q(d0, La, h), this._q(d0, Lb, h)];
+        items.push({ k: d0, m: d0, kind: 'top', box: cs.every(Boolean) ? [Math.min(...cs.map(c => c[0])), Math.max(...cs.map(c => c[0])), Math.min(...cs.map(c => c[1]))] : null, fn: g => {
           const fog = this.fogAt(d0), [fr, fg, fb] = this.fogRGB;
           this.stats.quads += texturedFace(g, (u, t) => this._q(Df + (d0 - Df) * t, La + (Lb - La) * u, h), null, 0, 0, 1, 1, s.t.top, fog > .02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
         } });

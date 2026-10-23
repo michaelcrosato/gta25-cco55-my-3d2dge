@@ -13,6 +13,7 @@ knob('Combat', 'flickCone', 'Flick cone', 60, 10, 120, 5, 'Degrees either side o
 /** aim assist levels: the cone (degrees either side, on screen) it helps within and how much of the way it pulls */
 export const ASSIST = { off: { cone: 0, pull: 0 }, low: { cone: 8, pull: .45 }, standard: { cone: 16, pull: .8 } };
 export const CHEST = 22;   // a body's chest above its feet (the engine's HEIGHTS.chest)
+const SIGHT_TRIES = 4;   // the most sight lines one assist asks
 
 const angleBetween = (ax, ay, bx, by) => { const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by); if (!la || !lb) return Math.PI; return Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)))); };
 /** the aim direction as a screen vector: from the shooter's chest along dir (world, unit) */
@@ -20,12 +21,14 @@ function screenDir(s, dir, toScreen) {
   const a = toScreen(s.x, s.y, s.z + CHEST), b = toScreen(s.x + dir[0] * 64, s.y + dir[1] * 64, s.z + CHEST);
   return [b[0] - a[0], b[1] - a[1], a];
 }
-/** can this candidate be aimed at: alive, not the shooter, within reach and in sight? */
-function valid(c, s, range, los) {
+/** could this candidate be aimed at: alive, not the shooter, within reach (the sight line is the dear part: callers
+ *  ask it last, of the one that would win) */
+function reachable(c, s, range) {
   if (!c || c === s || c.dead || c.alive === false || c.aimable === false) return false;
-  if (range && Math.hypot(c.x - s.x, c.y - s.y) > range) return false;
-  return !los || los(s, c);
+  return !range || Math.hypot(c.x - s.x, c.y - s.y) <= range;
 }
+/** can this candidate be aimed at: reachable, and in sight? */
+function valid(c, s, range, los) { return reachable(c, s, range) && (!los || los(s, c)); }
 /** the lock-on pick: the best target within TUNE.lockCone of the aim on screen. Threats (o.threat(c): it is fighting
  *  the shooter) and hostiles (c.hostile) come first; then the nearest on screen, the angle off the aim counting a little
  *  against (at the cone's edge a target counts half again as far) */
@@ -33,12 +36,12 @@ export function pickLock(s, dir, candidates, o) {
   const [ax, ay, a] = screenDir(s, dir, o.toScreen), half = TUNE.lockCone / 2 * Math.PI / 180;
   let best = null, bestScore = Infinity;
   for (const c of candidates) {
-    if (!valid(c, s, o.range, o.los)) continue;
+    if (!reachable(c, s, o.range)) continue;
     const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST), dx = p[0] - a[0], dy = p[1] - a[1], ang = angleBetween(ax, ay, dx, dy);
     if (ang > half) continue;
     const near = Math.hypot(dx, dy), threat = o.threat && o.threat(c) ? .35 : c.hostile ? .6 : 1;
     const score = near * (1 + .5 * ang / half) * threat;
-    if (score < bestScore) { bestScore = score; best = c; }
+    if (score < bestScore && (!o.los || o.los(s, c))) { bestScore = score; best = c; }
   }
   return best;
 }
@@ -48,24 +51,28 @@ export function flickLock(s, current, flick, candidates, o) {
   const a = o.toScreen(current.x, current.y, (current.z || 0) + CHEST), half = TUNE.flickCone * Math.PI / 180;
   let best = null, bestScore = Infinity;
   for (const c of candidates) {
-    if (c === current || !valid(c, s, o.range, o.los)) continue;
+    if (c === current || !reachable(c, s, o.range)) continue;
     const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST), dx = p[0] - a[0], dy = p[1] - a[1], ang = angleBetween(flick[0], flick[1], dx, dy);
     if (ang > half) continue;
     const score = Math.hypot(dx, dy) * (1 + ang / half);
-    if (score < bestScore) { bestScore = score; best = c; }
+    if (score < bestScore && (!o.los || o.los(s, c))) { bestScore = score; best = c; }
   }
   return best;
 }
-/** free aim helped by the assist level: the target within its cone (on screen) and the aim pulled toward it */
+/** free aim helped by the assist level: the target within its cone (on screen) and the aim pulled toward it. The
+ *  nearest to the aim that is in sight wins; the sight line is asked of the few nearest the aim only (a crowd behind a
+ *  wall costs no ray each) */
 export function assist(s, dir, candidates, o) {
   const lv = ASSIST[o.level || 'standard'] || ASSIST.standard; if (!lv.cone) return { dir, target: null };
-  const [ax, ay, a] = screenDir(s, dir, o.toScreen), half = lv.cone * Math.PI / 180;
-  let best = null, bestAng = half;
+  const [ax, ay, a] = screenDir(s, dir, o.toScreen), half = lv.cone * Math.PI / 180, inCone = [];
   for (const c of candidates) {
-    if (!valid(c, s, o.range, o.los)) continue;
+    if (!reachable(c, s, o.range)) continue;
     const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST), ang = angleBetween(ax, ay, p[0] - a[0], p[1] - a[1]);
-    if (ang <= bestAng) { bestAng = ang; best = c; }
+    if (ang <= half) inCone.push([ang, c]);
   }
+  inCone.sort((p, q) => p[0] - q[0]);
+  let best = null;
+  for (let i = 0; i < inCone.length && i < SIGHT_TRIES; i++) if (!o.los || o.los(s, inCone[i][1])) { best = inCone[i][1]; break; }
   if (!best) return { dir, target: null };
   const tx = best.x - s.x, ty = best.y - s.y, tl = Math.hypot(tx, ty) || 1, k = lv.pull;
   let x = dir[0] * (1 - k) + tx / tl * k, y = dir[1] * (1 - k) + ty / tl * k; const l = Math.hypot(x, y) || 1; x /= l; y /= l;
@@ -81,9 +88,12 @@ export function shotFrom(s, dir, at) {
 
 /** clear sight from a's chest to b's through the map's walls (heights: a roof's edge hides the street below it, a low
  *  wall does not), sampled every 6 units */
-export function losClear(map, a, b) {
+export function losClear(map, a, b, decks = null) {
   const az = (a.z || 0) + CHEST, bz = (b.z || 0) + CHEST * .8, n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6);
-  for (let i = 1; i < n; i++) { const k = i / n; if (map.heightAt(a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k) > az + (bz - az) * k) return false; }
+  for (let i = 1; i < n; i++) {
+    const k = i / n, x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k, z = az + (bz - az) * k; if (map.heightAt(x, y) > z) return false;
+    if (decks) for (const d of decks) { const top = d.heightAt(x, y); if (top !== null && z <= top && z >= top - (d.thickness || 6)) return false; }   // (a deck's slab between: a shooter up there and a ped on the street)
+  }
   return true;
 }
 /** one shooter's aim over time: lock-on while the aim button is held, flicks to switch, assist otherwise */
@@ -95,6 +105,8 @@ export class Aimer {
   update(dt, o) {
     const s = o.shooter, dir = o.dir || [Math.cos(o.facing || 0), Math.sin(o.facing || 0)];
     this.point = o.point || null;   // (the mouse's ground point: where a throw lands)
+    // not aiming, not firing, no lock: the aim is the facing (the assist and its sight lines are for a shot)
+    if (o.idle && !this.target && !this._held) { this._stick = o.stick || 0; this._stickT = 0; this._flicked = false; this.dir = dir; this.pitchTo = null; return this; }
     if (o.held && !this._held) this.target = pickLock(s, dir, o.candidates, o);   // (the press picks)
     if (!o.held) this.target = null;
     this._held = o.held;

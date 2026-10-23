@@ -3,17 +3,32 @@
 // (S3); M3 the combat 'range'; the rest arrive with the systems they test. A perf readout shows on screen; ?perf=1
 // records every frame's update and draw times for tools/perf.mjs. ?selftest=1 runs the zone's self-test (zone.selftest,
 // called after each drawn frame with its own state until it returns { ok, checks }), published as __gtm.selftest for
-// the e2e suite (tests/e2e/selftest.mjs).
-import { E, def, get, all, expose } from '../../motor/index.js';
+// the e2e suite (tests/e2e/selftest.mjs). The title's EXTRAS opens the zone list (provingMenu); over a zone, Options, Esc,
+// P or a browser back opens it again, with RESUME and BACK TO TITLE, the zone standing still under it.
+import { E, def, get, all, expose, List } from '../../motor/index.js';
+
+/** PLAN.md 8.23's eight zones, in its order */
+export const ZONES = ['handling', 'traffic', 'range', 'wanted', 'views', 'ui', 'bench', 'stress'];
+/** the Proving Ground's menu: its zones (here: the zone it is opened over, with RESUME first and BACK TO TITLE last) */
+export function provingMenu(app, o = {}) {
+  const { game } = app, U = app.ui.screens, here = o.here || null;
+  const leave = (scene, data) => { U.closeAll(); game.input.consumeAll(); game.go(scene, data); };
+  const items = ZONES.filter(id => get('provingZones', id)).map(id => ({ label: get('provingZones', id).title.toUpperCase(), sub: id === here ? 'HERE' : '', act: () => (id === here ? U.back() : leave('proving', { route: ['proving', id] })) }));
+  if (here) { items.unshift({ label: 'RESUME', act: () => U.back() }); items.push({ label: 'BACK TO TITLE', act: () => leave('title') }); }
+  return { id: 'proving', title: 'PROVING GROUND', w: 260, list: new List({ id: 'proving', items }), pause: !!here, legend: `{menu:confirm} SELECT   {menu:back} ${here ? 'RESUME' : 'BACK'}` };
+}
 
 def('scenes', 'proving', {
   make(app) {
-    const { game, views, links, stage } = app;
+    const { game, views, links, stage } = app, U = app.ui.screens, B = app.bindings;
     const zones = new Map();
     let zone, id, rec, hud, selftest = null;
     const perfOn = links.query.get('perf') === '1';
+    const openPause = () => { if (U.isOpen) return false; U.open(provingMenu(app, { here: id })); return true; };
     return {
-      pausable: true,
+      get pausable() { return !U.isOpen && !game.input.pressed('pause'); },   // (the engine's own pause only when the page goes away: ours, handed over in uiFrame)
+      openPause: () => openPause(),
+      back() { if (U.isOpen) { U.back(); return true; } return openPause(); },   // (a browser back: the menu)
       enter(data) {
         const want = data && data.route && data.route[1];
         id = get('provingZones', want) ? want : 'scale';
@@ -29,18 +44,27 @@ def('scenes', 'proving', {
         selftest = links.query.get('selftest') === '1' && zone.selftest ? { zone: id, frame: 0, result: null } : null;
         expose('selftest', selftest ? () => selftest.result : () => ({ zone: id, ok: null, note: 'no self-test asked (?selftest=1)' }));
       },
-      update(dt) { zone.update(dt); },
+      exit() { if (zone && zone.exit) zone.exit(); },   // (a city zone puts its knobs back, its play scene away)
+      update(dt) {
+        if (!app.ui.took && (B.tap('pause', 'onFoot') || game.input.pressed('pause')) && openPause()) return;   // (Options, Esc, P)
+        zone.update(dt);
+      },
+      hud(P) { if (zone && zone.uiHud) zone.uiHud(P); },   // (a zone's HUD on the UI layer)
       draw(r) {
         const st = game.stats; hud.draw += (st.renderMs - hud.draw) * .1; hud.update += (st.updateMs - hud.update) * .1;
         if (rec) { rec.update.push(+st.updateMs.toFixed(3)); rec.render.push(+st.renderMs.toFixed(3)); rec.frames++; }
         zone.draw(r);
         const d = stage.depth, title = get('provingZones', id).title.toUpperCase(), lines = [
           `${title}  ${views.active.toUpperCase()}`,
-          `DRAW ${hud.draw.toFixed(1)} MS  UPDATE ${hud.update.toFixed(2)} MS  ${d ? `QUADS ${d.stats.quads}  ITEMS ${d.stats.items}` : `ITEMS ${st.items}`}`,
+          zone.uiHud ? `DRAW ${hud.draw.toFixed(1)}  UPD ${hud.update.toFixed(1)}  ITEMS ${d ? d.stats.items : st.items}` : `DRAW ${hud.draw.toFixed(1)} MS  UPDATE ${hud.update.toFixed(2)} MS  ${d ? `QUADS ${d.stats.quads}  ITEMS ${d.stats.items}` : `ITEMS ${st.items}`}`,   // (the city zones' box is narrower)
           ...zone.hud()];
         if (selftest && !selftest.result) { selftest.result = zone.selftest(selftest) || null; selftest.frame++; }
         if (selftest) lines.push(selftest.result ? `SELF-TEST ${selftest.result.ok ? 'PASSED' : 'FAILED'}` : `SELF-TEST RUNNING (${selftest.frame})`);
-        r.overlay(g => { E.ui.box(g, 4, 4, 220, lines.length * 9 + 6, { alpha: .75 }); lines.forEach((s, i) => E.font.text(g, s, 8, 8 + i * 9, i ? '#d8e4f0' : '#ffe066')); });
+        // (the box sized to its lines; a zone with the play scene's HUD has it low in the middle, between the radar and the
+        // vehicle's panel, its lines wrapped to fit: clear of the HUD's corners, its banner and the player)
+        const side = !!zone.uiHud, maxW = side ? Math.round(r.bw * .44) : r.bw - 8, rows = side ? lines.flatMap((s, i) => E.font.wrap(s, maxW - 8, {}).map(t => [t, i])) : lines.map((s, i) => [s, i]);
+        const bw = Math.min(maxW, Math.max(side ? 120 : 220, ...rows.map(([s]) => E.font.width(s) + 8))), bh = rows.length * 9 + 6, bx = side ? Math.round((r.bw - bw) / 2) : 4, by = side ? r.bh - bh - Math.round(r.bh * .13) : 4;
+        r.overlay(g => { E.ui.box(g, bx, by, bw, bh, { alpha: .75 }); rows.forEach(([s, i], k) => E.font.text(g, s, bx + 4, by + 4 + k * 9, i ? '#d8e4f0' : '#ffe066')); });
       },
     };
   },

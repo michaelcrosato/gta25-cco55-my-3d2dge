@@ -1,116 +1,161 @@
-# Handoff: GRAND THEFT MOTO after M4
+# Handoff: GRAND THEFT MOTO, the slice done (M0-M13)
 
 This is where a fresh session picks up the run. `PLAN.md` is still the contract and `GOAL.md` is the prompt that
-started the run; this page says where the run stands, how the repository is worked, and what to watch for. The
-`/goal` prompt that continues the run is at the end.
+started the run. This page says where the run stands, how the repository is worked, and what to watch for. The
+`/goal` prompt that continues the run is at the end. It is kept current as the run goes, so a session that stops
+anywhere can resume from it: the work in flight is listed with where it lives.
 
 ## Where it stands
 
-- **Done: M0-M4** (`PROGRESS.md` has each milestone's evidence: commits, tests, shots and verdicts, perf):
-  - the core, input and attract loop;
-  - the three views' renderers (ISO, TOP-DOWN, SIDE-SCROLL MODE 7) and the Stage;
-  - Lowtown with its clock, weather and drawbridge;
-  - the crew on foot, combat and the weapon and character wheels;
-  - the vehicles: 7 classes, 13 models, 19 definitions; boarding, carjacking, towing, damage, chained explosions,
-    lights and sirens, the radio stub and the mods.
-- **The pull request:** michaelcrosato/gta25-cco55-my-3d2dge#1 carried M0-M4 and was merged into `main` when M4 closed.
-  Later work goes on the new session's own branch, started from `main`, in a new draft pull request.
-- **Next: M5** (roads, traffic, pedestrians, emergency services; it is accepted by PLAN.md 8.7, 8.9 and 8.10). A
-  parked start on it is in `docs/handoff/m5-draft/`: the lane graph, the GPS and the signals work and are tested; the
-  DriverBrain is a draft that still stalls. Its README says how to restore it and lists the known stalls.
-- **Remaining fan-out points** (PLAN.md 16): **A2** at M8 (missions and activities), **C** at M9 (the UI screens,
-  optional) and **B** at M13 (the adversarial verification).
-- **Carried to later milestones**, also logged in `docs/DECISIONS.md` D16:
-  - the jacked driver's flee-or-fight reaction comes with PedBrain (M5);
-  - the heat from a break-in or a carjack comes with the wanted system (M6);
-  - the Boom Box Garage's shop screen comes with M8.
-
-  The mods themselves work and are tested.
+- **Done: M0-M12** (`PROGRESS.md` has each milestone's evidence: commits, tests, shots and verdicts, perf):
+  - M0-M7: the core, input and attract loop; the three views and the Stage; Lowtown; the crew on foot, combat and the
+    vehicles; the roads, traffic, crowds and emergency services; the wanted level, police and gangs; the bank;
+  - M8: the mission runtime, the economy, all 14 missions and the side content (FAN-OUT A2), and the bot campaign at
+    100% (`5c7c2ef`: a new game to the phone's COMPLETION in 2.15 h of game, every mission at its first try), with
+    every merged mission and activity through the bot on seeds 1-3 and through the pad, and the bot gym both ways
+    (D21, D30);
+  - M9: the 10-foot UI on MOTOR's own layer (D23); M10: sound and the radio (D24); M11: the attract mode, kiosk and
+    phone (D25); M12: the Proving Ground, photo mode, the dev tools, the 15 content recipes and District 2 (D26).
+- **Done: M13** (D28-D31; `PROGRESS.md` has its acceptance, the Definition of Done item by item): the polish (the
+  rumble, TUNING.md, the look notes, the respray's bay, sodium lamps), the perf levers, FAN-OUT B (eight reviewers, 47
+  findings, each a test under `tests/review/`, a step of `npm test`, every one fixed), and part 5: the bot after
+  FAN-OUT B, the shots matrix with a verdict a row and its look pass, the stalls the campaign found (each fixed where
+  it lives, with a test), and what test:full and the audit found on the way (the gang shoot-out's tip for a hand in
+  it, the page's inline icon so a static server is asked for nothing, the 10-foot UI at HUD Huge). `npm run test:full`
+  passed every step on `154eb02`, the campaign at 100.0%, and CI is green; the page itself played the 14 missions
+  through from file:// (D31). The release docs are final: README.md, `docs/ENGINE-ANALYSIS.md`, the Credits & About
+  screen and the HTML header (both from `src/about.js`), `vendor/my-3d2dge/PATCHES.md`. **The owner's directions
+  (D29):** performance is out of the Definition of Done (the "perf gates" step left test:full; `tools/perf.mjs` stays
+  for later), and the bots may play invulnerable (`?god=1`, the tools' `--god`; the campaign plays god by default,
+  `--mortal` without; the mission bot's runs stay mortal).
+- **Left, and the owner's:** the review of PR 2 (a draft until the owner asks for it to be marked ready), and whatever
+  comes next: performance (D29), the expansion path (PLAN.md 19). Each change keeps the slice done: `npm test` before
+  every commit, test:full before a change closes, all merged content re-run after a MOTOR, bot or map change.
+- **Where runs go:** the validation trees `/home/user/gtm-m9` and `/home/user/gtm-v2` (detached worktrees, their
+  `node_modules` symlinks: never `git clean` them) are checked out at the commit under test; `npm test` runs alone or
+  beside one bot run at most (the container was restarted once under more). A new container has neither: make one with
+  `git worktree add --detach <dir> <commit>` and link its `node_modules` to the repository's.
+- **The pull requests:** michaelcrosato/gta25-cco55-my-3d2dge#1 carried M0-M4 and was merged into `main`. M5 onward is
+  on `claude/compassionate-shannon-h7k7zk`, in the draft michaelcrosato/gta25-cco55-my-3d2dge#2. Pushing works again
+  (the 403 of D27 is gone since M13's part 3).
+- **Fan-out points** (PLAN.md 16): A1 (M4), A2 (M8) and B (M13) ran; C (optional, M9's screens) was not used.
 
 ## Read first
 
-1. `PLAN.md`, in full. It is the contract; scope changes go only through `docs/DECISIONS.md`.
-2. `PROGRESS.md`: the milestones' status and evidence.
-3. `docs/ARCHITECTURE.md`: the module map and the frozen contracts (the Stage and projectors, the registries, the
+1. This page. (`docs/handoff/m8-a2/README.md` is FAN-OUT A2's record, finished at M8; its probes are below.)
+2. `PLAN.md`, in full. It is the contract, and scope changes go only through `docs/DECISIONS.md`.
+3. `PROGRESS.md`: each milestone's status and evidence (the acceptance log has every milestone's runs).
+4. `docs/ARCHITECTURE.md`: the module map and the frozen contracts (the Stage and projectors, the registries, the
    Intent, the BUS).
-4. `docs/DECISIONS.md`: D1-D16, every call made without an answer.
-5. `docs/CONTENT-GUIDE.md`: how each kind of content is added (districts, weapons, vehicles...).
-6. `vendor/my-3d2dge/PATCHES.md`: the engine patches (GTM-PATCH markers). Never read the 727 KB engine whole: search
+5. `docs/DECISIONS.md`: D1-D31, every call made without an answer. D21 is M8's, including what the bot does and why;
+   D29 has the owner's two directions (performance out of the Definition of Done, bots that may play god); D30 is
+   M13's part 5 (the campaign's stalls, each fixed where it lives); D31 its close (determinism per runtime).
+6. `docs/CONTENT-GUIDE.md`: how each kind of content is added, the mission DSL and its `m` API included.
+7. `vendor/my-3d2dge/PATCHES.md`: the engine patches (GTM-PATCH markers). Never read the 742 KB engine whole. Search
    its `API-INDEX.md` first.
 
 ## Working the repository
 
 - **Setup:** `npm ci` (Node 22). In a Claude Code cloud session the SessionStart hook installs everything.
-- **The gate: `npm test`** runs lint, the boundary, vendor and goal-sync checks, "dist current", the unit and sim
-  tests (172), the e2e smoke, replay and self-tests, and the engine's checker. It takes under a minute.
-  `npm run test:full` adds the heavy suites as they land.
-- **Commit only when `npm test` exits 0.** Check the exit code itself: a grep over its output once hid a lint failure.
-- **`dist/index.html` is committed.** Rebuild it with `npm run build` before committing; the gate fails on a stale
-  one. Build elsewhere with `node tools/build.mjs --out <file>`, which is what workers do.
+- **The gate: `npm test`** runs lint, the boundary, vendor and goal-sync checks, "dist current" and "tuning current",
+  then the unit and sim tests (343), the 15 content recipes, FAN-OUT B's 78 review tests, the browser suites (the
+  smoke from file:// and from a static server, replay, the Proving Ground's self-tests, audio, the attract mode, photo
+  mode, the dev tools), then the engine's checker on the city and the bank. It takes about twelve minutes.
+- **`npm run test:full`** adds the heavy suites (`tools/test-run.mjs`): the 10-minute city and audio soaks, the
+  attract soak (30 minutes on the shipped page and seeds 1-3, then 5 drawn in Chromium), the gang sim, the UI audit
+  (each device alone at 1080p and 720p, then HUD Huge), the shots matrix, every mission and activity level through
+  the bot on seeds 1-3 and through a pad, and the bot campaign to 100% (god). About three hours alone; it stops at
+  the first failing step.
+- **Commit only when `npm test` exits 0.** Check the exit code itself, because a grep over its output once hid a lint
+  failure.
+- **`dist/index.html` is committed.** Rebuild it with `node tools/build.mjs` before committing, because the gate
+  fails on a stale one. To build elsewhere, run `node tools/build.mjs --out <file>`, as the workers do.
 - **The layers:** MOTOR in `src/motor`, content in `src/game`. Content imports only `src/motor/index.js` (the boundary
-  check enforces it), and content files are found at build time, so adding content never edits an index.
-- **Determinism:** in the simulation and the content, there is no `Date`, `performance` or `Math.random` (lint
-  enforces this). Time comes from `dt`, and randomness from named `RNG` streams. A view never changes the
-  simulation's hash.
+  check enforces it), and content files are found at build time, so adding a mission never edits an index.
+- **Determinism:** the simulation and the content use no `Date`, `performance` or `Math.random` (lint enforces it).
+  Time comes from `dt`, and randomness from named `RNG` streams. A view never changes the simulation's hash. Bot runs
+  are deterministic too, so any change to MOTOR, the bot or the map moves every run: re-run all merged content after
+  one.
 - **Model identifiers stay out of repository files** (D3). They go only in the chat report.
-- **Headless:** `tests/harness.mjs` runs the game in Node: `engineGlobal()`, `loadGame({ hash, query })`, `holdCode`
-  and `snap`. In a page, `window.__gtm` exposes the test hooks (`ready`, `snapshot`, `city`, `clock`, `weather`,
-  `combat`, `fleet`, `crew`, `teleport`, `bridges`, `yard`, `vehicles`, `zones`, `selftest`, `perf`).
-- **The tools:**
-  - `tools/model-sheet.mjs` (the vehicle sheet);
-  - `tools/vehicle-bench.mjs` (the handling numbers per definition);
-  - `tools/map-sheet.mjs` (the district's map sheet);
-  - `tools/shot-matrix.mjs` and `tools/shots.mjs` (views by time and weather);
-  - `tools/perf.mjs` (frame times from `?perf=1`);
-  - `tools/cpu-profile.mjs` and `tools/profile-frame.mjs` (where a frame goes);
-  - `tools/patch-record.mjs` (records an engine patch);
+- **Headless:** `tests/harness.mjs` runs the game in Node (`engineGlobal()`, `loadGame({ hash, query, pads })`,
+  `holdCode`, `snap`). In a page, `window.__gtm` exposes the test hooks.
+- **The bot's tools:**
+  - `node tools/bot.mjs --mission <id> --seeds 1,2,3`: one mission through the mission bot.
+    - `--all` runs every mission and activity level; `--pad` sends the bot's wishes through a gamepad (the scripted
+      human-style pass); `--par N` runs N at once, each in its own process (3 on this machine).
+    - `--stage <id>` starts at a stage; `--verbose` or `--trace` shows what the bot does.
+  - `node tools/bot-campaign.mjs --seed 1 --verbose`: a new game from the title, played until completion reads
+    100%. Its travel and seams are in D21.
+  - `docs/handoff/m8-a2/tools/`: the probes the merges used. `botgym.mjs` plays one fixture per hint kind, and needs
+    13/13 with the bot and through the pad; `r3trace.mjs` lists the damage taken by source; `s1trace.mjs` logs the
+    bot's state each second; `m8shots.mjs` takes M8's shots. Copy one to `tools/_<name>.mjs` to run it, since git
+    ignores `tools/_*.mjs`.
+- **The other tools:**
+  - `tools/perf.mjs`: frame times, interleaved with an older build via `--dist <file>`;
+  - `tools/shots.mjs` and `tools/shot-matrix.mjs`: the views by time and weather;
+  - `tools/model-sheet.mjs`, `tools/vehicle-bench.mjs`, `tools/map-sheet.mjs`;
+  - `tools/cpu-profile.mjs` and `tools/profile-frame.mjs`: where a frame goes;
+  - `tools/patch-record.mjs`: records an engine patch;
   - `tools/serve.mjs --watch` (`npm run dev`).
 
-  Local probes go in `tools/_*.mjs`, which git ignores.
-
-## Fan-outs: what A1 taught
+## Fan-outs: what A1 and A2 taught
 
 - **Check each worktree's base.** A worktree may be created at the repository's first commit instead of the branch
-  head, so each worker must first run `git checkout --detach <head>` in its worktree and confirm `git log` shows the
-  branch's history.
-- **Workers own disjoint new files**, run their own tests against a build in a temporary directory, and return
-  `{ files: [{ path, content }], notes }` in a structured result. The main loop writes the files, runs that group's
-  tests, then the gate, and commits.
+  head. Each worker must first run `git checkout --detach <head>` in its worktree and confirm that `git log` shows
+  the branch's history.
+- **Workers own disjoint new files.** They run their own tests against a build in a temporary directory, and return
+  `{ files, runs, notes, motorRequests }` in a structured result. A worker never edits MOTOR. It works round a gap in
+  content and files a request. The main loop checks each request against the code and fixes it with a test, then
+  ports the content to the new piece and re-runs it.
+- **Merge each result as it lands**, from the workflow's `journal.jsonl`, not all at the end. A2's results needed
+  more MOTOR work than the content took to write.
 - **Workers never write** `dist/index.html`, `PROGRESS.md` or `DECISIONS.md`, and never commit or push.
-- **Parallelism:** a workflow runs at most CPUs - 2 agents at once (4 CPUs here: 2), so 7 groups took about
-  3.8 hours.
+- **Parallelism:** a workflow runs at most CPUs - 2 agents at once (2 on this machine). A finished group took its
+  worker two to three hours: the Rats and the Gnomes about 2, the heist's finale about 3. Most of that time went on
+  bot runs.
 - **The session's scratchpad is shared** by every worker. Give each worker its own subfolder, or their probes
   overwrite each other.
 - **Worktrees live in `.claude/worktrees/`**, which `.gitignore` and `eslint.config.js` both ignore. Never
-  `git add -A` while they exist: a worktree once went in as a gitlink.
+  `git add -A` while they exist, because a worktree once went in as a gitlink. Add files by their paths.
 
 ## Known limits
 
+- **What the bot can't do** (D22: content never asks it):
+  - lose three stars (the Eye sees 520 u except under the decks, and roadblocks sit on its routes): content keeps a
+    stage's stars below three or drives them through to where the story drops them;
+  - always keep a delivery free of police stars: S1's long Brute is busted now and then, and wins on a retry;
+  - always turn a long truck at a tight corner: a failing turn is kept off its next route, but it costs time;
+  - fight back a passer-by who hits it: content sends them running instead (`m.shoo`).
+- **Determinism is per runtime** (D31): Node's V8 and Chromium's differ in the last bit of `Math.pow`, `Math.sin` and
+  `Math.cos` for a few arguments in a hundred, so one seed played headless and in the page drifts apart. Every proof
+  of PLAN.md 7.3 holds within its runtime (a recording replays in the browser it was made in); a bot run in the page
+  is a different game from the same seed's headless run.
+- **The bot can be pinned on foot:** with every car near it given up on for the trip, a car it left parked, a wall and
+  peds standing in the gap can close a pocket round it, and its walk then cycles its start nodes without leaving (met
+  once, in the page's run of Gutter Ball on seed 1, D31; no headless run has met it). A player walks round, or takes
+  the car.
+- **The bot gym through the pad is the touchiest probe:** `follow` (a calm car tailed across town) and `kill` pass,
+  but often on a retry; every MOTOR change moves them first.
 - **Night glows** (the head, tail and siren lights' halos) ignore occlusion. From some angles a far tail lamp's glow
-  shows over the roof at night, or through the Hookline's boom.
-- **Performance margin.** On this cloud machine the ISO gate scenario (`node tools/perf.mjs --scenario lowtown-gate`)
-  draws in 10.4-11.4 ms against its 10.4 ms gate. M3's build, measured interleaved, does the same: the machine runs
-  slower than the one D13 measured on. MODE 7 draws in 14 ms against 12.7, which is M7's lever (D10). TOP-DOWN draws in
-  9.1 ms. M5's traffic and peds add load, so measure each milestone interleaved with the last
-  (`--dist <old build>`), and keep D10's levers in mind:
-  - merging a building's roof-only wall blocks in ISO;
-  - MODE 7's crowd rigs drawn every other frame from a cached image.
-- **Bike riders** sit at a fixed height whatever the bike, and the Proving Ground's pad draws no peds (no rider shows
-  there).
+  shows over a roof at night.
+- **Performance:** out of the Definition of Done since D29 (the owner's call: FPS targets and optimization come later).
+  D20 has the budgets and where the frame goes; `node tools/perf.mjs --dist <old build>` measures interleaved with an
+  older build. The machine's speed varies more than the budgets' margins.
+- **Bike riders** sit at a fixed height whatever the bike.
 
 ## Continuing the run: the /goal prompt
 
-Start a new session at the effort you choose (PLAN.md 16 recommends **xhigh**; M0-M4 ran at max), then paste this
-block. It is 3,225 characters of plain ASCII, under the 4,000-character limit for `/goal` (`npm run lint` checks it).
+Start a new session at the effort you choose (PLAN.md 16 recommends **xhigh**; this run used max), then paste this
+block. It is plain ASCII and under the 4,000-character limit for `/goal` (`npm test`'s goal-sync step checks it).
 
 ```
-/goal Continue GRAND THEFT MOTO (ID GrandTheftMoto-5S) in michaelcrosato/gta25-cco55-my-3d2dge from M5 through M13, exactly as PLAN.md specifies: it is the contract. M0-M4 are done and merged into main. Read docs/HANDOFF.md first, then PLAN.md in full, PROGRESS.md, docs/ARCHITECTURE.md (the frozen contracts), docs/DECISIONS.md (D1-D16) and docs/CONTENT-GUIDE.md. Work on this session's own branch, started from main, and open a draft PR for it. ultracode: run bounded workflows (max 10 agents, each in its own worktree, never two on one file) only at the remaining fan-out points in PLAN.md section 16 (A2 at M8, C at M9 optional, B at M13). Each worker first checks out the branch head in its worktree, returns its files and notes, and never writes dist/index.html, PROGRESS.md or DECISIONS.md, commits or pushes.
+/goal Keep GRAND THEFT MOTO (ID GrandTheftMoto-5S) in michaelcrosato/gta25-cco55-my-3d2dge done, and take it where the owner asks. M0-M13 are done: every item of PLAN.md section 15 holds as amended in docs/DECISIONS.md, and PROGRESS.md has M13's acceptance with its evidence. PLAN.md stays the contract, and scope changes go only through docs/DECISIONS.md. Work on branch claude/compassionate-shannon-h7k7zk in draft PR #2 and keep its CI green. Read docs/HANDOFF.md first and follow its reading list, rules and tools.
 
-Rules, as in GOAL.md: my-3D2dge v0.46.1 at cfa866aa45474868350cad1a7fc015e612f9305f stays vendored in vendor/my-3d2dge, patched only per PLAN.md section 12 (GTM-PATCH markers, PATCHES.md, tests). MOTOR in src/motor, content in src/game (content imports only src/motor/index.js). No runtime dependencies, no network, no binary assets. The simulation is deterministic, view-independent and headless-testable. A controller-first 10-foot UI for a PS5 DualSense (code-drawn glyphs, analog triggers, rumble); keyboard and mouse on the same model; no dense web screens; no touch controls (phones run kiosk/attract mode only). Attract mode after 10 s idle; any input returns to the title at once; the demo never saves. Model identifiers stay out of repository files (D3).
+The work is the owner's to set: their review of PR #2 (answer each comment; fix what they ask where it lives, with a test), and what they choose next (performance, D29; the expansion path, PLAN.md section 19). Mark the PR ready only when the owner asks.
 
-Process: milestone by milestone. M5 may start from the parked draft in docs/handoff/m5-draft (its README says what works and what stalls). Keep PROGRESS.md current with evidence (tests, screenshots with verdicts, perf numbers, commits). Commit after each green step, only when npm test exits 0 (check the exit code itself), with dist/index.html rebuilt; push at least once per milestone and keep the PR's CI green. Change scope only through docs/DECISIONS.md, keeping the architecture and one working instance; never cut silently. Read your own screenshots and fix every look note.
+Rules: every rule in GOAL.md holds (the vendored engine patched only per PLAN.md section 12; MOTOR in src/motor, content in src/game; no runtime dependencies, network or binary assets; a deterministic, view-independent, headless-testable simulation; the controller-first 10-foot UI; attract mode). Model identifiers stay out of repository files (D3).
 
-Done only when every item of PLAN.md section 15 holds (as amended in DECISIONS): npm test and test:full pass and CI is green; dist/index.html plays the whole slice from file://; all 14 missions, the side content, shops and properties work, and a headless bot campaign reaches 100%; the three views work outdoors and in the bank and never change the simulation hash; the attract soak and the exit-on-any-input matrix pass; the 10-foot UI audit and the controller-only, keyboard-only and mouse-only passes succeed; determinism, replay and the performance budgets pass; content-recipe tests pass; README.md, the Credits & About screen and the HTML header carry the Source Information and, separately, the engine analysis; docs/ENGINE-ANALYSIS.md is final.
+Process: commit after each green step, only when npm test exits 0 (check the exit code itself), with dist/index.html rebuilt; push. Bot runs are deterministic: after any MOTOR, bot or map change, re-run all merged content (tools/bot.mjs --all on seeds 1-3 and through the pad, the bot gym, the campaign to 100%), and run npm run test:full, alone, before a change closes. Keep PROGRESS.md (tests, shots with verdicts) and docs/HANDOFF.md current, so a paused run resumes exactly. Read your own screenshots and fix every look note.
 
-End with a chat report: 1. Source Information (Initial Date, SOURCE, GAME ENGINE version/commit/URL, Environment, Model and Effort Level; only what you can confirm). 2. Separately, the Game Engine Analysis (what you used, what you did not, the one thing you would change). 3. How to play, and the PR link.
+End each piece of work with a chat report: what changed, the evidence (tests, runs, shots with verdicts), and the PR link.
 ```

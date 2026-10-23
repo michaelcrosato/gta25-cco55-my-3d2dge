@@ -22,6 +22,10 @@ const ease = E.ease;
 const seatZ = v => v.z + (v.cls === 'bike' ? 7 : v.cls === 'boat' ? 4 : 6);
 /** the way into the car from a door's side */
 const inward = (v, d) => d.side ? v.heading - d.side * Math.PI / 2 : v.heading + Math.PI;
+/** a bail-out's dive: out of the door's side (away from the car), carried forward; its two legs, the dive and the roll,
+ *  longer the faster the car */
+const diveHeading = (v, d) => v.heading + (d.side || 1) * Math.PI / 2 * .55;
+const diveLengths = v => { const sp = Math.min(220, v.speed) * .35; return [18 + sp * .4, 16 + sp * .5]; };
 
 E.ACTIONS.enterCar = {
   beats: [['open', .3], ['in', .4], ['shut', .18]],
@@ -70,9 +74,9 @@ E.ACTIONS.exitCar = {
 E.ACTIONS.bailOut = {
   beats: [['dive', .3], ['roll', .42], ['rise', .16]], safe: [.1, .7],
   setup(A) {
-    const v = A.o.vehicle, d = A.o.door, side = d.side || 1, a = v.heading - side * Math.PI / 2 * .55;   // out of the side, carried forward
-    A.facing = a; A.from = { x: A.start.x, y: A.start.y, z: A.start.z }; const sp = Math.min(220, v.speed) * .35;
-    A.mid = { x: A.from.x + Math.cos(a) * (18 + sp * .4), y: A.from.y + Math.sin(a) * (18 + sp * .4), z: v.z }; A.end = { x: A.mid.x + Math.cos(a) * (16 + sp * .5), y: A.mid.y + Math.sin(a) * (16 + sp * .5), z: v.z };
+    const v = A.o.vehicle, a = diveHeading(v, A.o.door), [l1, l2] = diveLengths(v), k = A.o.reach === undefined ? 1 : Math.max(0, Math.min(1, A.o.reach / (l1 + l2)));   // (cut short where the ground ends: exitFor's reach)
+    A.facing = a; A.from = { x: A.start.x, y: A.start.y, z: A.start.z };
+    A.mid = { x: A.from.x + Math.cos(a) * l1 * k, y: A.from.y + Math.sin(a) * l1 * k, z: v.z }; A.end = { x: A.mid.x + Math.cos(a) * l2 * k, y: A.mid.y + Math.sin(a) * l2 * k, z: v.z };
   },
   at(A, b, u) {
     if (b === 'dive') return { ...lerpP(A.from, A.mid, u), z: A.from.z + (A.mid.z - A.from.z) * u + Math.sin(u * Math.PI) * 6, state: { facing: A.facing, air: true } };
@@ -84,7 +88,7 @@ E.ACTIONS.bailOut = {
 /** the door a ped at (x, y) uses to reach seat (the nearest door that serves it; any door for a driver's seat: a
  *  passenger door slides across), and whether getting in needs a jack, a break-in or a hop. null: it can't be boarded */
 export function boardingFor(ped, v, seat = 0) {
-  if (!v.body || v.wrecked || v.sunk || v.cls === 'heli' || v.cls === 'rail' || v.towedBy) return null;
+  if (!v.body || v.wrecked || v.sunk || v.cls === 'heli' || v.cls === 'rail' || v.towedBy || !level(ped, v)) return null;
   if (v.speed > TUNE.boardSpeed) return null;
   const doors = v.model.doors; if (!doors.length) return null;
   let best = null, bd = Infinity;
@@ -99,7 +103,9 @@ export function boardingFor(ped, v, seat = 0) {
   return { vehicle: v, door: best, seat, seatSpot: s, kind, victim: occupant || null, locked: v.locked && kind !== 'mount' && !occupant, dist: bd, at: W(v, best.x, best.y) };
 }
 /** can a ped standing at (x, y) get into v now (near enough to it)? */
-export function inReach(ped, v) { const dx = ped.x - v.x, dy = ped.y - v.y, c = Math.cos(v.heading), s = Math.sin(v.heading), lx = dx * c + dy * s, ly = -dx * s + dy * c; return Math.abs(lx) <= v.hl + TUNE.enterReach && Math.abs(ly) <= v.hw + TUNE.enterReach; }
+export function inReach(ped, v) { const dx = ped.x - v.x, dy = ped.y - v.y, c = Math.cos(v.heading), s = Math.sin(v.heading), lx = dx * c + dy * s, ly = -dx * s + dy * c; return Math.abs(lx) <= v.hl + TUNE.enterReach && Math.abs(ly) <= v.hw + TUNE.enterReach && level(ped, v); }
+/** are a ped and a vehicle on one level (a car up on the deck is out of reach from the street under it)? */
+export const level = (a, b, tol = 12) => Math.abs((a.z || 0) - (b.z || 0)) < tol;
 /** the way out: the seat's own door (a driver's on the left), or, where that is blocked, the nearest clear one (across
  *  the car); a dive roll above the bail-out speed. ok(x, y): can a body stand there (a wall, the water)? A boat is only
  *  left where a door opens onto dry ground (null otherwise: nobody swims in the slice) */
@@ -109,6 +115,18 @@ export function exitFor(ped, v, ok = null) {
   let door = null;
   for (const d of [...own, ...rest]) { const p = W(v, d.x, d.y); if (!ok || ok(p.x, p.y)) { door = d; break; } }
   if (!door) { if (v.cls === 'boat') return null; door = own[0] || v.model.doors[0] || { id: 'x', x: 0, y: -v.hw - 6, side: -1, seat }; }
-  const s = v.model.seats[Math.min(seat, v.model.seats.length - 1)] || { x: 0, y: 0 };
-  return { vehicle: v, door, seat, seatSpot: s, kind: v.speed > TUNE.bailSpeed && v.cls !== 'boat' ? 'bailOut' : 'exitCar', at: W(v, door.x, door.y) };
+  const s = v.model.seats[Math.min(seat, v.model.seats.length - 1)] || { x: 0, y: 0 }, at = W(v, door.x, door.y), kind = v.speed > TUNE.bailSpeed && v.cls !== 'boat' ? 'bailOut' : 'exitCar';
+  const plan = { vehicle: v, door, seat, seatSpot: s, kind, at };
+  if (kind === 'bailOut' && ok) {   // the dive goes as far as the ground it lands on goes on (a wall, the deck's edge: short of it)
+    const a = diveHeading(v, door), [l1, l2] = diveLengths(v), c = Math.cos(a), sn = Math.sin(a), sx = v.x + (at.x - v.x) * .5, sy = v.y + (at.y - v.y) * .5;
+    let reach = 0; for (let t = 4; t <= l1 + l2; t += 4) { if (!ok(sx + c * t, sy + sn * t)) break; reach = t; }
+    plan.reach = Math.max(0, reach - 4);
+  }
+  return plan;
+}
+/** can a ped stand at (x, y) on the level of height z: on a deck when z is up off the street (within 10 of its
+ *  surface), else on the street's walkable ground (the exits' and the bail-out's test) */
+export function standable(city, x, y, z = 0) {
+  if (z > 4) { const d = city.deckAt(x, y, z + 4, 8); return !!d && Math.abs(d.z - z) <= 10; }
+  return city.walkable(Math.floor(x / city.T), Math.floor(y / city.T));
 }

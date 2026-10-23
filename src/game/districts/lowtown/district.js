@@ -1,13 +1,13 @@
 // Lowtown, Motopolis (PLAN.md 9.1): 160 x 160 tiles. Palm Terraces (north-west) and Neon Mile (north-east) above the
 // Loop's avenue; Brickyard (west) and Harborfront (east) below it, down to the canal and across it to the sea. The L
-// runs down the central avenue at z 100; the Loop rings the middle at z 64, with a ramp off each corner and an
+// runs down the central avenue at z 112 (D17: clear of the tallest truck on the Loop); the Loop rings the middle at z 64, with a ramp off each corner and an
 // unfinished stub over the construction site (the Loop gap). Three bridges cross the canal; the eastern one draws up.
 // Landmarks are in landmarks.js; the neighbourhoods' looks in styles.js.
 import { def } from '../../../motor/index.js';
 import { STYLES, HOODS } from './styles.js';
 
-const NS = (at, from, to, kind = 'street', name = '') => ({ axis: 'y', at, from, to, kind, name });
-const EW = (at, from, to, kind = 'street', name = '') => ({ axis: 'x', at, from, to, kind, name });
+const NS = (at, from, to, kind = 'street', name = '', oneway) => ({ axis: 'y', at, from, to, kind, name, oneway });
+const EW = (at, from, to, kind = 'street', name = '', oneway) => ({ axis: 'x', at, from, to, kind, name, oneway });
 
 def('districts', 'lowtown', {
   name: 'Lowtown', size: [160, 160], seed: 1999, storey: 24,
@@ -18,20 +18,23 @@ def('districts', 'lowtown', {
     { rect: [140, 108, 153, 151], kind: 'harbour' }, { rect: [0, 124, 139, 131], kind: 'canal' },
   ],
   roads: [
-    // north to south
-    NS(6, 2, 122, 'street', 'Gnome Row'), NS(32, 2, 151, 'street', 'Chapel Street'), NS(56, 2, 122, 'street', 'Palm Walk'),
-    NS(80, 2, 151, 'avenue', 'Motor Avenue'), NS(104, 2, 122, 'street', 'Marquee Street'), NS(128, 2, 151, 'street', 'Dock Road'),
-    NS(149, 2, 104, 'street', 'Seawall Drive'),
+    // north to south. The streets are one-way (a car parks at the right-hand curb, the lane keeps left of it); the two
+    // avenues are two-way. Terrace Road, Seawall Drive, Brick Lane and Gnome Row make a clockwise ring; the streets
+    // inside it alternate, and south of the canal Dock Road comes down, Wharf Street runs west and Chapel Street goes
+    // back up, so every street can be driven to and away from (the stubs at the district's edges aside)
+    NS(6, 2, 122, 'street', 'Gnome Row', 'N'), NS(32, 2, 151, 'street', 'Chapel Street', 'N'), NS(56, 2, 122, 'street', 'Palm Walk', 'S'),
+    NS(80, 2, 151, 'avenue', 'Motor Avenue'), NS(104, 2, 122, 'street', 'Marquee Street', 'N'), NS(128, 2, 151, 'street', 'Dock Road', 'S'),
+    NS(149, 2, 104, 'street', 'Seawall Drive', 'S'),
     // west to east
-    EW(6, 2, 151, 'street', 'Terrace Road'), EW(30, 2, 151, 'street', 'Sunset Strip'), EW(54, 2, 151, 'street', 'Lantern Lane'),
-    EW(78, 2, 153, 'avenue', 'Loop Avenue'), EW(102, 2, 151, 'street', 'Brick Lane'), EW(118, 2, 137, 'street', 'Canal Street'),
-    EW(140, 2, 137, 'street', 'Wharf Street'),
+    EW(6, 2, 151, 'street', 'Terrace Road', 'E'), EW(30, 2, 151, 'street', 'Sunset Strip', 'W'), EW(54, 2, 151, 'street', 'Lantern Lane', 'E'),
+    EW(78, 2, 153, 'avenue', 'Loop Avenue'), EW(102, 2, 151, 'street', 'Brick Lane', 'W'), EW(118, 2, 137, 'street', 'Canal Street', 'W'),
+    EW(140, 2, 137, 'street', 'Wharf Street', 'W'),
   ],
   decks: [
     { id: 'loop', kind: 'road', z: 64, width: 6, lanes: 4, closed: true, path: [[32, 78], [128, 78], [128, 102], [32, 102]], pillarEvery: 4,
       ramps: [{ at: [32, 78], dir: 'W', length: 16 }, { at: [128, 78], dir: 'E', length: 14 }, { at: [32, 102], dir: 'W', length: 16 }, { at: [128, 102], dir: 'E', length: 14 }] },
     { id: 'loop-gap', kind: 'road', z: 64, width: 4, lanes: 2, path: [[29, 91], [16, 91]], pillarEvery: 4, openEnd: true },
-    { id: 'L', kind: 'rail', z: 100, width: 3, lanes: 2, path: [[80, 3], [80, 150]], pillarEvery: 4,
+    { id: 'L', kind: 'rail', z: 112, width: 3, lanes: 2, path: [[80, 3], [80, 150]], pillarEvery: 4,
       stations: [{ name: 'Palm', rect: [76, 12, 84, 23] }, { name: 'Neon Mile', rect: [76, 38, 84, 49] }, { name: 'Brickyard', rect: [76, 86, 84, 97] }, { name: 'Harbor', rect: [76, 136, 84, 147] }] },
   ],
   walls: [
@@ -40,11 +43,13 @@ def('districts', 'lowtown', {
     { rect: [0, 2, 1, 151], type: { h: 32, top: '#5a6a4a', side: '#7a7468', face: 'stone', roof: 'grass' } },
   ],
   props: { lampEvery: 6, clutter: .3 },
+  // the closed bridge's notice on the embankment at Loop Avenue's west end (PLAN.md 9.1: the hook for District 2)
+  signs: [{ rect: [0, 75, 1, 81], text: 'BRIDGE CLOSED: GNOMES ON STRIKE', color: '#ff5a3a', h: 32, low: true }],
   // Dock Road's bridge over the canal lifts for the boats (PLAN.md 9.1): its span, sidewalks and all
   drawbridges: [{ id: 'dock', rect: [124, 124, 132, 131], axis: 'y' }],
   // a loop through all four neighbourhoods on the streets, under the Loop twice (perf runs, the attract camera)
-  // pickups (PLAN.md 8.12): health by the hospital and the safehouse, armour by the precinct and the marina, and
-  // weapons where their kind of trouble lives (Molotovs at the gas station, grenades on the container yard...)
+  // pickups (PLAN.md 8.12): health by the hospital and the safehouse, armour by the precinct and the marina,
+  // weapons where their kind of trouble lives (Molotovs at the gas station, grenades on the container yard...), bribes
   pickups: [
     { kind: 'health', amount: 50, at: [21, 74], respawn: 60 }, { kind: 'health', amount: 50, at: [24, 50], respawn: 60 },
     { kind: 'armor', amount: 50, at: [94, 74], respawn: 90 }, { kind: 'armor', amount: 50, at: [136, 118], respawn: 90 },
@@ -53,6 +58,8 @@ def('districts', 'lowtown', {
     { kind: 'weapon', item: 'persuader', amount: 12, at: [96, 98], respawn: 150 }, { kind: 'weapon', item: 'hotmess', amount: 100, at: [15, 94], respawn: 180 },
     { kind: 'weapon', item: 'zapomatic', amount: 30, at: [92, 54], respawn: 180 }, { kind: 'weapon', item: 'boomtube', amount: 3, at: [148, 145], respawn: 240 },
     { kind: 'ammo', item: 'snub38', amount: 24, at: [58, 32], respawn: 60 }, { kind: 'cash', amount: 75, at: [82, 80], respawn: 300 },
+    // police bribes (PLAN.md 8.13: a star off), one in an alley of each neighbourhood
+    { kind: 'bribe', at: [144, 13], respawn: 120 }, { kind: 'bribe', at: [68, 61], respawn: 120 }, { kind: 'bribe', at: [116, 134], respawn: 120 }, { kind: 'bribe', at: [6, 134], respawn: 120 },
   ],
   tour: [[32, 30], [128, 30], [128, 118], [32, 118]],
   zones: [

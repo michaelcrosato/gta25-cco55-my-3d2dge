@@ -12,7 +12,7 @@
 import { RNG } from '../core/rng.js';
 import { BUS } from '../core/bus.js';
 import { TUNE, knob } from '../core/tune.js';
-import { Shots } from './shots.js';
+import { Shots, hitCylinder } from './shots.js';
 import { Explosives } from './explosives.js';
 import { Pickups } from './pickups.js';
 import { Fire } from '../sim/fire.js';
@@ -27,29 +27,48 @@ knob('Combat', 'throwDist', 'Throw distance', 150, 30, 400, 10, 'How far a throw
 /** each melee move's damage and knockback against the weapon's own damage: a combo's moves average 1, so a weapon's
  *  spec (damage x rate) is what its combo deals */
 const MOVE_POWER = { jab: .7, cross: .9, hook: 1.1, uppercut: 1.3, overhead: 1.15, slash: .85, kick: 1.2 };
+// the point of box b (a vehicle, a prop) nearest (x, y), at height z
+const nearestOnBox = (b, x, y, z) => { const c = Math.cos(b.heading || 0), s = Math.sin(b.heading || 0), dx = x - b.x, dy = y - b.y, lx = Math.max(-b.hl, Math.min(b.hl, dx * c + dy * s)), ly = Math.max(-b.hw, Math.min(b.hw, -dx * s + dy * c)); return [b.x + lx * c - ly * s, b.y + lx * s + ly * c, z]; };
 
 export class Combat {
   /** o: { game (for the engine's effects and sounds; null headless), city (the CityMap: fire's surfaces, decks), map
-   *  (the TileMap), fire (false: none) } */
+   *  (the TileMap), fire (false: none), rng (its RNG stream: the city's "combat" by default) } */
   constructor(o = {}) {
     this.game = o.game || null; this.city = o.city || null; this.map = o.map || (o.city && o.city.map) || null;
     this.shots = new Shots(this.game); this.fire = o.fire === false || !this.city ? null : new Fire(this.city);
     this.explosives = new Explosives(this.fire); this.pickups = new Pickups();
-    this.bodies = []; this.boxes = []; this.explosive = []; this.fx = []; this.zaps = []; this.rs = RNG.stream('combat');
+    this.bodies = []; this.boxes = []; this.explosive = []; this.fx = []; this.zaps = []; this.rs = o.rng || RNG.stream('combat');   // (o.rng: an interior's own, the city's left as it was)
     this.kills = 0; this.t = 0;
   }
   add(ped) { if (!this.bodies.includes(ped)) this.bodies.push(ped); return ped; }
   remove(ped) { const i = this.bodies.indexOf(ped); if (i >= 0) this.bodies.splice(i, 1); }
+  /** make a thing (a prop: { x, y, z, heading }) an explosive box, a red barrel: o { hp (20), damage (70), splash (48),
+   *  fire (false: a bang, no blaze), hl, hw, height, source ('barrel') }. Shot or blasted to its hp, or stood in fire a
+   *  moment (1.2 s), it blows, and sets off the next one in reach; dead once blown. dropBox(t) takes it out of the fight */
+  makeExplosive(t, o = {}) {
+    let hp = o.hp ?? 20;
+    Object.assign(t, { hl: o.hl ?? 3.4, hw: o.hw ?? 3.4, height: o.height ?? 10, damage: o.damage ?? 70, splash: o.splash ?? 48, source: o.source || 'barrel', blaze: o.fire !== false, heat: 0, blown: false, dead: false, fuse: true });
+    if (!t.id) t.id = 'boom' + (this.booms = (this.booms || 0) + 1);
+    const boom = by => { if (t.blown) return; t.blown = true; t.dead = true; const b = this.explosives.blast({ x: t.x, y: t.y, z: (t.z || 0) + 6, damage: t.damage, splash: t.splash, by, source: t.source }); if (!t.blaze) b.fire = false; };
+    t.hurt = h => { if (t.blown) return null; hp -= h.amount; if (hp <= 0) boom(h.by); return { health: h.amount, armor: 0, down: false, killed: false }; };
+    t.blow = () => { t.blown = true; t.dead = true; };   // (set off by another's blast: the chain makes its blast)
+    t.burn = () => boom(null);
+    this.boxes.push(t); this.explosive.push(t); return t;
+  }
+  dropBox(t) { this.boxes = this.boxes.filter(b => b !== t); this.explosive = this.explosive.filter(b => b !== t); }
   /** the bodies within r of a ped (alive or not: a swing can't hurt the dead anyway) */
   bodiesNear(p, r) { return this.bodies.filter(b => b !== p && Math.abs(b.x - p.x) <= r && Math.abs(b.y - p.y) <= r); }
+  /** the boxes (vehicles, props) whose centres lie within r of ped p, the one it rides in left out */
+  boxesNear(p, r) { const mine = p.seat && p.seat.vehicle; return this.boxes.filter(b => b !== mine && b.hurt && Math.abs(b.x - p.x) <= r && Math.abs(b.y - p.y) <= r); }
   _fx(kind, x, y, z, o = {}) { this.fx.push({ kind, x, y, z, t: 0, ...o }); if (this.fx.length > 200) this.fx.shift(); }
   _sfx(name, o) { const a = this.game && this.game.audio; if (a && a.sfx) a.sfx(name, o); }
 
   /** fire one shot of a weapon from a ped (the Inventory has counted it) */
   shoot(p, spec) {
     const A = p.aimer, ab = p.ability, seat = p.seat, moving = !seat && Math.hypot(p.mover.vx, p.mover.vy) > 20;
-    // the muzzle: the gun in hand, or out of the vehicle's window on the side the aim points to
-    let muzzle = p.rig.muzzle();
+    // the muzzle: the gun in hand (a body posed only when drawn: where its hand would be, so no view moves a shot), or
+    // out of the vehicle's window on the side the aim points to
+    let muzzle = p.lazyRig ? handOf(p, A.dir, 10) : p.rig.muzzle();
     if (seat) {
       const b = seat.body, hx = Math.cos(b.heading), hy = Math.sin(b.heading), side = (hx * A.dir[1] - hy * A.dir[0]) >= 0 ? 1 : -1, off = (b.hw || 13) + 3;
       muzzle = [b.x - hy * side * off + hx * 2, b.y + hx * side * off + hy * 2, (b.z || 0) + 15];
@@ -59,23 +78,36 @@ export class Combat {
     const damage = spec.damage * (ab ? ab.damage : 1), at = A.pitchTo;
     let base = at ? [at[0] - muzzle[0], at[1] - muzzle[1], at[2] - muzzle[2]] : [A.dir[0], A.dir[1], 0];
     if (at) { const l = Math.hypot(...base); if (l > 12) base = base.map(v => v / l); else base = shotFrom(p, A.dir, at); }
+    if (spec.projectile === 'photo') { this._photo(p, spec); return; }   // (the Snap: a picture, no muzzle and no crime)
     this._fx('muzzle', muzzle[0], muzzle[1], muzzle[2], { dir: base });
-    BUS.emit('crime', { type: 'shooting', x: p.x, y: p.y, by: p.id, victim: null, severity: 1 });
+    BUS.emit('crime', { type: 'shooting', x: p.x, y: p.y, by: p.id, victim: null, severity: 1, lawful: p.faction === 'police' });   // (lawful: the police's own: nobody phones it in)
     if (spec.projectile === 'rocket') {
       this.explosives.throw({ kind: 'rocket', x: muzzle[0], y: muzzle[1], z: muzzle[2], vx: base[0] * spec.speed, vy: base[1] * spec.speed, vz: base[2] * spec.speed, damage, splash: spec.splash, range: spec.range, by: p.id, vehicle: seat ? seat.body.id : null });
       this._sfx('boom', { vol: .5 }); return;
     }
     if (spec.projectile === 'zap') { this._zap(p, spec, muzzle, A.dir, damage); this._sfx('laser'); return; }
-    if (spec.projectile === 'photo') { this._photo(p, spec); return; }
     const pellets = spec.projectile === 'pellets' ? spec.pellets : 1, flame = spec.projectile === 'stream';
     for (let i = 0; i < pellets; i++) {
       const a = (this.rs.next() * 2 - 1) * spread * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
       const dir = [base[0] * c - base[1] * s, base[0] * s + base[1] * c, base[2] + (flame ? (this.rs.next() - .5) * .08 : 0)];
+      const pb = !flame && !seat ? this._pointBlank(p, muzzle) : null;   // (one nearer than the muzzle: the shot can't start past it)
+      if (pb) { this.hurt(pb.t, { amount: damage, kind: pellets > 1 ? 'pellet' : 'bullet', by: p.id, at: pb.at, dir: [dir[0], dir[1]] }); continue; }
       this.shots.fire({ x: muzzle[0], y: muzzle[1], z: muzzle[2], dir, speed: spec.speed, range: spec.range * (flame ? .7 + this.rs.next() * .3 : 1), damage, by: p.id, team: p.faction, weapon: spec.id, vehicle: seat ? seat.body.id : null,
         kind: flame ? 'flame' : pellets > 1 ? 'pellet' : 'bullet', tracer: !flame && (pellets > 1 ? i % 3 === 0 : spec.rate < 6 || p.inv.fired % 2 === 0),
         casing: !flame && i === 0 && spec.projectile === 'bullet' ? [muzzle[0], muzzle[1], muzzle[2], 1] : null });
     }
     if (!flame) this._sfx(spec.sound === 'shotgun' ? 'explode' : 'shoot', { vol: spec.sound === 'smg' ? .45 : .6, pitch: spec.sound === 'smg' ? 1.25 : spec.sound === 'shotgun' ? .7 : 1 });
+  }
+  // point blank: the muzzle is a gun's length out (a posed hand's, 18 u), so a body between the shooter's chest and it (a
+  // bat swung in the face) takes the shot where the line meets it: { t, at } or null
+  _pointBlank(p, muzzle) {
+    const x0 = p.x, y0 = p.y, z0 = (p.z || 0) + CHEST - 6, dx = muzzle[0] - x0, dy = muzzle[1] - y0, dz = muzzle[2] - z0; let best = null, bs = 1;
+    for (const t of this.bodies) {
+      if (t === p || t.dead || Math.abs(t.x - x0) > 40 || Math.abs(t.y - y0) > 40) continue;
+      const k = hitCylinder(x0, y0, z0, dx, dy, dz, t.x, t.y, (t.r || 6) + 1, (t.z || 0) - 4, (t.z || 0) + (t.h || 34));
+      if (k > 0 && k < bs) { bs = k; best = t; }
+    }
+    return best ? { t: best, at: [x0 + dx * bs, y0 + dy * bs, z0 + dz * bs] } : null;
   }
   // the Zap-O-Matic: an arc to the nearest body in front, chaining on to the next ones near it
   _zap(p, spec, muzzle, dir, damage) {
@@ -102,7 +134,7 @@ export class Combat {
   // the Snap: a photo of whatever is in front (missions listen for it)
   _photo(p, spec) {
     const d = p.aimer.dir, seen = this.bodies.filter(b => b !== p && !b.dead && Math.hypot(b.x - p.x, b.y - p.y) < spec.range && ((b.x - p.x) * d[0] + (b.y - p.y) * d[1]) > 0).map(b => b.id);
-    BUS.emit('photo', { by: p.id, x: p.x, y: p.y, targets: seen });
+    BUS.emit('photo', { by: p.id, x: p.x, y: p.y, targets: seen, dir: [d[0], d[1]] });
     this._fx('flash', p.x, p.y, p.z + CHEST); this._sfx('select', { pitch: 1.6 });
   }
   /** a melee move connecting (Ped's combo hit): damage by the move and strength, knockback by RED MIST */
@@ -110,14 +142,15 @@ export class Combat {
     const k = MOVE_POWER[move && move.name] || 1, ab = a.ability, amount = spec.damage * k * a.stats.melee() * (ab ? ab.damage : 1);
     const dx = t.x - a.x, dy = t.y - a.y, d = Math.hypot(dx, dy) || 1;
     const floors = (move && move.name === 'uppercut') || spec.id === 'slugger' && move && move.name === 'overhead';
-    const r = this.hurt(t, { amount, kind: 'melee', by: a.id, knock: TUNE.meleeKnock * k * (ab ? ab.knockback : 1), knockdown: floors || (ab && ab.knockback > 1 && k >= 1.25), dir: [dx / d, dy / d], at: [t.x, t.y, t.z + CHEST * .9] });
-    if (r) { a.stats.did('meleeHit'); if (ab) ab.feed('meleeHit'); BUS.emit('crime', { type: 'assault', x: t.x, y: t.y, by: a.id, victim: t.id, severity: 1 }); }
-    if (this.game && this.game.hitFx) this.game.hitFx(t.x, t.y, t.z + CHEST * .9, { power: k, sound: spec.id === 'slugger' ? 'kick' : 'punch' });
+    const at = t.vitals || !t.hl ? [t.x, t.y, t.z + CHEST * .9] : nearestOnBox(t, a.x, a.y, (t.z || 0) + CHEST * .6);   // (a car: dented where the bat met it)
+    const r = this.hurt(t, { amount, kind: 'melee', by: a.id, knock: TUNE.meleeKnock * k * (ab ? ab.knockback : 1), knockdown: floors || (ab && ab.knockback > 1 && k >= 1.25), dir: [dx / d, dy / d], at });
+    if (r) { a.stats.did('meleeHit'); if (ab) ab.feed('meleeHit'); BUS.emit('crime', { type: t.vitals ? 'assault' : 'vandalism', x: t.x, y: t.y, by: a.id, victim: t.id, severity: 1, lawful: a.faction === 'police' }); }   // (a car dented: vandalism)
+    if (this.game && this.game.hitFx) this.game.hitFx(at[0], at[1], at[2], { power: k, sound: spec.id === 'slugger' ? 'kick' : 'punch', rumble: false });   // (the rumble is input/rumble.js's: never in the demo)
   }
   swing(p, spec) { this._sfx(spec.id === 'slugger' ? 'swing' : 'whoosh', { vol: .5 }); }
   /** throw a Molotov or a grenade from a ped's hand toward its aim */
   throwFrom(p, spec) {
-    const h = p.rig.hand(), A = p.aimer, to = A.target ? [A.target.x, A.target.y, A.target.z] : A.point ? [A.point[0], A.point[1], A.point[2] || 0] : [p.x + A.dir[0] * TUNE.throwDist, p.y + A.dir[1] * TUNE.throwDist, p.z];
+    const A = p.aimer, h = p.lazyRig ? handOf(p, A.dir, 4) : p.rig.hand(), to = A.target ? [A.target.x, A.target.y, A.target.z] : A.point ? [A.point[0], A.point[1], A.point[2] || 0] : [p.x + A.dir[0] * TUNE.throwDist, p.y + A.dir[1] * TUNE.throwDist, p.z];
     const [vx, vy, vz] = Explosives.aimArc(h, to, spec.speed, spec.projectile === 'grenade' ? .35 : 0);   // (a grenade lands short and rolls up)
     this.explosives.throw({ kind: spec.projectile, x: h[0], y: h[1], z: h[2], vx, vy, vz, fuse: spec.fuse || 2.5, damage: spec.damage, splash: spec.splash, burn: spec.burn, by: p.id });
     p.rig.lit = false; this._sfx('whoosh', { vol: .4 });
@@ -132,11 +165,11 @@ export class Combat {
     if (r.armor > 0) this._fx('spark', at[0], at[1], at[2]);
     const by = this.bodies.find(b => b.id === o.by);
     if (by && (o.kind === 'bullet' || o.kind === 'pellet')) { by.stats.did('shotHit'); if (by.ability) by.ability.feed('shotHit'); }
-    if (r.killed) { this.kills++; BUS.emit('kill', { target: t.id, by: o.by, kind: o.kind }); BUS.emit('crime', { type: 'murder', x: at[0], y: at[1], by: o.by, victim: t.id, severity: 3 }); }
+    if (r.killed) { this.kills++; BUS.emit('kill', { target: t.id, by: o.by, kind: o.kind, gang: t.gang || null, faction: t.faction || null }); BUS.emit('crime', { type: 'murder', x: at[0], y: at[1], by: o.by, victim: t.id, victimFaction: t.faction || null, severity: 3, lawful: by ? by.faction === 'police' : false }); }   // (who the victim was rides with the news: one in a car is no Combat body)
     return r;
   }
   /** a body standing in fire, or burning itself: damage, and the cells it crosses catch */
-  burnBody(p, dt) { this.hurt(p, { amount: TUNE.fireDps * dt, kind: 'fire', by: null }); if (this.fire && !p.dead) this.fire.ignite(p.x, p.y); }
+  burnBody(p, dt) { this.hurt(p, { amount: TUNE.fireDps * dt, kind: 'fire', by: p.burnBy ?? null }); if (this.fire && !p.dead) this.fire.ignite(p.x, p.y, p.burnBy ?? null); }   // (in the name of whoever set them alight, as is the trail they leave)
   // clear sight between two points for a zap (cell heights, at the shooter's height)
   _los(a, b) {
     const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6), z = Math.max(a.z || 0, b.z || 0) + 10;
@@ -153,24 +186,27 @@ export class Combat {
       onHit: (b, t, at) => {
         const flame = b.data.kind === 'flame';
         this.hurt(t, { amount: b.dmg, kind: flame ? 'fire' : b.data.kind === 'pellet' ? 'pellet' : 'bullet', by: b.data.by, at, dir: [b.vx, b.vy].map(v => v / (Math.hypot(b.vx, b.vy) || 1)) });
-        if (flame && t.ignite) t.ignite(3);
+        if (flame && t.ignite) t.ignite(3, b.data.by);
       },
-      onWall: (b, at) => { if (b.data.kind === 'flame' && this.fire) this.fire.add(at[0], at[1], 4, .8, 1.5, .5); else this._fx('spark', at[0], at[1], at[2]); },
-      onEnd: b => { if (b.data.kind === 'flame' && this.fire) this.fire.add(b.x, b.y, 4, .8, 1.5, .5); } });
+      onWall: (b, at) => { if (b.data.kind === 'flame' && this.fire) this.fire.add(at[0], at[1], 4, .8, 1.5, .5, b.data.by); else this._fx('spark', at[0], at[1], at[2]); },
+      onEnd: b => { if (b.data.kind === 'flame' && this.fire) this.fire.add(b.x, b.y, 4, .8, 1.5, .5, b.data.by); } });
     this.explosives.update(dt, { map: this.map, city: this.city, bodies, boxes: this.boxes, explosive: this.explosive,
       hurt: (t, amount, b, o) => this.hurt(t, { amount, kind: b.source === 'molotov' ? 'fire' : 'explosion', by: b.by, knock: o.knock, dir: o.dir, knockdown: b.source !== 'molotov' && amount > 8 }),
       onBlast: b => {
         BUS.emit('explode', { x: b.x, y: b.y, z: b.z, r: b.splash, by: b.by, power: b.damage });
-        if (b.source !== 'molotov') BUS.emit('crime', { type: 'explosion', x: b.x, y: b.y, by: b.by, victim: null, severity: 2 });
+        if (b.source !== 'molotov') BUS.emit('crime', { type: 'explosion', x: b.x, y: b.y, by: b.by, victim: null, severity: 2, lawful: this.bodies.some(q => q.id === b.by && q.faction === 'police') });
         if (this.game && this.game.particles && b.source !== 'molotov') this.game.particles.explosion(b.x, b.y, b.z, Math.min(2, b.splash / 48), { sound: true });
-        if (b.source === 'molotov') { for (const t of bodies) if (Math.hypot(t.x - b.x, t.y - b.y) < b.splash * 1.4 && t.ignite) t.ignite(4); this._sfx('hurt', { pitch: 1.8, vol: .4 }); }
+        if (b.source === 'molotov') { for (const t of bodies) if (Math.hypot(t.x - b.x, t.y - b.y) < b.splash * 1.4 && t.ignite) t.ignite(4, b.by); this._sfx('hurt', { pitch: 1.8, vol: .4 }); }
       } });
     if (this.fire) {
       const before = this.fire.count;
       this.fire.update(dt, w.wet || 0);
       if (this.fire.count && this.fire.count !== before && !this._told) { BUS.emit('fire', { x: 0, y: 0, r: 0, by: null }); this._told = true; }
       if (!this.fire.count) this._told = false;
-      for (const b of bodies) { const h = this.fire.heatAt(b.x, b.y); if (h > .5 && b.z < 8 && b.ignite) b.ignite(2.5); }
+      // (who stands in fire catches: not one already alight, whose own trail would keep it burning for good; not one just
+      // put out, a moment; not one inside a car)
+      if (this.fire.count) for (const b of bodies) { if (b.burning > 0 || b.burnGrace > 0 || b.seat) continue; const h = this.fire.heatAt(b.x, b.y); if (h > .5 && b.z < 8 && b.ignite) b.ignite(2.5, this.fire.sourceAt(b.x, b.y)); }
+      for (const t of this.explosive) if (t.fuse && !t.blown) { t.heat = this.fire.count && this.fire.heatAt(t.x, t.y) > .5 ? t.heat + dt : 0; if (t.heat > 1.2) t.burn(); }   // (a barrel stood in fire a moment)
     }
     if (w.takers) this.pickups.update(dt, w.takers, w.take || null); else this.pickups.update(dt);
     for (const f of this.fx) f.t += dt; this.fx = this.fx.filter(f => f.t < .5);
@@ -179,3 +215,7 @@ export class Combat {
   /** for state hashes */
   hash() { let h = (this.shots.hash() * 31 + this.explosives.hash()) >>> 0; if (this.fire) h = (h * 31 + this.fire.hash()) >>> 0; h = (h * 31 + this.pickups.hash()) >>> 0; for (const b of this.bodies) h = (h * 31 + Math.round(b.vitals.health * 10) + (b.dead ? 7 : 0)) >>> 0; return h; }
 }
+
+// a body's right hand held out along dir, reach units ahead at shoulder height: the muzzle (or the throwing hand) of
+// one whose rig is posed only when drawn (the crowd's, the police's, the gangs'), from its body alone
+function handOf(p, dir, reach) { const [dx, dy] = dir || [Math.cos(p.facing), Math.sin(p.facing)]; return [p.x + dx * reach - dy * 3, p.y + dy * reach + dx * 3, (p.z || 0) + CHEST - 6]; }

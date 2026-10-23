@@ -33,7 +33,7 @@ def('vehicles', 'cruiser', {
   name: 'MPD Cruiser', model: 'cruiser', class: 'car', role: 'police', seats: 4, radio: 'lowdown', health: 150, toughness: .85,
   locked: true, siren: true, horn: 'car',
   palette: ['#1c1c22', '#1a2440'],
-  handling: { mass: 1500, top: 305, accel: 140, brake: 760, grip: 500, drift: .3, steer: .52, drive: 'rwd', wheelbase: L * .62 },   // (the model's axles)
+  handling: { mass: 1500, top: 305, accel: 140, brake: 760, grip: 500, drift: .3, steer: .58, drive: 'rwd', wheelbase: L * .62 },   // (the model's axles)
   spec: { t200: 2.1, top: 305, brake200: 38 },
   spawn: { zones: ['palm', 'neon', 'brick', 'harbor'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['police', 'sedan'],
   about: 'The MPD patrol car: heavier than a Cortez and faster, with a bar on the nose for pushing you off the road.',

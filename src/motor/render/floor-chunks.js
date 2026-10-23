@@ -1,12 +1,17 @@
 // The floor, baked per chunk (PLAN.md 8.4). The city floor is painted into world-space canvases, one per chunk (256
 // units, 1 texel per unit), each baked once when it first comes near the screen and kept in an LRU. ISO draws every
 // visible chunk with one affine drawImage, the view's own ground projection set as the canvas transform, so a zoom or
-// a turn never re-bakes; TOP blits the same canvases scaled and SIDE7 reads them row by row (render/depth). The
+// a turn never re-paints; and once the view has held still two frames, each chunk's projected image is kept beside it
+// (a few a frame) and copied into place pixel for pixel: the turned blit, about half a millisecond a chunk on a
+// GPU-less machine, became a plain copy (a quarter turn or a zoom step projects them afresh, the affine blit meanwhile).
+// TOP blits the same canvases scaled and SIDE7 reads them row by row (render/depth). The
 // engine's whole-map floor bake (map.drawFloor) is never used at city scale: at 160x160 cells it is a ~20M-pixel
 // canvas per view, baked in one multi-second stall.
 //   Seams: a turned drawImage antialiases its edges, so each chunk is baked with an apron (pad texels of its
 //   neighbours' floor on every side) and drawn overlapping them; the overlap is the same floor, so no edge shows.
 import { E } from '../engine.js';
+
+const ISO_BAKES = 3;   // chunks projected for ISO a frame at most
 
 export class FloorChunks {
   /** o: { w, h: the floor's size in world units; paint(g, x0, y0, x1, y1): draws the floor of that world rectangle into
@@ -18,7 +23,7 @@ export class FloorChunks {
     this.nx = Math.ceil(this.W / this.size); this.ny = Math.ceil(this.H / this.size);
     this.chunks = new Map(); this.wanted = new Map(); this.frame = 0;
     /** bakes: chunks baked so far; bakeMs: the time they took (draw-side profiling only, never read by the sim) */
-    this.stats = { bakes: 0, bakeMs: 0, drawn: 0, waiting: 0 };
+    this.stats = { bakes: 0, bakeMs: 0, drawn: 0, waiting: 0, projected: 0 }; this._isoTag = ''; this._still = 0;
   }
   _key(i, j) { return j * this.nx + i; }
   /** is chunk (i, j) baked? */
@@ -30,6 +35,23 @@ export class FloorChunks {
     if (c) { c.used = this.frame; return c.cv; }
     this.wanted.set(k, [i, j]); return null;
   }
+  /** chunk (i, j)'s texels as 32-bit pixels (its canvas read once and kept with it: a chunk is never painted again), or
+   *  null while it is not baked (it is asked for): MODE 7 reads the floor from them */
+  pixels(i, j) {
+    const cv = this.canvas(i, j); if (!cv) return null;
+    const c = this.chunks.get(this._key(i, j));
+    return c.px || (c.px = new Uint32Array(cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data.buffer));
+  }
+  /** a new frame in a view that is not ISO (drawIso counts its own): the chunks it asks for from now are this frame's,
+   *  and the cap evicts only the others */
+  tick() { this.frame++; this._trim(); }
+  // past the cap: the chunks used longest ago go (never this frame's: a crew switch's camera high over the city uses
+  // eighty at once, trimmed back as soon as it comes down)
+  _trim() {
+    if (this.chunks.size <= this.cap) return;
+    const old = [...this.chunks.entries()].filter(([, c]) => c.used !== this.frame).sort((a, b) => a[1].used - b[1].used);
+    for (const [kk] of old.slice(0, this.chunks.size - this.cap)) this.chunks.delete(kk);
+  }
   /** bake chunk (i, j) now (and evict the chunks used longest ago past the cap) */
   bake(i, j) {
     const S = this.size, p = this.pad, n = S + 2 * p, x0 = i * S - p, y0 = j * S - p, cv = E.mkCanvas(n, n), g = E.ctx2d(cv);
@@ -40,10 +62,7 @@ export class FloorChunks {
     g.setTransform(1, 0, 0, 1, 0, 0);
     const k = this._key(i, j); this.chunks.set(k, { i, j, cv, used: this.frame }); this.wanted.delete(k);
     this.stats.bakes++; if (t0) this.stats.bakeMs += performance.now() - t0;
-    if (this.chunks.size > this.cap) {
-      const old = [...this.chunks.entries()].filter(([, c]) => c.used !== this.frame).sort((a, b) => a[1].used - b[1].used);
-      for (const [kk] of old.slice(0, this.chunks.size - this.cap)) this.chunks.delete(kk);
-    }
+    this._trim();
     return cv;
   }
   /** bake every chunk within rad world units of (x, y) now: a scene start or a teleport shows no baking floor */
@@ -71,19 +90,37 @@ export class FloorChunks {
    *  are asked for too, so a moving camera finds them baked */
   drawIso(r) {
     const v = r.view, g = r.ctx, S = this.size, p = this.pad, cam = v.toGround ? v.toGround(r.ix + r.bw / 2, r.iy + r.bh / 2) : null;
-    this.frame++;
+    this.frame++; this._trim();
     const pre = this.rangeIso(r, S / 2);
     for (let j = pre[1]; j <= pre[3]; j++) for (let i = pre[0]; i <= pre[2]; i++) this.canvas(i, j);
     if (cam) this.pump(cam[0], cam[1]);
-    const [i0, j0, i1, j1] = this.rangeIso(r, 0);
-    g.save(); g.imageSmoothingEnabled = false; let drawn = 0;
+    const [i0, j0, i1, j1] = this.rangeIso(r, 0), tag = v.ax + ',' + v.bx + ',' + v.ay + ',' + v.by;
+    this._still = tag === this._isoTag ? this._still + 1 : 0; this._isoTag = tag;   // (frames the projection has held)
+    g.save(); g.imageSmoothingEnabled = false; let drawn = 0, baked = 0;
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-      const cv = this.canvas(i, j), x0 = i * S - (cv ? p : 0), y0 = j * S - (cv ? p : 0);
+      const cv = this.canvas(i, j), c = cv && this.chunks.get(this._key(i, j));
+      if (c) {
+        if ((!c.iso || c.iso.tag !== tag) && this._still >= 2 && baked < ISO_BAKES) { c.iso = this._project(c, v, tag); baked++; }
+        if (c.iso && c.iso.tag === tag) { g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(c.iso.cv, c.iso.X - r.ix, c.iso.Y - r.iy); drawn++; continue; }
+      }
+      const x0 = i * S - (cv ? p : 0), y0 = j * S - (cv ? p : 0);
       g.setTransform(v.ax, v.bx, v.ay, v.by, v.ax * x0 + v.ay * y0 - r.ix, v.bx * x0 + v.by * y0 - r.iy);
       if (cv) { g.drawImage(cv, 0, 0); drawn++; } else { g.fillStyle = this.base; g.fillRect(0, 0, S, S); }
     }
     g.restore(); g._c = null;   // (E.px caches the fill colour on the context)
-    this.stats.drawn = drawn;
+    this.stats.drawn = drawn; this.stats.projected = baked;
+  }
+  // a chunk as ISO's view v projects it, at its own whole-pixel place: the same pixels its affine blit would put down
+  // (the camera's offset is whole pixels), kept until the projection changes
+  _project(c, v, tag) {
+    const S = this.size, p = this.pad, n = S + 2 * p, x0 = c.i * S - p, y0 = c.j * S - p, tx = v.ax * x0 + v.ay * y0, ty = v.bx * x0 + v.by * y0;
+    let X0 = 1e9, Y0 = 1e9, X1 = -1e9, Y1 = -1e9;
+    for (const [a, b] of [[0, 0], [n, 0], [0, n], [n, n]]) { const X = v.ax * a + v.ay * b + tx, Y = v.bx * a + v.by * b + ty; X0 = Math.min(X0, X); X1 = Math.max(X1, X); Y0 = Math.min(Y0, Y); Y1 = Math.max(Y1, Y); }
+    const X = Math.floor(X0), Y = Math.floor(Y0), w = Math.ceil(X1) - X + 1, h = Math.ceil(Y1) - Y + 1;
+    let cv = c.iso && c.iso.cv; if (!cv || cv.width !== w || cv.height !== h) cv = E.mkCanvas(w, h);
+    const g = cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); g.imageSmoothingEnabled = false;
+    g.setTransform(v.ax, v.bx, v.ay, v.by, tx - X, ty - Y); g.drawImage(c.cv, 0, 0); g.setTransform(1, 0, 0, 1, 0, 0);
+    return { tag, cv, X, Y };
   }
   /** forget every baked chunk (the floor changed) */
   clear() { this.chunks.clear(); this.wanted.clear(); }

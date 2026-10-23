@@ -6,10 +6,12 @@
 //   - roads (with their bands and intersections), lots, decks (the Loop, the L, bridges' raised parts), props (lamps,
 //     hydrants, trees...), pois, zones: the data every system reads (traffic, peds, police, missions, the radar).
 // Plain data and lookups: it runs headless, and the simulation may read all of it.
-export const SURFACES = ['lot', 'road', 'walk', 'curb', 'grass', 'dirt', 'water', 'deep', 'plaza', 'sand', 'alley', 'quay', 'pier', 'park', 'yard', 'rail', 'bridge'];
+export const SURFACES = ['lot', 'road', 'walk', 'curb', 'grass', 'dirt', 'water', 'deep', 'plaza', 'sand', 'alley', 'quay', 'pier', 'park', 'yard', 'rail', 'bridge',
+  'marble', 'carpet', 'steel', 'concrete', 'sewer',   // (interiors' floors: PLAN.md 8.21)
+  'wet', 'oil', 'ice'];   // (the Proving Ground's handling strips: PLAN.md 8.23)
 export const SURF = Object.fromEntries(SURFACES.map((s, i) => [s, i]));
 /** surfaces nobody walks on */
-export const BLOCKING = new Set(['water', 'deep']);
+export const BLOCKING = new Set(['water', 'deep', 'sewer']);
 
 export class CityMap {
   /** w, h: cells; T: the tile size (16) */

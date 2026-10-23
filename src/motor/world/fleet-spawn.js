@@ -17,7 +17,7 @@ import { shape } from '../core/schema.js';
 
 declare('fleets', shape({
   district: { type: 'string', req: true }, curb: { type: 'object', def: {} }, spots: { type: 'array', def: [] },
-  water: { type: 'array', def: [] }, rail: { type: 'array', def: [] }, air: { type: 'array', def: [] },
+  water: { type: 'array', def: [] }, rail: { type: 'array', def: [] }, air: { type: 'array', def: [] }, traffic: { type: 'object', def: {} }, crowd: { type: 'object', def: {} },
 }));
 const HEADINGS = { E: 0, S: Math.PI / 2, W: Math.PI, N: -Math.PI / 2 };
 
@@ -51,9 +51,14 @@ export function onRoad(city, x, y, h, hl, hw) {
   }
   return true;
 }
-/** the curbs a road parks on: both of an avenue's; one of a street's (alternating road by road), so the other lane
- *  and some of the parked one stay clear for traffic */
-export function curbSides(city, r) { return r.kind === 'avenue' ? [-1, 1] : [city.roads.indexOf(r) % 2 ? 1 : -1]; }
+/** the curbs a road parks on: both of an avenue's (its outer lanes: traffic keeps to the inner ones); a one-way
+ *  street's right-hand curb, seen the way it runs (its lane keeps left of the middle, clear of them); a two-way
+ *  street's one side, alternating road by road */
+export function curbSides(city, r) {
+  if (r.kind === 'avenue') return [-1, 1];
+  if (r.oneway) return [r.axis === 'y' ? -r.oneway : r.oneway];   // (south-bound: the west curb; east-bound: the south one)
+  return [city.roads.indexOf(r) % 2 ? 1 : -1];
+}
 /** the curb spots nearest a cell, one for each road side that parks, nearest first */
 export function curbSpots(city, cx, cy, hw = 13) {
   const out = [];
@@ -98,7 +103,7 @@ export function spawnFleet(fleet, city, spec, seed = 1) {
       const k = j & 1 ? (j + 1) / 2 : -j / 2, L = hl * 2 + 10, x = base.x - Math.cos(base.heading) * L * k, y = base.y - Math.sin(base.heading) * L * k;
       if (!fits(x, y, base.heading, hl, hw, ht)) continue;
       i++;
-      fleet.spawn(sp.def, x, y, base.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked });
+      fleet.spawn(sp.def, x, y, base.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked, home: true });
       taken.push({ x, y, h: base.heading, hl, hw }); out.spots++;
     }
   }
@@ -117,7 +122,7 @@ export function spawnFleet(fleet, city, spec, seed = 1) {
         if (busyNear(city, r, cx, cy) || noSpawn.some(z => cx >= z.rect[0] && cx <= z.rect[2] && cy >= z.rect[1] && cy <= z.rect[3])) continue;
         const s = laneSpot(r, side, cx, cy, T, hw);
         if (!fits(s.x, s.y, s.heading, hl, hw, ht)) continue;
-        fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)] });
+        fleet.spawn(d.id, s.x, s.y, s.heading, { color: d.palette[Math.floor(rng() * d.palette.length)], home: true });
         taken.push({ x: s.x, y: s.y, h: s.heading, hl, hw }); out.parked++; break;
       }
     }

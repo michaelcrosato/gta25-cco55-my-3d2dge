@@ -3,6 +3,7 @@
 // Rhino at the precinct, the Medic at the hospital, the Strongbox and a Fed Sedan at the bank, the Pumper and the Drill
 // Rig by the L depot, the Hookline at Crush Hour, bikes at the Greasy Spoke...); the Bilge Rat at the marina; two L
 // trains on the elevated line; the MPD Eye on its patrol over the district. Definitions not registered are skipped.
+// The traffic and the crowd round the focus come from their specs here too.
 import { def } from '../../../motor/index.js';
 
 def('fleets', 'lowtown', {
@@ -20,4 +21,13 @@ def('fleets', 'lowtown', {
   water: [{ def: 'bilgerat', at: [143.5, 115.4], heading: 'E' }],   // (in the slip, alongside the south pier, bow out to sea)
   rail: [{ deck: 'L', def: 'thel', trains: 2, gauge: 10 }],
   air: [{ def: 'eye', alt: 150, patrol: [[93, 70], [128, 30], [32, 30], [32, 118], [128, 118]] }],
+  // the traffic round the focus (PLAN.md 8.9): Neon Mile's streets busiest, the harbour's quietest
+  traffic: { hoods: { neon: 1.15, palm: 1, brick: .85, harbor: .75 }, roles: ['civilian'], classes: ['car', 'truck', 'bike'] },
+  // the crowd (PLAN.md 8.10): Neon Mile's sidewalks busiest; the Marching Mimes about Palm Terraces and Neon Mile by
+  // day; two officers walking the precinct's beat
+  crowd: {
+    hoods: { neon: 1.25, palm: 1, brick: .8, harbor: .7 },
+    troupes: [{ id: 'mimes', arch: 'mime', n: 6, gap: 18, hoods: ['palm', 'neon'], times: ['day'] }],
+    patrols: [{ arch: 'mpd', n: 2, near: 'precinct', r: 320 }],
+  },
 });

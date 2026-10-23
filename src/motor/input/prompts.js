@@ -19,8 +19,11 @@ export function parsePrompt(text, bindings, device) {
   }
   return out;
 }
+/** the player's choice of symbols beyond the engine's pad families: keys: true shows the keyboard's even on a pad
+ *  (Settings, Controls, Button symbols: Keyboard) */
+export const PROMPTS = { keys: false };
 /** the device whose glyphs to show, and its pad family */
-export function deviceOf(input) { return { device: input.lastDevice === 'gamepad' ? 'gamepad' : 'keyboard', style: input.padStyle ? input.padStyle() : 'xbox' }; }
+export function deviceOf(input) { return { device: input.lastDevice === 'gamepad' && !PROMPTS.keys ? 'gamepad' : 'keyboard', style: input.padStyle ? input.padStyle() : 'xbox' }; }
 /** the width of a prompt at scale 1 */
 export function promptWidth(text, bindings, input) {
   const { device, style } = deviceOf(input);

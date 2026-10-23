@@ -35,6 +35,7 @@ knob('Vehicles', 'skidSlip', 'Skid marks at', .2, .05, 1, .01, 'Rear slip (radia
 
 const LAND = new Set(['car', 'truck', 'tow', 'bike']);
 const GRID = 128;   // the neighbour grid's cell (units)
+const TURRET = 1.75;   // how far a water cannon's turret swings either side of the nose (radians: a roof turret, round to the sides)
 const SKID_MAX = 900;
 
 export class Fleet {
@@ -81,6 +82,7 @@ export class Fleet {
   spawn(defId, x, y, heading = 0, o = {}) { return this.add(new Vehicle(defId, { x, y, heading, ...o })); }
   remove(v) {
     const i = this.vehicles.indexOf(v); if (i >= 0) this.vehicles.splice(i, 1);
+    v.asleep = false;   // (out of the sleepers' grid at once)
     if (this.combat) { const j = this.combat.boxes.indexOf(v); if (j >= 0) this.combat.boxes.splice(j, 1); }
     for (const t of this.tows.filter(t => t.a === v.body || t.b === v.body)) this._untow(t);
     for (const p of v.seats) if (p) v.unseat(p);
@@ -88,27 +90,36 @@ export class Fleet {
   byId(id) { return this.vehicles.find(v => v.id === id) || null; }
   /** wake a sleeping vehicle (anything that touches it does) */
   wake(v) { v.asleep = false; v._still = 0; }
-  // the grid: every vehicle by the 128-unit cells its box reaches (rebuilt each step: a few hundred vehicles at most)
+  // the grid: every vehicle by the 128-unit cells its box reaches. The sleepers (a parked city: most of the fleet) are
+  // kept in a grid of their own, rebuilt only when who sleeps changes; the rest are put in afresh each step
   _regrid() {
+    let key = 0, n = 0; for (const v of this.vehicles) if (v.asleep && v.body) { key = (key * 31 + v.id) >>> 0; n++; }
+    if (key !== this._sleepKey || n !== this._sleepN) { this._sleepKey = key; this._sleepN = n; this.gridStatic = new Map(); for (const v of this.vehicles) if (v.asleep && v.body) gridPut(this.gridStatic, v); }
     const G = this.grid; G.clear();
-    for (const v of this.vehicles) {
-      if (!v.body) continue; const r = v.hl + 4, x0 = Math.floor((v.x - r) / GRID), x1 = Math.floor((v.x + r) / GRID), y0 = Math.floor((v.y - r) / GRID), y1 = Math.floor((v.y + r) / GRID);
-      for (let gy = y0; gy <= y1; gy++) for (let gx = x0; gx <= x1; gx++) { const k = gy * 4096 + gx; let a = G.get(k); if (!a) G.set(k, a = []); a.push(v); }
-    }
+    for (const v of this.vehicles) if (v.body && !v.asleep) gridPut(G, v);
   }
   /** the vehicles whose cells reach within r of (x, y) (each once, in fleet order) */
   around(x, y, r) {
-    const out = [], G = this.grid, st = ++this._stamp;
+    const out = [], st = ++this._stamp, S = this.gridStatic;
     for (let gy = Math.floor((y - r) / GRID); gy <= Math.floor((y + r) / GRID); gy++) for (let gx = Math.floor((x - r) / GRID); gx <= Math.floor((x + r) / GRID); gx++) {
-      const a = G.get(gy * 4096 + gx); if (a) for (const v of a) if (v._st !== st) { v._st = st; out.push(v); }
+      const k = gy * 4096 + gx, a = this.grid.get(k); if (a) for (const v of a) if (v._st !== st) { v._st = st; out.push(v); }
+      const b = S && S.get(k); if (b) for (const v of b) if (v._st !== st && v.asleep) { v._st = st; out.push(v); }
     }
     return out.length > 1 ? out.sort((p, q) => p._i - q._i) : out;
   }
   /** the vehicles within r of (x, y), nearest first (pred filters) */
   near(x, y, r, pred = null) {
     const out = [];
-    for (const v of this.vehicles) { if (!v.body) continue; const d = Math.hypot(v.x - x, v.y - y); if (d <= r + v.hl && (!pred || pred(v))) out.push([d, v]); }
+    for (const v of this.vehicles) { if (!v.body) continue; const d = Math.hypot(v.x - x, v.y - y); if (d <= r + v.hl && (!pred || pred(v))) out.push([d, v]); }   // (every vehicle: one spawned this step is in no grid yet)
     return out.sort((a, b) => a[0] - b[0]).map(a => a[1]);
+  }
+  /** call fn(v) for each vehicle whose cells reach within r of (x, y), once each, without making a list (hot loops) */
+  each(x, y, r, fn, sleepers = true) {
+    const st = ++this._stamp, S = sleepers ? this.gridStatic : null;
+    for (let gy = Math.floor((y - r) / GRID); gy <= Math.floor((y + r) / GRID); gy++) for (let gx = Math.floor((x - r) / GRID); gx <= Math.floor((x + r) / GRID); gx++) {
+      const k = gy * 4096 + gx, a = this.grid.get(k); if (a) for (const v of a) if (v._st !== st) { v._st = st; fn(v); }
+      const b = S && S.get(k); if (b) for (const v of b) if (v._st !== st && v.asleep) { v._st = st; fn(v); }
+    }
   }
   /** a rail line (o: RailLine's options) and trains on it (each { s, cars, id }) */
   addLine(o, trains = []) { const line = new RailLine(o); this.lines.push(line); this.addTrains(line, trains); return line; }
@@ -127,10 +138,12 @@ export class Fleet {
     this.tows.push(j); truck.towing = j; car.towedBy = truck; this.wake(truck); this.wake(car); return j;
   }
   _untow(j) { j.release(); if (j.truck) j.truck.towing = null; if (j.car) j.car.towedBy = null; this.tows = this.tows.filter(t => t !== j); }
-  /** a car bomb fitted at the Boom Box ('ignition' | 'remote') is armed when its fitter gets out; an ignition bomb goes
-   *  off when the next driver puts a foot down, a remote one on detonate() (the phone) */
+  /** a car bomb fitted at the Boom Box ('ignition' | 'remote') is armed when its fitter gets out (PLAN.md 8.8); any armed
+   *  bomb goes off on detonate() (the phone's DETONATE), and an ignition bomb when the next driver puts a foot down too */
   armBomb(v, by) { if (v.mods.bomb && !v.bombArmed) { v.bombArmed = true; v.bombBy = by || null; } }
   detonate(v) { if (!v || !v.bombArmed || v.wrecked) return false; v.bombArmed = false; this.wake(v); v.chainT = .05; v.chainBy = v.bombBy; return true; }
+  /** the armed bombs set by any of these ped ids (the phone lists them) */
+  bombsBy(ids) { return this.vehicles.filter(v => v.bombArmed && !v.wrecked && ids.includes(v.bombBy)); }
 
   /** one step. o: { intent(v) -> the Intent of v's driver (null: none), peds: [Ped] (bodies cars meet), night, wet } */
   update(dt, o = {}) {
@@ -142,7 +155,7 @@ export class Fleet {
       if (v.asleep) continue;
       awake++;
       const I = v.driver && o.intent ? o.intent(v) : null;
-      if (I && v.bombArmed && v.mods.bomb === 'ignition' && I.throttle > .1 && v.driver.id !== v.bombBy && v.chainT < 0) { v.bombArmed = false; v.chainT = .6; v.chainBy = v.bombBy; }   // (the ignition: a moment, then up)
+      if (I && v.bombArmed && v.mods.bomb !== 'remote' && I.throttle > .1 && v.driver.id !== v.bombBy && v.chainT < 0) { v.bombArmed = false; v.chainT = .6; v.chainBy = v.bombBy; }   // (the ignition: a moment, then up)
       v.update(dt, I, W);
       if (I && v.driver && !v.wrecked) this._tools(dt, v, I);
       if (v.cls === 'heli' && v.wrecked) v.body.falling = true;
@@ -156,13 +169,20 @@ export class Fleet {
     this._regrid();
     // vehicles against vehicles (towing pairs aside; boats only meet boats; helis fly over it all): each awake one
     // against its neighbours; a sleeper it touches wakes
+    // (far traffic on its lanes meets nothing by itself: its brain keeps it off other cars and its lanes clear of the
+    // parked ones; the physical vehicles meet it)
     for (const a of this.vehicles) {
-      if (a.asleep || !a.body || a.cls === 'heli') continue;
+      if (a.asleep || !a.body || a.cls === 'heli' || a.kinematic) continue;
       for (const b of this.around(a.x, a.y, a.hl + 8)) {
-        if (b === a || !b.body || b.cls === 'heli' || (!b.asleep && b._i < a._i)) continue;
+        if (b === a || !b.body || b.cls === 'heli' || (!b.asleep && !b.kinematic && b._i < a._i)) continue;
         if ((a.cls === 'boat') !== (b.cls === 'boat')) continue;
         if (a.towing && a.towing.car === b || b.towing && b.towing.car === a) continue;
-        if (collideCars(a.body, b.body) > 0 && b.asleep) this.wake(b);
+        const imp = collideCars(a.body, b.body);
+        if (imp > 0) {   // (who hit whom, and how hard: a velocity change, u/s; traffic's drivers react to the player's)
+          if (b.asleep) this.wake(b);
+          a.bumpedBy = b; b.bumpedBy = a; a.bumpT = b.bumpT = this.t; a.bumpDv = imp / a.body.h.mass; b.bumpDv = imp / b.body.h.mass;
+          this._crash(a, imp, b); this._crash(b, imp, a);
+        }
       }
     }
     this._riders(dt);
@@ -173,15 +193,15 @@ export class Fleet {
     for (const v of [...this.vehicles]) {
       if (v.damage.update(dt) === 'explode') this.explode(v, v.lastBy);
       if (v.chainT >= 0) { v.chainT -= dt; if (v.chainT < 0) this.explode(v, v.chainBy); }
-      if (v.lastCrash > 2) { BUS.emit('vehicleDamage', { vehicle: v.id, amount: Math.round(v.lastCrash), x: v.x, y: v.y, by: v.driver ? v.driver.id : null }); }
-      v.lastCrash = 0;
+      if (v.lastCrash > 2) { BUS.emit('vehicleDamage', { vehicle: v.id, amount: Math.round(v.lastCrash), x: v.x, y: v.y, by: v.crashBy ?? null }); }
+      v.lastCrash = 0; v.crashBy = null;
       if (v.sunk && v.sunkAt === undefined) this._sink(v);
       if (v.sunkAt !== undefined && this.t - v.sunkAt > 2.5) this.remove(v);
     }
     if (this.combat) for (const b of this.combat.explosives.blasts) {
       if (this._seen.has(b)) continue; this._seen.add(b);
       for (const v of this.vehicles) {
-        if (v.wrecked || v.chainT >= 0 || !v.body) continue;
+        if (v.wrecked || v.chainT >= 0 || !v.body || Math.abs((v.z || 0) - (b.z || 0)) > 40) continue;   // (a street's blast never the deck's cars over it)
         const d = boxDistance(v, b.x, b.y);
         if (d <= b.splash) this.wake(v);
         if (d <= TUNE.carChain || (v.damage.burning && d <= b.splash * .9)) { v.chainT = TUNE.chainDelay + .1 * (this._n++ % 3); v.chainBy = b.by; }
@@ -190,9 +210,19 @@ export class Fleet {
     if (this._seen.size > 64) this._seen = new Set(this.combat ? this.combat.explosives.blasts : []);
     this._presentation(dt);
   }
+  // a crash between two vehicles: what it cost this one (collideCars' impulse comes after Vehicle.update has read the
+  // step's own knocks, walls and props), and who did it: the other one's driver (a parked car's: no one)
+  _crash(v, imp, o) {
+    if (v.wrecked || !v.body) return;
+    const hurt = Damage.crash(imp, v.body.h.mass); if (hurt <= 0) return;
+    const [lx, ly] = v.toLocal(v.body.felt.hitX, v.body.felt.hitY); v.damage.hit(hurt, lx, ly, v.hl, v.hw);
+    if (hurt > v.lastCrash) { v.lastCrash = hurt; v.crashBy = o.driver ? o.driver.id : null; }
+    if (o.driver) v.lastBy = o.driver.id;
+  }
   /** blow a vehicle up now: a blast through Combat (it hurts, lights fire, chains), the wreck thrown up, its people killed */
   explode(v, by = null) {
     if (v.blownAt !== null) return;
+    if (v.damage.immune) { v.chainT = -1; return; }   // (a bot's own ride never goes up: D29)
     this.wake(v); v.damage.explode(); v.blownAt = this.t; v.chainT = -1; v.siren = false;
     const who = by ?? v.lastBy ?? null;
     if (this.combat) this.combat.explosives.blast({ x: v.x, y: v.y, z: v.z + 10, damage: TUNE.carBlastDamage, splash: TUNE.carBlastSplash, by: who, source: 'car' });
@@ -224,42 +254,48 @@ export class Fleet {
   }
   // peds in the way: pushed out, or knocked down by the closing speed
   _peds(dt, peds) {
-    for (const p of peds) {
-      if (p.seat || p.held) continue;
-      const m = p.mover;
-      for (const v of this.around(m.x, m.y, 12)) {
-        if (!v.body || v.cls === 'heli' || v.cls === 'boat' || v.sunk || (p.boarding && p.boarding.v === v)) continue;
-        const b = v.body, reach = v.hl + 12;
-        if (Math.abs(m.x - b.x) > reach || Math.abs(m.y - b.y) > reach || m.z > b.z + v.height || m.z + 30 < b.z) continue;
-        const hit = circleObb(v, m.x, m.y, p.r || 6); if (!hit) continue;
-        const closing = (b.vx - m.vx) * hit.nx + (b.vy - m.vy) * hit.ny;
-        m.x += hit.nx * hit.depth; m.y += hit.ny * hit.depth;
-        if (closing > TUNE.knockSpeed && !p.dead && !p.anchored && !p.floored) {
-          const sp = Math.hypot(b.vx, b.vy) || 1, dir = [b.vx / sp * .7 + hit.nx * .3, b.vy / sp * .7 + hit.ny * .3], by = v.driver ? v.driver.id : null;
-          const amount = (closing - TUNE.knockSpeed * .7) * TUNE.runOver;
-          if (this.combat) this.combat.hurt(p, { amount, kind: 'vehicle', by, knock: closing * .8, knockdown: true, dir }); else p.hurt({ amount, kind: 'vehicle', knock: closing * .8, knockdown: true, dir });
-          b.setVelocity(b.vx * .94, b.vy * .94);
-          if (by) BUS.emit('crime', { type: 'runOver', x: m.x, y: m.y, by, victim: p.id, severity: 2 });
-        } else if (closing > 0) { m.vx += hit.nx * closing; m.vy += hit.ny * closing; }
-      }
-    }
+    let p = null, m = null;
+    const meet = v => {
+      if (!v.body || v.cls === 'heli' || v.cls === 'boat' || v.sunk || (p.boarding && p.boarding.v === v)) return;
+      const b = v.body, reach = v.hl + 12;
+      if (Math.abs(m.x - b.x) > reach || Math.abs(m.y - b.y) > reach || m.z > b.z + v.height || m.z + 30 < b.z) return;
+      const hit = circleObb(v, m.x, m.y, p.r || 6); if (!hit) return;
+      // (knocked down by the vehicle's own speed into the body: running into a parked car only stops the runner)
+      const closing = (b.vx - m.vx) * hit.nx + (b.vy - m.vy) * hit.ny, driven = b.vx * hit.nx + b.vy * hit.ny;
+      m.x += hit.nx * hit.depth; m.y += hit.ny * hit.depth;
+      if (driven > TUNE.knockSpeed && closing > TUNE.knockSpeed && !p.dead && !p.anchored && !p.floored) {
+        const sp = Math.hypot(b.vx, b.vy) || 1, dir = [b.vx / sp * .7 + hit.nx * .3, b.vy / sp * .7 + hit.ny * .3], by = v.driver ? v.driver.id : null;
+        const amount = (closing - TUNE.knockSpeed * .7) * TUNE.runOver;
+        if (this.combat) this.combat.hurt(p, { amount, kind: 'vehicle', by, knock: closing * .8, knockdown: true, dir }); else p.hurt({ amount, kind: 'vehicle', knock: closing * .8, knockdown: true, dir });
+        b.setVelocity(b.vx * .94, b.vy * .94);
+        if (by) BUS.emit('crime', { type: 'runOver', x: m.x, y: m.y, by, victim: p.id, severity: 2, lawful: v.driver.faction === 'police' });
+      } else if (closing > 0) { m.vx += hit.nx * closing; m.vy += hit.ny * closing; }
+    };
+    // (a ped gliding its sidewalk line never walks into a parked car: only what moves can reach it)
+    for (const q of peds) { if (q.seat || q.held || q.coast) continue; p = q; m = q.mover; this.each(m.x, m.y, 12, meet, !q.gliding); }
   }
   // the L: its trains move on, and kill what stands on their track
   _trains(dt, peds) {
     for (const tr of this.trains) {
       tr.update(dt);
-      for (const c of tr.cars) {
-        for (const p of peds) {
-          if (p.seat || p.dead) continue; const m = p.mover;
+      // (the bodies inside the train's box first: a crowd is mostly nowhere near it)
+      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+      for (const c of tr.cars) { x0 = Math.min(x0, c.x - c.hl - 10); x1 = Math.max(x1, c.x + c.hl + 10); y0 = Math.min(y0, c.y - c.hl - 10); y1 = Math.max(y1, c.y + c.hl + 10); z0 = Math.min(z0, c.z - 10); z1 = Math.max(z1, c.z + 10); }
+      for (const p of peds) {
+        if (p.seat || p.dead || p.coast) continue; const m = p.mover;
+        if (m.z < z0 || m.z > z1 || m.x < x0 || m.x > x1 || m.y < y0 || m.y > y1) continue;
+        for (const c of tr.cars) {
           if (Math.abs(m.z - c.z) > 10 || Math.abs(m.x - c.x) > c.hl + 10 || Math.abs(m.y - c.y) > c.hl + 10) continue;
           if (!circleObb(c, m.x, m.y, p.r || 6)) continue;
           const d = [Math.cos(c.heading), Math.sin(c.heading)];
           if (this.combat) this.combat.hurt(p, { amount: 999, kind: 'train', by: null, knock: 320, knockdown: true, dir: d }); else p.hurt({ amount: 999, kind: 'train', knock: 320, knockdown: true, dir: d });
+          break;
         }
-        for (const v of this.around(c.x, c.y, c.hl + 8)) {
-          if (!v.body || v.wrecked || Math.abs(v.z - c.z) > 12 || Math.abs(v.x - c.x) > c.hl + v.hl || Math.abs(v.y - c.y) > c.hl + v.hl) continue;
-          if (obbOverlap(c, v)) { this.wake(v); v.damage.hit(999); this.explode(v, null); }
-        }
+      }
+      for (const c of tr.cars) {   // (only what moves can be on the track: a sleeper was left where no train runs)
+        const hit = [];
+        this.each(c.x, c.y, c.hl + 8, v => { if (v.body && !v.wrecked && Math.abs(v.z - c.z) <= 12 && Math.abs(v.x - c.x) <= c.hl + v.hl && Math.abs(v.y - c.y) <= c.hl + v.hl && obbOverlap(c, v)) hit.push(v); }, false);
+        for (const v of hit) { this.wake(v); v.damage.hit(999); this.explode(v, null); }
       }
     }
   }
@@ -280,15 +316,18 @@ export class Fleet {
     v._cool = Math.max(-1, (v._cool || 0) - dt);
     if (v.def.tool === 'hook' && I.tap.fire) {
       if (v.towing) this._untow(v.towing);
-      else { const hook = v.model.hook || [-v.hl - 4, 0], [x, y] = v.toWorld(hook[0], hook[1]); const car = this.near(x, y, 24, c => c !== v && LAND.has(c.cls) && c.cls !== 'bike' && !c.towedBy && !c.wrecked).find(c => Math.min(Math.hypot(...sub(c.toWorld(c.hl, 0), [x, y])), Math.hypot(...sub(c.toWorld(-c.hl, 0), [x, y]))) < 22); if (car) this.tow(v, car); }
+      else { const hook = v.model.hook || [-v.hl - 4, 0], [x, y] = v.toWorld(hook[0], hook[1]); const car = this.near(x, y, 24, c => c !== v && LAND.has(c.cls) && c.cls !== 'bike' && !c.towedBy && !c.wrecked && Math.abs(c.z - v.z) < 12).find(c => Math.min(Math.hypot(...sub(c.toWorld(c.hl, 0), [x, y])), Math.hypot(...sub(c.toWorld(-c.hl, 0), [x, y]))) < 22); if (car) this.tow(v, car); }
       return;
     }
     if (v.def.tool === 'cannon' && I.down.fire) {   // the water cannon: knocks peds over, puts fires out
       if (v._cool <= 0) {
+        // (its turret swings toward the aim, up to TURRET either side of the nose; ahead with no aim)
+        let hx = Math.cos(b.heading), hy = Math.sin(b.heading);
+        if (I.aim) { const d = Math.max(-TURRET, Math.min(TURRET, E.angDiff(b.heading, Math.atan2(I.aim[1], I.aim[0])))); hx = Math.cos(b.heading + d); hy = Math.sin(b.heading + d); }
         v._cool += .06; const reach = 150, nz = v.model.nozzle, zx = v.toWorld(nz ? nz[0] : v.hl * .1, nz ? nz[1] : 0);   // (from the model's nozzle)
         this.jets.push({ x: zx[0], y: zx[1], z: b.z + (nz ? nz[2] : v.height + 6), dx: hx, dy: hy, t: 0, life: .5 });
-        for (let k = 30; k <= reach; k += 30) { const x = zx[0] + hx * k, y = zx[1] + hy * k; if (C && C.fire) C.fire.douse(x, y, 10); }
-        if (C) for (const p of C.bodies) { if (p.dead || p.seat) continue; const dx = p.x - zx[0], dy = p.y - zx[1], along = dx * hx + dy * hy, side = Math.abs(-dx * hy + dy * hx); if (along > 0 && along < reach && side < 14 && !p.floored) C.hurt(p, { amount: 1, kind: 'water', by, knock: 180, knockdown: true, dir: [hx, hy] }); }
+        if (C && C.fire && C.fire.count) for (let k = 12; k <= reach; k += 18) C.fire.douse(zx[0] + hx * k, zx[1] + hy * k, 10);   // (the jet's whole length, from just off the nozzle)
+        if (C) for (const p of C.bodies) { if (p.dead || p.seat || Math.abs((p.z || 0) - v.z) > 16) continue; const dx = p.x - zx[0], dy = p.y - zx[1], along = dx * hx + dy * hy, side = Math.abs(-dx * hy + dy * hx); if (along > 0 && along < reach && side < 14 && !p.floored) C.hurt(p, { amount: 1, kind: 'water', by, knock: 180, knockdown: true, dir: [hx, hy] }); }
       }
       return;
     }
@@ -297,7 +336,7 @@ export class Fleet {
       while (v._cool <= 0) {
         v._cool += 1 / 8; const [mx, my] = v.toWorld(v.hl * .2, 0);
         C.shots.fire({ x: mx + hx * (v.hl * .8 + 4), y: my + hy * (v.hl * .8 + 4), z: b.z + v.height + 2, dir: [hx, hy, 0], speed: 900, range: 420, damage: 9, by, team: v.driver.faction, weapon: 'roofmg', vehicle: v.id, kind: 'bullet', tracer: true, casing: null });
-        BUS.emit('crime', { type: 'shooting', x: v.x, y: v.y, by, victim: null, severity: 1 });
+        BUS.emit('crime', { type: 'shooting', x: v.x, y: v.y, by, victim: null, severity: 1, lawful: v.driver.faction === 'police' });
       }
     } else if (w === 'oil' && I.tap.fire && v.mods.oil > 0) { v.mods.oil--; const [x, y] = v.toWorld(-v.hl - 14, 0); this.slicks.push({ x, y, z: b.z, r: 22, t: 40 }); }
     else if (w === 'mines' && I.tap.fire && v.mods.mines > 0) { v.mods.mines--; const [x, y] = v.toWorld(-v.hl - 8, 0); this.mines.push({ x, y, z: b.z, arm: 1.2, by }); }
@@ -334,6 +373,7 @@ export class Fleet {
         if (sp > 60 && (this._n++ % 4) === 0) for (const q of pts) this.fx.push({ kind: 'smoke', x: q[0], y: q[1], z: b.z + 2, t: 0 });
       } else v._skid = null;
       if (b.felt.hit / b.h.mass > 30) this.fx.push({ kind: 'sparks', x: b.felt.hitX, y: b.felt.hitY, z: b.z + 6, t: 0, n: Math.min(12, Math.round(b.felt.hit / b.h.mass / 12)) });
+      if (v.flats > 0 && sp > 60 && (this._n++ % 3) === 0) for (const w of v.model.wheels) { const [x, y] = v.toWorld(w.x, w.y); this.fx.push({ kind: 'sparks', x, y, z: b.z + 1, t: 0, n: 2 }); }   // (on its rims)
       if (v.damage.smoking && (this._n++ % (v.damage.burning ? 2 : 5)) === 0) { const [x, y] = v.toWorld(v.hl * .6, 0); this.fx.push({ kind: v.damage.burning ? 'flame' : 'engine', x, y, z: b.z + v.height * .6, t: 0 }); }
     }
     if (this.skids.length > SKID_MAX) this.skids.splice(0, this.skids.length - SKID_MAX);
@@ -349,6 +389,10 @@ export class Fleet {
 }
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
 /** how far a point is from a vehicle's (or rail car's) box (0 inside) */
+function gridPut(G, v) {
+  const r = v.hl + 4, x0 = Math.floor((v.x - r) / GRID), x1 = Math.floor((v.x + r) / GRID), y0 = Math.floor((v.y - r) / GRID), y1 = Math.floor((v.y + r) / GRID);
+  for (let gy = y0; gy <= y1; gy++) for (let gx = x0; gx <= x1; gx++) { const k = gy * 4096 + gx; let a = G.get(k); if (!a) G.set(k, a = []); a.push(v); }
+}
 export function boxDistance(v, x, y) {
   const c = Math.cos(v.heading), s = Math.sin(v.heading), dx = x - v.x, dy = y - v.y, lx = dx * c + dy * s, ly = -dx * s + dy * c;
   const ox = Math.max(0, Math.abs(lx) - v.hl), oy = Math.max(0, Math.abs(ly) - v.hw); return Math.hypot(ox, oy);

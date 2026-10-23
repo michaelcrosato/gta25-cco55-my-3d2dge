@@ -60,7 +60,7 @@ def('vehicleModels', 'brute', {
 def('vehicles', 'brute', {
   name: 'Brute', model: 'brute', class: 'car', role: 'civilian', seats: 2, radio: 'crash', health: 110, horn: 'car',
   palette: ['#e8742a', '#222226', '#8ad02a', '#2a6ae8', '#c41a2a'],
-  handling: { mass: 1350, top: 295, accel: 152, brake: 560, grip: 440, drift: .22, steer: .55, drive: 'rwd', wheelbase: 37.5, cg: .46 },
+  handling: { mass: 1350, top: 295, accel: 152, brake: 560, grip: 440, drift: .22, steer: .58, drive: 'rwd', wheelbase: 37.5, cg: .46 },
   spec: { t200: 2.0, top: 295, brake200: 45 },
   spawn: { zones: ['harbor', 'brick', 'palm'], weight: 2, timeOfDay: ['day', 'night'] }, price: 0, tags: ['muscle', 'fast'],
   about: 'Loud, fast in a straight line and happiest sideways. The brakes are an afterthought.',

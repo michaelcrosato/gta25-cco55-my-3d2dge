@@ -1,0 +1,170 @@
+{
+ "files": [
+  "src/game/missions/r1-rat-run.js",
+  "src/game/missions/r2-below-deck.js",
+  "src/game/missions/r3-crane-game.js"
+ ],
+ "runs": [
+  {
+   "id": "rats_rat_run",
+   "seed": 1,
+   "pad": false,
+   "passed": true,
+   "medal": "silver",
+   "secs": 56,
+   "note": "0 retries; bot evades the stakeout's 2 stars, then delivers"
+  },
+  {
+   "id": "rats_rat_run",
+   "seed": 2,
+   "pad": false,
+   "passed": true,
+   "medal": "silver",
+   "secs": 50,
+   "note": "0 retries"
+  },
+  {
+   "id": "rats_rat_run",
+   "seed": 3,
+   "pad": false,
+   "passed": true,
+   "medal": "silver",
+   "secs": 73,
+   "note": "0 retries"
+  },
+  {
+   "id": "rats_rat_run",
+   "seed": 1,
+   "pad": true,
+   "passed": true,
+   "medal": "silver",
+   "secs": 75,
+   "note": "0 retries"
+  },
+  {
+   "id": "rats_below_deck",
+   "seed": 1,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 95,
+   "note": "0 retries; stealth path, takedown, Snap photo"
+  },
+  {
+   "id": "rats_below_deck",
+   "seed": 2,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 105,
+   "note": "0 retries"
+  },
+  {
+   "id": "rats_below_deck",
+   "seed": 3,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 131,
+   "note": "0 retries"
+  },
+  {
+   "id": "rats_below_deck",
+   "seed": 1,
+   "pad": true,
+   "passed": true,
+   "medal": "gold",
+   "secs": 91,
+   "note": "0 retries"
+  },
+  {
+   "id": "rats_crane_game",
+   "seed": 1,
+   "pad": false,
+   "passed": true,
+   "medal": "silver",
+   "secs": 116,
+   "note": "0 retries (a second run gave the same 116 s); silver = crew bonus missed"
+  },
+  {
+   "id": "rats_crane_game",
+   "seed": 2,
+   "pad": false,
+   "passed": true,
+   "medal": "silver",
+   "secs": 132,
+   "note": "0 retries (a second run: 135 s, 0 retries)"
+  },
+  {
+   "id": "rats_crane_game",
+   "seed": 3,
+   "pad": false,
+   "passed": true,
+   "medal": "gold",
+   "secs": 137,
+   "note": "0 retries (a second run gave the same 137 s)"
+  },
+  {
+   "id": "rats_crane_game",
+   "seed": 1,
+   "pad": true,
+   "passed": true,
+   "medal": "silver",
+   "secs": 102,
+   "note": "0 retries (a second run gave the same 102 s). The same command does not always repeat: before the last R3 change it gave 105 s with one chase retry once, then 106 s with none"
+  }
+ ],
+ "notes": "I made the Harbor Rats chain as three new files and touched nothing else: no MOTOR, dist, docs or git writes. Every run below passes on seeds 1, 2 and 3 and through the pad on seed 1 with 0 retries. Lint, the boundary check and the mission-links test (2/2) all pass.\n\n- **R1 Rat Run:** you get two stars when you take the Hauler at the Rats' payphone curb. You must lose them, either by losing the police or with a Spray & Pray respray, before you stop at the construction-site frontage on Chapel Street in the Brickyard. Stopping there with any star fails the job: \"they saw you arrive\". Rewards $2,500, Rats +15, Gnomes -5, and the Persuader unlock.\n- **R2 Below Deck (as Viv):** Club Chrome's front lot is dressed as a chop shop with mission props and four guards facing out. Viv carries only the Snap. The stealth path runs behind the guards' backs and outside every sight cone. You take the bench guard down from behind (a bonus), photograph the ledger and leave the way you came. Being seen fails the job: \"they made you\".\n- **R3 Crane Game:** you and three bat-carrying Rats hold the container yard's east side against three waves: Saints from the cranes, two cars whose crews pile out on Dock Road, and a wave over Brick Lane with their enforcer. The later waves bring Molotov throwers, and the waves also bring red barrels that I built in content and that set each other off. Then the captain flees in a Saint up the yard's west street and along Loop Avenue on a fixed route; you ram him in the Brute.\n  - While the fight runs I hold the stars at 0. I also make the city's Rats treat the player as one of their own: the player's gang is set to 'rats' and respect lost to stray kills is refunded. Both are restored when the op ends.\n  - A Saint that gets no nearer and takes no damage for 15 s runs off and is removed.\n\nDeviations, and why:\n- **R1's drop:** the crusher yard drowned or trapped the van, and at the Boom Box a parked Brute blocked the lot and Lefty got run over.\n- **R2's location:** the plaza has no random props, so the sight lines are the same on every seed.\n- **No gang tags on mission peds or cars:** with one, a stray shot rallies the city's gang against the player and costs respect.\n- **R3:**\n  - the fight faces east so missed shots fly over the harbour;\n  - the allies carry bats, because their Persuader pellets killed the player;\n  - the chase uses a route instead of fleeing, because flee is broken (see the MOTOR requests);\n  - the Brute starts on the west street, because Brick Lane jams with fire engines after the fight.\n\nBot runs are not always repeatable from run to run. My suspected cause is the rig's random clock (MOTOR request 10). Full notes are in scratchpad/a2/rats/notes.md.",
+ "motorRequests": [
+  {
+   "file": "src/motor/mission/actors.js",
+   "change": "In place(), in the vehicle branch, replace `b.vx = b.vy = b.vz = 0; b.speed = 0;` with `b.u = b.v = b.w = 0; b.vz = 0;`.",
+   "why": "VehicleBody's vx, vy and speed are getter-only, so m.place(vehicle, point) throws 'Cannot set property vy of #<VehicleBody> which has only a getter'. R1's retry has to remove the van and spawn a new one instead."
+  },
+  {
+   "file": "src/motor/mission/actors.js",
+   "change": "In _away(v, P), read the lane's points: `const [ax, ay] = L.a; const d = Math.hypot(ax - P.x, ay - P.y); if (L.ground !== false && d > bd) { bd = d; best = [ax, ay]; }`. In _drive, when roads.gps.routeTo returns null for a flee, set D.dest = null so another destination is picked.",
+   "why": "Lanes have a/b point arrays, not ax/ay, so every distance is NaN and _away always returns [v.x + 600, v.y], which is usually off the road network. A car on drive { flee: 'player' } drives to the end of its route and stops there for good. On seeds 2 and 3, R3's captain stopped dead and jammed Brick Lane, so R3 now uses a route."
+  },
+  {
+   "file": "src/motor/ai/fighter.js",
+   "change": "In _lineTo(tgt), after the map.ray check, also test solids along the segment. Step every 8 u, from 14 u out to 14 u short of the target: `if (this.map.solidsNear(x, y, 0).some(q => !q.deck && !q.railing && q.top - (q.z || 0) >= 12 && Math.abs(x - q.x) < q.hx && Math.abs(y - q.y) < q.hy)) return (this._line = 'wall');`",
+   "why": "TileMap.ray only walks map cells, but solids (Loop pillars, containers, crates) stop bullets. A fighter, the bot's included, stands and empties its gun into a pillar or crate. Meanwhile the other side's muzzle, placed 10 u forward, clears the same cover. Seen in R3: on seed 3 the bot died shooting a crate, and a Saint stood behind a pillar for 200 s. R3 works around it by making stalled Saints run off after 15 s."
+  },
+  {
+   "file": "src/motor/actors/ped.js",
+   "change": "Add `get crouch() { return this.crouching; }` to Ped.",
+   "why": "E.sees reads target.crouch, but the Ped stores crouching, so crouching never lowers a guard's view. Measured exposure: 1.00 standing, 1.00 crouched, 0.60 with the getter. R2's stealth path relies only on staying out of the cones."
+  },
+  {
+   "file": "src/motor/combat/combat.js",
+   "change": "In shoot(), move `if (spec.projectile === 'photo') { this._photo(p, spec); return; }` up so it runs before this._fx('muzzle', ...) and the BUS.emit('crime', { type: 'shooting', ... }).",
+   "why": "One press of the Snap's shutter files a 'shooting' crime (measured events: 'shooting, photo'), so taking a photo panics the street and calls the police."
+  },
+  {
+   "file": "src/motor/mission/runtime.js",
+   "change": "Have MissionContext.wanted.cap/floor/set mark R.wantedTouched = true. In the runtime's end of mission (pass, failed out, quit), call w.floor(0); w.cap(5) when it is set.",
+   "why": "A wanted cap or floor set by a stage outlives the mission unless the script lifts it itself. Quitting mid-stage leaves cap 0 for good. R3 lifts it in its ops' end() hooks."
+  },
+  {
+   "file": "src/motor/mission/actors.js",
+   "change": "Add `o.explosive: { hp, damage, splash, fire }` to prop(): register the prop with Combat as an explosive box (hurt and burn trigger explosives.blast; dead once blown) and remove it from Combat's boxes and explosive lists on release.",
+   "why": "Missions have no way to make an explosive barrel. R3 builds its barrels from Combat's internal boxes and explosive arrays and has to sweep them out of those lists itself."
+  },
+  {
+   "file": "src/motor/gangs/gangs.js",
+   "change": "Add a mission-level ally gang, exposed as m.ally(gang) in runtime.js. While the mission runs, the player's hits on that gang's members rally nobody, and the player's kills or car hits on that gang cost no respect.",
+   "why": "R3 is fought in the Rats' own turf. City Rats hit by strays rallied against the player, and stray kills (-5 respect each, hostile at -20) turned them on the player, who was beaten to death in the last wave. R3 works around it by setting the player's gang to 'rats' and refunding the respect through the BUS."
+  },
+  {
+   "file": "src/motor/mission/runtime.js",
+   "change": "Add m.alerted(tag), true when any tagged guard or enemy is alerted and not taken down.",
+   "why": "R2 has to read m.R.actors.entry(a).alerted to fail the job when Viv is seen."
+  },
+  {
+   "file": "src/motor/actors/ped-rig.js",
+   "change": "In setLook(), right after `this.rig = new E.Humanoid(...)`, set `this.rig.t = 0`. Alternatively, have combat.shoot always take the simulation's muzzle from handOf(p, A.dir, 10).",
+   "why": "Suspected cause of unrepeatable bot runs. The engine's Humanoid starts its clock at Math.random() * 10, and that clock drives the idle sway. The player's shots leave from the posed hand (combat.shoot uses p.rig.muzzle() when the rig isn't lazy). Observed: the same `node tools/bot.mjs --mission rats_crane_game --pad --seeds 1` gave 105 s with a chase retry once, then 106 s with none."
+  }
+ ]
+}

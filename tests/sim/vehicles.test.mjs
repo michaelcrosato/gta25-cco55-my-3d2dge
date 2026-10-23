@@ -178,7 +178,7 @@ test('Lowtown: the Loop gap\'s open end: a car driven off it flies, lands below 
 
 test('in play, through the real bindings: E at a parked car gets in, W drives it, E gets out; the city\'s cars sleep', async () => {
   const { loadGame, holdCode } = await import('../harness.mjs');
-  const { game, gtm, snap } = await loadGame({ hash: 'play', query: { time: 'day' } });
+  const { game, gtm, snap } = await loadGame({ hash: 'play', query: { time: 'day', traffic: '0' } });   // (the bindings and the parked cars under test: no traffic)
   game.advance(.2);
   const F = gtm.fleet, p = gtm.crew.ped, v = F.near(p.x, p.y, 3000).find(q => q.cls === 'car');
   assert.ok(F.vehicles.length > 30, 'Lowtown parks its cars: ' + F.vehicles.length);
@@ -267,4 +267,18 @@ test('mods and tools: nitro, an oil slick, a mine, the roof MG, the water cannon
   { const Y = yard(), truck = Y.fleet.spawn('t-tow', 400, 480, 0), d = ped(Y, 400, 480); truck.sit(d, 0); const car = Y.fleet.spawn('cortez', 400 - 40 - 4 - 29 - 6, 480, 0);
     step(Y, dt / 2, { intent: press(truck, I => { I.tap.fire = true; }) });
     assert.ok(truck.towing && truck.towing.car === car, 'hooked on ○'); }
+});
+
+test('an empty car broadside across a car\'s way stands its ground on its handbrake; shoved (a driver it blocks shoves it, M8 part 4c), it gives as a pushed car does', () => {
+  const run = shove => {
+    const Y = yard(), blocker = Y.fleet.spawn('cortez', 40 * 16, 30 * 16, Math.PI / 2), pusher = Y.fleet.spawn('cortez', 40 * 16 - 52, 30 * 16, 0);   // (its flank square across the pusher's nose)
+    const me = ped(Y, pusher.x, pusher.y); pusher.sit(me, 0); step(Y, .5);   // (settled: the empty one on its handbrake)
+    const x0 = blocker.x, I = makeIntent();
+    if (shove) { blocker.shoved = 3; Y.fleet.wake(blocker); }
+    step(Y, 3, { intent: v => { clearIntent(I); if (v === pusher) I.throttle = v.speed < 18 ? .5 : 0; return I; } });
+    return blocker.x - x0;
+  };
+  const held = run(false), gave = run(true);
+  assert.ok(held < 6, `on its handbrake it barely moves: ${held.toFixed(1)} u`);
+  assert.ok(gave > 20, `shoved, it slides out of the way: ${gave.toFixed(1)} u`);
 });

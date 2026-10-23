@@ -12,7 +12,7 @@ test('Lowtown builds headless in under 1.5 s: 160x160, its four neighbourhoods, 
   assert.equal(C.w, 160); assert.equal(C.h, 160);
   assert.deepEqual([...C.hoods.map(h => h.id)], ['palm', 'neon', 'brick', 'harbor']);
   for (const id of ['safehouse', 'bank-door', 'hospital', 'gnomes-hq', 'marina']) assert.ok(C.poi(id), 'point of interest ' + id);
-  assert.deepEqual([...C.decks.map(d => d.id)], ['loop', 'loop-gap', 'L']);
+  assert.deepEqual([...C.decks.map(d => d.id)], ['loop', 'loop-gap', 'L', 'container-kicker', 'container-landing', 'car-park']);   // (the last three: the stunt-ramps landmark's)
   assert.ok(C.lots.filter(l => l.kind === 'building').length > 150, C.lots.length + ' lots');
   assert.ok(C.map.solids.length > 1000, C.map.solids.length + ' solids');
 });
@@ -23,6 +23,22 @@ test('the same seed builds the same Lowtown; another seed refills the blocks rou
   assert.deepEqual([...a.map.cells], [...b.map.cells]); assert.deepEqual([...a.surface], [...b.surface]); assert.deepEqual([...a.lot], [...b.lot]);
   assert.notDeepEqual([...a.map.cells], [...c.map.cells]);
   for (const p of a.pois) { const q = c.poi(p.id); assert.ok(q && q.x === p.x && q.y === p.y, 'landmark points stay put: ' + p.id); }
+});
+
+test('the look pass (M13): busy flat roofs (a stair hut on each big one, skylights, aerials), Neon Mile\'s tubes at its street corners and only there; none of it solid', async () => {
+  const { M } = await motor();
+  const C = M.buildCity('lowtown', 1999), roof = C.props.filter(p => p.roof), kinds = new Set(roof.map(p => p.kind));
+  for (const k of ['ac', 'vent', 'tank', 'hatch', 'skylight', 'duct', 'chimney', 'aerial', 'dish', 'neon']) assert.ok(kinds.has(k), 'a roof ' + k);
+  assert.ok(roof.every(p => !p.solid), 'nothing on the roofs is solid');
+  assert.ok(C.map.solids.every(s => !s.prop || !s.prop.roof), 'and none of it is in the map\'s solids');
+  const big = C.lots.filter(l => l.kind === 'building' && (l.rect[2] - l.rect[0] - 1) * (l.rect[3] - l.rect[1] - 1) >= 4 && C.types[l.typeId] && C.types[l.typeId].roof !== 'tiles' && C.types[l.typeId].texture !== true);
+  const huts = new Set(roof.filter(p => p.kind === 'hatch').map(p => p.lot));
+  assert.ok(huts.size >= big.length * .9, `a stair hut on ${huts.size} of ${big.length} big flat roofs`);
+  const tubes = C.props.filter(p => p.kind === 'neon');
+  assert.ok(tubes.length > 20, tubes.length + ' tubes');
+  for (const p of tubes) assert.equal(C.lots[p.lot].hood, 'neon', 'a tube in Neon Mile only');
+  const share = hood => { const lots = C.lots.filter(l => l.kind === 'building' && l.hood === hood && !l.landmark); return lots.filter(l => l.sign).length / lots.length; };
+  assert.ok(share('neon') > share('palm') * 1.5, `a sign on ${(share('neon') * 100).toFixed(0)}% of Neon Mile's lots, ${(share('palm') * 100).toFixed(0)}% of Palm Terraces'`);
 });
 
 test('the validator finds no errors: every point of interest stands on open ground, reachable on foot and by road', async () => {
@@ -50,12 +66,12 @@ test('the cut-away drops the building hiding the player in ISO (all of it), keep
   assert.ok(bankCells.every(([x, y]) => !C.map._isFront(x, y, E.VIEWS.overhead)));
 });
 
-test('the decks: the Loop is level at z 64, its ramps climb from the street, the L runs at z 100 over Motor Avenue', async () => {
+test('the decks: the Loop is level at z 64, its ramps climb from the street, the L runs at z 112 over Motor Avenue (D17)', async () => {
   const { M } = await motor();
   const C = M.buildCity('lowtown', 1999), T = C.T, at = (cx, cy) => [(cx + .5) * T, (cy + .5) * T];
   const loop = C.decks.find(d => d.id === 'loop'), L = C.decks.find(d => d.id === 'L');
   assert.equal(loop.heightAt(...at(56, 78)), 64, 'on the Loop over Loop Avenue');
-  assert.equal(L.heightAt(...at(80, 60)), 100, 'on the L');
+  assert.equal(L.heightAt(...at(80, 60)), 112, 'on the L');
   const ramp = loop.cells.filter(c => c.z0 !== c.z1);
   assert.ok(ramp.length >= 4 * 10, ramp.length + ' ramp cells');
   assert.ok(ramp.some(c => Math.min(c.z0, c.z1) === 0), 'a ramp reaches the street');

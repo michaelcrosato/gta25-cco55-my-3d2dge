@@ -78,6 +78,25 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The vehicle renderer (paint, dents, steering, doors, lights, beams, sirens, rotors, wakes) and VehicleFX (skids, smoke, sparks, slicks, mines, jets) | `src/motor/render/vehicle-draw.js`, `box-model.js` | M4 |
 | The radio stub (`stations`), the vehicle HUD panel, the Proving Ground's `garage` and the model sheet | `src/motor/audio/stations.js`, `src/motor/ui/hud.js`, `src/game/proving/garage-zone.js`, `tools/model-sheet.mjs` | M4 |
 | The slice's vehicles: 13 models and 19 definitions (FAN-OUT A1) | `src/game/vehicles/` | M4 |
+| The road graph (lanes, junction regions, connectors, crosswalks), the GPS (A*, reverse costs), the signals and the junction reservations, the sidewalk graph | `src/motor/nav/` | M5 |
+| Traffic (the spawner in the annulus, the far LOD, hand-offs, service units) and its DriverBrain (IDM, junctions, sirens, passing) | `src/motor/ai/traffic.js`, `driver.js` | M5 |
+| The crowd (its own ring, gliding peds, reactions, witnesses, troupes, patrols, groups) and the PedBrain | `src/motor/ai/crowd.js`, `pedbrain.js` | M5, M6 |
+| The emergency services (the police's look-round, the Medic, the Pumper) and CityLife, which steps the city together | `src/motor/ai/emergency.js`, `city-life.js` | M5 |
+| The AutoPlayer core (walks the sidewalks, drives the GPS route) | `src/motor/ai/autoplayer.js` | M5 |
+| The wanted level (crimes, heat, stars, search and evade) and the police (sight, tiers, units, the Eye, roadblocks, spike strips, NABBED) | `src/motor/police/wanted.js`, `police.js`, `pursuit.js`, `cop.js` | M6 |
+| One fighting brain for everyone who fights on foot (guns in bursts, a clear line of fire, bats, throws) | `src/motor/ai/fighter.js` | M6 |
+| Gangs (respect, stances, hangouts and beats, gang cars in their turf, turf wars) | `src/motor/gangs/gangs.js`, `src/game/gangs.js`, `src/game/peds/gangs.js` | M6 |
+| The radar (the city baked, turf hatched, blips, the search circle and the cops' cones) and the wanted stars | `src/motor/ui/radar.js` | M6 |
+| Lowtown's crimes and police tiers; WRECKED, NABBED, the respray, bribes in play | `src/game/crimes.js`, `police.js`, `scenes/play.js` | M6 |
+| The view manager's memory per context and Auto; the dissolve between views and rail turns; the camera rig | `src/motor/render/view-manager.js`, `crossfade.js`, `stage.js` | M7 |
+| MODE 7's lenses (on foot, in a vehicle, indoors), Auto-rail and sky; the depth views' quarter-size light pass | `src/motor/render/depth/side7.js`, `sky.js`, `stage.js` | M7 |
+| Interiors: the `interiors` registry, `buildInterior` (ASCII rooms), `validateInterior`, and the run while the player is inside (guards, CCTV, noise, takedowns, doors) | `src/motor/world/builder.js`, `district.js`, `validator.js`, `interior.js` | M7 |
+| The First Lowtown Bank; the occluder fixture | `src/game/interiors/bank.js`, `src/game/proving/occluder-zone.js` | M7 |
+| The mission runtime (stages, ops with start, step, end and nav; fails, retry, quit, the medal, the rewards, the record), what a mission spawns (vehicles with drivers on the GPS, peds by role, pickups, props, outdoor takedowns), the random events' runtime | `src/motor/mission/runtime.js`, `actors.js`, `grading.js`, `ambient.js` | M8 |
+| The mission bot (plays any objective from its hint through the AutoPlayer's moves: walking, boarding, driving, towing, ramming, fighting, drive-bys, evading, racing, photos, stealth) and the pad pilot (its wishes pressed on a gamepad) | `src/motor/ai/missionbot.js`, `padpilot.js`, `autoplayer.js` | M8 |
+| The economy (shops, items, properties and their tills), the completion checklist, collectibles, stunt jumps, hold-ups | `src/motor/play/` | M8 |
+| The career: givers and their cards, JOB BLOWN and JOB DONE, the phone (jobs, cabs, contacts, completion), shops at their doors, properties, tokens, stunts, hold-ups, the garage, the saves; Lowtown's shops, properties and checklist; the story cast | `src/game/scenes/career.js`, `src/game/economy.js`, `src/game/peds/cast.js` | M8 |
+| The missions and activities (FAN-OUT A2) | `src/game/missions/`, `src/game/activities/` | M8 |
 
 ## Frozen contracts (M1)
 
@@ -131,8 +150,10 @@ stage.end()
 - **ISO** is the engine's own view: `stage.actor` becomes `r.actor` (a `crowd` actor takes the fast path, with no
   outline); `stage.shape` becomes `r.queue` with `P.proj = r.w`.
 - **Crowds and kept shapes** (D13): a `crowd` actor with a `key` is drawn into an image of its own every
-  `TUNE.crowdEvery` frames, posed by `pose(seconds)` just before, and the image is reused in between; a shape with
-  `kept: { key, r, h }` is kept the same way until the view or its size changes. Both work in every view.
+  `TUNE.crowdEvery` frames (one and a half times that away from the player, D20), posed by `pose(seconds)` just before,
+  and the image is reused in between; a shape with `kept: { key, r, h }` is kept the same way until the view or its
+  size changes (in a depth view only while it is small on screen). Both work in every view. A shape's `wall: [x, y]`
+  (a sign's) draws it after that building in TOP-DOWN.
 - **Night** (D11): the engine's canvas lighting draws ISO's dark and pools (GTM-PATCH 7: `lights.res`), the depth
   views take MOTOR's light pass with the same numbers, and anything that shines is a `glow`, never an engine emissive
   item (the glow mask is never built).
@@ -152,24 +173,34 @@ A bad spec warns once per problem (`E.warn`), gets its defaults, and still regis
 | `vehicles` | `{ name, model (a vehicleModels id; M4, D15), kit, class (car truck tow bike boat heli rail), role, handling (the class body's overrides), palette, health, toughness, seats, radio, locked, siren, horn, tool, spec: { t200 or t100, top, brake200 or brake100; boats t100, top; heli top, climb; rail top, dwell }, spawn: { zones, weight, timeOfDay }, price, tags }` | `sim/vehicle/defs.js` |
 | `vehicleModels` | `{ name, class, length, width, height, parts: [{ box, color, role, paint }], wheels, seats, doors, lights: { head, tail, siren }, hook, hitch, nozzle, kits: { name: { parts, lights } } }` | `sim/vehicle/model.js` (M4) |
 | `fleets` | `{ district, curb: { every, chance, roles, classes }, spots: [{ def, near, n }], water, rail: [{ deck, def, trains }], air: [{ def, patrol, alt }] }` | `world/fleet-spawn.js` (M4) |
+| `interiors` | `{ name, blocks (ASCII rows), legend: { char: { wall, floor, mark } }, types, floor, rooms: [{ name, rect, public }], pois, doors: [{ id, from, at, mark }], guards: [{ arch, route }], cameras: [{ at, z, facing, sweep, period, range, fov }], lights: [{ at, radius, color }], music, seed }` (D20) | `world/district.js` (M7) |
 | `stations` | `{ name, freq, dj, genre, color }` | `audio/stations.js` (M4's stub; M10) |
-| `missions` | `defMission(id, { title, giver, gang, tier, requires, brief, rewards, bonus, stages })` | `mission/dsl.js` |
-| `activities` | `defActivity(id, { title, start, levels, stages })` | `mission/dsl.js` |
+| `missions` | `defMission(id, { title, giver, gang, tier, requires, brief, rewards, bonus, stages })`; M8 adds the optional `plays`, `allowSwitch`, `unlock(save, W)` | `mission/dsl.js` |
+| `activities` | `defActivity(id, { title, start, levels, stages })`; M8 adds the optional `kind` (job, race, mayhem, event, other), `brief`, `rewardsFor(level)`, `where(W, player)` (an event's spot) | `mission/dsl.js` |
+| `shops` | `{ name, poi, items: [{ id, name, kind (weapon, ammo, armor, health, snack, mod, paint, repair, outfit), item, amount, price (a number or a knob), unlock }], drive, holdup, color }` | `play/economy.js` (M8) |
+| `properties` | `{ name, poi, price, income, cap }` (numbers or knobs) | `play/economy.js` (M8) |
+| `completion` | `{ label, kind (missions, jobs, races, mayhem, stunts, tokens, properties), weight (tenths of a percent: they sum to 1000), order }` | `play/completion.js` (M8) |
+| `collectibles` | `{ name, reward, bonus, spots: [{ id, at: [x, y, z], via }] }` | `play/collectibles.js` (M8) |
+| `stunts` | `{ name, takeoff: [x, y], r, landing: { at, r }, minDist, minAir, reward, approach }` | `play/stunts.js` (M8) |
 
 The kinds PLAN.md 7.4 lists for later milestones (`districts`, `interiors`, `weapons`, `peds`, `gangs`, `characters`,
 `stations`, `reels`...) are declared with their milestone, in the same way.
 
 ### The BUS catalogue (`src/motor/core/events.js`)
 
-`BUS.on(event, fn, scope)` and `BUS.emit(event, data)`, with scopes `global`, `world`, `mission` and `scene`. The
+`BUS.on(event, fn, scope)` and `BUS.emit(event, data)`, with scopes `global`, `world`, `mission`, `scene` and (M7)
+`interior`; `BUS.mute(scope)` and `BUS.unmute(scope)` hold a scope's listeners deaf (the city's, `world`, while the
+player is inside). The
 events MOTOR's systems speak, with their payloads:
 
 | Group | Events (payload fields) |
 |---|---|
-| Crime and police | `crime` (type, x, y, by, victim, severity) · `witness` (crime, by) · `report` (crime, x, y) · `wanted` (stars, heat, prev) · `search` (x, y, r) · `evaded` (stars) · `busted` (by) · `wrecked` (cause) |
-| Combat | `hit` (target, by, damage, kind, x, y, z) · `kill` (target, by, kind) · `explode` (x, y, z, r, by, power) · `fire` (x, y, r, by) |
+| Crime and police | `crime` (type, x, y, by, victim, severity, vehicle, lawful) · `witness` (crime, by) · `report` (crime, x, y, by, victim, witness, severity) · `wanted` (stars, heat, prev, why) · `search` (x, y, r) · `evaded` (stars) · `busted` (by, how) · `wrecked` (cause) · `dispatch` (kind, x, y, unit, call, tier) · `onScene` (kind, call, unit, x, y) · `roadblock` / `spikes` (x, y) · `spiked` (vehicle) · `respray` (vehicle, color) · `respawn` (kind, x, y) · `confiscated` (weapons) (M5, M6: D18, D19) |
+| The city | `revived` (target, by) · `encore` (troupe, by) · `turfWar` (gangs, x, y) · `turfWarEnd` (gangs, x, y, dead) (M5, M6) |
+| Interiors | `interior` (id, door, enter) · `alarm` (interior, by, x, y) · `takedown` (interior, guard, by) (M7) |
+| Combat | `hit` (target, by, damage, kind, x, y, z) · `kill` (target, by, kind) · `explode` (x, y, z, r, by, power) · `fire` (x, y, r, by) · `photo` (by, x, y, targets, dir: M8) |
 | Vehicles | `vehicleEnter` / `vehicleExit` (vehicle, actor, seat) · `carjack` (vehicle, by, victim) · `vehicleDamage` (vehicle, amount, x, y, by) · `vehicleDestroyed` (vehicle, by) |
-| Rewards | `pickup` (item, by) · `cash` (amount, reason) · `respect` (gang, delta) · `stunt` (id, score) · `collectible` (id) · `stat` (stat, delta) |
+| Rewards | `pickup` (item, by) · `cash` (amount, reason) · `respect` (gang, delta, value, why) · `stunt` (id, score) · `collectible` (id) · `stat` (stat, delta) · `purchase` (shop, item, price) · `property` (id, price) · `holdup` (shop, by, cash) · `cab` (to, fee) (M8: D21) |
 | Missions | `missionStart` (id) · `stageStart` (mission, stage) · `stageFail` (mission, stage, reason) · `missionPass` (id, medal, elapsed) · `missionFail` (id, reason) · `activityStart` (id, level) · `activityEnd` (id, level, result) |
 | The player | `switch` (from, to) · `ability` (who, on) |
 | World | `view` (view, prev) · `radio` (station) · `clock` (hour) · `weather` (state, prev) |
@@ -206,6 +237,12 @@ defMission('saints_holy_rollers', { title: 'Holy Rollers', giver: { phone: 'sain
 - **Ownership:** everything a mission spawns is `owner: 'mission'` and released when it ends.
 - **Ending:** one main mission at a time, plus activities. A failure shows JOB BLOWN, then *Retry this stage* or *Quit
   to free roam*. A pass shows JOB DONE!, the rewards, the bonus objectives and a medal.
+- **The runtime (M8, D21):** an op is `{ step(m, dt) -> undefined | { value }, start(m), end(m), nav(m) }`; markers and
+  the objective an op sets as it starts go when it ends. The m API grew the verbs content asks for (`reach`, `enter`,
+  `evade`, `kill`, `collect`, `photo`, `sequence`, `remove`, `curb`, `lane`, `as`, `interior`, `outside`, `on`, `fire`,
+  `heat`, `allowWanted`, `crewPed`, `stash`, `garaged`, `view`): docs/CONTENT-GUIDE.md lists them. A content error
+  fails the job with the reason `error` instead of stopping the game. The random events run in a second runtime with
+  the BUS scope `event`.
 
 ## The proofs (M1)
 
