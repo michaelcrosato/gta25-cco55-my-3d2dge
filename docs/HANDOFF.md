@@ -1,4 +1,4 @@
-# Handoff: GRAND THEFT MOTO in M13
+# Handoff: GRAND THEFT MOTO, the slice done (M0-M13)
 
 This is where a fresh session picks up the run. `PLAN.md` is still the contract and `GOAL.md` is the prompt that
 started the run. This page says where the run stands, how the repository is worked, and what to watch for. The
@@ -16,19 +16,21 @@ anywhere can resume from it: the work in flight is listed with where it lives.
     (D21, D30);
   - M9: the 10-foot UI on MOTOR's own layer (D23); M10: sound and the radio (D24); M11: the attract mode, kiosk and
     phone (D25); M12: the Proving Ground, photo mode, the dev tools, the 15 content recipes and District 2 (D26).
-- **M13, at its last step** (D28-D30): the polish (the rumble, TUNING.md, the look notes, the respray's bay, sodium
-  lamps), the perf levers, FAN-OUT B (eight reviewers, 47 findings, each a test under `tests/review/`, a step of
-  `npm test`, every one fixed), and part 5: the bot after FAN-OUT B, the shots matrix with a verdict a row and its look
-  pass, the stalls the campaign found (each fixed where it lives, with a test), the gang shoot-out's tip for a hand in
-  it (test:full's gang sim found an idle player paid), and the page's inline icon (the smoke test plays the page from
-  file:// and from a static server). The release docs are final: README.md, `docs/ENGINE-ANALYSIS.md`, the Credits &
-  About screen and the HTML header (both from `src/about.js`), `vendor/my-3d2dge/PATCHES.md`. **The owner's
-  directions (D29):** performance is out of the Definition of Done (the "perf gates" step left test:full;
-  `tools/perf.mjs` stays for later), and the bots may play invulnerable (`?god=1`, the tools' `--god`; the campaign
-  plays god by default, `--mortal` without; the mission bot's runs stay mortal).
-- **Left:** `npm run test:full` on the head, alone (about three hours; it stops at its first failing step: fix that
-  where it lives, with a test, and run it again on the new head); then M13's acceptance in `PROGRESS.md` (PLAN.md 15
-  item by item, as D29 amends it, with its evidence), M13 marked done, PR 2's description, and the chat report.
+- **Done: M13** (D28-D31; `PROGRESS.md` has its acceptance, the Definition of Done item by item): the polish (the
+  rumble, TUNING.md, the look notes, the respray's bay, sodium lamps), the perf levers, FAN-OUT B (eight reviewers, 47
+  findings, each a test under `tests/review/`, a step of `npm test`, every one fixed), and part 5: the bot after
+  FAN-OUT B, the shots matrix with a verdict a row and its look pass, the stalls the campaign found (each fixed where
+  it lives, with a test), and what test:full and the audit found on the way (the gang shoot-out's tip for a hand in
+  it, the page's inline icon so a static server is asked for nothing, the 10-foot UI at HUD Huge). `npm run test:full`
+  passed every step on `154eb02`, the campaign at 100.0%, and CI is green; the page itself played the 14 missions
+  through from file:// (D31). The release docs are final: README.md, `docs/ENGINE-ANALYSIS.md`, the Credits & About
+  screen and the HTML header (both from `src/about.js`), `vendor/my-3d2dge/PATCHES.md`. **The owner's directions
+  (D29):** performance is out of the Definition of Done (the "perf gates" step left test:full; `tools/perf.mjs` stays
+  for later), and the bots may play invulnerable (`?god=1`, the tools' `--god`; the campaign plays god by default,
+  `--mortal` without; the mission bot's runs stay mortal).
+- **Left, and the owner's:** the review of PR 2 (a draft until the owner asks for it to be marked ready), and whatever
+  comes next: performance (D29), the expansion path (PLAN.md 19). Each change keeps the slice done: `npm test` before
+  every commit, test:full before a change closes, all merged content re-run after a MOTOR, bot or map change.
 - **Where runs go:** the validation trees `/home/user/gtm-m9` and `/home/user/gtm-v2` (detached worktrees, their
   `node_modules` symlinks: never `git clean` them) are checked out at the commit under test; `npm test` runs alone or
   beside one bot run at most (the container was restarted once under more). A new container has neither: make one with
@@ -45,9 +47,9 @@ anywhere can resume from it: the work in flight is listed with where it lives.
 3. `PROGRESS.md`: each milestone's status and evidence (the acceptance log has every milestone's runs).
 4. `docs/ARCHITECTURE.md`: the module map and the frozen contracts (the Stage and projectors, the registries, the
    Intent, the BUS).
-5. `docs/DECISIONS.md`: D1-D30, every call made without an answer. D21 is M8's, including what the bot does and why;
+5. `docs/DECISIONS.md`: D1-D31, every call made without an answer. D21 is M8's, including what the bot does and why;
    D29 has the owner's two directions (performance out of the Definition of Done, bots that may play god); D30 is
-   M13's part 5 (the campaign's stalls, each fixed where it lives).
+   M13's part 5 (the campaign's stalls, each fixed where it lives); D31 its close (determinism per runtime).
 6. `docs/CONTENT-GUIDE.md`: how each kind of content is added, the mission DSL and its `m` API included.
 7. `vendor/my-3d2dge/PATCHES.md`: the engine patches (GTM-PATCH markers). Never read the 742 KB engine whole. Search
    its `API-INDEX.md` first.
@@ -124,6 +126,14 @@ anywhere can resume from it: the work in flight is listed with where it lives.
   - always keep a delivery free of police stars: S1's long Brute is busted now and then, and wins on a retry;
   - always turn a long truck at a tight corner: a failing turn is kept off its next route, but it costs time;
   - fight back a passer-by who hits it: content sends them running instead (`m.shoo`).
+- **Determinism is per runtime** (D31): Node's V8 and Chromium's differ in the last bit of `Math.pow`, `Math.sin` and
+  `Math.cos` for a few arguments in a hundred, so one seed played headless and in the page drifts apart. Every proof
+  of PLAN.md 7.3 holds within its runtime (a recording replays in the browser it was made in); a bot run in the page
+  is a different game from the same seed's headless run.
+- **The bot can be pinned on foot:** with every car near it given up on for the trip, a car it left parked, a wall and
+  peds standing in the gap can close a pocket round it, and its walk then cycles its start nodes without leaving (met
+  once, in the page's run of Gutter Ball on seed 1, D31; no headless run has met it). A player walks round, or takes
+  the car.
 - **The bot gym through the pad is the touchiest probe:** `follow` (a calm car tailed across town) and `kill` pass,
   but often on a retry; every MOTOR change moves them first.
 - **Night glows** (the head, tail and siren lights' halos) ignore occlusion. From some angles a far tail lamp's glow
@@ -139,15 +149,13 @@ Start a new session at the effort you choose (PLAN.md 16 recommends **xhigh**; t
 block. It is plain ASCII and under the 4,000-character limit for `/goal` (`npm test`'s goal-sync step checks it).
 
 ```
-/goal Finish GRAND THEFT MOTO (ID GrandTheftMoto-5S) in michaelcrosato/gta25-cco55-my-3d2dge: the rest of M13, exactly as PLAN.md specifies: it is the contract, and scope changes go only through docs/DECISIONS.md. Work on branch claude/compassionate-shannon-h7k7zk in draft PR #2 and keep its CI green. Read docs/HANDOFF.md first and follow its reading list, rules and tools.
+/goal Keep GRAND THEFT MOTO (ID GrandTheftMoto-5S) in michaelcrosato/gta25-cco55-my-3d2dge done, and take it where the owner asks. M0-M13 are done: every item of PLAN.md section 15 holds as amended in docs/DECISIONS.md, and PROGRESS.md has M13's acceptance with its evidence. PLAN.md stays the contract, and scope changes go only through docs/DECISIONS.md. Work on branch claude/compassionate-shannon-h7k7zk in draft PR #2 and keep its CI green. Read docs/HANDOFF.md first and follow its reading list, rules and tools.
 
-M0-M12 are done and M13's parts 1-5 are in (PROGRESS.md, DECISIONS D28-D30). What is left: npm run test:full on the head, alone (fix whatever fails where it lives, with a test, and run it again on the new head); then the Definition of Done check, PLAN.md section 15 item by item as amended in DECISIONS (D29: performance is out of it), recorded as M13's acceptance in PROGRESS.md with its evidence; M13 marked done; PR 2's description brought up to date. Bot runs are deterministic: after any MOTOR, bot or map change, re-run all merged content (tools/bot.mjs --all on seeds 1-3 and through the pad, the bot gym, the campaign to 100%).
+The work is the owner's to set: their review of PR #2 (answer each comment; fix what they ask where it lives, with a test), and what they choose next (performance, D29; the expansion path, PLAN.md section 19). Mark the PR ready only when the owner asks.
 
-Rules: every rule in GOAL.md holds (the vendored engine patched only per PLAN.md section 12; MOTOR in src/motor, content in src/game; no runtime dependencies, network or binary assets; a deterministic, view-independent, headless-testable simulation; the controller-first 10-foot UI; attract mode). Model identifiers stay out of repository files (D3). Mark the PR ready only when the owner asks.
+Rules: every rule in GOAL.md holds (the vendored engine patched only per PLAN.md section 12; MOTOR in src/motor, content in src/game; no runtime dependencies, network or binary assets; a deterministic, view-independent, headless-testable simulation; the controller-first 10-foot UI; attract mode). Model identifiers stay out of repository files (D3).
 
-Process: commit after each green step, only when npm test exits 0 (check the exit code itself), with dist/index.html rebuilt; push. Keep PROGRESS.md and docs/HANDOFF.md current, so a paused run resumes exactly. Read your own screenshots and fix every look note.
+Process: commit after each green step, only when npm test exits 0 (check the exit code itself), with dist/index.html rebuilt; push. Bot runs are deterministic: after any MOTOR, bot or map change, re-run all merged content (tools/bot.mjs --all on seeds 1-3 and through the pad, the bot gym, the campaign to 100%), and run npm run test:full, alone, before a change closes. Keep PROGRESS.md (tests, shots with verdicts) and docs/HANDOFF.md current, so a paused run resumes exactly. Read your own screenshots and fix every look note.
 
-Done only when every item of PLAN.md section 15 holds, as amended in DECISIONS: npm test and test:full pass and CI is green; dist/index.html plays the whole slice from file://; all 14 missions, the side content, shops and properties work, and the bot campaign reaches 100%; the three views work outdoors and in the bank and never change the simulation hash; the attract soak and the exit-on-any-input matrix pass; the 10-foot UI audit and the controller-only, keyboard-only and mouse-only passes succeed; determinism and replay pass; the recipe tests and the District 2 stub pass; README.md, the Credits & About screen and the HTML header carry the Source Information and, separately, the engine analysis; docs/ENGINE-ANALYSIS.md is final.
-
-End with a chat report: 1. Source Information (Initial Date, SOURCE, GAME ENGINE version/commit/URL, Environment, Model and Effort Level; only what you can confirm). 2. Separately, the Game Engine Analysis (what you used, what you did not, the one thing you would change). 3. How to play, and the PR link.
+End each piece of work with a chat report: what changed, the evidence (tests, runs, shots with verdicts), and the PR link.
 ```

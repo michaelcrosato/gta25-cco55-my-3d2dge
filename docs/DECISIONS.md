@@ -1295,3 +1295,20 @@ and where it landed.
     jammed exit) failed with the bot through part 5's first commits and passed through the pad; it passes both ways
     since `6d4df84`. A fixture of the gym's, not content: it was never tuned to pass.
 - **Landed in:** M13 (part 5: `9843969`, `6efaf9c`, `409e551`, `1805e75` and after).
+
+## D31 · 2026-10-23 · M13's close: determinism is per runtime; the slice played in the page itself
+- **Principle:** PLAN.md 7.3's proofs (the same seed and Intents give the same hash with or without drawing, in every
+  view; a recorded session replays exactly) and 15.3 (the page plays from file:// and from a static server).
+- **Calls:**
+  - **Determinism holds within a runtime, not across runtimes.** Node 22's V8 (12.4) and Chromium 141's differ in the
+    last bit of `Math.pow`, `Math.sin` and `Math.cos` for a few arguments in a hundred (a probe of 20,000 each:
+    2,367, 646 and 646 differ), and the simulation runs on them (MOTOR, and the vendored engine's own `E.Mover`), so
+    one seed played in Node and in a browser drifts apart: the headless bot runs and the page play different games
+    after a while. Every proof of 7.3 holds as written, each within its runtime: the same-seed and view hashes in Node
+    (the unit and sim tests), the recorded drive replayed checksum for checksum in Chromium (`tests/e2e/replay.mjs`).
+    A recording replayed in another browser, or a bot run expected to match the page step for step, is not promised.
+    Making it so would take MOTOR's own sine, cosine and power and a patch through the engine's movement code: not in
+    the plan; a limit recorded for later.
+  - **The page itself plays the missions through** (from file://, in Chromium, the mission bot at the browser's own
+    frame rate: `?bot=1#mission/<id>`), as evidence beside the headless campaign, which stays 15.4's proof.
+- **Landed in:** M13 (its acceptance).

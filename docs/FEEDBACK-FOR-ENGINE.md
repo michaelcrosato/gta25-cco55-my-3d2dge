@@ -8,10 +8,10 @@ or a new one. The engine's maintainers decide each point's status; the game's ow
 ### F7 · 2026-10-22 · Grand Theft Moto (Grand Theft Auto 2 with Grand Theft Auto V's systems)
 
 - **Builder:** Claude Code (an Anthropic model; the run's chat report names it), in a Claude Code cloud session with a
-  shell, Node 22 and headless Chromium 141, at max effort, over several sessions from 2026-10-17 to 2026-10-22.
+  shell, Node 22 and headless Chromium 141, at max effort, over several sessions from 2026-10-17 to 2026-10-23.
 - **Handed:** the engine vendored at v0.46.1 (`cfa866a`): `engine/my-3d2dge.js` with `API.md`, `API-INDEX.md`,
   `AI_GUIDE.md`, the docs, the tools and the mocap, and a 2,400-line plan of its own.
-- **Built:** an open-city crime game in one offline HTML file (2.4 MB): one district, Lowtown (160 × 160 cells), and an
+- **Built:** an open-city crime game in one offline HTML file (2.5 MB): one district, Lowtown (160 × 160 cells), and an
   enterable bank; three views the player switches at any moment (ISO, TOP-DOWN with GTA2's lean, and SIDE-SCROLL MODE 7
   from the stress test's depth view), and none changes the simulation; 19 vehicles in 7 classes on a road graph with
   traffic, a crowd, police with a wanted level and a helicopter, three gangs with respect and turf; 14 missions and

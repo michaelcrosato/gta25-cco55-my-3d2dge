@@ -7,7 +7,7 @@ export const SOURCE_INFO = [
   ['Initial Date', '2026-10-17 (UTC): the first prompt of the planning session'],
   ['SOURCE', 'Grand Theft Auto 2 (PC, 1999; DMA Design / Rockstar Games), with depth, features and gameplay drawn from Grand Theft Auto V (2013; Rockstar North); my-3D2dge 2D pixel style; views isometric (primary), top-down (secondary) and side scrolling with depth (Mode 7)'],
   ['GAME ENGINE', 'my-3D2dge v0.46.1, commit cfa866aa45474868350cad1a7fc015e612f9305f (2026-10-15), https://github.com/michaelcrosato/my-3d2dge (MIT), vendored and extended by MOTOR'],
-  ['Environment', 'Claude Code (2.1.302 when the run began, 2.1.308 at its end) in Anthropic\'s managed cloud environment (claude.ai/code remote sessions, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22.22.0; headless Chromium 141 (Playwright 1.56.1) for the tests; the game targets desktop browsers'],
+  ['Environment', 'Claude Code (2.1.302 when the run began, 2.1.309 at its end) in Anthropic\'s managed cloud environment (claude.ai/code remote sessions, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22.22.0; headless Chromium 141 (Playwright 1.56.1) for the tests; the game targets desktop browsers'],
   ['Model and Effort Level', 'AI lab: Anthropic. Effort: max, for the planning and every implementation session (M0-M13), with ultracode for the fan-outs. The exact model is named in each session\'s chat report (this environment keeps model identifiers out of repository files)'],
 ];
 

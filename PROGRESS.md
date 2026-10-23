@@ -1,17 +1,15 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M13 (2026-10-23). M8 to M12 are done: M8's last step, the bot campaign, reached 100% on `5c7c2ef` (every mission
-at its first try), with every merged mission and activity through the bot on seeds 1-3 (96/96) and the pad (32/32)
-and the bot gym 13/13 both ways on the same MOTOR. M13's polish (parts 1-2), its perf levers (part 3), FAN-OUT B
-(part 4: eight adversarial reviewers, 47 findings, each a test under `tests/review/` now in `npm test`, every one
-fixed, D29) and part 5 (the bot after FAN-OUT B, the shots matrix with its look pass, and the stalls the campaign
-found, each fixed where it lives, D30) are in. The owner's directions of 2026-10-22 (D29): performance leaves the
-Definition of Done (the hardware is unlimited; FPS targets and optimization come later), and the bots may play
-invulnerable (the campaign plays `--god`; the mission bot's runs stay mortal).
+Now: done (2026-10-23). M0-M13 are done, and every item of PLAN.md 15's Definition of Done holds as DECISIONS
+amends it (D29: performance is out of it): `npm run test:full` passed every step on `154eb02` (the bot campaign at
+100.0%, every mission and activity level through the bot on seeds 1-3 and through a pad, the soaks, the UI audit
+also at HUD Huge, the shots matrix), CI is green, and the release docs are final. M13's acceptance, item by item, is
+the last entry of the log below. The owner's directions of 2026-10-22 (D29): performance leaves the Definition of
+Done (the hardware is unlimited; FPS targets and optimization come later), and the bots may play invulnerable (the
+campaign plays `--god`; the mission bot's runs stay mortal).
 
-Next:
-- test:full on the head (alone, about three hours);
-- the release docs' last read (README, ENGINE-ANALYSIS, HANDOFF, PATCHES); the Definition of Done check.
+Next: the owner's review of PR 2 (a draft until they ask for it to be marked ready), then what they choose:
+performance (D29), the expansion path (PLAN.md 19).
 
 Blockers: none. (The 403 on pushing, D27, is gone: the branch takes pushes again since M13's part 3.) The run started
 inside the planning session (DECISIONS D5). At M4's close it was handed off (D16), and the next sessions carried it
@@ -33,7 +31,7 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
 | M10 Audio + radio | done | GTM-PATCH 5 (the buses), MOTOR's sequencer, composer, radio and voices, four stations, the score cues (`b2ea884`, D24) · unit audio, sim audio (the hash the same with sound), e2e audio (each station's RMS, the music bus, mute, a bounded soak) · 277 tests |
 | M11 Attract + kiosk | done | the Director and its five reels, cards, the camera plan, the watchdog, leaving on any input, the kiosk and phone (`52b3980`, D25) · the soak 30 min x seeds 1-3 headless and 5 min drawn, all pass · director 4, attract sim 18, attract e2e 24 checks · `docs/media/m11/` (11 shots, the Joyride MP4 and GIF) |
 | M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
-| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts, the campaign's stalls fixed to its 100% (part 5, `6efaf9c` to `5c7c2ef` and the gang shoot-out's tip after, D30) · 343 unit + sim tests, 78 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
+| M13 Polish + release | done | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts, the campaign's stalls fixed to its 100% (part 5, `6efaf9c` to `5c7c2ef`, D30); what test:full and the audit found on the way: the gang shoot-out's tip, the page from a static server, the 10-foot UI at HUD Huge (`293a2b9` to `154eb02`); test:full on `154eb02`, every step, and the Definition of Done item by item · 343 unit + sim tests, 78 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
 
 ## Acceptance log
 
@@ -1278,3 +1276,66 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
     - **Harborfront:** the cranes, containers, crates and pallets in the yards, the quay's bollards, the Loop's ramp,
       the glinting water.
     - **The bank:** the lobby's marble and benches, its guard, the cut-away indoors in each view.
+- **M13 · test:full on the head, and the Definition of Done (PLAN.md 15 as D29 amends it): M13's acceptance:**
+  `npm run test:full`, alone, on `154eb02`: every step passed (30 steps, 1.65 h of their own time):
+  - the gate's steps: lint, boundary, vendor, goal-sync, dist current, tuning current; 343 unit and sim tests, the 15
+    recipes, FAN-OUT B's 78 review tests; the browser suites (the smoke from file:// and from a static server, replay,
+    the Proving Ground's 12 self-tests, audio, the attract mode, photo mode, the dev tools); the engine's checker on
+    the city and the bank;
+  - the city soak: day and clear for 600 s (1,035 cars and 3,907 peds seen, at most 40 and 196 at once; the longest
+    stall 5.8 s, the worst stuck ped 11 s, the worst crossing wait 16.5 s; no overlap, no red run), night and rain
+    for 300 s (344 cars, 641 peds; the longest stall 7.6 s);
+  - the audio soak (600 s): the four stations heard, the radio on the music bus, mute and the radio's own volume
+    hold, the live voices bounded and not growing;
+  - the attract soak, 30 minutes a run, headless, on the shipped page and seeds 1-3: 62-74 reels ended and 4-14 cut
+    a run, every reel 14-16 times, all three views and the bank, heap growth 0.6-8%; and 5 minutes drawn in Chromium
+    (15 reels, 12 ended and 1 cut, heap 5.9%);
+  - the gang sim (300 s on seed 1): 6 turf wars, all ended; at most 27 members and 29 fighters; the longest fight
+    21 s; no respect moved with the player idle;
+  - the UI audit: 238/238 stops (pad, keys and mouse, each alone, at 1080p and 720p), and 51/51 at HUD Huge by pad;
+  - the shots matrix (36 shots and the sheet, drawn without an error; the sheet read: as part 5's look pass left it);
+  - the mission bot (mortal): every mission and activity level on seeds 1-3, 96/96 (67 gold, 26 silver, 3 bronze;
+    11 after a retry), and through a pad, 32/32 (24 gold, 7 silver, 1 bronze);
+  - the bot campaign (god): a new game to **100.0%** after 2.15 h of game (28 minutes), no rescue; the 14 missions
+    each at its first try, the jobs to level 3, both races, the MAYHEMs, the 25 tokens, the five stunts (the Car
+    Park Roof at its second), both properties.
+  CI is green on `154eb02`. And the page itself (D31): every one of the 14 missions played
+  through to JOB DONE by the mission bot in `dist/index.html` from file:// in Chromium, drawn at the browser's frame
+  rate (`?bot=1#mission/<id>`, each in about its game time): 13 on seed 1 (10 gold, 3 silver), and Gutter Ball on
+  seeds 2 and 3 (silver both). On seed 1 the page's game had drifted from the headless one (D31), and in its escape
+  the bot was pinned on foot: a truck it had left against a wall, two paramedics in the gap, both nearby cars given up
+  for the trip (a limit of the bot, in HANDOFF's known limits; a player walks round or takes the truck).
+
+  **The Definition of Done, item by item:**
+  1. **Milestones:** M0-M13 each met its acceptance, with its evidence in this log and a verdict on every shot (M13's:
+     the matrix's 12 ISO shots, 4 sheets and the bank in each view, part 5; the tab's icon; the screens at HUD Huge;
+     Credits & About).
+  2. **Tests:** `npm test` and `npm run test:full` pass (above); CI is green on the PR's head.
+  3. **The file:** `dist/index.html` is one file of 2,515 KB; the engine's checker reports `external: []` on the city
+     and the bank; it plays from file:// (every browser suite, the UI audit, the attract soak in Chromium, and the
+     missions above in the page itself) and from a static server (the smoke test); three builds hash the same.
+  4. **The slice:** the 14 missions, the side content, shops and properties, each through the bot on three seeds and
+     through a pad; the headless campaign reaches 100%.
+  5. **Views:** ISO, TOP-DOWN and SIDE-SCROLL MODE 7 outdoors and in the bank (the checker draws all three in each;
+     M7's entries): a switch dissolves within 0.35 s (`tests/unit/views.test.mjs`) and leaves the simulation hash
+     unchanged (the same city hashes alike in all three views, `tests/sim/city-life.test.mjs`).
+  6. **Attract:** section 8.20's items (M11's entry: in at 10.0 s idle, out within one step on any input, the five
+     reels, the cards, the camera plan), the soak above, kiosk and phone on a phone's emulation
+     (`tests/e2e/attract.mjs`).
+  7. **The 10-foot UI:** the audit above, by each device alone at both sizes, and at HUD Huge.
+  8. **Determinism and replay:** the same-seed and view-independence hashes (the unit and sim tests), and a recorded
+     drive replayed checksum for checksum in Chromium (`tests/e2e/replay.mjs`), each within its runtime (Node's V8 and
+     Chromium's differ in the last bit of a few Math results: a seed played headless and in the page drift apart,
+     D31). Performance: out of the Definition of Done (D29).
+  9. **Extensibility:** the Proving Ground's self-tests (all twelve zones), the 15 recipe tests, and District 2's stub
+     (`tests/sim/dev.test.mjs`).
+  10. **Docs:** README.md (the Source Information, then apart the engine analysis, how to play, the controls, media);
+      `docs/ARCHITECTURE.md`, `CONTENT-GUIDE.md`, `CONTROLS.md`, `TUNING.md` (generated, current), `DECISIONS.md`
+      (D1-D31); `docs/ENGINE-ANALYSIS.md` (final), `FEEDBACK-FOR-ENGINE.md`, `QA-DUALSENSE.md`;
+      `vendor/my-3d2dge/PATCHES.md`.
+  11. **The built HTML:** its header comment carries the Source Information and, apart, the engine analysis's
+      summary, and so does Credits & About (its first two pages, read at 1080p), from one source (`src/about.js`);
+      "Model and Effort Level" names the AI lab and the effort, the exact model left to the chat report.
+  12. **The chat report:** the run's last message.
+
+  **Verdict: M13 done; every item of the Definition of Done holds.**
