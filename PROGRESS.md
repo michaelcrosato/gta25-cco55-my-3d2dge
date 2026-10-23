@@ -1,16 +1,17 @@
 # Progress: GRAND THEFT MOTO
 
-Now: M13 (2026-10-22). Everything M8 to M12 builds is in and merged; M13's polish (parts 1-2), its perf levers
-(part 3), FAN-OUT B (part 4: eight adversarial reviewers, 47 findings, each a test under `tests/review/` now in
-`npm test`, every one fixed, D29) and part 5 (the bot after FAN-OUT B; the shots matrix with a verdict a row and its
-look pass) are in. The owner's directions of 2026-10-22 (D29): performance leaves the Definition of Done (the hardware
-is unlimited; FPS targets and optimization come later), and the bots may play invulnerable (the campaign plays
-`--god`; the mission bot's runs stay mortal).
+Now: M13 (2026-10-23). M8 to M12 are done: M8's last step, the bot campaign, reached 100% on `5c7c2ef` (every mission
+at its first try), with every merged mission and activity through the bot on seeds 1-3 (96/96) and the pad (32/32)
+and the bot gym 13/13 both ways on the same MOTOR. M13's polish (parts 1-2), its perf levers (part 3), FAN-OUT B
+(part 4: eight adversarial reviewers, 47 findings, each a test under `tests/review/` now in `npm test`, every one
+fixed, D29) and part 5 (the bot after FAN-OUT B, the shots matrix with its look pass, and the stalls the campaign
+found, each fixed where it lives, D30) are in. The owner's directions of 2026-10-22 (D29): performance leaves the
+Definition of Done (the hardware is unlimited; FPS targets and optimization come later), and the bots may play
+invulnerable (the campaign plays `--god`; the mission bot's runs stay mortal).
 
 Next:
-- part 5's bot changes through every merged mission and activity (seeds 1-3, the pad, the bot gym), then the bot
-  campaign to 100% (god) and M8's acceptance with its evidence;
-- test:full; the release docs (README, ENGINE-ANALYSIS, HANDOFF, PATCHES); the Definition of Done check.
+- test:full on the head (alone, about three hours);
+- the release docs' last read (README, ENGINE-ANALYSIS, HANDOFF, PATCHES); the Definition of Done check.
 
 Blockers: none. (The 403 on pushing, D27, is gone: the branch takes pushes again since M13's part 3.) The run started
 inside the planning session (DECISIONS D5). At M4's close it was handed off (D16), and the next sessions carried it
@@ -27,12 +28,12 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
 | M5 Roads, traffic, peds | done | the roads and the traffic (`6e94f04`); the sidewalks, the crowd, its reactions and witnesses, the emergency services, the Marching Mimes, the AutoPlayer core, the soaks and the evidence (this commit) · 184 unit + sim tests, 3 e2e suites, the 10-minute city soak in test:full · ISO at the gate 12-23% faster than M4's build, TOP-DOWN and MODE 7 the same, interleaved (measured with M5's tour stuck at its start: corrected at M6) · `docs/media/m5/` (13 filmstrips, 5 shots) |
 | M6 Wanted, police, gangs | done | the crimes and the wanted level, the police by tier with the Eye, roadblocks and spikes, NABBED and WRECKED, the respray and the bribes, the gangs with respect, turf, cars and turf wars, the radar (`a1a65cb`); what the 10-minute city soak found with gangs and police about, and the gate (this commit) · 201 unit + sim tests (wanted 11, gangs 5), 3 e2e suites, the 5-minute gang sim and both city soaks pass in test:full · ISO and TOP-DOWN the same as M5's build, MODE 7 within the tolerance, interleaved (the tour fixed in both) · `docs/media/m6/` (10 filmstrips) |
 | M7 TOP + SIDE7 + bank | done | the view manager, MODE 7's lens, Auto-rail and sky, the camera rig (`a856add`); the bank with its guards, CCTV, doors and takedowns, the indoor cut-aways, the occluder fixture, the draw levers and the acceptance (this commit) · 220 unit + sim tests (the bank 9), 3 e2e suites (the occluder's self-test), `check.mjs` on `#interior/bank` · TOP-DOWN inside its gate; ISO (about 11.4 against 10.4) and MODE 7 (about 18 against 12.7) carried to M13 (D20) · `docs/media/m7/` (16 shots, the chase strip) |
-| M8 Missions + economy | in progress | the runtime and its ops, the mission bot and the pad pilot, the economy, the activity frameworks, the career's cards and saves, S1 (`e88f1e2`); the screens at 10 feet (`ddab2bf`); the bot campaign and `--par` (`571b184`); FAN-OUT A2: the Rats (`eaf255b`), H4 and the Gnomes (`4d51758`), the MOTOR backlog (`b4a2344`), H1-H3 (`7e10815`), the jobs, races, MAYHEMs, tokens, stunts, events, S2, S3 and P0 (`5550aad`); the campaign's fixes (`e8a38a7`, `047726b`) · 312 unit + sim tests · all 14 missions and every activity level through the bot on seeds 1-3 (96/96) and through the pad (32/32); the bot gym 13/13 both ways · `docs/media/m8/` (8 shots) · the campaign to 100%: under way |
+| M8 Missions + economy | done | the runtime and its ops, the mission bot and the pad pilot, the economy, the activity frameworks, the career's cards and saves, S1 (`e88f1e2`); the screens at 10 feet (`ddab2bf`); the bot campaign and `--par` (`571b184`); FAN-OUT A2: the Rats (`eaf255b`), H4 and the Gnomes (`4d51758`), the MOTOR backlog (`b4a2344`), H1-H3 (`7e10815`), the jobs, races, MAYHEMs, tokens, stunts, events, S2, S3 and P0 (`5550aad`); the campaign's fixes (`e8a38a7`, `047726b`) · 312 unit + sim tests · all 14 missions and every activity level through the bot on seeds 1-3 (96/96) and through the pad (32/32); the bot gym 13/13 both ways · `docs/media/m8/` (8 shots) · the bot campaign at 100.0% in 2.15 h of game, every mission at its first try (`5c7c2ef`, M13 part 5) |
 | M9 10-foot UI | done | the UI layer and kit, the HUD on it, every screen of 8.18, our own pause, settings that reach play, onboarding, the audit (`b1ff7bb`, D23) · `tools/ui-audit.mjs` 238/238 stops at 1080p and 720p by pad, keyboard and mouse · 268 unit + sim tests (ui 8 + 5) · `docs/media/m9/` (18 shots) · perf: M13's pass, interleaved |
 | M10 Audio + radio | done | GTM-PATCH 5 (the buses), MOTOR's sequencer, composer, radio and voices, four stations, the score cues (`b2ea884`, D24) · unit audio, sim audio (the hash the same with sound), e2e audio (each station's RMS, the music bus, mute, a bounded soak) · 277 tests |
 | M11 Attract + kiosk | done | the Director and its five reels, cards, the camera plan, the watchdog, leaving on any input, the kiosk and phone (`52b3980`, D25) · the soak 30 min x seeds 1-3 headless and 5 min drawn, all pass · director 4, attract sim 18, attract e2e 24 checks · `docs/media/m11/` (11 shots, the Joyride MP4 and GIF) |
 | M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
-| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts (part 5) · 332 unit + sim tests, 77 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
+| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts, the campaign's stalls fixed to its 100% (part 5, `6efaf9c` to `5c7c2ef`, D30) · 342 unit + sim tests, 77 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
 
 ## Acceptance log
 
@@ -971,6 +972,15 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
   - Tried and dropped: a car picked to take only on the walker's level, and a bail-out rule kept per place (they changed
     which car the bot took in the gym's `kill` and the next run's busts; with the tried cars kept, it no longer loops).
 
+- **M8 · the bot campaign at 100%, M8's acceptance (M13 part 5, D30):** `node tools/bot-campaign.mjs --seed 1
+  --verbose` on `5c7c2ef` (god, D29): a new game from the title's NEW GAME to the phone's COMPLETION at **100.0%**
+  after 2.15 h of game (32 minutes on this machine), no rescue. Every one of the 14 missions passed at its first try
+  (8 gold, 6 silver: the prologue, the Gnomes', the heist's four, the Rats', the Saints'); the three jobs to level 3
+  (Firefighter, Moto Courier, Vigilante: 9 levels, each at its first try); the three MAYHEMs; Harbor Hustle (silver,
+  after two retries) and Loop Sprint; all 25 Moto Tokens at their first try; the five stunt jumps (the Car Park Roof
+  at its second); both properties. On the same MOTOR: every merged mission and activity through the bot on seeds
+  1-3 (96/96) and through the pad (32/32), and the bot gym 13/13 both ways. What the campaign found on its way there,
+  each fixed where it lives with a test, is part 5's entry under M13 and D30. **Verdict: M8 done.**
 - **M9 · section 8.18, the UI layer and the kit (`b1ff7bb`, D23):** the HUD and every menu draw on MOTOR's own
   canvas (`#ui`) at the HUD size's scale (Standard is the game's S, Large S + 1, Huge S + 2, never under 320 × 180 UI
   pixels), in the 5 × 7 font only, inside the 5% safe area. The kit: Pen (recorded for the audit), List (6 a page at

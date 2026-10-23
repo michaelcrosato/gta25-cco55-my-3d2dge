@@ -116,7 +116,7 @@ and the feedback for the engine's maintainers is [`docs/FEEDBACK-FOR-ENGINE.md`]
 - **Play:** `dist/index.html` (committed, rebuilt by every change).
 - **Build:** `npm ci` (Node 22 or later), then `npm run build`. `npm run dev` serves it on `localhost:5173` and rebuilds
   on every change.
-- **Test:** `npm test` is the gate (lint, the layer and vendor checks, a current build and tuning list, about 330 unit
+- **Test:** `npm test` is the gate (lint, the layer and vendor checks, a current build and tuning list, about 340 unit
   and sim tests, the 15 content recipes, FAN-OUT B's review tests (each a finding of the adversarial review, fixed), and
   the browser suites: smoke, replay, the Proving Ground's self-tests, audio, the attract mode, photo mode, the dev
   tools, the engine's checker on the city and the bank). `npm run test:full` adds the soaks, every mission through the

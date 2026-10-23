@@ -21,14 +21,16 @@ anywhere can resume from it: the work in flight is listed with where it lives.
   play invulnerable (`?god=1`, the tools' `--god`; the campaign plays god by default, `--mortal` without; the mission
   bot's runs stay mortal).
 - **M8, at its last step:** the campaign (god) on part 5's MOTOR found stalls the per-mission runs cannot (each of
-  those starts a new game), each fixed where it lives with a test (D30, `1805e75` to the present): a wedged far car,
-  H1's garage retry, a car reached in a vehicle held, the bot's give-ups kept a minute, a race's start card waited
-  for, and the root of the late stalls, the AutoPlayer's per-trip counts running on from trip to trip in the two
-  AutoPlayers that live for hours in the campaign. On the commit under test, in turn: `node tools/bot.mjs --all --seeds
-  1,2,3 --par 3`, `--all --pad --seeds 1 --par 3`, the bot gym both ways (`docs/handoff/m8-a2/tools/botgym.mjs`,
-  copied to `tools/_botgym.mjs`), and the campaign (`node tools/bot-campaign.mjs --seed 1 --verbose`, god) to 100%;
-  then M8's acceptance with its evidence. `node tools/bot-campaign.mjs --only <ids> --ready --verbose` probes one item
-  at a time (`--ready`: every other mission done and cash in hand first).
+  those starts a new game), each fixed where it lives with a test (D30, `1805e75` to `5c7c2ef`): among them the
+  AutoPlayer's per-trip counts running on in the two AutoPlayers that live for hours in the campaign, cars the player
+  left in the road (now towed out of sight), boarding off the bot's level, a stunt's run-up reached by the dev
+  teleport, a unit run past its stop (test:full's city soak), a despawned unit's crew left as bodies (one kept the
+  drawbridge down). On `d64b788` the campaign reached 96% (all but the two drawbridge stunts, fixed in `5c7c2ef`).
+  On the commit under test, in turn: `node tools/bot.mjs --all --seeds 1,2,3 --par 3`, `--all --pad --seeds 1 --par
+  3`, the bot gym both ways (`docs/handoff/m8-a2/tools/botgym.mjs`, copied to `tools/_botgym.mjs`), and the campaign
+  (`node tools/bot-campaign.mjs --seed 1 --verbose`, god, about 40 minutes alone) to 100%; then M8's acceptance with
+  its evidence. `node tools/bot-campaign.mjs --only <ids> --ready --verbose` probes one item at a time (`--ready`:
+  every other mission done and cash in hand first).
 - **Then the rest of M13:** test:full, the release docs
   (README's and the Credits & About screen's Source Information and engine analysis, the HTML header,
   `docs/ENGINE-ANALYSIS.md` final, `vendor/my-3d2dge/PATCHES.md`), the Definition of Done check (PLAN.md 15 as D29
