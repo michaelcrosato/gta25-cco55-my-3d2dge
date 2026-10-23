@@ -56,7 +56,7 @@ anywhere can resume from it: the work in flight is listed with where it lives.
 
 - **Setup:** `npm ci` (Node 22). In a Claude Code cloud session the SessionStart hook installs everything.
 - **The gate: `npm test`** runs lint, the boundary, vendor and goal-sync checks, "dist current" and "tuning current",
-  then the unit and sim tests (343), the 15 content recipes, FAN-OUT B's 77 review tests, the browser suites (the
+  then the unit and sim tests (343), the 15 content recipes, FAN-OUT B's 78 review tests, the browser suites (the
   smoke from file:// and from a static server, replay, the Proving Ground's self-tests, audio, the attract mode, photo
   mode, the dev tools), then the engine's checker on the city and the bank. It takes about twelve minutes.
 - **`npm run test:full`** adds the heavy suites (`tools/test-run.mjs`): the 10-minute city and audio soaks, the

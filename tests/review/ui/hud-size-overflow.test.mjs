@@ -45,3 +45,21 @@ test('HUD Large at 720p (320 x 180): the phone and the pause\'s map stay on the 
   }
   assert.deepEqual(bad, [], '\n' + bad.join('\n'));
 });
+
+// (the pause's MAP with its legend shown, and its STATS cards: the legend's one column ran 2 px under the safe area at
+// 320 x 180, and the cards' second row too, until the map laid its legend out in columns and a card grid paged fewer
+// rows; test:full's UI audit at HUD Huge found them)
+test('HUD Huge at 1080p (320 x 180): the map\'s legend and the stats\' cards stay in the safe area', async () => {
+  const { game, M, U, frame, reset } = await play();
+  game.settings.set('hudSize', 2);
+  const bad = [];
+  for (const [name, open] of [
+    ['pause: map, its legend', () => { const s = game.scene.pauseScreen('map'); U.open(s); frame(); s.update({ secondary: true }, { x: null, y: null }, 0); }],
+    ['pause: stats', () => { const s = game.scene.pauseScreen('stats'); U.open(s); s.update({}, { x: null, y: null }, 0); }],
+  ]) {
+    reset(); open(); const R = frame(), audit = M.auditRecord(R), off = offScreen(R);
+    if (!R.rects.some(r => r.kind === (name.includes('legend') ? 'legend' : 'card'))) bad.push(`${name}: not drawn`);
+    if (audit.length || off.length) bad.push(`${name} (${R.W}x${R.H}): ${[...off.map(s => 'OFF THE SCREEN ' + s), ...audit].slice(0, 4).join(' | ')}`);
+  }
+  assert.deepEqual(bad, [], '\n' + bad.join('\n'));
+});

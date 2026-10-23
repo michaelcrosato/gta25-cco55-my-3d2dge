@@ -1278,6 +1278,15 @@ and where it landed.
     the player in it put down there facing the takeoff; the line-up, the run-up and the jump are driven. Driven
     there hours into a campaign, it had met the city's jams (a junction's exit held on the way up to the Loop Gap's
     stub had it out of car after car; by the canal it stood 30 u short with no room to turn).
+  - **The 10-foot UI at HUD Huge** (320 x 180 UI pixels; test:full's audit at that size by pad, which had not run to
+    its end since FAN-OUT B added it): the pause map's legend, shown, ran 2 px under the safe area in its one column,
+    and so did the STATS tab's second row of cards. The map lays its legend out in two columns (or more) when it is
+    too short for one, clear of the district's name; a card grid pages fewer rows when its screen is short of room,
+    as a list already did (one row of three, MORE to page). At the Standard size both lay out as before. And the
+    audit's own walk visits the safehouse's save after the job stops: the prologue's giver stands at the safehouse's
+    door (since A2's prologue), so a new game's first card there is its JOB card, not the save's slots.
+  - **The page from a static server** (PLAN.md 15.3): the tab's icon is inline in the page (an SVG of MOTO's M), so a
+    server is asked for nothing beyond the page; the smoke test plays it from file:// and from a static server.
   - **The look pass:** the flat roofs' clutter (a stair hut, skylights, a duct, a chimney on brick, an aerial or a dish
     on the tall, more units) on the builder's own stream (`roofs+`), none of it solid; a style's neon (`style.neon`:
     tubes up its street corners, more shop signs; Neon Mile's); TOP-DOWN draws a thing standing on a roof after the

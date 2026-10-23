@@ -33,7 +33,7 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
 | M10 Audio + radio | done | GTM-PATCH 5 (the buses), MOTOR's sequencer, composer, radio and voices, four stations, the score cues (`b2ea884`, D24) · unit audio, sim audio (the hash the same with sound), e2e audio (each station's RMS, the music bus, mute, a bounded soak) · 277 tests |
 | M11 Attract + kiosk | done | the Director and its five reels, cards, the camera plan, the watchdog, leaving on any input, the kiosk and phone (`52b3980`, D25) · the soak 30 min x seeds 1-3 headless and 5 min drawn, all pass · director 4, attract sim 18, attract e2e 24 checks · `docs/media/m11/` (11 shots, the Joyride MP4 and GIF) |
 | M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
-| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts, the campaign's stalls fixed to its 100% (part 5, `6efaf9c` to `5c7c2ef` and the gang shoot-out's tip after, D30) · 343 unit + sim tests, 77 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
+| M13 Polish + release | in progress | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts, the campaign's stalls fixed to its 100% (part 5, `6efaf9c` to `5c7c2ef` and the gang shoot-out's tip after, D30) · 343 unit + sim tests, 78 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
 
 ## Acceptance log
 
@@ -1235,6 +1235,15 @@ from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new 
     error and no request beyond the page. Three builds hash the same (a rebuild is byte-identical). The icon
     (`docs/media/shots/tab-icon.png`, at 128, 32 and 16 px): legible down to 16 px, the title's yellow, orange and
     magenta on its near-black; good.
+  - **The UI audit before test:full:** run alone first, the audit found its own walk out of step (the prologue's giver
+    stands at the safehouse's door since A2, so a new game's first card there is the prologue's JOB card, not the
+    save's slots: the walk now visits the save after the job stops), then 238/238 at the Standard size. At HUD Huge
+    by pad (320 x 180 UI pixels), 48/51: the pause map's legend, shown, and the STATS tab's second row of cards ran 2
+    px under the safe area. The map now lays its legend out in columns when it is too short for one, and a card grid
+    pages fewer rows when its screen is short of room (a test in `tests/review/ui/hud-size-overflow.test.mjs`,
+    failing before); 51/51. The shots at Huge (720p): the legend in two columns of four, clear of the district's
+    name; STATS one row of three cards, 1/4, MORE to page; good. Credits & About at 1080p: the Source Information,
+    then under its own heading the Game Engine Analysis, legible; good.
   - **The shots** (`tools/shot-matrix.mjs`, PLAN.md 10's matrix): `docs/media/shots/`: the 4 neighbourhoods by day,
     dusk and night in ISO (`<hood>-<time>-iso.png`) and every view on the contact sheets (`sheet-iso-clear.jpg`,
     `sheet-top-clear.jpg`, `sheet-side7-clear.jpg`, and ISO in rain, `sheet-iso-rain.jpg`); the bank's lobby in each

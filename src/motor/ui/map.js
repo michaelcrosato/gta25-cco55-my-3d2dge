@@ -80,9 +80,11 @@ export function mapPage(app, o) {
       P.text((hood ? hood.name : 'LOWTOWN').toUpperCase(), x + 6, y + h - 12, UI.ink);
       P.text('SHOWING ' + filters[st.filter][1] + '   ' + Math.round(ZOOMS[st.z] * 100) + '%', x + w - 6, y + 4, UI.dim, { align: 'right' });
       if (st.legend && o.legend) {
-        const rows = o.legend.slice(0, 8), lw = 128, lh = rows.length * 12 + 10, lx = x + 6, ly = y + 6;
+        // (a map too short for the legend in one column, at HUD size Huge: in two or more, clear of the hood's name)
+        const rows = o.legend.slice(0, 8), per = Math.max(1, Math.min(rows.length, Math.floor((h - 30) / 12))), cols = Math.ceil(rows.length / per);
+        const cw = cols > 1 ? 28 + Math.max(...rows.map(r => P.width(r.label.toUpperCase()))) : 128, lw = cw * cols, lh = Math.min(rows.length, per) * 12 + 10, lx = x + 6, ly = y + 6;
         P.panel(lx, ly, lw, lh, { kind: 'legend' });
-        rows.forEach((r, i) => { drawBlip(g, lx + 10, ly + 10 + i * 12, r.shape, r.color); P.text(r.label.toUpperCase(), lx + 20, ly + 7 + i * 12, UI.ink); });
+        rows.forEach((r, i) => { const cx = lx + Math.floor(i / per) * cw, cy = ly + (i % per) * 12; drawBlip(g, cx + 10, cy + 10, r.shape, r.color); P.text(r.label.toUpperCase(), cx + 20, cy + 7, UI.ink); });
         E.px.reset(g);
       }
       return h;

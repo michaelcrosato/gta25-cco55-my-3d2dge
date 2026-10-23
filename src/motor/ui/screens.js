@@ -73,10 +73,17 @@ export function drawScreen(P, s, live = true) {
   // (the legend wider than the panel: two lines, and the panel a line taller; a body that fills the screen reads
   // P.legendExtra to leave it room)
   const legend = s.legend || (s.list || s.cards ? '{menu:confirm} SELECT   {menu:back} BACK' : '{menu:back} BACK'), legW = w - 16; P.legendExtra = P.promptWidth(legend) > legW ? LEGEND_LINE : 0;
-  const cardsH = s.cards ? s.cardsH || 120 : 0, bodyH = typeof s.bodyH === 'function' ? s.bodyH(P, w) : s.bodyH || 0;
+  let cardsH = s.cards ? s.cardsH || 120 : 0; const bodyH = typeof s.bodyH === 'function' ? s.bodyH(P, w) : s.bodyH || 0;
   const tip = s.tips ? (s.list && s.list.current && s.list.current.help) || '' : null; let tipH = tip === null ? 0 : 24;
-  // (short of room, a HUD size Large or Huge at 320 x 180: the list pages fewer rows, and the tip goes before the rows do)
-  const base = (s.title ? 30 : 8) + (s.tabs ? 22 : 0) + infoH + (info.length ? 6 : 0) + bodyH + cardsH + 26 + P.legendExtra, room = sy1 - sy0;
+  // (short of room, a HUD size Large or Huge at 320 x 180: the list pages fewer rows, and the tip goes before the rows do;
+  // the cards page fewer rows of cards)
+  let base = (s.title ? 30 : 8) + (s.tabs ? 22 : 0) + infoH + (info.length ? 6 : 0) + bodyH + cardsH + 26 + P.legendExtra; const room = sy1 - sy0;
+  if (s.cards) {
+    const C = s.cards, ch = s.cardH || 52, per0 = C.per0 ?? (C.per0 = C.per), rows0 = Math.ceil(per0 / C.cols);
+    const rows = Math.max(1, Math.min(rows0, Math.floor((room - (base - cardsH) + 8) / (ch + 8))));
+    C.per = Math.min(per0, rows * C.cols);
+    if (rows < rows0) { base -= cardsH; cardsH = rows * (ch + 8) - 8; base += cardsH; }
+  }
   if (s.list) {
     const per0 = s.list.per0 ?? (s.list.per0 = s.list.per); let rows = Math.floor((room - base - tipH) / ROW);
     if (tipH && rows < Math.min(3, s.list.items.length)) { tipH = 0; rows = Math.floor((room - base) / ROW); }

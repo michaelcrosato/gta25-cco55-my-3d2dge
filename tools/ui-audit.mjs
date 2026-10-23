@@ -121,15 +121,16 @@ async function walkPlay(S) {
   // a shop at its door
   await S.gtm(() => { const g = window.__gtm, q = g.city.poi('greasy-spoke'); g.crew.ped.place(q.x, q.y); g.crew.fund = 400; });
   await S.page.waitForTimeout(400); await S.act('interact'); await S.stop('shop', 'shop'); await S.act('back');
-  // the safehouse's save: the three slots
-  await S.gtm(() => { const g = window.__gtm, q = g.city.poi('safehouse'); g.crew.ped.place(q.x, q.y); });
-  await S.page.waitForTimeout(400); await S.act('interact'); await S.stop('save', 'slots-save'); await S.act('back');
-  // a job's card at its giver, then the results by the runtime's own hand
+  // a job's card at its giver (the prologue's, at the safehouse), then the results by the runtime's own hand
   await S.gtm(() => { const g = window.__gtm, C = g.career, m = C.available()[0]; if (m) { const at = C.giverOf(m); g.crew.ped.place(at[0], at[1]); } else C._jobCard(g.motor.all('missions')[0]); });   // (walked into a giver's ring; or, none on offer, the first mission's card)
   await S.page.waitForTimeout(500); await S.stop('job-card', 'job');
   await S.act('confirm'); await S.page.waitForTimeout(1500); await S.stop('hud-mission', null);
   await S.gtm(() => window.__gtm.career.R.fail('time')); await S.page.waitForTimeout(500); await S.stop('job-blown', 'blown');
   await S.act('confirm'); await S.page.waitForTimeout(800); await S.gtm(() => window.__gtm.career.R.pass()); await S.page.waitForTimeout(600); await S.stop('job-done', 'done'); await S.act('confirm');
+  // the safehouse's save: the three slots (after the job: the prologue's giver stands at the safehouse's door, and a
+  // new game's first card there is its JOB card)
+  await S.gtm(() => { const g = window.__gtm, q = g.city.poi('safehouse'); g.crew.ped.place(q.x, q.y); });
+  await S.page.waitForTimeout(400); await S.act('interact'); await S.stop('save', 'slots-save'); await S.act('back');
   // the weapon wheel, held open
   if (S.pass === 'pad') { await S.page.evaluate(() => { const q = window.__auditPad.buttons[4]; q.pressed = true; q.value = 1; }); await S.page.waitForTimeout(500); await S.stop('weapon-wheel', null); await S.page.evaluate(() => { const q = window.__auditPad.buttons[4]; q.pressed = false; q.value = 0; }); }
   else { await S.page.keyboard.down('KeyQ'); await S.page.waitForTimeout(500); await S.stop('weapon-wheel', null); await S.page.keyboard.up('KeyQ'); }

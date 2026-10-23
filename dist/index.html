@@ -24323,10 +24323,22 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const info = (s.info || []).flatMap((l7) => typeof l7 === "string" ? wrapLines(P17, l7, w8 - 24) : [l7]), lh = (l7) => typeof l7 === "string" || !l7.scale ? 10 : 10 * l7.scale + 4, infoH = info.reduce((a, l7) => a + lh(l7), 0);
     const legend = s.legend || (s.list || s.cards ? "{menu:confirm} SELECT   {menu:back} BACK" : "{menu:back} BACK"), legW = w8 - 16;
     P17.legendExtra = P17.promptWidth(legend) > legW ? LEGEND_LINE : 0;
-    const cardsH = s.cards ? s.cardsH || 120 : 0, bodyH = typeof s.bodyH === "function" ? s.bodyH(P17, w8) : s.bodyH || 0;
+    let cardsH = s.cards ? s.cardsH || 120 : 0;
+    const bodyH = typeof s.bodyH === "function" ? s.bodyH(P17, w8) : s.bodyH || 0;
     const tip = s.tips ? s.list && s.list.current && s.list.current.help || "" : null;
     let tipH = tip === null ? 0 : 24;
-    const base3 = (s.title ? 30 : 8) + (s.tabs ? 22 : 0) + infoH + (info.length ? 6 : 0) + bodyH + cardsH + 26 + P17.legendExtra, room = sy1 - sy0;
+    let base3 = (s.title ? 30 : 8) + (s.tabs ? 22 : 0) + infoH + (info.length ? 6 : 0) + bodyH + cardsH + 26 + P17.legendExtra;
+    const room = sy1 - sy0;
+    if (s.cards) {
+      const C8 = s.cards, ch = s.cardH || 52, per0 = C8.per0 ?? (C8.per0 = C8.per), rows0 = Math.ceil(per0 / C8.cols);
+      const rows = Math.max(1, Math.min(rows0, Math.floor((room - (base3 - cardsH) + 8) / (ch + 8))));
+      C8.per = Math.min(per0, rows * C8.cols);
+      if (rows < rows0) {
+        base3 -= cardsH;
+        cardsH = rows * (ch + 8) - 8;
+        base3 += cardsH;
+      }
+    }
     if (s.list) {
       const per0 = s.list.per0 ?? (s.list.per0 = s.list.per);
       let rows = Math.floor((room - base3 - tipH) / ROW);
@@ -35295,11 +35307,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         P17.text((hood2 ? hood2.name : "LOWTOWN").toUpperCase(), x + 6, y + h - 12, UI.ink);
         P17.text("SHOWING " + filters[st.filter][1] + "   " + Math.round(ZOOMS[st.z] * 100) + "%", x + w8 - 6, y + 4, UI.dim, { align: "right" });
         if (st.legend && o.legend) {
-          const rows = o.legend.slice(0, 8), lw = 128, lh = rows.length * 12 + 10, lx = x + 6, ly = y + 6;
+          const rows = o.legend.slice(0, 8), per = Math.max(1, Math.min(rows.length, Math.floor((h - 30) / 12))), cols = Math.ceil(rows.length / per);
+          const cw = cols > 1 ? 28 + Math.max(...rows.map((r7) => P17.width(r7.label.toUpperCase()))) : 128, lw = cw * cols, lh = Math.min(rows.length, per) * 12 + 10, lx = x + 6, ly = y + 6;
           P17.panel(lx, ly, lw, lh, { kind: "legend" });
           rows.forEach((r7, i) => {
-            drawBlip(g, lx + 10, ly + 10 + i * 12, r7.shape, r7.color);
-            P17.text(r7.label.toUpperCase(), lx + 20, ly + 7 + i * 12, UI.ink);
+            const cx6 = lx + Math.floor(i / per) * cw, cy2 = ly + i % per * 12;
+            drawBlip(g, cx6 + 10, cy2 + 10, r7.shape, r7.color);
+            P17.text(r7.label.toUpperCase(), cx6 + 20, cy2 + 7, UI.ink);
           });
           E.px.reset(g);
         }
