@@ -186,32 +186,52 @@ export class MissionBot {
     return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: 'careful', radius: 40, z: h.to[2], hold: !!(what && what.body) }, w);   // (the job's own car: never left in a jam)
   }
   // a tow (deliver's tow: the truck's tag): into the truck; lined up on the car's axis past whichever end has room,
-  // facing away from it; backed straight onto that end until the hook meets it, the hook's button; then there with it
-  // in tow. No closer while backing (something in the way): staged again, and the second time from the other end
+  // facing away from it (driven in along a lane that runs that way: a long truck turned round at the kerb had wedged
+  // itself at the corner for good); backed straight onto that end until the hook meets it, the hook's button; then
+  // there with it in tow. No closer while backing (something in the way): staged again, and the second time from the
+  // other end; no nearer the staging point for 25 s: the other end at once
   _towTo(dt, p, R, h, car, w) {
     const truck = R.actors.tagged(h.tow).find(alive) || (p.seat && p.seat.vehicle && p.seat.vehicle.def.tool === 'hook' ? p.seat.vehicle : null), v = p.seat && p.seat.vehicle;
     if (!truck) return clearIntent(this.I);
     if (v !== truck) { this.tow = null; return this._board(dt, p, truck, w); }
     if (car.towedBy === truck) { this.tow = null; return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: 'careful', radius: 50, z: h.to[2], hold: true }, w); }
     const T = this.tow && this.tow.car === car ? this.tow : (this.tow = { car, phase: 'stage', end: this._towEnd(car, truck), t: 0, n: 0, best: 1e9 });
-    const e = T.end, dir = [Math.cos(e.h), Math.sin(e.h)], E = car.toWorld(e.k * car.hl, 0), off = truck.hl + 60, S = [E[0] + dir[0] * off, E[1] + dir[1] * off];
+    if (!T.S || T.S.end !== T.end) T.S = { end: T.end, at: this._towStage(car, truck, T.end) };
+    const e = T.end, dir = [Math.cos(e.h), Math.sin(e.h)], E = car.toWorld(e.k * car.hl, 0), S = T.S.at;
     const hook = truck.model.hook || [-truck.hl - 4, 0], H = truck.toWorld(hook[0], hook[1]), dH = Math.hypot(H[0] - E[0], H[1] - E[1]), I = clearIntent(this.I);
     let ah = e.h - truck.heading; ah = Math.atan2(Math.sin(ah), Math.cos(ah));
     if (dH < 18 && truck.speed < 12) { if ((this.t * 4 | 0) % 2 === 0) { I.tap.fire = true; I.down.fire = true; } I.brake = 1; return I; }   // (the hook)
-    if (T.phase === 'stage') {   // to the staging point (the road, then straight at it)
-      if (Math.hypot(truck.x - S[0], truck.y - S[1]) < 30 && truck.speed < 10) { T.phase = Math.abs(ah) < .35 ? 'back' : 'align'; T.t = 0; T.best = dH; }
-      else return this._go(dt, p, S[0], S[1], { stay: true, radius: 16, slack: 10, z: car.z }, w);   // (on a deck: the staging point up there)
+    if (T.phase === 'stage') {   // to the staging point (the road, then straight at it), come in along a lane running the way the truck must face
+      const dS = Math.hypot(truck.x - S[0], truck.y - S[1]);
+      if (dS < 30 && truck.speed < 10) { T.phase = Math.abs(ah) < .35 ? 'back' : 'align'; T.t = 0; T.best = dH; }
+      else {
+        // (no nearer it for 25 s, a long truck wedged at a corner short of it: the other end, from another way in)
+        if (dS < (T.sBest ?? 1e9) - 20) { T.sBest = dS; T.st = 0; } else if ((T.st = (T.st || 0) + dt) > 25) { T.n++; T.st = 0; T.sBest = 1e9; T.end = this._towEnd(car, truck, T.end); this.auto.goal = null; return I; }
+        return this._go(dt, p, S[0], S[1], { stay: true, radius: 16, slack: 10, z: car.z, heading: e.h }, w);   // (on a deck: the staging point up there)
+      }
     }
     if (T.phase === 'align') {   // on along the axis, away from the car, until the truck faces its way
       T.t += dt; const A = [S[0] + dir[0] * 140, S[1] + dir[1] * 140]; let da = Math.atan2(A[1] - truck.y, A[0] - truck.x) - truck.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
       if (Math.abs(ah) < .3 || T.t > 6) { T.phase = 'back'; T.t = 0; T.best = dH; return I; }
-      I.steer = Math.max(-1, Math.min(1, da * 2)); if (truck.speed < 25) I.throttle = .5; return I;
+      I.steer = Math.max(-1, Math.min(1, da * 2)); if (truck.speed < 15) I.throttle = .5; return I;   // (slow: a wide turn put it off the axis)
     }
-    // backing: the hook onto the car's end, steered by where that end lies behind
+    // backing: the hook onto the car's end, steered by where that end lies behind (still rolling on from the turn: the
+    // brakes first, the clock not yet running: it had given up on the hook before it ever went back)
+    const fwd = truck.body.u || 0; if (fwd > 2) { I.brake = 1; I.steer = 0; return I; }
     T.t += dt; if (dH < T.best - 1) { T.best = dH; T.t = 0; }
-    if (T.t > 2.5) { T.n++; T.phase = 'stage'; T.t = 0; if (T.n % 2 === 0) T.end = this._towEnd(car, truck, T.end); this.auto.goal = null; return I; }
+    if (T.t > 2.5) { T.n++; T.phase = 'stage'; T.t = 0; T.st = 0; T.sBest = 1e9; if (T.n % 2 === 0) T.end = this._towEnd(car, truck, T.end); this.auto.goal = null; return I; }
     const back = Math.atan2(E[1] - H[1], E[0] - H[0]); let a = back - (truck.heading + Math.PI); a = Math.atan2(Math.sin(a), Math.cos(a));
     I.steer = Math.max(-1, Math.min(1, -a * 2.5)); if (truck.speed < 14) I.brake = .55; return I;
+  }
+  // where the truck stands to back onto end e: out along the car's axis past it, then on the nearest lane running the
+  // way the truck must face (in the road beside a kerb's parked row, backed in at a slant: on the axis itself, the next
+  // car parked there, it had gone the wrong way up the street to it and wedged itself at the corner); with no such lane
+  // near, on the axis
+  _towStage(car, truck, e) {
+    const c = Math.cos(e.h), s = Math.sin(e.h), E = car.toWorld(e.k * car.hl, 0), off = truck.hl + 50, A = [E[0] + c * off, E[1] + s * off];
+    const G = this.roads && this.roads.graph, n = G && G.nearestLane(A[0], A[1], e.h, car.z || 0, 90);
+    if (!n || c * n.lane.dir[0] + s * n.lane.dir[1] < .8) return A;
+    const q = G.pointOn(n.lane, n.s); return [q[0], q[1]];
   }
   // the car's end to tow it by ({ k: 1 front | -1 rear, h: the way the truck faces }): one with room past it (no wall, no
   // vehicle where the truck would stand), else the front; other: the end tried before (the other one, then)

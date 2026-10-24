@@ -65,9 +65,10 @@ export class GPS {
     }
     return D;
   }
-  /** a route between two world points (each snapped to its nearest lane; heading prefers lanes running that way) */
+  /** a route between two world points (each snapped to its nearest lane; heading prefers lanes running that way, as
+   *  o.toHeading does at the far end: there facing that way) */
   routeTo(x, y, heading, tx, ty, o = {}) {
-    const a = this.g.nearestLane(x, y, heading, o.z || 0), b = this.g.nearestLane(tx, ty, null, o.tz || 0); if (!a || !b) return null;
+    const a = this.g.nearestLane(x, y, heading, o.z || 0), b = this.g.nearestLane(tx, ty, o.toHeading ?? null, o.tz || 0); if (!a || !b) return null;
     let r;
     if (a.lane.id === b.lane.id && b.s < a.s - 1) {   // (the goal behind us on our own lane: off it and round, back onto it)
       for (const cid of a.lane.out) { const c = this.g.conns[cid]; if (o.avoid && o.avoid(this.g.lanes[c.to])) continue; const q = this.route(c.to, b.lane.id, { ...o, s: c.toS || 0 }); if (q && (!r || q.cost + this.stepCost(c) < r.cost)) r = { lanes: [a.lane.id, ...q.lanes], conns: [cid, ...q.conns], cost: q.cost + this.stepCost(c) }; }

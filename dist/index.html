@@ -27551,9 +27551,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       return D;
     }
-    /** a route between two world points (each snapped to its nearest lane; heading prefers lanes running that way) */
+    /** a route between two world points (each snapped to its nearest lane; heading prefers lanes running that way, as
+     *  o.toHeading does at the far end: there facing that way) */
     routeTo(x, y, heading, tx, ty, o = {}) {
-      const a = this.g.nearestLane(x, y, heading, o.z || 0), b = this.g.nearestLane(tx, ty, null, o.tz || 0);
+      const a = this.g.nearestLane(x, y, heading, o.z || 0), b = this.g.nearestLane(tx, ty, o.toHeading ?? null, o.tz || 0);
       if (!a || !b) return null;
       let r7;
       if (a.lane.id === b.lane.id && b.s < a.s - 1) {
@@ -30257,11 +30258,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** go to (x, y): o.foot keeps it on foot (out of a vehicle first); o.car: drive there in this vehicle; o.stay: stop
      *  there seated; o.style: 'calm' | 'careful' | 'player' | 'race'; o.radius: near enough; o.z: the goal's height (a
      *  deck: driven to the lane up there); o.hold: never give up the vehicle it drives (a job's own: a jam it can't drive
-     *  out of is backed and driven round, again and again, never left); o.keep: the same trip to a
+     *  out of is backed and driven round, again and again, never left); o.heading: come in along a lane running that way
+     *  (a tow truck to stand facing it); o.keep: the same trip to a
      *  goal that moved (what it learned on the way kept: the car it is taking, the cars it gave up on, the lanes it keeps
      *  off, how long it has been stuck) */
     goto(x, y, o = {}) {
-      this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || "player", radius: o.radius || 0, hold: !!o.hold };
+      this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || "player", radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null };
       this.state = "idle";
       this.path = null;
       this._dropBrain();
@@ -30588,8 +30590,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         const st = STYLES2[g.style] || STYLES2.player;
         this.brain = new DriverBrain(v, this.G, { junctions: this.J, personality: st, siren: !!st.assertive });
         const plan2 = (o) => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
-        const av = this.avoid, tz = g.z || 0, base3 = plan2({ z: v.z, tz });
-        const alt = av && av.size ? plan2({ z: v.z, tz, avoid: (L23) => av.has(L23.id) }) : null, r7 = alt && (!base3 || alt.cost <= base3.cost * 1.6 + 10) ? alt : base3;
+        const av = this.avoid, tz = g.z || 0, toHeading = g.heading, base3 = plan2({ z: v.z, tz, toHeading });
+        const alt = av && av.size ? plan2({ z: v.z, tz, toHeading, avoid: (L23) => av.has(L23.id) }) : null, r7 = alt && (!base3 || alt.cost <= base3.cost * 1.6 + 10) ? alt : base3;
         if (r7) this.brain.setRoute(r7.lanes, { lane: r7.to.lane.id, s: r7.to.s });
         this.state = "drive";
       }
@@ -30703,7 +30705,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       X2.slow = v.speed < 3 ? X2.slow + dt : 0;
       if (X2.slow > 1.2) {
         X2.slow = 0;
-        X2.back = 1;
+        X2.back = 1 + Math.max(0, v.hl - 30) / 20;
         X2.side = da > 0 ? 1 : -1;
         return I;
       }
@@ -32405,8 +32407,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: "careful", radius: 40, z: h.to[2], hold: !!(what && what.body) }, w8);
     }
     // a tow (deliver's tow: the truck's tag): into the truck; lined up on the car's axis past whichever end has room,
-    // facing away from it; backed straight onto that end until the hook meets it, the hook's button; then there with it
-    // in tow. No closer while backing (something in the way): staged again, and the second time from the other end
+    // facing away from it (driven in along a lane that runs that way: a long truck turned round at the kerb had wedged
+    // itself at the corner for good); backed straight onto that end until the hook meets it, the hook's button; then
+    // there with it in tow. No closer while backing (something in the way): staged again, and the second time from the
+    // other end; no nearer the staging point for 25 s: the other end at once
     _towTo(dt, p, R3, h, car4, w8) {
       const truck2 = R3.actors.tagged(h.tow).find(alive2) || (p.seat && p.seat.vehicle && p.seat.vehicle.def.tool === "hook" ? p.seat.vehicle : null), v = p.seat && p.seat.vehicle;
       if (!truck2) return clearIntent(this.I);
@@ -32419,7 +32423,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: "careful", radius: 50, z: h.to[2], hold: true }, w8);
       }
       const T21 = this.tow && this.tow.car === car4 ? this.tow : this.tow = { car: car4, phase: "stage", end: this._towEnd(car4, truck2), t: 0, n: 0, best: 1e9 };
-      const e = T21.end, dir = [Math.cos(e.h), Math.sin(e.h)], E5 = car4.toWorld(e.k * car4.hl, 0), off2 = truck2.hl + 60, S10 = [E5[0] + dir[0] * off2, E5[1] + dir[1] * off2];
+      if (!T21.S || T21.S.end !== T21.end) T21.S = { end: T21.end, at: this._towStage(car4, truck2, T21.end) };
+      const e = T21.end, dir = [Math.cos(e.h), Math.sin(e.h)], E5 = car4.toWorld(e.k * car4.hl, 0), S10 = T21.S.at;
       const hook = truck2.model.hook || [-truck2.hl - 4, 0], H18 = truck2.toWorld(hook[0], hook[1]), dH = Math.hypot(H18[0] - E5[0], H18[1] - E5[1]), I = clearIntent(this.I);
       let ah = e.h - truck2.heading;
       ah = Math.atan2(Math.sin(ah), Math.cos(ah));
@@ -32432,11 +32437,25 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return I;
       }
       if (T21.phase === "stage") {
-        if (Math.hypot(truck2.x - S10[0], truck2.y - S10[1]) < 30 && truck2.speed < 10) {
+        const dS = Math.hypot(truck2.x - S10[0], truck2.y - S10[1]);
+        if (dS < 30 && truck2.speed < 10) {
           T21.phase = Math.abs(ah) < 0.35 ? "back" : "align";
           T21.t = 0;
           T21.best = dH;
-        } else return this._go(dt, p, S10[0], S10[1], { stay: true, radius: 16, slack: 10, z: car4.z }, w8);
+        } else {
+          if (dS < (T21.sBest ?? 1e9) - 20) {
+            T21.sBest = dS;
+            T21.st = 0;
+          } else if ((T21.st = (T21.st || 0) + dt) > 25) {
+            T21.n++;
+            T21.st = 0;
+            T21.sBest = 1e9;
+            T21.end = this._towEnd(car4, truck2, T21.end);
+            this.auto.goal = null;
+            return I;
+          }
+          return this._go(dt, p, S10[0], S10[1], { stay: true, radius: 16, slack: 10, z: car4.z, heading: e.h }, w8);
+        }
       }
       if (T21.phase === "align") {
         T21.t += dt;
@@ -32450,7 +32469,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           return I;
         }
         I.steer = Math.max(-1, Math.min(1, da * 2));
-        if (truck2.speed < 25) I.throttle = 0.5;
+        if (truck2.speed < 15) I.throttle = 0.5;
+        return I;
+      }
+      const fwd = truck2.body.u || 0;
+      if (fwd > 2) {
+        I.brake = 1;
+        I.steer = 0;
         return I;
       }
       T21.t += dt;
@@ -32462,6 +32487,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         T21.n++;
         T21.phase = "stage";
         T21.t = 0;
+        T21.st = 0;
+        T21.sBest = 1e9;
         if (T21.n % 2 === 0) T21.end = this._towEnd(car4, truck2, T21.end);
         this.auto.goal = null;
         return I;
@@ -32472,6 +32499,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       I.steer = Math.max(-1, Math.min(1, -a * 2.5));
       if (truck2.speed < 14) I.brake = 0.55;
       return I;
+    }
+    // where the truck stands to back onto end e: out along the car's axis past it, then on the nearest lane running the
+    // way the truck must face (in the road beside a kerb's parked row, backed in at a slant: on the axis itself, the next
+    // car parked there, it had gone the wrong way up the street to it and wedged itself at the corner); with no such lane
+    // near, on the axis
+    _towStage(car4, truck2, e) {
+      const c = Math.cos(e.h), s = Math.sin(e.h), E5 = car4.toWorld(e.k * car4.hl, 0), off2 = truck2.hl + 50, A = [E5[0] + c * off2, E5[1] + s * off2];
+      const G2 = this.roads && this.roads.graph, n = G2 && G2.nearestLane(A[0], A[1], e.h, car4.z || 0, 90);
+      if (!n || c * n.lane.dir[0] + s * n.lane.dir[1] < 0.8) return A;
+      const q = G2.pointOn(n.lane, n.s);
+      return [q[0], q[1]];
     }
     // the car's end to tow it by ({ k: 1 front | -1 rear, h: the way the truck faces }): one with room past it (no wall, no
     // vehicle where the truck would stand), else the front; other: the end tried before (the other one, then)

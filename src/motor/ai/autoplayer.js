@@ -55,11 +55,12 @@ export class AutoPlayer {
   /** go to (x, y): o.foot keeps it on foot (out of a vehicle first); o.car: drive there in this vehicle; o.stay: stop
    *  there seated; o.style: 'calm' | 'careful' | 'player' | 'race'; o.radius: near enough; o.z: the goal's height (a
    *  deck: driven to the lane up there); o.hold: never give up the vehicle it drives (a job's own: a jam it can't drive
-   *  out of is backed and driven round, again and again, never left); o.keep: the same trip to a
+   *  out of is backed and driven round, again and again, never left); o.heading: come in along a lane running that way
+   *  (a tow truck to stand facing it); o.keep: the same trip to a
    *  goal that moved (what it learned on the way kept: the car it is taking, the cars it gave up on, the lanes it keeps
    *  off, how long it has been stuck) */
   goto(x, y, o = {}) {
-    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold }; this.state = 'idle'; this.path = null; this._dropBrain();
+    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null }; this.state = 'idle'; this.path = null; this._dropBrain();   // (heading: the route's last lane one running that way)
     // (a new trip's counts start at nothing: they had run on from trip to trip, so a long-lived AutoPlayer (the campaign's,
     // the career's mission bot's) got out of the car at its first box once three were behind it anywhere, gave up a car
     // at a glance once 20 s of walks to doors were, and after its first hop anywhere never walked straight again, each
@@ -206,8 +207,8 @@ export class AutoPlayer {
       // whichever way it runs; a car left with no route at all wanders the lanes, and that's how a short trip went round
       // the city)
       const plan = o => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
-      const av = this.avoid, tz = g.z || 0, base = plan({ z: v.z, tz });
-      const alt = av && av.size ? plan({ z: v.z, tz, avoid: L => av.has(L.id) }) : null, r = alt && (!base || alt.cost <= base.cost * 1.6 + 10) ? alt : base;
+      const av = this.avoid, tz = g.z || 0, toHeading = g.heading, base = plan({ z: v.z, tz, toHeading });
+      const alt = av && av.size ? plan({ z: v.z, tz, toHeading, avoid: L => av.has(L.id) }) : null, r = alt && (!base || alt.cost <= base.cost * 1.6 + 10) ? alt : base;
       if (r) this.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s });
       this.state = 'drive';
     }
@@ -261,7 +262,7 @@ export class AutoPlayer {
     if (this._footIn(v, 1)) return this._hold(v, I);   // (someone ahead: held till they are by)
     let da = Math.atan2(X.to[1] - v.y, X.to[0] - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
     X.slow = v.speed < 3 ? X.slow + dt : 0;
-    if (X.slow > 1.2) { X.slow = 0; X.back = 1; X.side = da > 0 ? 1 : -1; return I; }
+    if (X.slow > 1.2) { X.slow = 0; X.back = 1 + Math.max(0, v.hl - 30) / 20; X.side = da > 0 ? 1 : -1; return I; }   // (a long truck backs farther: a second's reverse turned it a hair, and it sawed at a kerb for minutes)
     I.steer = Math.max(-1, Math.min(1, da * 2)); if (v.speed < 35) I.throttle = .6; return I;
   }
   // no nearer the goal (d) and no farther on for 15 s: a stall (true once, then the clock starts again), counted in

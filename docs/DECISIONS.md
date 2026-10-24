@@ -1435,4 +1435,16 @@ and where it landed.
     stretch's unstick (above) took the gym's `haul` from 316 s to 102 s on seed 1 and from 167 s to 38 s on seed 5
     (35 s and 39 s on seeds 2 and 3, as before), but on seed 4 the Brute still loses minutes wedged at the corners west
     of the HQ and takes 769 s, as it did. It gets there, slowly.
+  - **A tow truck lines up in the road, facing the way it must stand.** L2's closing run failed the gym's `tow` on
+    seed 3 (it had passed seeds 1 and 2; seeds 4 and 5 had never passed): the car at a kerb in a row of parked cars,
+    the bot staged the Hookline on the car's axis behind it, which on a one-way street meant turning an 80-unit truck
+    round to face up it; it drove wide, started backing while still rolling forward (the hook got farther, so it gave
+    up in 2.5 s), and on its second try wedged itself across the street at the corner for good. Now the truck stands
+    on the nearest lane running the way it must face, beside the car's end (`MissionBot._towStage`), and gets there
+    along a route that ends on such a lane (`GPS.routeTo`'s `toHeading`, the AutoPlayer's `heading`); it brakes to a
+    stop before it backs, turns at a crawl, gives a staging point it gets no nearer for 25 s up for the other end,
+    and a long vehicle wedged at a kerb backs half a second longer for each 10 units past 30 of its half length. The
+    gym's `tow`: seeds 1-5 pass but seed 4 (92, 93, 124 and 105 s); on seed 4 the Hookline, parked at a kerb by a
+    junction facing the map's edge with cars at both its ends, never gets out of its spot (as on the L1 commit),
+    which is the long truck's tight corner above.
 - **Answered:** no. **Landed in:** after M13 (L2).
