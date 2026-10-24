@@ -1312,3 +1312,28 @@ and where it landed.
   - **The page itself plays the missions through** (from file://, in Chromium, the mission bot at the browser's own
     frame rate: `?bot=1#mission/<id>`), as evidence beside the headless campaign, which stays 15.4's proof.
 - **Landed in:** M13 (its acceptance).
+
+## D32 · 2026-10-24 · After the merge: the container's Chromium 153, and what is left as one list
+- **Principle:** PLAN.md 6.1 (the stack: Playwright pinned for the container's Chromium), 0 (scope changes only here)
+  and 19 (the expansion path); HANDOFF's rule that a paused run resumes exactly.
+- **Calls:**
+  - **Playwright stays at 1.56.1.** The cloud container's Chromium is now 153 (build 1243) at the same path, where D6
+    pinned 1.56.1 for 141 (build 1194). Driven through `CHROMIUM_PATH`, it passed every step of `npm test` on
+    `1a1f955` (2026-10-24), and the mission bot and `tools/perf.mjs` run on it. So the pin holds; a bump waits for a
+    failure that needs one. D31's drift holds against 153 too (in a probe of 20,000 arguments each, `pow` differed on
+    2,022, `sin` on 711 and `cos` on 660), so a seed played headless and in the page still drifts apart.
+  - **What is left is one ordered list,** `docs/HANDOFF.md`'s L1-L8, and its `/goal` finishes it:
+    - determinism across runtimes comes first, because it moves every bot run, and that is cheapest before more
+      content exists;
+    - then the known limits, whose bot fixes move the runs too;
+    - then performance, D29's later: the budgets met (or the owner's targets), a quality setting, and the perf step
+      back in test:full, superseding D29's first call when it lands;
+    - then PLAN.md 19's backlog on Lowtown, and `docs/EXPANSION.md`, written and recorded here before any of the
+      expansion is built, then built;
+    - then the platforms;
+    - and last the owner's items (the upstream offer, the DualSense checklist, the merges), prepared and put to the
+      owner.
+  - `GOAL.md` and `docs/handoff/m8-a2/` are records now: each says so at its top, so neither is pasted or picked up
+    again.
+- **Answered:** no. The owner asked for one goal that finishes all the unfinished work and plans; the list and its
+  order are this entry's calls. **Landed in:** after M13 (docs only).
