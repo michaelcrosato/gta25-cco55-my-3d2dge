@@ -121,12 +121,13 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
 - **The gate: `npm test`** runs lint, the boundary, vendor and goal-sync checks, "dist current" and "tuning current",
   then the unit and sim tests (343), the 15 content recipes, FAN-OUT B's 78 review tests, the browser suites (the
   smoke from file:// and from a static server, replay, the Proving Ground's self-tests, audio, the attract mode, photo
-  mode, the dev tools), then the engine's checker on the city and the bank. It takes 9 to 12 minutes.
+  mode, the dev tools, and the cross-runtime check: one seed headless and in Chromium to the same hash, D33), then the
+  engine's checker on the city and the bank. It takes 10 to 13 minutes.
 - **`npm run test:full`** adds the heavy suites (`tools/test-run.mjs`): the 10-minute city and audio soaks, the
-  attract soak (30 minutes on the shipped page and seeds 1-3, then 5 drawn in Chromium), the gang sim, the UI audit
-  (each device alone at 1080p and 720p, then HUD Huge), the shots matrix, every mission and activity level through
-  the bot on seeds 1-3 and through a pad, and the bot campaign to 100% (god). About three hours alone; it stops at
-  the first failing step.
+  attract soak (30 minutes on the shipped page and seeds 1-3, then 5 drawn in Chromium), the gang sim, the
+  cross-runtime check at 600 s a scenario, the UI audit (each device alone at 1080p and 720p, then HUD Huge), the
+  shots matrix, every mission and activity level through the bot on seeds 1-3 and through a pad, and the bot campaign
+  to 100% (god). About three hours alone; it stops at the first failing step.
 - **Commit only when `npm test` exits 0.** Check the exit code itself, because a grep over its output once hid a lint
   failure.
 - **`dist/index.html` is committed.** Rebuild it with `node tools/build.mjs` before committing, because the gate
@@ -187,14 +188,10 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
   - always keep a delivery free of police stars: S1's long Brute is busted now and then, and wins on a retry;
   - always turn a long truck at a tight corner: a failing turn is kept off its next route, but it costs time;
   - fight back a passer-by who hits it: content sends them running instead (`m.shoo`).
-- **Determinism is per runtime** (D31, and against Chromium 153 too, D32; L1 fixes it): Node's V8 and Chromium's
-  differ in the last bit of `Math.pow`, `Math.sin` and `Math.cos` for a few arguments in a hundred, so one seed played
-  headless and in the page drifts apart. Every proof of PLAN.md 7.3 holds within its runtime (a recording replays in
-  the browser it was made in); a bot run in the page is a different game from the same seed's headless run.
 - **The bot can be pinned on foot:** with every car near it given up on for the trip, a car it left parked, a wall and
   peds standing in the gap can close a pocket round it, and its walk then cycles its start nodes without leaving (met
-  once, in the page's run of Gutter Ball on seed 1, D31; no headless run has met it). A player walks round, or takes
-  the car.
+  once, in the page's run of Gutter Ball on seed 1, D31, before L1 made the page's game the headless one; no headless
+  run has met it). A player walks round, or takes the car.
 - **The bot gym through the pad is the touchiest probe:** `follow` (a calm car tailed across town) and `kill` pass,
   but often on a retry; every MOTOR change moves them first.
 - **Night glows** (the head, tail and siren lights' halos) ignore occlusion. From some angles a far tail lamp's glow

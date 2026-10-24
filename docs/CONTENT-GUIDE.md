@@ -9,6 +9,11 @@ its fixture, `tests/recipes/fixtures/<type>.js`, is the file the recipe describe
 were at the path the recipe names (nothing else edited) and proves the new content works end to end. Run one with
 `node --test tests/recipes/vehicle.test.mjs`; all of them run in `npm test`. Copy a fixture to start.
 
+Content is part of the simulation, so it keeps its rules (the lint enforces them): time from `dt`, randomness from the
+`RNG` streams, no `Date` or `Math.random`. `Math` itself is safe: the page computes `sin`, `cos`, `atan2`, `pow` and
+the rest with MOTOR's deterministic Math (D33), the same in Node and in every browser. Write `Math.pow(x, y)` (or
+`sq(x)` for a square), never `x ** y`, which bypasses it.
+
 ## Recipes
 
 | Content | Recipe | Test |

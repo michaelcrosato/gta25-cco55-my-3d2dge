@@ -6,6 +6,7 @@ export { BUS } from './core/bus.js';
 export { EVENTS } from './core/events.js';
 export { TUNE, knob, tuneSet, knobs, sections, tuneReset, tuneLoad, tuneSave, tuningMarkdown } from './core/tune.js';
 export { RNG, hash32 } from './core/rng.js';
+export { DMath, sq } from './core/dmath.js';
 export { SaveStore, memoryBackend } from './core/save.js';
 export { readLinks, route } from './debug/deeplinks.js';
 export { expose, installHandle, handle } from './debug/handle.js';

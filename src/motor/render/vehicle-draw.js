@@ -139,7 +139,7 @@ export class VehicleFX {
       else if (f.kind === 'sparks') P.sparks(f.x, f.y, f.z, f.n || 4, null, { color: '#ffd080', speed: 90 });
       else if (f.kind === 'engine') P.smoke(f.x, f.y, f.z, 1, { size: 2.4, dark: true });
       else if (f.kind === 'flame') { P.fire(f.x, f.y, f.z, 1); P.smoke(f.x, f.y, f.z + 6, 1, { size: 3, dark: true }); }
-      else if (f.kind === 'explosion') P.explosion(f.x, f.y, f.z, 1.4, { debris: ['#3a3a40', '#5a5a62', '#8a2a1a'], sound: true });
+      else if (f.kind === 'explosion') P.explosion(f.x, f.y, f.z, 1.4, { debris: ['#3a3a40', '#5a5a62', '#8a2a1a'], sound: true, freeze: false });   // (the hit-stop is the blast's own, in the simulation: Combat's onBlast. One drawn here stopped the game at the next frame drawn near it, D33)
       else if (f.kind === 'splash') { P.ring(f.x, f.y, 6, 40, '#cfe8ff', .5, 0); P.dust(f.x, f.y, 2, 8, { color: '#e8f4ff', size: 2, speed: 50 }); }
       else if (f.kind === 'debris') P.bits(f.x, f.y, f.z, 5, [f.color || '#7a7a82', '#3a3a40']);
       else if (f.kind === 'burst') P.dust(f.x, f.y, f.z, 8, { color: '#cfe8ff', size: 2, speed: 70 });

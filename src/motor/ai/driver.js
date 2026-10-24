@@ -35,6 +35,7 @@ import { makeIntent, clearIntent } from '../sim/intent.js';
 import { TURN_SPEED, TURN_R } from '../nav/roadgraph.js';
 import { lightFor, amberLeft } from '../nav/signals.js';
 import { boxDistance } from '../actors/fleet.js';
+import { sq } from '../core/dmath.js';
 
 knob('Traffic', 'idmGap', 'Following time gap', 1.2, .5, 3, .05, 'Seconds a calm driver keeps behind the car ahead (IDM T)');
 knob('Traffic', 'idmMin', 'Standstill gap', 5, 1, 30, 1, 'Units between bumpers a queue stops at (IDM s0)');
@@ -146,7 +147,7 @@ export class DriverBrain {
     const G = this.g;
     if (e.k === 'lane') { const l = G.lanes[e.id], dx = l.b[0] - l.a[0], dy = l.b[1] - l.a[1], L2 = dx * dx + dy * dy || 1; return E.clamp(E.clamp(((x - l.a[0]) * dx + (y - l.a[1]) * dy) / L2, 0, 1) * l.len - (e.s0 || 0), 0, e.len); }
     const c = G.conns[e.id]; let best = 0, bd = Infinity;   // (the nearest of the connector's own points, then between)
-    for (let k = 0; k < c.pts.length; k++) { const q = c.pts[k], d = (q[0] - x) ** 2 + (q[1] - y) ** 2; if (d < bd) { bd = d; best = k; } }
+    for (let k = 0; k < c.pts.length; k++) { const q = c.pts[k], d = sq(q[0] - x) + sq(q[1] - y); if (d < bd) { bd = d; best = k; } }
     let s = c.cum[best];
     for (const k of [best - 1, best + 1]) { if (k < 0 || k >= c.pts.length) continue; const a = c.pts[Math.min(k, best)], b = c.pts[Math.max(k, best)], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy; if (!L2) continue; const f = ((x - a[0]) * dx + (y - a[1]) * dy) / L2; if (f > 0 && f < 1) { s = c.cum[Math.min(k, best)] + f * Math.sqrt(L2); break; } }
     return s;
@@ -243,7 +244,7 @@ export class DriverBrain {
       for (const q of S) {
         if (q.d < hl - 2) continue;
         const reach = v.hw + (off ? 1 : !kind ? 3 : patient && this._onCross(q) ? 14 : 5);
-        if ((p.x - q.p[0]) ** 2 + (p.y - q.p[1]) ** 2 < reach * reach) { const gap = Math.max(0, q.d - hl - 6); if (best === null || gap < best) best = gap; break; }
+        if (sq(p.x - q.p[0]) + sq(p.y - q.p[1]) < reach * reach) { const gap = Math.max(0, q.d - hl - 6); if (best === null || gap < best) best = gap; break; }
       }
     }
     return best;
@@ -440,7 +441,7 @@ export class DriverBrain {
     this._turnV ??= turnSpeed(v);   // (a long wheelbase takes a turn slower; a tighter arc slower still)
     const elV = e => e.k === 'lane' ? G.lanes[e.id].speed : (c => c.kind === 'straight' ? Math.min(G.lanes[c.to].speed, G.lanes[c.from].speed) : c.radius && c.radius < TURN_R - .5 ? turnSpeed(v, c.radius) : this._turnV)(G.conns[e.id]);
     const here = this.path[this.i]; let v0 = elV(here) * mood;
-    for (let j = this.i + 1, d = here.len - this.s; j < this.path.length && d < 300; d += this.path[j].len, j++) v0 = Math.min(v0, Math.sqrt((elV(this.path[j]) * mood) ** 2 + 2 * TUNE.idmBrake * .55 * Math.max(0, d - v.hl)));
+    for (let j = this.i + 1, d = here.len - this.s; j < this.path.length && d < 300; d += this.path[j].len, j++) v0 = Math.min(v0, Math.sqrt(sq(elV(this.path[j]) * mood) + 2 * TUNE.idmBrake * .55 * Math.max(0, d - v.hl)));
     let goalGap = null;   // (from our centre to where the goal wants it)
     if (this.goal) {
       let d = -this.s;

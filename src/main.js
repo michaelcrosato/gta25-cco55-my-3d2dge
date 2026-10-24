@@ -1,6 +1,7 @@
 // GRAND THEFT MOTO: the entry point. It makes the game and the app (MOTOR's shared pieces), imports every content
 // module (they register themselves), and starts the scene named by the deep link (#title by default; kiosk devices
 // start in the attract mode). Nothing here touches the DOM, so the same bundle runs headless in Node for the tests.
+import './motor/core/prelude.js';   // (first: the deterministic Math, D33; the page has run it before the engine already)
 import * as MOTOR from './motor/index.js';
 import { E, all, readLinks, route, installHandle, expose, createApp, wrapScenes } from './motor/index.js';
 import { GAME } from './about.js';

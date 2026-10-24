@@ -13,6 +13,8 @@ export default [
   // browser-side callbacks (page.evaluate) live in the e2e scripts and the tools that drive a page
   { files: ['tests/e2e/**/*.mjs', 'tests/review/**/*.mjs', 'tools/**/*.mjs'], languageOptions: { globals: { ...globals.browser, ...globals.node } } },   // (FAN-OUT B's browser repros too)
   { files: ['**/*.{js,mjs}'], rules: { 'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', varsIgnorePattern: '^_' }], 'no-empty': ['error', { allowEmptyCatch: true }] } },
+  // ** is pow without Math.pow, so it would bypass MOTOR's deterministic Math (D33): src writes Math.pow
+  { files: ['src/**/*.js'], rules: { 'no-restricted-syntax': ['error', ...['BinaryExpression', 'AssignmentExpression'].map(t => ({ selector: `${t}[operator=/^\\*\\*/]`, message: 'Determinism across runtimes: write Math.pow, not ** (D33)' }))] } },
   { files: SIM, rules: {
     'no-restricted-globals': ['error', ...['Date', 'setTimeout', 'setInterval', 'requestAnimationFrame', 'crypto', 'performance'].map(name => ({ name, message: DET }))],
     'no-restricted-properties': ['error', { object: 'Math', property: 'random', message: DET },

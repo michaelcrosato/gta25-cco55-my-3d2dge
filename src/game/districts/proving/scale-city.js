@@ -101,7 +101,7 @@ def('maps', 'scale-city', {
       for (let s = 0; s < cuts.length - 1; s++) {
         const rows = rng.chance(.5) ? [[y0, y1]] : [[y0, y0 + 5], [y0 + 7, y1]];
         for (const [ya, yb] of rows) {
-          const storeys = Math.min(8, 1 + Math.floor(rng.next() ** 1.6 * 8)), look = rng.int(0, 5), id = (storeys - 1) * 6 + look + 1;
+          const storeys = Math.min(8, 1 + Math.floor(Math.pow(rng.next(), 1.6) * 8)), look = rng.int(0, 5), id = (storeys - 1) * 6 + look + 1;
           for (let y = ya; y <= yb; y++) for (let x = cuts[s]; x < cuts[s + 1] - (s < cuts.length - 2 ? 1 : 0); x++) cells[y * N + x] = id;
         }
       }

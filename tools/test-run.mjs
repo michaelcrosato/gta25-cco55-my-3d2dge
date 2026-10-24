@@ -24,6 +24,7 @@ const STEPS = [
   ['e2e attract', 'node', ['tests/e2e/attract.mjs']],
   ['e2e photo', 'node', ['tests/e2e/photo.mjs']],
   ['e2e dev', 'node', ['tests/e2e/dev.mjs']],
+  ['e2e cross-runtime', 'node', ['tests/e2e/cross-runtime.mjs']],   // (D33: one seed, the same game headless and in Chromium)
   ['engine check', 'node', ['vendor/my-3d2dge/tools/check.mjs', 'dist/index.html', '--seconds', '3', '--out', 'check-output']],
   ['engine check (bank)', 'node', ['vendor/my-3d2dge/tools/check.mjs', 'dist/index.html#interior/bank', '--seconds', '3', '--out', 'check-output/bank']],
 ];
@@ -33,6 +34,7 @@ const FULL = [   // heavy suites join here milestone by milestone (PLAN.md 6.3)
   ['attract soak (30 min x the shipped page and seeds 1-3)', 'node', ['--expose-gc', 'tools/attract-soak.mjs']],   // (PLAN.md 8.20: headless)
   ['attract soak in Chromium (5 min, drawn)', 'node', ['tools/attract-soak.mjs', '--chromium']],
   ['gang sim (5 min)', 'node', ['tests/full/gang-soak.mjs', '--secs', '300']],
+  ['cross-runtime (10 min x 3 scenarios)', 'node', ['tests/e2e/cross-runtime.mjs', '--secs', '600']],
   ['ui audit (pad, keys, mouse at 1080p and 720p)', 'node', ['tools/ui-audit.mjs']],   // (PLAN.md 8.18: every screen by each device alone)
   ['ui audit (HUD size Huge, by pad: 320 x 180)', 'node', ['tools/ui-audit.mjs', '--hud', '2', '--sizes', '1280x720', '--passes', 'pad']],   // (the tightest the layer gets: FAN-OUT B)
   ['screenshot matrix', 'node', ['tools/shot-matrix.mjs', '--views', 'iso,top,side7', '--out', 'check-output/shots']],   // (PLAN.md 10: each neighbourhood, time and view drawn without an error)

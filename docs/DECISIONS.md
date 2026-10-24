@@ -1337,3 +1337,42 @@ and where it landed.
     again.
 - **Answered:** no. The owner asked for one goal that finishes all the unfinished work and plans; the list and its
   order are this entry's calls. **Landed in:** after M13 (docs only).
+
+## D33 · 2026-10-24 · L1: one seed, one game in every runtime: MOTOR's own Math, and drawing that never touches the clock
+- **Principle:** PLAN.md 7.3 (the same seed and Intents give the same hash, with or without drawing, in every view; a
+  recorded session replays exactly) and 12 (patch the engine only where an extension can't reach); D31's limit, which
+  HANDOFF's L1 is.
+- **Calls:**
+  - **The page computes with MOTOR's deterministic Math.** A probe of every Math function over 200,000 arguments each
+    (Node 22's V8 12.4 against Chromium 153) found all the transcendental ones differing in the last bit for some
+    arguments (`sin` 3%, `atan2` 18%, `pow` 10%...), and only `sqrt` and `hypot` alike. Node's V8 computes them with
+    fdlibm (its build has no libm trig), Chromium's with other libraries. `src/motor/core/dmath.js` ports V8 12.4's own
+    fdlibm (`src/base/ieee754.cc`: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `exp`, `pow`) and its `hypot`
+    builtin (`src/builtins/math.tq`) to plain arithmetic, which every engine rounds alike. So Node's results are exactly
+    what Node gave before: checked bit for bit over ten million arguments a function, random bit patterns and the
+    special values, and the same code gives the same bits in Chromium. The headless game is unchanged step for step
+    (the same hashes with and without it, 240 s of four scenarios), so no merged run moves.
+  - **Installed on `Math` before the engine, not threaded through the call sites.** `src/motor/core/prelude.js` is the
+    page's first script and the headless loaders' first step (`tools/build.mjs` `prelude()`; the bundle imports it too).
+    It puts the functions on `Math`, so the engine (its preset views compute `sin` and `cos` as it loads), its mocap
+    player, MOTOR and the content all compute alike with no engine patch and no edit at a thousand call sites. Drawing
+    computes with them too: the page makes about 3,000 such calls a frame, some 60 microseconds at JS speed.
+    `tests/unit/dmath.test.mjs` holds each function to Node's own, and every Math function the page's scripts call to
+    the exact ones or these. `src/` writes `Math.pow`, never `**` (pow without `Math.pow`; a lint rule and the same
+    test; four squares in the fleet, the driver and the junctions became `sq()`, two audio curves `Math.pow`, the scale
+    yard's storeys `Math.pow`: each the same number in Node). The engine's one `**` is in a light pool's drawing.
+  - **Drawing never touches the simulation's clock.** With the Math fixed, the bot's Holy Rollers on seed 2 still parted
+    at 65 s, and only when the page drew: `VehicleFX.draw` played a car's explosion through the engine's
+    `particles.explosion`, whose default hit-stop (`game.freeze(.042)`) stopped the simulation at the next frame drawn
+    near the wreck (within 600 u of the camera), while the headless game, which never draws, never stopped. In a
+    browser that made the game depend on its frame rate and its camera. The blast's own hit-stop is the simulation's
+    already (Combat's `onBlast` plays the explosion in the step); the drawn one is `freeze: false` now.
+  - **The proof is a step of the gate.** `tests/e2e/cross-runtime.mjs` plays free roam in the traffic and the crowd,
+    Holy Rollers by the mission bot and the attract mode's reels, headless and in the built page in Chromium (the
+    page's own loop held, every chunk run by `game.advance`, drawn every quarter second), and `game.stateHash()` must
+    match at every 5 s: 60 s in `npm test`, 600 s in `test:full`. Before these calls it failed at 20 s and 35 s.
+- **What it gives:** a bot run in the page plays the headless run's game, and a recording plays the same in another
+  runtime: checked against Node 22 in Chromium 153 here and, through CI's `npm test`, in the Chromium 141 that
+  Playwright 1.56.1 installs there. (Every JS engine rounds IEEE arithmetic alike; Firefox and Safari are not here to
+  run.) D31's limit is gone; HANDOFF's known limits drop it.
+- **Answered:** no. **Landed in:** after M13 (L1).

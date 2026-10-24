@@ -10,6 +10,7 @@
 //   - a waiter that isn't ready blocks nobody (a red light's queue, a full exit).
 // Plain data, deterministic: the same asks in the same order give the same grants.
 //   const J = new Junctions(graph);  J.ask(brain, conn, t, ready, prio) -> bool  ·  J.release(brain)  ·  J.holds(brain)
+import { sq } from '../core/dmath.js';
 const CLEAR = 26;   // two curves nearer than this (two car half-widths) conflict
 const STEP = 6;     // units between the samples along a curve
 
@@ -25,7 +26,7 @@ export class Junctions {
         const a = list[i], b = list[j];
         if (a.from === b.from) continue;   // (one lane's cars go through one after another)
         let near = a.to === b.to;   // (they merge into one lane)
-        if (!near) outer: for (const p of pts[i]) for (const q of pts[j]) if (Math.abs(p[2] - q[2]) < 10 && (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 < CLEAR * CLEAR) { near = true; break outer; }
+        if (!near) outer: for (const p of pts[i]) for (const q of pts[j]) if (Math.abs(p[2] - q[2]) < 10 && sq(p[0] - q[0]) + sq(p[1] - q[1]) < CLEAR * CLEAR) { near = true; break outer; }
         if (near) { this._add(a.id, b.id); this._add(b.id, a.id); }
       }
     }

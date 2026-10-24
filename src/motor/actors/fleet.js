@@ -22,6 +22,7 @@ import { TowJoint } from '../sim/vehicle/tow.js';
 import { RailLine, Train } from '../sim/vehicle/rail.js';
 import { Damage } from '../sim/vehicle/damage.js';
 import { Vehicle } from './vehicle.js';
+import { sq } from '../core/dmath.js';
 
 knob('Vehicles', 'carBlastDamage', 'Car blast damage', 160, 0, 600, 5, 'A vehicle\'s explosion: damage at its centre');
 knob('Vehicles', 'carBlastSplash', 'Car blast reach', 96, 20, 300, 2, 'A vehicle\'s explosion: its radius (u)');
@@ -54,7 +55,7 @@ export class Fleet {
       map: this.map, wet: 0, night: false,
       /** the grip under a point: the surface's (a deck's above the street), an oil slick's */
       surface: (x, y, z = 0) => {
-        for (const s of this.slicks) if ((x - s.x) ** 2 + (y - s.y) ** 2 < s.r * s.r && Math.abs(z - s.z) < 6) return SURFACE_GRIP.oil;
+        for (const s of this.slicks) if (sq(x - s.x) + sq(y - s.y) < s.r * s.r && Math.abs(z - s.z) < 6) return SURFACE_GRIP.oil;
         if (z > 4) return 1;
         if (C) return SURFACE_GRIP[C.surfaceAtPoint(x, y)] ?? 1;
         const tag = this.map && this.map.floorAt ? this.map.floorAt(x, y) : null; return tag === null || tag === undefined ? 1 : SURFACE_GRIP[tag] ?? 1;   // (a map with no CityMap: its floor tags)

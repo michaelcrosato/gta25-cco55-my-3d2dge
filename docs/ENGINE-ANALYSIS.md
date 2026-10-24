@@ -81,7 +81,9 @@ These are MOTOR's, each with its tests (`docs/ARCHITECTURE.md` has the map):
 - **the mission runtime and its DSL,** the mission bot that plays any mission from its hints, the bot campaign;
 - **the 10-foot UI** on its own canvas layer (D2, D23), our own pause;
 - **audio:** a look-ahead sequencer, a composer and four radio stations on the play clock (D24);
-- **the attract mode's Director,** the Proving Ground, photo mode and the dev tools.
+- **the attract mode's Director,** the Proving Ground, photo mode and the dev tools;
+- **a deterministic Math** installed before the engine loads, so a seed plays the same game in Node and in every
+  browser, the engine's own movement included (D33; the browsers' transcendental functions differ in the last bit).
 
 ## What we did not use, and why
 

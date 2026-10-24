@@ -35,6 +35,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | M11 Attract + kiosk | done | the Director and its five reels, cards, the camera plan, the watchdog, leaving on any input, the kiosk and phone (`52b3980`, D25) · the soak 30 min x seeds 1-3 headless and 5 min drawn, all pass · director 4, attract sim 18, attract e2e 24 checks · `docs/media/m11/` (11 shots, the Joyride MP4 and GIF) |
 | M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
 | M13 Polish + release | done | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts, the campaign's stalls fixed to its 100% (part 5, `6efaf9c` to `5c7c2ef`, D30); what test:full and the audit found on the way: the gang shoot-out's tip, the page from a static server, the 10-foot UI at HUD Huge (`293a2b9` to `154eb02`); test:full on `154eb02`, every step, and the Definition of Done item by item · 343 unit + sim tests, 78 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
+| L1 Determinism across runtimes | in progress | MOTOR's deterministic Math (`src/motor/core/dmath.js`, V8 12.4's fdlibm and `hypot` in plain arithmetic, bit for bit Node 22's own) installed by the prelude before the engine; a car's drawn explosion no longer stops the clock; `tests/e2e/cross-runtime.mjs` in the gate (D33) · see the acceptance log |
 
 ## Acceptance log
 
@@ -1342,3 +1343,19 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
   12. **The chat report:** the run's last message.
 
   **Verdict: M13 done; every item of the Definition of Done holds.**
+
+## After M13: what's left (HANDOFF L1-L8)
+
+- **L1 · determinism across runtimes (D33), in progress:**
+  - **The probe:** every Math function over 200,000 arguments, Node 22.22.0 (V8 12.4) against Chromium 153: `sin`
+    5,961 differ, `cos` 5,990, `tan` 6,570, `asin` 11,940, `acos` 15,226, `atan` 4,693, `exp` 11,337, `pow` 19,624,
+    `atan2` 35,444 (and every `log`, hyperbolic and `cbrt` function); `sqrt` and `hypot` alike.
+  - **The port:** `src/motor/core/dmath.js` against Node's own Math: all equal over 10,000,000 arguments a function
+    (and random bit patterns, specials); `hypot` all equal over 6.3 M calls of 2, 3 and 4 arguments; the same code in
+    Chromium 153 gives the same bits (2.7 M results, 0 differ). `tests/unit/dmath.test.mjs` (3 tests) in the gate.
+  - **The headless game unchanged:** four scenarios (free roam by day, Holy Rollers by the bot, the attract mode, a
+    night in the rain) hash the same with the deterministic Math and with Node's own for 240 s, step for step.
+  - **The cross-runtime check** (`tests/e2e/cross-runtime.mjs`): before, free roam parted at 20 s and Holy Rollers at
+    35 s. With the Math installed, Holy Rollers still parted at 65 s, and only when the page drew: a car's explosion
+    drawn by `VehicleFX` stopped the game for a hit-stop at the next frame drawn near it (`freeze: false` there now).
+    After both: the three scenarios match at every 5 s for 60 s (the gate's step) and for 600 s.

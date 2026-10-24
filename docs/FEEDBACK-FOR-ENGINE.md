@@ -71,3 +71,14 @@ or a new one. The engine's maintainers decide each point's status; the game's ow
     can't sit behind the arm that holds them; GTM-PATCH 8 adds a `weaponDraw(api)` hook sorted with the limbs.
   - **F7.14** · the engine's auto-pause · it opens the engine's own pause menu on blur or a lost controller; a game with
     its own pause has to catch it (MOTOR's UI frame hands it to the game's pause, D23 in the game's DECISIONS).
+  - **F7.15** · determinism across runtimes · **new theme.** `E.session` replays a recording in the browser it was made
+    in, but not elsewhere: browsers' `Math.sin`, `cos`, `atan2`, `exp` and `pow` differ in the last bit between
+    engines and versions (Node 22 against Chromium 153: all of them, for 3-18% of arguments), and `E.Mover` and the
+    preset views compute with them. MOTOR installs a port of V8's fdlibm on `Math` before the engine loads (the game's
+    D33), and a seed now plays the same game in Node and in Chromium. An engine-provided deterministic `E.math` (or a
+    documented prelude) would make every game's sessions portable, and headless runs the page's own game.
+  - **F7.16** · `particles.explosion` stops the clock from wherever it is called · its default hit-stop
+    (`game.freeze`) is right in a game's update, but an explosion played as a drawing effect (a wreck seen going up)
+    stops the simulation at the next frame drawn: the game then depends on its frame rate, and differs from a headless
+    run that never draws. MOTOR passes `freeze: false` there (D33). A note in its doc, or `freeze` off when called
+    during draw, would save the next game the hunt.

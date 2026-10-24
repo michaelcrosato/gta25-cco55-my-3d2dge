@@ -1,11 +1,12 @@
-// Build GRAND THEFT MOTO into one self-contained page: dist/index.html = the template + the vendored engine (a classic
-// script that defines My3D2dge, then its mocap player and GTM's cut of the clips) + the game bundle (src/main.js and every content module under src/game, bundled by
-// esbuild into one IIFE). A rebuild of an unchanged tree is byte-identical: no dates, no hashes, sorted inputs.
+// Build GRAND THEFT MOTO into one self-contained page: dist/index.html = the template + MOTOR's prelude (the
+// deterministic Math, D33) + the vendored engine (a classic script that defines My3D2dge, then its mocap player and GTM's
+// cut of the clips) + the game bundle (src/main.js and every content module under src/game, bundled by esbuild into one
+// IIFE). A rebuild of an unchanged tree is byte-identical: no dates, no hashes, sorted inputs.
 //   node tools/build.mjs            write dist/index.html
 //   node tools/build.mjs --check    fail if dist/index.html is not what the sources build (CI, the test gate)
 //   node tools/build.mjs --out x    write the page to x instead (a worker's own build: never dist/)
 // Other tools import bundle() to get the game script without writing anything.
-import { build } from 'esbuild';
+import { build, buildSync } from 'esbuild';
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from 'node:fs';
 import { join, relative, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -52,6 +53,19 @@ export async function bundle({ minify = false, extra = [] } = {}) {
   return r.outputFiles[0].text;
 }
 
+let preludeCode = null;
+/** MOTOR's prelude (src/motor/core/prelude.js) as one classic script: it runs before the engine, in the page and in every
+ *  headless loader (tests/harness.mjs), and puts the deterministic Math in place (D33) */
+export function prelude() {
+  if (preludeCode === null) {
+    preludeCode = buildSync({
+      entryPoints: [join(ROOT, 'src/motor/core/prelude.js')], bundle: true, format: 'iife', target: 'es2022', platform: 'browser',
+      write: false, legalComments: 'none', charset: 'utf8', logLevel: 'warning',
+    }).outputFiles[0].text;
+  }
+  return preludeCode;
+}
+
 /** the engine's boot splash markup, taken from the engine itself (as the engine's own build does) */
 function bootSplash(title) {
   const ctx = { console: { log() {}, warn() {}, error() {} } };
@@ -71,7 +85,7 @@ export async function page() {
     '{{VERSION}}': version, '{{BUILD}}': 'dev-build',
     '{{SOURCE_INFO}}': block(about.SOURCE_INFO), '{{ENGINE_SUMMARY}}': block(about.ENGINE_SUMMARY),
     '<!-- @boot -->': bootSplash(about.GAME.title),
-    '<!-- @engine -->': [ENGINE, ...MOCAP].map(f => '<script>\n' + esc(readFileSync(f, 'utf8')) + '\n</script>').join('\n'),
+    '<!-- @engine -->': ['<script>\n' + esc(prelude()) + '\n</script>', ...[ENGINE, ...MOCAP].map(f => '<script>\n' + esc(readFileSync(f, 'utf8')) + '\n</script>')].join('\n'),
     '<!-- @bundle -->': '<script>\n' + esc(await bundle()) + '\n</script>',
   };
   let html = template;

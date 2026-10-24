@@ -37,6 +37,7 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | Registries (`def` / `get` / `all` / `declare`) and schemas (`shape`) | `src/motor/core/registry.js`, `schema.js` | M0, M1 |
 | The BUS (scopes, failure isolation) and its catalogue | `src/motor/core/bus.js`, `events.js` | M1 |
 | TUNE knobs, named RNG streams | `src/motor/core/tune.js`, `rng.js` | M1 |
+| The deterministic Math (fdlibm in plain arithmetic, Node 22's own results) and the prelude that installs it before the engine | `src/motor/core/dmath.js`, `prelude.js` | after M13 (D33) |
 | Deep links, the console handle `__gtm`, `game.debug.snapshot` | `src/motor/debug/` | M0 |
 | Per-context bindings over raw devices (GTM-PATCH 4), the activity monitor, glyphs, `{action}` prompts | `src/motor/input/` | M1 |
 | The HumanController (bindings → a world-space Intent) | `src/motor/input/human.js` | M1 |
@@ -253,3 +254,12 @@ defMission('saints_holy_rollers', { title: 'Holy Rollers', giver: { phone: 'sain
   replays it with the vendored `tools/replay.mjs`. Every checksum matches, each including `game.stateHash`.
 - **Determinism, in code:** an ESLint rule bans `Math.random`, `Date`, `performance` and timers in MOTOR's simulation
   folders and in `src/game`.
+- **Determinism across runtimes (D33):** browsers' `Math.sin`, `cos`, `atan2`, `exp`, `pow`... differ in the last bit
+  between engines and versions, so the page's first script (`src/motor/core/prelude.js`, before the engine) puts
+  MOTOR's own on `Math` (`src/motor/core/dmath.js`: V8 12.4's fdlibm and its `hypot`, ported to plain arithmetic, which
+  every engine rounds alike). The engine, its mocap player, MOTOR and the content then compute alike everywhere, and
+  Node's results are what they always were (`tests/unit/dmath.test.mjs` holds each function to Node 22's own, bit for
+  bit, and every Math function the page's scripts call to the exact ones or these). The headless loaders run the
+  prelude first too. `src/` writes `Math.pow`, never `**` (the lint rule and the same test). The proof:
+  `tests/e2e/cross-runtime.mjs` plays free roam, a mission by the bot and the attract mode headless and in Chromium,
+  step for step, and the hash matches at every checkpoint (60 s in `npm test`, 600 s in `test:full`).

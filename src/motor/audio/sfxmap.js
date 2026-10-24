@@ -35,7 +35,7 @@ export class SfxMap {
     const A = this.game.audio; if (this.game.headless || !A || !A.ready) return false;
     this._define();
     let vol = o.vol ?? 1;
-    if (at) { const L = this.listener(), d = L ? Math.hypot(at[0] - L[0], at[1] - L[1]) : 0; if (d > NEAR) return false; vol *= (1 - d / NEAR) ** 1.5; }
+    if (at) { const L = this.listener(), d = L ? Math.hypot(at[0] - L[0], at[1] - L[1]) : 0; if (d > NEAR) return false; vol *= Math.pow(1 - d / NEAR, 1.5); }
     A.sfx(name, { vol, pitch: o.pitch }); return true;
   }
   /** listen to the game's events (the scene's scope: gone with the scene) */
