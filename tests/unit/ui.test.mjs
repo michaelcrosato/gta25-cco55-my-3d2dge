@@ -103,3 +103,15 @@ test('the audit\'s rules: focus, six a page, scale, glyphs, the safe area', () =
   for (const want of ['no focus', '7 items', 'scale 0.5', 'unresolved', '"edge" outside the safe area']) assert.ok(r.includes(want), want + ' caught:\n' + r);
   assert.deepEqual(auditRecord({ ...ok, lists: [{ id: 'under', shown: 3, live: false }], focus: [] }), [], 'a list under the screen in front needs no focus');
 });
+
+test('the Graphics setting: Full is the look as made, Fast the lighter knobs, and back (drawing only)', async () => {
+  const { defineSettings, QUALITY } = await import('../../src/motor/ui/settings.js'), { TUNE } = await import('../../src/motor/core/tune.js');
+  await import('../../src/motor/render/stage.js'); await import('../../src/motor/render/weather-fx.js');   // (the knobs' homes)
+  const specs = {}, S = { spec: k => specs[k], define: sp => { specs[sp.key] = sp; } };
+  defineSettings({ settings: S });
+  const q = specs.quality; assert.equal(q.value, 'full', 'Full by default');
+  assert.deepEqual(q.options.map(o => o[0]), ['full', 'fast']);
+  for (const [k, full] of QUALITY) assert.equal(TUNE[k], full, `${k}: Full is the knob's own default`);
+  q.apply({}, 'fast'); for (const [k, , fast] of QUALITY) assert.equal(TUNE[k], fast, `${k} on Fast`);
+  q.apply({}, 'full'); for (const [k, full] of QUALITY) assert.equal(TUNE[k], full, `${k} back on Full`);
+});

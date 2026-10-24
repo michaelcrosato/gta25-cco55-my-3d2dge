@@ -557,14 +557,28 @@ export class Stage {
     lg.fillStyle = `rgba(${dk[0]},${dk[1]},${dk[2]},${a.toFixed(3)})`; lg.fillRect(0, 0, w, h);
     const warm = Math.round(48 * (L.tint === undefined ? .32 : L.tint) / .32), hole = poolDisc('rgba(0,0,0,.95)', 'rgba(0,0,0,0)');
     lg.globalCompositeOperation = 'destination-out';
-    for (const [x, y, rad] of pools) lg.drawImage(hole, x - rad, y - rad * flat, rad * 2, rad * 2 * flat);
+    let hx0 = w, hy0 = h, hx1 = 0, hy1 = 0;   // (the holes' box: outside it the dark is one colour)
+    for (const [x, y, rad] of pools) { lg.drawImage(hole, x - rad, y - rad * flat, rad * 2, rad * 2 * flat); hx0 = Math.min(hx0, x - rad); hx1 = Math.max(hx1, x + rad); hy0 = Math.min(hy0, y - rad * flat); hy1 = Math.max(hy1, y + rad * flat); }
     // the dark, then the warmth added on top ('lighter'), each scaled up smoothly
     const gg = this._gcv.getContext('2d'), glow = poolDisc(`rgba(${warm},${Math.round(warm * .62)},${Math.round(warm * .25)},1)`, 'rgba(0,0,0,1)');   // (sodium orange, as ISO's lamps)
     gg.globalCompositeOperation = 'source-over'; gg.fillStyle = '#000'; gg.fillRect(0, 0, w, h); gg.globalCompositeOperation = 'lighter';
     let x0 = w, y0 = h, x1 = 0, y1 = 0;   // (the pools' box: the warmth is added there only, black adds nothing elsewhere)
     for (const [x, y, rad] of pools) { const q = rad * .8; gg.drawImage(glow, x - q, y - q * flat, q * 2, q * 2 * flat); x0 = Math.min(x0, x - q); x1 = Math.max(x1, x + q); y0 = Math.min(y0, y - q * flat); y1 = Math.max(y1, y + q * flat); }
     const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = S > 1;
-    g.drawImage(this._lcv, 0, 0, w, h, 0, 0, w * S, h * S);
+    // the dark scaled up smoothly over the holes' box only (and a cell round it: the scaling reads its neighbours); the
+    // rest of the frame, where the dark is one colour, filled with it: a smooth scaling of the whole frame was most of
+    // this pass's cost in MODE 7
+    hx0 = Math.max(0, Math.floor(hx0) - 1); hy0 = Math.max(0, Math.floor(hy0) - 1); hx1 = Math.min(w, Math.ceil(hx1) + 1); hy1 = Math.min(h, Math.ceil(hy1) + 1);
+    if (this.lightBox === false || hx1 - hx0 >= w - 2 && hy1 - hy0 >= h - 2) g.drawImage(this._lcv, 0, 0, w, h, 0, 0, w * S, h * S);
+    else {
+      g.fillStyle = `rgba(${dk[0]},${dk[1]},${dk[2]},${a.toFixed(3)})`;
+      if (hx1 <= hx0 || hy1 <= hy0) g.fillRect(0, 0, W, H);
+      else {
+        const X0 = hx0 * S, Y0 = hy0 * S, X1 = Math.min(W, hx1 * S), Y1 = Math.min(H, hy1 * S);
+        if (Y0 > 0) g.fillRect(0, 0, W, Y0); if (Y1 < H) g.fillRect(0, Y1, W, H - Y1); if (X0 > 0) g.fillRect(0, Y0, X0, Y1 - Y0); if (X1 < W) g.fillRect(X1, Y0, W - X1, Y1 - Y0);
+        g.drawImage(this._lcv, hx0, hy0, hx1 - hx0, hy1 - hy0, X0, Y0, (hx1 - hx0) * S, (hy1 - hy0) * S);
+      }
+    }
     x0 = Math.max(0, Math.floor(x0) - 1); y0 = Math.max(0, Math.floor(y0) - 1); x1 = Math.min(w, Math.ceil(x1) + 1); y1 = Math.min(h, Math.ceil(y1) + 1);   // (a cell of margin: the smooth scaling reads its neighbours)
     if (pools.length && x1 > x0 && y1 > y0) { g.globalCompositeOperation = 'lighter'; g.drawImage(this._gcv, x0, y0, x1 - x0, y1 - y0, x0 * S, y0 * S, (x1 - x0) * S, (y1 - y0) * S); g.globalCompositeOperation = 'source-over'; }
     g.imageSmoothingEnabled = sm;

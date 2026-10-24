@@ -14,7 +14,7 @@ import { MARKERS } from './radar.js';
 
 export const SETTING_TABS = [
   { id: 'controls', label: 'CONTROLS', keys: ['deadzone', 'invertY', 'rumble', 'promptStyle'] },
-  { id: 'display', label: 'DISPLAY', keys: ['defaultView', 'autoRail', 'sharpSide7', 'hudSize', 'subtitles', 'colorblind', 'speedometer', 'shake', 'flashes', 'motion'] },
+  { id: 'display', label: 'DISPLAY', keys: ['defaultView', 'quality', 'autoRail', 'sharpSide7', 'hudSize', 'subtitles', 'colorblind', 'speedometer', 'shake', 'flashes', 'motion'] },
   { id: 'audio', label: 'AUDIO', keys: ['sound', 'volume', 'music', 'radio', 'effects', 'djChatter'] },
   { id: 'game', label: 'GAME', keys: ['difficulty', 'aimAssist', 'autosave'] },
   { id: 'access', label: 'ACCESS', keys: ['holdSprint', 'holdAim', 'holdCrouch', 'holdWheel'] },
@@ -22,6 +22,9 @@ export const SETTING_TABS = [
 /** the damage the player takes, by difficulty */
 export const DIFFICULTY = { easy: .7, normal: 1, hard: 1.35 };
 /** the actions a toggle setting latches (ACCESS) */
+/** the Graphics setting's knobs: [knob, Full, Fast]. Full is the look as made; Fast trades the light's grain, the crowd's
+ *  animation rate and the rain's density for frame time (drawing only: the simulation is the same either way) */
+export const QUALITY = [['lightRes', 2, 3], ['depthLightRes', 4, 6], ['crowdEvery', 4, 6], ['rainDrops', 1, .5]];
 export const HOLDS = { holdSprint: ['sprint'], holdAim: ['aim'], holdCrouch: ['crouch'], holdWheel: ['wheel', 'switch'] };
 // the engine's settings as the 10-foot screen names them, and a tip where the engine gives none
 const LABELS = { deadzone: 'Stick dead zone', invertY: 'Invert aim', rumble: 'Vibration', volume: 'Master volume', sound: 'Sound', music: 'Music', effects: 'Effects', shake: 'Screen shake', flashes: 'Screen flashes', motion: 'Reduce motion' };
@@ -36,6 +39,7 @@ export function defineSettings(game) {
     help: 'Auto: the symbols of the controller in use, or the keys', apply: (g, v) => { PROMPTS.keys = v === 'keyboard'; if (g.input) g.input.glyphs = v === 'keyboard' ? 'auto' : v; } });
   def({ key: 'defaultView', group: 'Display', label: 'Default view', type: 'select', value: 'iso', options: [['iso', 'ISO'], ['top', 'Top-down'], ['side7', 'Mode 7']], help: 'The view a game starts in' });
   def({ key: 'autoRail', group: 'Display', label: 'Auto-rail', type: 'toggle', value: true, help: 'MODE 7 in a vehicle: the rail turns to the way you have held', apply: (g, v) => tuneSet('autoRail', v ? 1 : 0) });
+  def({ key: 'quality', group: 'Display', label: 'Graphics', type: 'select', value: 'full', options: [['full', 'Full'], ['fast', 'Fast']], help: 'Fast, for a slower machine: a coarser light, the crowd animated less often, half the rain', apply: (g, v) => { for (const [k, full, fast] of QUALITY) tuneSet(k, v === 'fast' ? fast : full); } });
   def({ key: 'sharpSide7', group: 'Display', label: 'Sharp MODE 7', type: 'toggle', value: false, help: 'MODE 7 drawn at the screen\'s own resolution: crisp instead of the pixel look' });
   def({ key: 'hudSize', group: 'Display', label: 'HUD size', type: 'select', value: 0, options: [[0, 'Standard'], [1, 'Large'], [2, 'Huge']], help: 'The HUD and the menus, bigger' });
   def({ key: 'subtitles', group: 'Display', label: 'Subtitles', type: 'toggle', value: true, help: 'What people say, at the foot of the screen' });

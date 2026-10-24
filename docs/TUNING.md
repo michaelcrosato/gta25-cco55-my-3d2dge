@@ -22,6 +22,7 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 
 | Knob | Default | Range | What it does |
 |---|---|---|---|
+| `rainDrops` Raindrops | 1 | 0.25..1 | How many raindrops fall round the camera, of the full 340 in a downpour (the Fast quality: half) |
 | `crowdEvery` Crowd animation rate | 4 | 1..8 | A crowd body (o.key) is drawn every n frames (4: 15 a second, like classic townsfolk) and its image reused in between, at the place it is now (the player never); away from the player one and a half times n, small on screen twice n |
 | `depthLightRes` Depth views' light coarseness | 4 | 1..8 | TOP-DOWN and MODE 7 at night work the dark and the lamps' pools out every n buffer pixels and scale them up smoothly (the pools are soft: 4 is a sixteenth of the work of 1, per pixel) |
 | `lightRes` Light field coarseness | 2 | 1..4 | ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work |
