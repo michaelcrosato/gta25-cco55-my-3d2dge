@@ -9,6 +9,7 @@
 // vehicle.sit(ped, seat). The walk to the door is the Ped's own (a short auto-walk; the stick cancels it).
 import { E } from '../engine.js';
 import { TUNE, knob } from '../core/tune.js';
+import { seatHeight } from '../sim/vehicle/model.js';
 
 knob('Vehicles', 'breakIn', 'Break-in time', 1.2, .2, 4, .1, 'Seconds to jimmy a locked car (police cars) before getting in');
 knob('Vehicles', 'bailSpeed', 'Bail-out speed', 60, 20, 200, 5, 'Getting out above this speed (u/s) is a dive roll');
@@ -18,8 +19,8 @@ knob('Vehicles', 'boardSpeed', 'Boards below', 45, 0, 200, 5, 'A vehicle moving 
 const W = (v, lx, ly) => { const c = Math.cos(v.heading), s = Math.sin(v.heading); return { x: v.x + lx * c - ly * s, y: v.y + lx * s + ly * c }; };
 const lerpP = (a, b, u) => ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
 const ease = E.ease;
-/** the seat's height in a vehicle (the rider of a bike sits up on it) */
-const seatZ = v => v.z + (v.cls === 'bike' ? 7 : v.cls === 'boat' ? 4 : 6);
+/** the seat's height in a vehicle: the model's seat's own (a bike's saddle), else its class's (model.js SEAT_Z) */
+const seatZ = (v, s) => v.z + seatHeight(v.cls, s);
 /** the way into the car from a door's side */
 const inward = (v, d) => d.side ? v.heading - d.side * Math.PI / 2 : v.heading + Math.PI;
 /** a bail-out's dive: out of the door's side (away from the car), carried forward; its two legs, the dive and the roll,
@@ -31,7 +32,7 @@ E.ACTIONS.enterCar = {
   beats: [['open', .3], ['in', .4], ['shut', .18]],
   setup(A) { A.from = { x: A.start.x, y: A.start.y }; },
   at(A, b, u) {
-    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door = W(v, d.x, d.y), seat = W(v, s.x, s.y), z0 = v.z, z1 = seatZ(v);
+    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door = W(v, d.x, d.y), seat = W(v, s.x, s.y), z0 = v.z, z1 = seatZ(v, s);
     if (b === 'open') return { ...lerpP(A.from, door, ease.outQuad(u)), z: z0, state: { facing: inward(v, d), stance: 'ready' } };
     if (b === 'in') return { ...lerpP(door, seat, ease.inOut(u)), z: z0 + (z1 - z0) * u, state: { facing: inward(v, d) + (v.heading - inward(v, d)) * u, crouch: true } };
     return { ...seat, z: z1, state: { facing: v.heading, crouch: true } };
@@ -41,7 +42,7 @@ E.ACTIONS.carjack = {
   beats: [['open', .28], ['yank', .4], ['throw', .32], ['in', .4], ['shut', .16]],
   setup(A) { A.from = { x: A.start.x, y: A.start.y }; },
   at(A, b, u) {
-    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door = W(v, d.x, d.y), seat = W(v, s.x, s.y), z1 = seatZ(v), face = inward(v, d);
+    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door = W(v, d.x, d.y), seat = W(v, s.x, s.y), z1 = seatZ(v, s), face = inward(v, d);
     // the victim: out of the seat, past the jacker, onto the ground beyond the door
     const out = d.side ? W(v, d.x - 10, d.y + d.side * 16) : W(v, d.x - 16, d.y), vs = { facing: face + Math.PI };
     if (b === 'open') return { ...lerpP(A.from, door, ease.outQuad(u)), z: v.z, state: { facing: face, stance: 'ready' }, other: { ...seat, z: z1, state: { ...vs, crouch: true } } };
@@ -59,13 +60,13 @@ E.ACTIONS.breakIn = {
 E.ACTIONS.mount = {
   beats: [['hop', .32]],
   setup(A) { A.from = { x: A.start.x, y: A.start.y, z: A.start.z }; },
-  at(A, b, u) { const v = A.o.vehicle, s = A.o.seatSpot, seat = W(v, s.x, s.y), z1 = seatZ(v); return { ...lerpP(A.from, seat, ease.outQuad(u)), z: A.from.z + (z1 - A.from.z) * u + Math.sin(u * Math.PI) * 5, state: { facing: v.heading, air: u < .85, crouch: u > .7 } }; },
+  at(A, b, u) { const v = A.o.vehicle, s = A.o.seatSpot, seat = W(v, s.x, s.y), z1 = seatZ(v, s); return { ...lerpP(A.from, seat, ease.outQuad(u)), z: A.from.z + (z1 - A.from.z) * u + Math.sin(u * Math.PI) * 5, state: { facing: v.heading, air: u < .85, crouch: u > .7 } }; },
 };
 E.ACTIONS.exitCar = {
   beats: [['open', .24], ['out', .36], ['shut', .14]],
   setup(A) { A.from = { x: A.start.x, y: A.start.y }; },
   at(A, b, u) {
-    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, seat = W(v, s.x, s.y), door = W(v, d.x, d.y), z1 = seatZ(v), face = inward(v, d) + Math.PI;
+    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, seat = W(v, s.x, s.y), door = W(v, d.x, d.y), z1 = seatZ(v, s), face = inward(v, d) + Math.PI;
     if (b === 'open') return { ...seat, z: z1, state: { facing: v.heading, crouch: true } };
     if (b === 'out') return { ...lerpP(seat, door, ease.inOut(u)), z: z1 + (v.z - z1) * u, state: { facing: v.heading + (face - v.heading) * u, crouch: u < .5 } };
     return { ...door, z: v.z, state: { facing: face } };

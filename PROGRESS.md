@@ -10,9 +10,9 @@ campaign plays `--god`; the mission bot's runs stay mortal).
 
 Merged: the owner merged PR 2 (M5-M13) into `main` on 2026-10-23 (`1a1f955`), after PR 1 (M0-M4).
 
-Next: `docs/HANDOFF.md`'s "What's left" list, L1-L8 in order (D32): determinism across runtimes (D31), the known
-limits, performance (D29's later), PLAN.md 19's backlog on Lowtown, the expansion's plan and then its build, the
-platforms, and the owner's items. The `/goal` at the end of HANDOFF finishes the list.
+Next: `docs/HANDOFF.md`'s "What's left" list, L1-L8 in order (D32). L1, determinism across runtimes, is done (D33);
+then the known limits (L2, D34), performance (D29's later), PLAN.md 19's backlog on Lowtown, the expansion's plan and
+then its build, the platforms, and the owner's items. The `/goal` at the end of HANDOFF finishes the list.
 
 Blockers: none. The run started inside the planning session (DECISIONS D5). At M4's close it was handed off (D16),
 and the next sessions carried it from M5 on the branch `claude/compassionate-shannon-h7k7zk`, which is now spent.
@@ -35,7 +35,8 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | M11 Attract + kiosk | done | the Director and its five reels, cards, the camera plan, the watchdog, leaving on any input, the kiosk and phone (`52b3980`, D25) · the soak 30 min x seeds 1-3 headless and 5 min drawn, all pass · director 4, attract sim 18, attract e2e 24 checks · `docs/media/m11/` (11 shots, the Joyride MP4 and GIF) |
 | M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
 | M13 Polish + release | done | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts, the campaign's stalls fixed to its 100% (part 5, `6efaf9c` to `5c7c2ef`, D30); what test:full and the audit found on the way: the gang shoot-out's tip, the page from a static server, the 10-foot UI at HUD Huge (`293a2b9` to `154eb02`); test:full on `154eb02`, every step, and the Definition of Done item by item · 343 unit + sim tests, 78 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
-| L1 Determinism across runtimes | in progress | MOTOR's deterministic Math (`src/motor/core/dmath.js`, V8 12.4's fdlibm and `hypot` in plain arithmetic, bit for bit Node 22's own) installed by the prelude before the engine; a car's drawn explosion no longer stops the clock; `tests/e2e/cross-runtime.mjs` in the gate (D33) · see the acceptance log |
+| L1 Determinism across runtimes | done | MOTOR's deterministic Math (`src/motor/core/dmath.js`, V8 12.4's fdlibm and `hypot` in plain arithmetic, bit for bit Node 22's own) installed by the prelude before the engine; a car's drawn explosion no longer stops the clock; `tests/e2e/cross-runtime.mjs` in the gate (D33) · test:full passed every step on `81a34ee` (100 min 36 s, the campaign at 100%), the gym 13/13 both ways · see the acceptance log |
+| L2 The known limits | in progress | the glows' halos cut by the walls in front, riders at their saddles, the bot's cover on the lanes under the decks, the last stretch's unstick, the pocket's restart, the gym in test:full; three stars, a passer-by and a long truck's corners kept (D34) · see the acceptance log |
 
 ## Acceptance log
 
@@ -1346,7 +1347,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 
 ## After M13: what's left (HANDOFF L1-L8)
 
-- **L1 · determinism across runtimes (D33), in progress:**
+- **L1 · determinism across runtimes (D33), done:**
   - **The probe:** every Math function over 200,000 arguments, Node 22.22.0 (V8 12.4) against Chromium 153: `sin`
     5,961 differ, `cos` 5,990, `tan` 6,570, `asin` 11,940, `acos` 15,226, `atan` 4,693, `exp` 11,337, `pow` 19,624,
     `atan2` 35,444 (and every `log`, hyperbolic and `cbrt` function); `sqrt` and `hypot` alike.
@@ -1359,3 +1360,29 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     35 s. With the Math installed, Holy Rollers still parted at 65 s, and only when the page drew: a car's explosion
     drawn by `VehicleFX` stopped the game for a hit-stop at the next frame drawn near it (`freeze: false` there now).
     After both: the three scenarios match at every 5 s for 60 s (the gate's step) and for 600 s.
+  - **Closed on `81a34ee`:** `npm run test:full` passed every step, alone, in 100 min 36 s (the cross-runtime check
+    600 s a scenario, every mission and activity through the bot on seeds 1-3 and through a pad, the campaign at
+    100%), and the bot gym passed 13 of 13 fixtures with the bot (kill after two wrecks) and 13 of 13 through the pad
+    (none retried). CI's `npm test` is green on the same commit, in the Chromium 141 that Playwright 1.56.1 installs
+    there.
+- **L2 · the known limits (D34), in progress:**
+  - **Night glows:** a glow's halo is clipped along the tops of the walls in front of it, column by column
+    (`Stage._frontTop`). The unit test walks a lamp back from a block (hidden, cut, whole), checks the columns and
+    holds `_hidden` (a wet street's reflection asks it) to the same answer. In the night ISO at the bank a light just
+    behind a low block had spilled over the block's roof; it stops at the block's slanted edge now (before and after,
+    the same frame).
+  - **Rider heights:** a seat's `z` (`seatHeight`): the Sparrow's rider at 7, the Vandal's at 8.2, the kit's bikes at
+    their saddles, getting on ending at the riding height (a sim test).
+  - **The bot gym** (`tools/botgym.mjs`) has three fixtures for the limits (`evade3`, `haul`, `passerby`), plays
+    invulnerable with `--god`, and is a step of test:full both ways; `evade3` is reported, not gating.
+    - `haul` (the long Brute to the Gnomes' HQ), seeds 1-5, before → after: 316 → 102 s, 35 → 35, 39 → 39, 769 → 769,
+      167 → 38 s.
+    - `evade3`, seeds 1-5, before (the L1 commit): passed on 2, 4 and 5 (1, 1 and 2 cars lost), failed on 1 and 3
+      (3 and 4 lost in 900 s). After: passed on 1, 2, 4 and 5 (3, 3, 1 and 2 tries lost to a wreck or a bust first),
+      missed on 3 (5 lost). Invulnerable (`--god`, the campaign's way, where only the hiding counts), before: passed on
+      2 only (406 s); after: passed on 1, 4 and 5 (743, 254 and 583 s), missed on 2 and 3.
+    - `passerby`: the bot walks on to the diner in 8 s on seeds 1-3.
+  - **S1's delivery** (the long Brute, D22's limit): seeds 1-3 passed with no retry, gold in 442 s, gold in 316 s and
+    silver in 419 s.
+  - **The pocket:** the 20 s restart (a unit test); no run has met the pocket since L1.
+  - **The pad:** the gym through the pad passed 13 of 13 with none retried on the L1 commit.

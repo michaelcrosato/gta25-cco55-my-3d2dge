@@ -53,6 +53,8 @@ function poolDisc(inner, outer) {
   discs.set(key, cv); return cv;
 }
 
+const HALO = 24;   // (pixels: how far a glow's halo reaches, for the walls in front to cut it, ISO)
+
 export class Stage {
   /** game: the E.Game; views: the ViewManager (it learns the depth views here) */
   constructor(game, views) {
@@ -276,7 +278,7 @@ export class Stage {
   /** something that shines at (x, y, z): a lamp's head, a neon sign. draw(g, sx, sy, k) draws it at its screen point, k
    *  pixels a unit. In ISO glows are drawn after the lights, so the dark never dims them, and only where no wall drawn
    *  this frame stands in front of the point (the walls' tops checked down the screen from it: no full-frame mask, the
-   *  cut-away included); o.iso: ISO only (a sign the depth views already draw as a shape); o.reflect(g, sx, sy, k, wet):
+   *  cut-away included), its halo cut along the tops of the walls in front (_frontTop); o.iso: ISO only (a sign the depth views already draw as a shape); o.reflect(g, sx, sy, k, wet):
    *  its smear of light on a wet street, at the point's foot; o.always: never hidden (a lock-on's mark: over walls, the
    *  dark and the weather in every view); o.r: how far it reaches, in world units (8 pixels at least), when MODE 7's
    *  walls may hide it whole (a lamp's head). In TOP and MODE 7 they sort with everything else */
@@ -330,9 +332,36 @@ export class Stage {
     for (const [x, y, z, draw, reflect, always] of this.glows) {
       const [sx, sy] = r.w(x, y, z); if (sx < -40 || sy < -60 || sx > r.bw + 40 || sy > r.bh + 40) continue;
       if (reflect && wet > .1 && !this._hidden(r, x, y, 1)) { const [fx, fy] = r.w(x, y, 0); reflect(g, fx, fy, k, wet); }
-      if (always || !this._hidden(r, x, y, z)) draw(g, sx, sy, k);
+      if (always) { draw(g, sx, sy, k); continue; }
+      const c = this._frontTop(r, x, y, z, HALO);
+      if (c <= 0) continue;   // (hidden: a wall in front reaches up to the point)
+      if (c >= HALO) { draw(g, sx, sy, k); continue; }
+      // a wall in front tops out c pixels under the point: the halo is cut along the walls' tops across its width (a
+      // roof's edge runs aslant), so it never spills over a roof
+      g.save(); g.beginPath(); g.moveTo(sx - HALO * 2, sy - HALO * 2); g.lineTo(sx + HALO * 2, sy - HALO * 2);
+      for (let dx = HALO * 2; dx >= -HALO * 2; dx -= 2) { const e = Math.max(-HALO * 2, dx ? this._frontTop(r, x, y, z, HALO * 2, dx) : c); g.lineTo(sx + dx + 1, sy + e); g.lineTo(sx + dx - 1, sy + e); }
+      g.closePath(); g.clip(); draw(g, sx, sy, k); g.restore();
     }
     g.restore(); g._c = null;
+  }
+  // how many pixels under the screen point of (x, y, z) the nearest wall in front of it tops out (ISO): 0 or less is
+  // hidden (that wall reaches up to the point), reach or more is clear of it. Down the screen from the point, past its
+  // own ground spot (toward the camera), each wall cell's drawn top is checked, as _hidden does; dx: down the screen
+  // column that many pixels to one side instead (a halo's width)
+  _frontTop(r, x, y, z, reach, dx = 0) {
+    const W = this.world, map = W && W.map; if (!map) return reach;
+    const v = r.view, up = -v.bz, T = map.T; if (!(up > 0)) return reach;
+    if (this._maxH === null || this._maxMap !== map) { let m = 0; for (const t in map.types) m = Math.max(m, +map.types[t].h || 0); this._maxH = m; this._maxMap = map; }
+    const [sx, sy] = r.w(x, y, z), X = sx + r.ix + dx, Y = sy + r.iy, k0 = Math.ceil(up * z / 2) + 1, k1 = Math.ceil((up * this._maxH + reach) / 2);
+    let best = reach;
+    for (let k = k0; k <= k1; k++) {
+      const p = v.toGround(X, Y + 2 * k); if (!p) break;
+      const cx = Math.floor(p[0] / T), cy = Math.floor(p[1] / T), id = map.cell(cx, cy); if (id <= 0) continue;
+      const t = map.types[id], h = map.cutAt && map.cutAt(cx, cy, v) ? (t.cutH || 6) : t.h, c = 2 * k - up * h;
+      if (c <= 0 && !dx) return c;   // (a side column goes on: the tallest wall in front tops it)
+      if (c < best) best = c;
+    }
+    return best;
   }
   // is the screen point of (x, y, z) behind a wall drawn this frame (ISO)? Down the screen from the point, past its own
   // ground spot (toward the camera), any wall whose drawn top reaches up to the point covers it

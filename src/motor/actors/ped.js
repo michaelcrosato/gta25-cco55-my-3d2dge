@@ -193,7 +193,7 @@ export class Ped {
     if (I.tap.ability && this.ability) this.ability.toggle();   // (the Ability button works at the wheel too: OVERDRIVE is a driver's)
     if (this.faction === 'crew' && (this.seat.index || 0) === 0 && this.seat.vehicle) this._driving(dt, w);
     const at = b.seatAt ? b.seatAt(this.seat.index || 0) : [b.x, b.y];
-    m.x = at[0]; m.y = at[1]; m.z = (b.z || 0) + (b.cls === 'bike' ? 7 : 6); m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
+    m.x = at[0]; m.y = at[1]; m.z = b.seatZ ? b.seatZ(this.seat.index || 0) : (b.z || 0) + 6; m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
     const spec = this.inv.spec(), ok = !!spec && (spec.slot === 'pistol' || spec.slot === 'smg') && !(b.armed && this.seat.index === 0), trigger = !!(I.down.fire || I.down.attack);   // (the driver's ○ is the vehicle's own weapon when it has one)
     this.aiming = ok && (trigger || !!I.aim);
     let dir = I.aim, held = false;
@@ -217,7 +217,7 @@ export class Ped {
   ride() {
     const st = this.seat; if (!st) return this;
     const m = this.mover, b = st.body, at = b.seatAt ? b.seatAt(st.index || 0) : [b.x, b.y];
-    m.x = at[0]; m.y = at[1]; m.z = (b.z || 0) + (b.cls === 'bike' ? 7 : 6); m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
+    m.x = at[0]; m.y = at[1]; m.z = b.seatZ ? b.seatZ(this.seat.index || 0) : (b.z || 0) + 6; m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
     if (this.lazyRig) this._rigS = SEATED; else this._pose(1 / 120, { crouch: true });
     return this._sync();
   }

@@ -1376,3 +1376,63 @@ and where it landed.
   Playwright 1.56.1 installs there. (Every JS engine rounds IEEE arithmetic alike; Firefox and Safari are not here to
   run.) D31's limit is gone; HANDOFF's known limits drop it.
 - **Answered:** no. **Landed in:** after M13 (L1).
+
+## D34 · 2026-10-24 · L2: the known limits, each fixed where it lives or kept with its reason
+- **Principle:** HANDOFF's L2 (fix each limit where it lives, with a test, or keep it with an entry that says why);
+  D21's rule (a MOTOR change re-runs every merged mission both ways); D22's G5 and G7, which this revisits.
+- **Calls:**
+  - **A glow's halo is cut by the walls in front of it** (ISO, `Stage._frontTop`). A night light (a head, tail or
+    siren lamp, a streetlamp, a muzzle's flash) was drawn whole unless a wall hid its very point, so a lamp just behind
+    a roof showed its halo over that roof. Now each glow learns how far under its point the nearest wall in front tops
+    out: hidden at 0 or less, whole past the halo's reach (24 px), and in between clipped column by column along those
+    walls' tops (a roof's edge runs aslant on screen: one flat cut showed beside it). Only a glow that is cut pays for
+    the columns. A unit test walks a lamp back from a block (hidden, then cut, then whole) and checks the columns.
+  - **A rider sits at its own vehicle's height.** A model's seat may give `z` (the rider over the vehicle's base);
+    `seatHeight` (model.js) reads it, else the class's (7 on a bike, 6 in anything else), and getting on, riding and
+    getting off use the same. The Sparrow's rider sits at 7 on its 10.6 saddle, the Vandal's at 8.2 on its 11.8; the
+    `bikeParts` kit puts its seat at its saddle. A boat's rider had boarded at 4 and ridden at 6 (a jump as the scene
+    ended): 6 both now. A sim test holds each bike's rider, getting on and riding, to its saddle.
+  - **The bot's cover from the Eye is on the lanes under the decks, and it holds there.** Its cover points were the
+    centres of road cells under a deck's high cells; some lay past a lane's end, so the route ended short and the car
+    crawled in sight of the Eye (and of the units that came) till it was shot to a wreck. Now they are points every 24
+    along the ground lanes under a high stretch, 48 in from either end of it (a car stopped short is still under it),
+    chosen by the police's cars round them and the drive there (`GPS.costsFrom`, one search from the car to every
+    lane: by the crow's way a spot across a one-way street sent it a thousand units round). Under any deck on the way
+    (the police's own rule, `underDeck`, now exported from police.js) the car is hidden and held still while the
+    stars flash out; seen there for 3 s, or at all with a unit within 80 or a cop on foot within 100 (a unit sees 180
+    under a deck), it moves on to a spot 200 or more from there (within 100 of where it was seen it is not hidden),
+    a trip of its own (its stall clock afresh); a spot not reached in a minute, or one it stops short of in sight for
+    5 s, gives way to another. `bot-manners` tests the points, the hold and the move.
+  - **The last stretch backs off what holds it.** The AutoPlayer's crawl to a goal off the road had no unstick: the
+    gym's long Brute at the Gnomes' HQ swung its tail into a deck's pillar (or its nose into a parked car) as it turned
+    off the lane, sat out the 15 s stall, went round the block and met the same pillar, five times (316 s). Held still
+    1.5 s, it now backs off and goes round as the way out of a jam does (102 s on seed 1; 35 s and 39 s on 2 and 3, as
+    before).
+  - **Pinned on foot, the bot starts over.** Within 40 of one spot for 20 s on a walk, the cars it gave up on are taken
+    again and the walk restarts from the nearest node (D31's pocket cycled its start nodes for good). A unit test.
+  - **Kept: three stars are still content's to avoid (G7 stands).** The gym's `evade3` (a Zephyr at three stars from
+    the safehouse, the Eye up), seeds 1-5 within 900 s each, now passes on four (3, 3, 1 and 2 tries lost to a wreck
+    or a bust first) and misses one; on the L1 commit it passed three (1, 1 and 2 lost) and failed two. Played
+    invulnerable (`--god`, as the campaign plays between jobs), where only the hiding counts, it passes three where
+    it passed one. A mortal car is lost to bullets more than to the Eye:
+    cops on foot at 30-40 u shooting while it is stopped or crawling (a queue, a junction, the last stretch), 18 a hit.
+    Tried and not taken, each passing no more seeds: a quicker bolt from cover; driving away from a cop on foot at
+    once; a 6 s stall when chased with the off-road way round at the first (at one star its sidewalks earned a second
+    star and the police's guns: the Proving Ground bench's evade was shot to a wreck). Which seeds pass moves with any
+    change. So a stage the bot must get through stays below three stars, or drives its
+    three through to where the story drops them; the gym plays `evade3` and reports it, but its runs don't fail the
+    gym (`LIMITS`).
+  - **Kept: a passer-by who hits the bot is sent running, not fought (G5 stands).** The gym's `passerby` (a docker who
+    keeps swinging at it) has the bot walk on to the diner in 8 s on seeds 1-3: being hit costs it nothing it needs,
+    and a brawl with the street earns heat a stage would have to answer for.
+  - **A delivery kept free of stars, the pad's retries: no longer limits.** S1 (the long Brute's delivery) passed on
+    seeds 1-3 with no retry (gold, gold, silver), and the gym through the pad passed all 13 fixtures with none
+    retried on the L1 commit; both are steps of test:full, so a retry there shows.
+  - **The gym is a step of test:full, both ways** (`tools/botgym.mjs`, promoted from A2's probe): a fixture per hint
+    kind and per known limit (`evade3`, `haul`, `passerby`), on seeds 1-3 and through a pad on seed 1; `--god` plays
+    it invulnerable.
+  - **Kept: a long truck at a tight corner costs time.** A failing turn is kept off the next route, and the last
+    stretch's unstick (above) took the gym's `haul` from 316 s to 102 s on seed 1 and from 167 s to 38 s on seed 5
+    (35 s and 39 s on seeds 2 and 3, as before), but on seed 4 the Brute still loses minutes wedged at the corners west
+    of the HQ and takes 769 s, as it did. It gets there, slowly.
+- **Answered:** no. **Landed in:** after M13 (L2).

@@ -7,7 +7,7 @@
 //          night), 'tail' (brake), 'siren' (alternating), 'bumper', 'trim', 'rotor' (a heli's, spun when drawn).
 //          The builders below make the usual shapes from sizes (carParts, vanParts, truckParts, bikeParts, boatParts,
 //          heliParts, trainParts); a model may also list its parts by hand.
-//   wheels: [{ x, y, r, steer }] (front wheels steer visibly); seats: [{ x, y }] driver first; doors: [{ id, x, y,
+//   wheels: [{ x, y, r, steer }] (front wheels steer visibly); seats: [{ x, y, z? }] driver first (z: the rider's height, else SEAT_Z); doors: [{ id, x, y,
 //          side (-1 left, 1 right, 0 the back), seat }] where a body stands to get in; lights: { head: [[x, y, z]],
 //          tail, siren } (where the lights shine from); hook: [x, y] (a tow truck's), hitch: [x, y] (where a towed car is
 //          held: its front bumper by default), nozzle: [x, y, z] (where a water cannon's jet leaves).
@@ -52,12 +52,18 @@ export function checkModel(m) {
   }
   if (!all.some(p => p.role === 'body')) out.push('no body part (nothing takes the paint)');
   for (const s of m.seats) if (Math.abs(s.x) > L || Math.abs(s.y) > W) out.push('a seat outside the body ' + JSON.stringify(s));
+  for (const s of m.seats) if (s.z !== undefined && !(s.z >= 0 && s.z <= m.height)) out.push('a seat\'s rider height outside the body ' + JSON.stringify(s));
   for (const d of m.doors) if (!(d.seat >= 0 && d.seat < Math.max(1, m.seats.length))) out.push('door ' + d.id + ' names no seat');
   if (m.class !== 'heli' && m.class !== 'rail' && m.class !== 'boat' && !m.wheels.length) out.push('no wheels');
   return out;
 }
 
 const P = (box, color, role = 'body') => ({ box, color, role });
+/** how high a rider sits above the vehicle's floor, by class, when its seat in the model gives no z: a bike's rider up
+ *  on the saddle, everyone else at a car seat's height */
+export const SEAT_Z = { bike: 7 };
+/** a seat's rider height: the model's seat's own z (a bike's saddle), else its class's (SEAT_Z, else 6) */
+export const seatHeight = (cls, seat) => (seat && typeof seat.z === 'number' ? seat.z : SEAT_Z[cls] ?? 6);
 const WHEEL = '#1a1a20', GLASS = '#3a4a5a', HEAD = '#fff4c8', TAIL = '#8a1a1a', DARK = '#2a2a30';
 function wheels(L, W, r, fronts = [L * .62], rears = [-L * .62]) {
   const parts = [], list = [];
@@ -134,7 +140,7 @@ export function bikeParts(o = {}) {
   if (style === 'sport') parts.push(P([L * .1, -3.5, height * .6, L * .55, 3.5, height * .95], paint, 'body'));
   if (style === 'moped') parts.push(P([-L * .7, -2.5, height * .45, -L * .2, 2.5, height * .62], '#3a3a40', 'trim'));
   return { parts, wheels: [{ x: L - wheel, y: 0, r: wheel, steer: true }, { x: -L + wheel, y: 0, r: wheel, steer: false }],
-    seats: [{ x: -L * .2, y: 0 }], doors: [{ id: 'l', x: -L * .1, y: -8, side: -1, seat: 0 }, { id: 'r', x: -L * .1, y: 8, side: 1, seat: 0 }],
+    seats: [{ x: -L * .2, y: 0, z: height * .82 - 3.6 }], doors: [{ id: 'l', x: -L * .1, y: -8, side: -1, seat: 0 }, { id: 'r', x: -L * .1, y: 8, side: 1, seat: 0 }],   // (z: the rider on the saddle, height * .82 its top)
     lights: { head: [[L, 0, height * .62]], tail: [[-L, 0, height * .62]], siren: [] } };
 }
 /** a speedboat: a pointed hull, a windscreen, an outboard motor */

@@ -54,7 +54,7 @@ def('vehicleModels', 'sparrow', {
     P([-14.4, -1.4, 9.8, -14, 1.4, 10.8], '#8a1a1a', 'tail'),
   ],
   wheels: [{ x: fx, y: 0, r, steer: true }, { x: rx, y: 0, r, steer: false }],
-  seats: [{ x: -6.8, y: 0 }],
+  seats: [{ x: -6.8, y: 0, z: 7 }],   // (z: the rider on the saddle, whose top is 10.6)
   // (side 0: a bike has no door, and a door with a side is drawn swinging open while its rider gets off)
   doors: [{ id: 'l', x: -5, y: -10, side: 0, seat: 0 }, { id: 'r', x: -5, y: 10, side: 0, seat: 0 }],
   lights: { head: [[9.6, 0, 12.5]], tail: [[-14.2, 0, 10.3]], siren: [] },

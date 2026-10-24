@@ -100,21 +100,30 @@ test('the AutoPlayer\'s car: an empty one parked before a carjack, unless the oc
   assert.equal(pick([v(1, 50, { driver: true }), v(2, 90, { locked: true })]).id, 1, 'a locked one is no choice');
 });
 
-test('the mission bot, the Eye up: under a deck out of its sight (the road under a high cell), the stretch away from the police; seen there 3 s, another', async () => {
+test('the mission bot, the Eye up: under a deck out of its sight (a lane under a high stretch), the stretch away from the police; under any deck, held there; seen there 3 s, another, away from there', async () => {
   const { MissionBot } = await import('../../src/motor/ai/missionbot.js');
-  // a deck high over a road at x 20-21 (cells), y 0-60; one low cell (a ramp's foot) and one over a sidewalk too
-  const cells = []; for (let cy = 0; cy <= 60; cy++) cells.push({ cx: 20, cy, z0: 64, z1: 64 });
-  cells.push({ cx: 30, cy: 5, z0: 10, z1: 20 }, { cx: 40, cy: 5, z0: 64, z1: 64 });
-  const city = { T: 16, decks: [{ cells }], surfaceAt: (cx) => (cx === 40 ? 'walk' : 'road') };
-  const B = Object.assign(Object.create(MissionBot.prototype), { city, t: 0 });
-  const v = { x: 20 * 16, y: 30 * 16, z: 0 }, unit = (x, y) => ({ car: { v: { x, y } } });
-  const q = B._cover(v, { wanted: { seen: true }, police: { units: [unit(v.x, v.y - 200)] } });
-  assert.equal(B.covers.length, 61, 'the road under the high cells only');
-  assert.ok(q && q[1] > v.y, 'the stretch away from the unit to the north');
-  B.t = 1; assert.equal(B._cover(v, { wanted: { seen: true }, police: { units: [] } }), q, 'kept while it is driven to');
-  const W = { wanted: { seen: true }, police: { units: [unit(v.x, v.y - 200)] } }, at = { x: q[0], y: q[1], z: 0 };
-  B.t = 2; B._cover(at, W); B.t = 4; B._cover(at, W); B.t = 6; const r = B._cover(at, W);
-  assert.ok(r !== q && Math.hypot(r[0] - q[0], r[1] - q[1]) >= 160, 'seen there 3 s: another stretch, away from it');
+  // a deck high over x 320-352, y 0-976, and a low one (a ramp's foot) at x 480-496; lanes north-south under each and in the open
+  const decks = [{ heightAt: (x, y) => (x >= 320 && x < 352 && y >= 0 && y < 976 ? 64 : x >= 480 && x < 496 && y >= 64 && y < 96 ? 15 : null) }];
+  const lane = (id, x, len) => ({ id, x, len }), lanes = [lane(0, 336, 976), lane(1, 488, 160), lane(2, 600, 976)];
+  const roads = { graph: { lanes, pointOn: (L, s) => [L.x, s, 0], nearestLane: () => null } };   // (no lane near: by the crow's way)
+  const B = Object.assign(Object.create(MissionBot.prototype), { city: { T: 16, decks }, roads, t: 0, I: makeIntent() });
+  const v = { x: 336, y: 480, z: 0 }, unit = (x, y) => ({ car: { v: { x, y } } });
+  const K = B._cover(v, { wanted: { seen: true }, police: { units: [unit(v.x, v.y - 200)] } });
+  assert.equal(B.covers.length, 37, 'every 24 along the lane under the high stretch only, 48 in from its ends (stopped short, still under it)');
+  assert.ok(B.covers.every(q => q[0] === 336 && q[1] >= 48 && q[1] <= 928), 'on that lane');
+  assert.ok(K && K.at[1] > v.y && !K.hid, 'the stretch away from the unit to the north');
+  B.t = 1; assert.equal(B._cover({ x: 600, y: 480, z: 0 }, { wanted: { seen: false }, police: { units: [] } }), K, 'kept while it is driven to');
+  assert.equal(K.hid, false, 'in the open: not hidden');
+  const at = { x: 336, y: 300, z: 0 }; B.t = 2; B._cover(at, { wanted: { seen: false }, police: { units: [] } });
+  assert.equal(K.hid, true, 'under the deck short of the spot: hidden there');
+  const car = { ...at, speed: 0, body: { vx: 0, vy: 0, heading: 0 } }, p = { seat: { vehicle: car } };
+  const I = B._evade(1 / 60, p, null, { wanted: { stars: 3, seen: false }, police: { units: [], heli: {} } });
+  assert.ok(I.down.handbrake && !I.throttle, 'and held there (the Eye sees nothing under a deck)');
+  B.t = 60; B._cover(at, { wanted: { seen: false }, police: { units: [] } }); assert.equal(B.cover, K, 'hidden: kept past a minute');
+  const W = { wanted: { seen: true }, police: { units: [unit(at.x, at.y - 200)] } };
+  B.t = 61; B._cover(at, W); B.t = 63; const R = B._cover(at, W);
+  assert.ok(R !== K && Math.hypot(R.at[0] - at.x, R.at[1] - at.y) >= 160, 'seen there 3 s: another stretch, away from it');
+  B.t = 64; B._cover(at, W); assert.equal(R.hid, false, 'where it was seen is no hiding place: on to the next');
 });
 
 test('the player\'s fighter, a car in its line of fire: steps aside, and when 3 s of that clear nothing, round it toward the target (two behind a parked truck had kept it stepping to and fro while they shot)', () => {
@@ -191,4 +200,20 @@ test('the AutoPlayer boxed in a fourth time gets out at street level only: up on
   };
   assert.equal(run(0).state, 'exit', 'in the street: out, another car or on foot');
   const D = run(64); assert.notEqual(D.state, 'exit'); assert.ok(D.round, 'on the Loop: round it again');
+});
+
+test('the AutoPlayer pinned on foot (a pocket of cars it gave up on, a wall, peds in the gap) starts over after 20 s: the cars taken again, the walk from the nearest node (D31: it cycled its start nodes there for good)', () => {
+  const A = Object.assign(Object.create(AutoPlayer.prototype), { t: 0, I: makeIntent(), tried: new Set([4]), gaveUp: new Map([[4, 0], [5, 0]]), brain: null, skip: 3, last: [0, 0], stuck: 0, dodge: 0 });
+  Object.assign(A, { S: { live: [], nearestNode: () => null }, city: { T: 16, walkable: () => true, map: { solids: [] } }, goal: { x: 900, y: 0, foot: true } });
+  const p = { x: 0, y: 0, z: 0 };
+  for (let k = 0; k < 79; k++) A._walk(.25, p);
+  assert.ok(A.shuns(4) && A.shuns(5), '19.75 s: still given up on');
+  A._walk(.5, p);
+  assert.ok(!A.shuns(4) && !A.shuns(5), '20 s pinned: taken again');
+  assert.equal(A.pin.t, 0, 'and the clock starts again');
+  // moving on is no pocket: 30 s of walking, 15 a step's quarter second
+  const B = Object.assign(Object.create(AutoPlayer.prototype), { t: 0, I: makeIntent(), tried: new Set([4]), gaveUp: new Map([[4, 0]]), brain: null, skip: 0, last: [0, 0], stuck: 0, dodge: 0, S: A.S, city: A.city, goal: { x: 9000, y: 0, foot: true } });
+  const q = { x: 0, y: 0, z: 0 };
+  for (let k = 0; k < 120; k++) { q.x += 15; B._walk(.25, q); }
+  assert.ok(B.shuns(4), 'walking on: still given up on');
 });

@@ -55,7 +55,7 @@ def('vehicleModels', 'vandal', {
     P([-16.2, -1.2, 9.8, -15.9, 1.2, 10.6], PLATE, 'trim'),
   ],
   wheels: [{ x: fx, y: 0, r, steer: true }, { x: rx, y: 0, r, steer: false }],
-  seats: [{ x: -6.6, y: 0 }],
+  seats: [{ x: -6.6, y: 0, z: 8.2 }],   // (z: the rider up on the saddle, whose top is 11.8)
   // (side 0: a bike has no door, and a door with a side is drawn swinging open while its rider gets off)
   doors: [{ id: 'l', x: -5, y: -10, side: 0, seat: 0 }, { id: 'r', x: -5, y: 10, side: 0, seat: 0 }],
   lights: { head: [[13.4, -1.4, 11.6], [13.4, 1.4, 11.6]], tail: [[-16, 0, 11.4]], siren: [] },

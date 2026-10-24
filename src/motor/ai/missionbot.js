@@ -23,6 +23,7 @@ import { Fighter, lineOfFire } from './fighter.js';
 import { boxDistance } from '../actors/fleet.js';
 import { blockedSpot } from '../world/fleet-spawn.js';
 import { pointOf } from '../mission/actors.js';
+import { underDeck } from '../police/police.js';
 
 const RETARGET = 1.2, CAR_NEAR = 220;
 /** how the player fights (a fighter's profile): from farther off than a gang's grunt, in longer bursts, better aimed,
@@ -30,6 +31,9 @@ const RETARGET = 1.2, CAR_NEAR = 220;
 const PLAYER_FIGHT = { range: .75, burst: 1.3, pause: .25, aimOff: .03, kite: .6 };
 const alive = a => a && !a.dead && !a.wrecked && !a.out;
 const ptOf = a => (Array.isArray(a) ? a : [a.x, a.y]);
+
+// a cop on foot within r of the car, on its level (police: the Police), or undefined
+const copOnFoot = (police, v, r) => ((police && police.cops) || []).find(c => !c.ped.dead && !c.ped.seat && !c.ped.floored && Math.hypot(c.ped.x - v.x, c.ped.y - v.y) < r && Math.abs((c.ped.z || 0) - (v.z || 0)) < 14);
 
 export class MissionBot {
   /** o: { city, roads ({ graph, gps, walks }), fleet, junctions, pad (true: every weapon change by the d-pad's steps,
@@ -317,33 +321,55 @@ export class MissionBot {
     // the Eye up (three stars and more): it sees all round from above, so no drive away loses it, and a respray is
     // never reached unseen. Under a deck (the L, the Loop) it sees nothing (police.js _sees): there, and held there
     // while the stars flash out; seen there by a ground unit, on to another stretch, away from them
-    const q = v && (v.z || 0) < 10 && w.police && w.police.heli ? this._cover(v, w) : null;
-    if (q) return this._go(dt, p, q[0], q[1], { stay: true, style, radius: 14, slack: 40, z: 0, hold: !!job }, w);
+    const K = v && (v.z || 0) < 10 && w.police && w.police.heli ? this._cover(v, w) : null;
+    if (K && K.hid) return this._idle(clearIntent(this.I), v);
+    if (K) {   // (another spot: a trip of its own, its stall clock and the lanes it kept off afresh; kept, it had stalled 6 s on)
+      const o = { stay: true, style, radius: 14, slack: 40, z: 0, hold: !!job };
+      if (this.coverFor !== K) { this.coverFor = K; this.auto.goto(K.at[0], K.at[1], { ...o, car: v }); }
+      return this._go(dt, p, K.at[0], K.at[1], o, w);
+    }
     // out of their sight in a car, a respray within reach (and the fee in hand): there, before they find it again
     if (v && w.respray && !W.seen && Math.hypot(w.respray[0] - v.x, w.respray[1] - v.y) < 1200) return this._go(dt, p, w.respray[0], w.respray[1], { stay: true, style, radius: 18, slack: 30, hold: !!job }, w);
     if (!this.dest || Math.hypot(this.dest[0] - P.x, this.dest[1] - P.y) < 80) this.dest = this._far(P, w);
     return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style, slack: 80, hold: !!job }, w);
   }
-  // a spot on the road under a deck, out of the Eye's sight (null: none within 1200): the road cells under the decks'
-  // high cells, worked out once; of them the one best away from the police's cars and near. Kept till it is reached
-  // and a unit still sees the car there for 3 s (then another), or a minute has gone by without it
+  // a spot on a ground lane under a deck, out of the Eye's sight (null: none within 1200): points every 24 along the
+  // lanes under the decks' high stretches, 48 in from either end of the stretch, worked out once (on a lane, so a route
+  // ends there: a road cell's centre past a lane's end had the car crawl at the road's end short of it, in sight; and
+  // in from the ends, so a car stopped short is still under it); of them the one best away from the police's cars and
+  // the quickest drive (gps.costsFrom). Under any deck on the way (police.js underDeck) it is hidden (hid: held there
+  // while the stars flash out) till a unit sees it there for 3 s, or at all from close by: then another spot, away
+  // from there; and a spot not reached in a minute, or that leaves it short and in sight, another
   _cover(v, w) {
     if (!this.covers) {
-      const C = this.city, T = C.T; this.covers = [];
-      for (const d of C.decks || []) for (const c of d.cells) if (Math.min(c.z0, c.z1) > 30 && C.surfaceAt(c.cx, c.cy) === 'road') this.covers.push([(c.cx + .5) * T, (c.cy + .5) * T]);
+      const G = this.roads.graph, C = this.city, high = (x, y, z) => (C.decks || []).some(d => { const h = d.heightAt(x, y); return h !== null && h > z + 30; });
+      this.covers = [];
+      const deep = (L, s) => { if (s < 48 || s > L.len - 48) return false; for (const ds of [-48, 0, 48]) { const q = G.pointOn(L, s + ds); if ((q[2] || 0) >= 4 || !high(q[0], q[1], q[2] || 0)) return false; } return true; };
+      for (const L of G.lanes) for (let s = 12; s < L.len; s += 24) if (deep(L, s)) { const q = G.pointOn(L, s); this.covers.push([q[0], q[1], L.id, s]); }
     }
-    const W = w.wanted, K = this.cover, d = K ? Math.hypot(K.at[0] - v.x, K.at[1] - v.y) : 0;
-    if (K) { K.seenT = d < 40 && W && W.seen ? K.seenT + (this.t - K.last) : 0; K.last = this.t; }
-    if (K && this.t - K.t < 60 && K.seenT < 3) return K.at;
-    const units = w.police && w.police.units ? w.police.units.filter(u => !u.gone && u.car && u.car.v).map(u => u.car.v) : [];
+    const W = w.wanted, K = this.cover, PO = w.police, units = PO && PO.units ? PO.units.filter(u => !u.gone && u.car && u.car.v).map(u => u.car.v) : [];
+    if (K) {   // (shortT: stopped short of it, not hidden: a spot that doesn't hide it, another after 5 s)
+      const at = Math.hypot(K.at[0] - v.x, K.at[1] - v.y), dt = this.t - K.last;
+      K.hid = underDeck(this.city, v) && (!K.seenAt || Math.hypot(v.x - K.seenAt[0], v.y - K.seenAt[1]) > 100);
+      K.seenT = K.hid && W && W.seen ? K.seenT + dt : 0; K.shortT = !K.hid && at < 60 && v.speed < 3 ? K.shortT + dt : 0; K.last = this.t;
+      // (seen there with a unit or a cop on foot close: off at once, before they are at the door: held there the 3 s, the
+      // gym's on seed 2 was busted. A unit sees 180 under a deck: only one nearer than 80 is about to put its crew out)
+      const close = K.seenT > 0 && (units.some(u => Math.hypot(u.x - v.x, u.y - v.y) < 80) || !!copOnFoot(PO, v, 100));
+      if (K.seenT >= 3 || close) K.seenAt = [v.x, v.y];
+      else if (K.hid || (this.t - K.t < 60 && K.shortT < 5)) return K;
+    }
+    const G = this.roads.graph, n = G.nearestLane(v.x, v.y, v.heading, v.z || 0), D = n ? this.roads.gps.costsFrom(n.lane.id, n.s) : null;
     let best = null, bd = -Infinity;
     for (const q of this.covers) {
-      const dv = Math.hypot(q[0] - v.x, q[1] - v.y); if (dv > 1200 || (K && Math.hypot(q[0] - K.at[0], q[1] - K.at[1]) < 160)) continue;   // (not the stretch it was seen at)
+      const dv = Math.hypot(q[0] - v.x, q[1] - v.y); if (dv > 1200) continue;
+      if (K && (Math.hypot(q[0] - K.at[0], q[1] - K.at[1]) < 160 || (K.seenAt && Math.hypot(q[0] - K.seenAt[0], q[1] - K.seenAt[1]) < 200))) continue;   // (not the spot given up on, nor the stretch it was seen at: 200, so a car stopped short of the next is clear of it)
+      // (the drive there, not the crow's way: one across a one-way street had it go a thousand round)
+      const L = G.lanes[q[2]], secs = D ? D[q[2]] - (L.len - q[3]) / L.speed : dv / 150; if (!(secs < Infinity)) continue;
       let du = 400; for (const u of units) du = Math.min(du, Math.hypot(q[0] - u.x, q[1] - u.y));
-      const s = du - dv * .6; if (s > bd) { bd = s; best = q; }
+      const s = du - Math.max(secs, 0) * 90; if (s > bd) { bd = s; best = q; }
     }
-    this.cover = best ? { at: best, t: this.t, last: this.t, seenT: 0 } : null;
-    return best;
+    this.cover = best ? { at: [best[0], best[1]], t: this.t, last: this.t, seenT: 0, shortT: 0, hid: false, seenAt: K ? K.seenAt || null : null } : null;
+    return this.cover;
   }
   // the point of interest farthest from the police round the player (or from the player, with none about), past 500
   _far(P, w) {

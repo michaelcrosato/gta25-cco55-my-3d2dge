@@ -14003,6 +14003,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     discs.set(key, cv);
     return cv;
   }
+  var HALO = 24;
   var Stage = class {
     /** game: the E.Game; views: the ViewManager (it learns the depth views here) */
     constructor(game2, views) {
@@ -14447,7 +14448,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** something that shines at (x, y, z): a lamp's head, a neon sign. draw(g, sx, sy, k) draws it at its screen point, k
      *  pixels a unit. In ISO glows are drawn after the lights, so the dark never dims them, and only where no wall drawn
      *  this frame stands in front of the point (the walls' tops checked down the screen from it: no full-frame mask, the
-     *  cut-away included); o.iso: ISO only (a sign the depth views already draw as a shape); o.reflect(g, sx, sy, k, wet):
+     *  cut-away included), its halo cut along the tops of the walls in front (_frontTop); o.iso: ISO only (a sign the depth views already draw as a shape); o.reflect(g, sx, sy, k, wet):
      *  its smear of light on a wet street, at the point's foot; o.always: never hidden (a lock-on's mark: over walls, the
      *  dark and the weather in every view); o.r: how far it reaches, in world units (8 pixels at least), when MODE 7's
      *  walls may hide it whole (a lamp's head). In TOP and MODE 7 they sort with everything else */
@@ -14559,10 +14560,60 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           const [fx7, fy] = r7.w(x, y, 0);
           reflect(g, fx7, fy, k, wet);
         }
-        if (always || !this._hidden(r7, x, y, z)) draw(g, sx, sy, k);
+        if (always) {
+          draw(g, sx, sy, k);
+          continue;
+        }
+        const c = this._frontTop(r7, x, y, z, HALO);
+        if (c <= 0) continue;
+        if (c >= HALO) {
+          draw(g, sx, sy, k);
+          continue;
+        }
+        g.save();
+        g.beginPath();
+        g.moveTo(sx - HALO * 2, sy - HALO * 2);
+        g.lineTo(sx + HALO * 2, sy - HALO * 2);
+        for (let dx = HALO * 2; dx >= -HALO * 2; dx -= 2) {
+          const e = Math.max(-HALO * 2, dx ? this._frontTop(r7, x, y, z, HALO * 2, dx) : c);
+          g.lineTo(sx + dx + 1, sy + e);
+          g.lineTo(sx + dx - 1, sy + e);
+        }
+        g.closePath();
+        g.clip();
+        draw(g, sx, sy, k);
+        g.restore();
       }
       g.restore();
       g._c = null;
+    }
+    // how many pixels under the screen point of (x, y, z) the nearest wall in front of it tops out (ISO): 0 or less is
+    // hidden (that wall reaches up to the point), reach or more is clear of it. Down the screen from the point, past its
+    // own ground spot (toward the camera), each wall cell's drawn top is checked, as _hidden does; dx: down the screen
+    // column that many pixels to one side instead (a halo's width)
+    _frontTop(r7, x, y, z, reach, dx = 0) {
+      const W26 = this.world, map = W26 && W26.map;
+      if (!map) return reach;
+      const v = r7.view, up = -v.bz, T21 = map.T;
+      if (!(up > 0)) return reach;
+      if (this._maxH === null || this._maxMap !== map) {
+        let m = 0;
+        for (const t in map.types) m = Math.max(m, +map.types[t].h || 0);
+        this._maxH = m;
+        this._maxMap = map;
+      }
+      const [sx, sy] = r7.w(x, y, z), X2 = sx + r7.ix + dx, Y3 = sy + r7.iy, k0 = Math.ceil(up * z / 2) + 1, k1 = Math.ceil((up * this._maxH + reach) / 2);
+      let best = reach;
+      for (let k = k0; k <= k1; k++) {
+        const p = v.toGround(X2, Y3 + 2 * k);
+        if (!p) break;
+        const cx5 = Math.floor(p[0] / T21), cy = Math.floor(p[1] / T21), id = map.cell(cx5, cy);
+        if (id <= 0) continue;
+        const t = map.types[id], h = map.cutAt && map.cutAt(cx5, cy, v) ? t.cutH || 6 : t.h, c = 2 * k - up * h;
+        if (c <= 0 && !dx) return c;
+        if (c < best) best = c;
+      }
+      return best;
     }
     // is the screen point of (x, y, z) behind a wall drawn this frame (ISO)? Down the screen from the point, past its own
     // ground spot (toward the camera), any wall whose drawn top reaches up to the point covers it
@@ -15634,11 +15685,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     if (!all2.some((p) => p.role === "body")) out.push("no body part (nothing takes the paint)");
     for (const s of m.seats) if (Math.abs(s.x) > L22 || Math.abs(s.y) > W26) out.push("a seat outside the body " + JSON.stringify(s));
+    for (const s of m.seats) if (s.z !== void 0 && !(s.z >= 0 && s.z <= m.height)) out.push("a seat's rider height outside the body " + JSON.stringify(s));
     for (const d of m.doors) if (!(d.seat >= 0 && d.seat < Math.max(1, m.seats.length))) out.push("door " + d.id + " names no seat");
     if (m.class !== "heli" && m.class !== "rail" && m.class !== "boat" && !m.wheels.length) out.push("no wheels");
     return out;
   }
   var P = (box2, color, role = "body") => ({ box: box2, color, role });
+  var SEAT_Z = { bike: 7 };
+  var seatHeight = (cls, seat4) => seat4 && typeof seat4.z === "number" ? seat4.z : SEAT_Z[cls] ?? 6;
   var WHEEL = "#1a1a20";
   var GLASS = "#3a4a5a";
   var HEAD = "#fff4c8";
@@ -15751,8 +15805,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return {
       parts: parts2,
       wheels: [{ x: L22 - wheel4, y: 0, r: wheel4, steer: true }, { x: -L22 + wheel4, y: 0, r: wheel4, steer: false }],
-      seats: [{ x: -L22 * 0.2, y: 0 }],
+      seats: [{ x: -L22 * 0.2, y: 0, z: height * 0.82 - 3.6 }],
       doors: [{ id: "l", x: -L22 * 0.1, y: -8, side: -1, seat: 0 }, { id: "r", x: -L22 * 0.1, y: 8, side: 1, seat: 0 }],
+      // (z: the rider on the saddle, height * .82 its top)
       lights: { head: [[L22, 0, height * 0.62]], tail: [[-L22, 0, height * 0.62]], siren: [] }
     };
   }
@@ -18472,6 +18527,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const s = this.model.seats[Math.min(i, this.model.seats.length - 1)] || { x: 0, y: 0 };
       return this.toWorld(s.x, s.y);
     }
+    /** the height a rider of seat i sits at (the seat's own z in the model, else its class's: SEAT_Z) */
+    seatZ(i) {
+      return this.z + seatHeight(this.cls, this.model.seats[Math.min(i, this.model.seats.length - 1)]);
+    }
     /** a ped sits down (boarding.js calls it once the beats have played) */
     sit(ped, i) {
       this.seats[i] = ped;
@@ -19569,7 +19628,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const at = b.seatAt ? b.seatAt(this.seat.index || 0) : [b.x, b.y];
       m.x = at[0];
       m.y = at[1];
-      m.z = (b.z || 0) + (b.cls === "bike" ? 7 : 6);
+      m.z = b.seatZ ? b.seatZ(this.seat.index || 0) : (b.z || 0) + 6;
       m.vx = m.vy = m.vz = 0;
       m.action = null;
       m.facing = b.heading;
@@ -19613,7 +19672,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const m = this.mover, b = st.body, at = b.seatAt ? b.seatAt(st.index || 0) : [b.x, b.y];
       m.x = at[0];
       m.y = at[1];
-      m.z = (b.z || 0) + (b.cls === "bike" ? 7 : 6);
+      m.z = b.seatZ ? b.seatZ(this.seat.index || 0) : (b.z || 0) + 6;
       m.vx = m.vy = m.vz = 0;
       m.action = null;
       m.facing = b.heading;
@@ -22539,7 +22598,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   };
   var lerpP = (a, b, u) => ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
   var ease2 = E.ease;
-  var seatZ = (v) => v.z + (v.cls === "bike" ? 7 : v.cls === "boat" ? 4 : 6);
+  var seatZ = (v, s) => v.z + seatHeight(v.cls, s);
   var inward = (v, d) => d.side ? v.heading - d.side * Math.PI / 2 : v.heading + Math.PI;
   var diveHeading = (v, d) => v.heading + (d.side || 1) * Math.PI / 2 * 0.55;
   var diveLengths = (v) => {
@@ -22552,7 +22611,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       A.from = { x: A.start.x, y: A.start.y };
     },
     at(A, b, u) {
-      const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door2 = W(v, d.x, d.y), seat4 = W(v, s.x, s.y), z05 = v.z, z1 = seatZ(v);
+      const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door2 = W(v, d.x, d.y), seat4 = W(v, s.x, s.y), z05 = v.z, z1 = seatZ(v, s);
       if (b === "open") return { ...lerpP(A.from, door2, ease2.outQuad(u)), z: z05, state: { facing: inward(v, d), stance: "ready" } };
       if (b === "in") return { ...lerpP(door2, seat4, ease2.inOut(u)), z: z05 + (z1 - z05) * u, state: { facing: inward(v, d) + (v.heading - inward(v, d)) * u, crouch: true } };
       return { ...seat4, z: z1, state: { facing: v.heading, crouch: true } };
@@ -22564,7 +22623,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       A.from = { x: A.start.x, y: A.start.y };
     },
     at(A, b, u) {
-      const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door2 = W(v, d.x, d.y), seat4 = W(v, s.x, s.y), z1 = seatZ(v), face = inward(v, d);
+      const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door2 = W(v, d.x, d.y), seat4 = W(v, s.x, s.y), z1 = seatZ(v, s), face = inward(v, d);
       const out = d.side ? W(v, d.x - 10, d.y + d.side * 16) : W(v, d.x - 16, d.y), vs = { facing: face + Math.PI };
       if (b === "open") return { ...lerpP(A.from, door2, ease2.outQuad(u)), z: v.z, state: { facing: face, stance: "ready" }, other: { ...seat4, z: z1, state: { ...vs, crouch: true } } };
       if (b === "yank") return { ...door2, z: v.z, state: { facing: face, attack: E.move("cross", u) }, other: { ...lerpP(seat4, door2, ease2.inQuad(u)), z: z1 + (v.z - z1) * u, state: { ...vs, hurt: true } } };
@@ -22590,7 +22649,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       A.from = { x: A.start.x, y: A.start.y, z: A.start.z };
     },
     at(A, b, u) {
-      const v = A.o.vehicle, s = A.o.seatSpot, seat4 = W(v, s.x, s.y), z1 = seatZ(v);
+      const v = A.o.vehicle, s = A.o.seatSpot, seat4 = W(v, s.x, s.y), z1 = seatZ(v, s);
       return { ...lerpP(A.from, seat4, ease2.outQuad(u)), z: A.from.z + (z1 - A.from.z) * u + Math.sin(u * Math.PI) * 5, state: { facing: v.heading, air: u < 0.85, crouch: u > 0.7 } };
     }
   };
@@ -22600,7 +22659,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       A.from = { x: A.start.x, y: A.start.y };
     },
     at(A, b, u) {
-      const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, seat4 = W(v, s.x, s.y), door2 = W(v, d.x, d.y), z1 = seatZ(v), face = inward(v, d) + Math.PI;
+      const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, seat4 = W(v, s.x, s.y), door2 = W(v, d.x, d.y), z1 = seatZ(v, s), face = inward(v, d) + Math.PI;
       if (b === "open") return { ...seat4, z: z1, state: { facing: v.heading, crouch: true } };
       if (b === "out") return { ...lerpP(seat4, door2, ease2.inOut(u)), z: z1 + (v.z - z1) * u, state: { facing: v.heading + (face - v.heading) * u, crouch: u < 0.5 } };
       return { ...door2, z: v.z, state: { facing: face } };
@@ -27469,6 +27528,29 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       return D;
     }
+    /** the cost from lane `from` (s: how far along it we are) to the end of every lane (a Dijkstra forward over the
+     *  connectors): a Float64Array, Infinity where it can't be reached. One search answers "which of these places is
+     *  the quickest drive from here" */
+    costsFrom(from, s = 0) {
+      const G2 = this.g, L22 = G2.lanes, D = new Float64Array(this.n).fill(Infinity);
+      if (!L22[from]) return D;
+      const heap = new Heap(), done2 = new Uint8Array(this.n);
+      D[from] = Math.max(0, L22[from].len - s) / L22[from].speed;
+      heap.push(from, D[from]);
+      while (heap.size) {
+        const i = heap.pop();
+        if (done2[i]) continue;
+        done2[i] = 1;
+        for (const cid of L22[i].out) {
+          const c = G2.conns[cid], j = c.to, nd = D[i] + this.stepCost(c);
+          if (nd < D[j] - 1e-12) {
+            D[j] = nd;
+            heap.push(j, nd);
+          }
+        }
+      }
+      return D;
+    }
     /** a route between two world points (each snapped to its nearest lane; heading prefers lanes running that way) */
     routeTo(x, y, heading, tx, ty, o = {}) {
       const a = this.g.nearestLane(x, y, heading, o.z || 0), b = this.g.nearestLane(tx, ty, null, o.tz || 0);
@@ -30266,8 +30348,23 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return this._walk(dt, p);
     }
     // ---- on foot
+    // pinned (a pocket: the cars near it all given up on, one it left parked, a wall, peds in the gap) and within 40 of one
+    // spot for 20 s: the cars given up on are taken again, and the walk starts over from the nearest node (it had cycled
+    // its start nodes round and round there, D31)
     _walk(dt, p) {
       this.state = "walk";
+      const K2 = this.pin && this.pin.goal === this.goal ? this.pin : this.pin = { goal: this.goal, at: [p.x, p.y], t: 0 };
+      if (Math.hypot(p.x - K2.at[0], p.y - K2.at[1]) > 40) {
+        K2.at = [p.x, p.y];
+        K2.t = 0;
+      } else if ((K2.t += dt) > 20) {
+        K2.t = 0;
+        this.tried.clear();
+        this.gaveUp.clear();
+        this.car = null;
+        this.skip = 0;
+        this.path = null;
+      }
       return this._walkTo(dt, p, this.goal.x, this.goal.y, "goal");
     }
     // to (tx, ty) on foot: the sidewalk graph's shortest way between the nodes nearest each end, then straight there;
@@ -30537,7 +30634,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
       }
       if (g.stay) {
-        if (b.lost || b.arrived || d < 70 && v.speed < 8) return this._final(v, g, d);
+        if (b.lost || b.arrived || d < 70 && v.speed < 8) return this._final(dt, v, g, d);
       } else if (b.lost || (b.arrived || d < 70) && v.speed < 8 || d < TUNE.autoArrive * 3 && v.speed < 20) {
         if (v.speed > 6) {
           const I3 = clearIntent(this.I);
@@ -30763,8 +30860,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return I;
     }
     // straight at the goal at a crawl (a yard, a plaza, the rest of the way past the road's end); reversing when it lies
-    // behind and close
-    _final(v, g, d) {
+    // behind and close. Held still for 1.5 s (a long truck's tail swung into a deck's pillar as it turned off the lane):
+    // backed off and on round it, as the way out of a jam goes (it had sat there till the stall's 15 s, then gone round
+    // the block to the same pillar, five times)
+    _final(dt, v, g, d) {
       const I = clearIntent(this.I);
       this.state = "final";
       let da = Math.atan2(g.y - v.y, g.x - v.x) - v.heading;
@@ -30772,7 +30871,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (Math.abs(da) > 2.1 && d < 60) {
         I.steer = da > 0 ? -1 : 1;
         I.brake = v.speed > 4 && this._fwd(v) ? 1 : 0.7;
+        this.finSlow = 0;
         return I;
+      }
+      this.finSlow = v.speed < 3 ? (this.finSlow || 0) + dt : 0;
+      if (this.finSlow > 1.5) {
+        this.finSlow = 0;
+        this.esc = { to: [g.x, g.y], t: 0, slow: 0, back: 1, side: da > 0 ? 1 : -1 };
+        this._dropBrain();
+        return this._escape(dt, v);
       }
       const want = Math.min(FINAL * 0.6, 25 + d * 0.5);
       I.steer = Math.max(-1, Math.min(1, da * 2));
@@ -30793,12 +30900,1190 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
   };
 
+  // src/motor/police/wanted.js
+  declare("crimes", shape({
+    name: { type: "string", req: true },
+    heat: { type: "number", req: true, min: 0 },
+    report: { type: "boolean", def: true },
+    // a civilian who sees it may phone it in (traffic offences: only cops care)
+    violent: { type: "boolean", def: false },
+    // the crowd runs from it
+    severity: { type: "number", def: 1, min: 0, max: 3 }
+  }));
+  knob("Wanted", "star1", "1 star at heat", 20, 1, 2e3, 1, "Heat for one star");
+  knob("Wanted", "star2", "2 stars at heat", 60, 1, 2e3, 1, "Heat for two stars");
+  knob("Wanted", "star3", "3 stars at heat", 150, 1, 2e3, 1, "Heat for three stars");
+  knob("Wanted", "star4", "4 stars at heat", 300, 1, 4e3, 1, "Heat for four stars");
+  knob("Wanted", "star5", "5 stars at heat", 600, 1, 8e3, 1, "Heat for five stars");
+  knob("Wanted", "evade1", "Evade 1 star in", 10, 1, 120, 1, "Seconds out of every unit's sight that clear one star");
+  knob("Wanted", "evade2", "Evade 2 stars in", 15, 1, 120, 1, "Seconds out of sight that clear two stars");
+  knob("Wanted", "evade3", "Evade 3 stars in", 25, 1, 120, 1, "Seconds out of sight that clear three stars");
+  knob("Wanted", "evade4", "Evade 4 stars in", 35, 1, 120, 1, "Seconds out of sight that clear four stars");
+  knob("Wanted", "evade5", "Evade 5 stars in", 45, 1, 180, 1, "Seconds out of sight that clear five stars");
+  knob("Wanted", "copSeenMul", "Seen by a cop", 1.5, 1, 4, 0.05, "Heat a crime earns when a cop sees it, against a civilian's report");
+  knob("Wanted", "searchR0", "Search radius", 120, 20, 600, 10, "The search area's radius when the player is first lost (u)");
+  knob("Wanted", "searchGrow", "Search widens", 12, 0, 80, 1, "How fast the search area widens, u a second");
+  knob("Wanted", "searchMax", "Search radius at most", 520, 100, 1500, 10, "The widest the search area grows (u)");
+  var SAME_VICTIM = 30;
+  var SAME_T = 6;
+  var SAME_R = 120;
+  var MAX_HEAT = 2e3;
+  var Wanted = class _Wanted {
+    /** o: { isPlayer(id) -> bool (an id of one of the crew) } */
+    constructor(o = {}) {
+      this.isPlayer = o.isPlayer || (() => false);
+      this.heat = 0;
+      this.stars = 0;
+      this.floorStars = 0;
+      this.capStars = 5;
+      this.t = 0;
+      this.seen = false;
+      this.lastKnown = null;
+      this.lostT = 0;
+      this.searchR = 0;
+      this._searchT = 0;
+      this.recent = [];
+      this.log = [];
+    }
+    /** the crime type's spec (unknown types earn a little heat) */
+    static spec(type) {
+      return get("crimes", type) || { name: type, heat: 5, report: true, violent: false, severity: 1 };
+    }
+    /** a crime someone told the police about: its heat (more when a cop saw it), the last-known position its place.
+     *  e: the crime event ({ type, x, y, by, victim }); o: { cop (a cop saw it) }. Returns the heat it earned */
+    crime(e, o = {}) {
+      if (!e || !this.isPlayer(e.by)) return 0;
+      const S10 = _Wanted.spec(e.type);
+      const victim = e.victim ?? null;
+      for (const r7 of this.recent) {
+        if (r7.type !== e.type || r7.victim !== victim) continue;
+        if (victim !== null ? this.t - r7.t >= SAME_VICTIM : this.t - r7.t >= SAME_T || Math.hypot(r7.x - e.x, r7.y - e.y) >= SAME_R) continue;
+        if (o.cop && !r7.cop) {
+          r7.cop = true;
+          return this._add(S10.heat * (TUNE.copSeenMul - 1), e, "seen");
+        }
+        return 0;
+      }
+      this.recent.push({ type: e.type, victim: e.victim ?? null, x: e.x, y: e.y, t: this.t, cop: !!o.cop });
+      if (this.recent.length > 24) this.recent.shift();
+      return this._add(S10.heat * (o.cop ? TUNE.copSeenMul : 1), e, o.cop ? "cop" : "report");
+    }
+    _add(h, e, how) {
+      if (h <= 0) return 0;
+      this.heat = Math.min(MAX_HEAT, this.heat + h);
+      this.log.push({ type: e.type, heat: h, how, t: this.t });
+      if (this.log.length > 40) this.log.shift();
+      if (e.x !== void 0 && (!this.seen || !this.lastKnown)) {
+        this.lastKnown = { x: e.x, y: e.y };
+        this.lostT = 0;
+      }
+      this._restar();
+      return h;
+    }
+    /** the stars the heat earns, within the floor and the cap */
+    starsFor(heat) {
+      let s = 0;
+      for (let k = 1; k <= 5; k++) if (heat >= TUNE["star" + k]) s = k;
+      return Math.max(this.floorStars, Math.min(this.capStars, s));
+    }
+    _restar() {
+      const prev = this.stars;
+      this.stars = this.starsFor(this.heat);
+      if (this.stars !== prev) {
+        if (prev === 0) {
+          this.lostT = 0;
+        }
+        BUS.emit("wanted", { stars: this.stars, heat: Math.round(this.heat), prev });
+      }
+    }
+    /** set the stars outright (a mission, a test): the heat at that star's threshold */
+    set(n) {
+      n = Math.max(0, Math.min(5, n | 0));
+      this.heat = n ? TUNE["star" + n] : 0;
+      this._restar();
+    }
+    /** a mission's floor (the stars never fall below it) and cap (never above it); 0 and 5 lift them */
+    floor(n) {
+      this.floorStars = Math.max(0, Math.min(5, n | 0));
+      this._restar();
+    }
+    cap(n) {
+      this.capStars = Math.max(0, Math.min(5, n | 0));
+      this._restar();
+    }
+    /** a bribe: one star off */
+    lose(n = 1) {
+      const s = Math.max(0, this.stars - n);
+      this.heat = s ? TUNE["star" + s] : 0;
+      this._restar();
+    }
+    /** all clear (a respray, a pass, wrecked, nabbed, evaded): why goes in the log */
+    clear(why = "clear") {
+      const prev = this.stars;
+      this.heat = 0;
+      this.recent.length = 0;
+      this.lastKnown = null;
+      this.lostT = 0;
+      this.searchR = 0;
+      this.seen = false;
+      this.stars = this.starsFor(0);
+      if (prev !== this.stars) BUS.emit("wanted", { stars: this.stars, heat: 0, prev, why });
+    }
+    /** the evade time for the current stars (s) */
+    get evadeTime() {
+      return this.stars ? TUNE["evade" + this.stars] : 0;
+    }
+    /** the stars flash (the police lost sight of the player) */
+    get flashing() {
+      return this.stars > 0 && !this.seen;
+    }
+    /** one step. o: { seen (a unit sees the player now), at: { x, y } (the player) } */
+    update(dt, o = {}) {
+      this.t += dt;
+      if (!this.stars) {
+        this.seen = false;
+        this.searchR = 0;
+        return;
+      }
+      this.seen = !!o.seen;
+      if (this.seen) {
+        if (o.at) this.lastKnown = { x: o.at.x, y: o.at.y };
+        this.lostT = 0;
+        this.searchR = 0;
+        return;
+      }
+      this.lostT += dt;
+      this.searchR = Math.min(TUNE.searchMax, TUNE.searchR0 + TUNE.searchGrow * this.lostT);
+      if ((this._searchT -= dt) <= 0 && this.lastKnown) {
+        this._searchT = 1;
+        BUS.emit("search", { x: this.lastKnown.x, y: this.lastKnown.y, r: Math.round(this.searchR) });
+      }
+      if (this.lostT >= this.evadeTime && this.stars > this.floorStars) {
+        const s = this.stars;
+        this.clear("evaded");
+        BUS.emit("evaded", { stars: s });
+      }
+    }
+    hash() {
+      return [this.stars, Math.round(this.heat), this.seen ? 1 : 0, Math.round(this.lostT * 10)];
+    }
+    toJSON() {
+      return { stars: this.stars, heat: Math.round(this.heat) };
+    }
+  };
+
+  // src/motor/police/pursuit.js
+  knob("Police", "directFrom", "Drives straight within", 170, 40, 400, 10, "How near a unit leaves the lanes and steers straight for its target (u)");
+  knob("Police", "stopShort", "Stops short by", 26, 8, 80, 1, "How far short of a target on foot (or stopped) a unit stops (u)");
+  var REROUTE = 1.5;
+  var REGOAL = 90;
+  var LOD_IN2 = 20;
+  var HELD = 2.5;
+  var PursuitDriver = class {
+    /** car: the traffic record Traffic.dispatch made ({ v, brain, crew }); o: { gps, map } */
+    constructor(car4, o = {}) {
+      this.car = car4;
+      this.v = car4.v;
+      this.brain = car4.brain;
+      this.gps = o.gps;
+      this.I = makeIntent();
+      this.mode = "route";
+      this.routeT = 0;
+      this.goalAt = null;
+      this.t = 0;
+      this.pinned = 0;
+      this.backT = 0;
+      this.ramT = 0;
+      this.heldT = 0;
+      this.hops = 0;
+    }
+    /** one step. w: the DriverBrain's world ({ fleet, t, pedsNear, wet, sirens }); target as above; fp: the footprint
+     *  (the LOD ring); stop: stop short of the target (the crew gets out) */
+    update(dt, w8, target, fp, o = {}) {
+      const v = this.v, b = this.brain;
+      this.t += dt;
+      const I = clearIntent(this.I);
+      if (!v.body || v.wrecked || !target) return I;
+      const df = fp ? fp.d(v.x, v.y) : 0;
+      if (v.kinematic && df < TUNE.fpFull - LOD_IN2) {
+        v.kinematic = false;
+        v.body.setVelocity(Math.cos(v.heading) * b.speed, Math.sin(v.heading) * b.speed);
+      } else if (!v.kinematic && df > TUNE.fpFull + LOD_IN2 && this.mode === "route" && b.snap()) v.kinematic = true;
+      this.routeT -= dt;
+      if (this.routeT <= 0 && (!this.goalAt || Math.hypot(target.x - this.goalAt[0], target.y - this.goalAt[1]) > REGOAL || b.arrived || b.lost)) {
+        this.routeT = REROUTE;
+        const r7 = this.gps && this.gps.routeTo(v.x, v.y, v.heading, target.x, target.y, { z: v.z, tz: target.z || 0 });
+        if (r7) {
+          b.setRoute(r7.lanes, { lane: r7.to.lane.id, s: r7.to.s });
+          this.goalAt = [target.x, target.y];
+        }
+      }
+      const dx = target.x - v.x, dy = target.y - v.y, d = Math.hypot(dx, dy);
+      const sameLevel2 = Math.abs((target.z || 0) - v.z) < 14, clear = sameLevel2 && d < TUNE.directFrom && this._clearTo(target, o.map);
+      if (v.kinematic) {
+        this.mode = "route";
+        this.heldT = b.speed < 15 && !b.arrived ? this.heldT + dt : 0;
+        if (this.heldT > HELD) {
+          this.heldT = 0;
+          if (this._hop(w8, fp)) this.hops++;
+        }
+        b.step(dt, w8);
+        return I;
+      }
+      if (!clear) {
+        this.mode = "route";
+        return b.update(dt, w8);
+      }
+      const tc = target.car, moving = tc && tc.speed > 25 && !o.stop;
+      let px = target.x, py = target.y, stopAt = 0;
+      if (moving) {
+        const c = Math.cos(tc.heading), s = Math.sin(tc.heading), side = dx * -s + dy * c > 0 ? -1 : 1, lead = Math.min(0.7, d / 260);
+        px = tc.x - c * tc.hl * 0.7 + -s * side * tc.hw * 0.8 + tc.body.vx * lead;
+        py = tc.y - s * tc.hl * 0.7 + c * side * tc.hw * 0.8 + tc.body.vy * lead;
+      } else stopAt = TUNE.stopShort + (tc ? tc.hl : 0) + v.hl;
+      const want = Math.atan2(py - v.y, px - v.x), err = E.angDiff(v.heading, want), sp = v.body.u, dp = Math.hypot(px - v.x, py - v.y);
+      I.steer = E.clamp(err * 2.4, -1, 1);
+      let vWant = moving ? Math.max(tc.speed + 40, 120) : E.clamp((dp - stopAt) * 2.2, 0, 260);
+      const gap = this._pedAhead(w8, target, sp);
+      if (gap !== null) vWant = Math.min(vWant, Math.max(0, gap - 4) * 2);
+      if (sp < vWant - 8) I.throttle = Math.abs(err) > 1.6 ? 0.4 : 1;
+      else if (sp > vWant + 12) I.brake = E.clamp((sp - vWant) / 80, 0.2, 1);
+      if (Math.abs(err) > 1.1 && sp > 90) I.down.handbrake = true;
+      if (!moving && dp < stopAt + 4 && sp < 6) {
+        I.throttle = 0;
+        I.brake = 0;
+        I.down.handbrake = true;
+        this.mode = "stopped";
+      } else this.mode = "direct";
+      if (moving && dp < tc.hl + v.hl + 6) this.ramT += dt;
+      else this.ramT = 0;
+      return this._unpin(dt, I);
+    }
+    // the room before the nearest body on foot in the car's path ahead (its width and a little, as far as it takes to stop
+    // and more), the target's own body aside: null when clear
+    _pedAhead(w8, target, sp) {
+      if (!w8.pedsNear) return null;
+      const v = this.v, c = Math.cos(v.heading), s = Math.sin(v.heading), look3 = v.hl + 20 + Math.max(0, sp) * 0.6, mx = v.x + c * look3 / 2, my = v.y + s * look3 / 2;
+      let best = null;
+      for (const p of w8.pedsNear(mx, my, look3 / 2 + 12)) {
+        if (p.dead || p.seat || target.car === null && Math.hypot(p.x - target.x, p.y - target.y) < 3 || Math.abs((p.z || 0) - v.z) > 14) continue;
+        const dx = p.x - v.x, dy = p.y - v.y, f = dx * c + dy * s, l7 = -dx * s + dy * c;
+        if (f > v.hl - 2 && f < look3 && Math.abs(l7) < v.hw + 7) {
+          const gap = f - v.hl;
+          if (best === null || gap < best) best = gap;
+        }
+      }
+      return best;
+    }
+    // far off and held up: on along its route to the first free stretch of lane past the hold-up, the way there and the
+    // spot both out of sight (beyond fpSpawnIn); false when there is none
+    _hop(w8, fp) {
+      const b = this.brain, v = this.v;
+      if (!fp || !w8.fleet || fp.d(v.x, v.y) < TUNE.fpSpawnIn) return false;
+      for (let d = 40; d <= 640; d += 20) {
+        const a = b.ahead(d);
+        if (!a || a.j === b.path.length - 1 && a.s >= b.path[a.j].len - 1) return false;
+        if (fp.d(a.p[0], a.p[1]) < TUNE.fpSpawnIn) return false;
+        const e = b.path[a.j];
+        if (!e || e.k !== "lane" || a.s < v.hl + 8 || a.s > e.len - v.hl - 8) continue;
+        if (w8.fleet.near(a.p[0], a.p[1], 90).some((o) => o !== v && o.body && o.cls !== "heli" && Math.abs(o.z - a.p[2]) < 12 && Math.hypot(o.x - a.p[0], o.y - a.p[1]) < o.hl + v.hl + 12)) continue;
+        b._release();
+        b._advance(d, 0, 0);
+        b._grow();
+        b.speed = Math.max(b.speed, 40);
+        return true;
+      }
+      return false;
+    }
+    // a clear line from the unit to the target (nothing taller than a curb between them)
+    _clearTo(target, map) {
+      if (!map || !map.ray) return true;
+      return map.ray({ x: this.v.x, y: this.v.y, z: this.v.z }, { x: target.x, y: target.y, z: target.z || 0 }, { eye: 10, target: 8 }).clear;
+    }
+    // pushing and going nowhere: back off on the other lock a moment
+    _unpin(dt, I) {
+      const v = this.v;
+      if (this.backT > 0) {
+        this.backT -= dt;
+        I.throttle = 0;
+        I.down.handbrake = false;
+        I.brake = v.body.u < -30 ? 0 : 0.7;
+        I.steer = this._backSteer;
+        return I;
+      }
+      this.pinned = I.throttle > 0.3 && Math.abs(v.body.u) < 2 ? this.pinned + dt : 0;
+      if (this.pinned > 1.2) {
+        this.pinned = 0;
+        this.backT = 0.9;
+        this._backSteer = -(I.steer || 1);
+      }
+      return I;
+    }
+  };
+
+  // src/motor/police/cop.js
+  knob("Police", "copRange", "Officers shoot within", 150, 40, 400, 5, "How near an officer comes before it stops to shoot (u)");
+  knob("Police", "copBurst", "A burst lasts", 0.7, 0.1, 3, 0.05, "Seconds an officer holds the trigger");
+  knob("Police", "copPause", "Between bursts", 0.6, 0.1, 3, 0.05, "Seconds between an officer's bursts");
+  knob("Police", "copAimOff", "Officers' aim", 0.07, 0, 0.4, 0.01, "How far off (radians) an officer's burst may be");
+  var PROFILE = { burst: () => TUNE.copBurst, pause: () => TUNE.copPause, aimOff: () => TUNE.copAimOff };
+  var CopBrain = class extends Fighter {
+    /** ped: the cop's Ped; o: { walks (Sidewalks), map, rng, unit (its car's police unit, or null), seat, post ([x, y]:
+     *  a roadblock's), flank (-1 | 1: a Fed's side) } */
+    constructor(ped, o = {}) {
+      super(ped, { walks: o.walks, map: o.map, fleet: o.fleet, rng: o.rng, profile: PROFILE });
+      this.unit = o.unit || null;
+      this.seat = o.seat ?? 0;
+      this.post = o.post || null;
+      this.flank = o.flank || 0;
+      this.sees = false;
+    }
+    /** one step. w: { player (Ped), car (the player's vehicle or null), seen (this cop sees the player), stars, shoot
+     *  (the tier shoots, or the player fought the police), lastKnown, searchR, standDown } */
+    update(dt, w8) {
+      const I = clearIntent(this.I), p = this.ped, P21 = w8.player;
+      this.t += dt;
+      if (p.dead || p.floored || p.held || p.boarding || p.seat || !P21) return I;
+      if (w8.standDown) return this._home(dt, I);
+      if (w8.seen) {
+        const tgt = w8.car ? { x: w8.car.x, y: w8.car.y, z: w8.car.z } : P21, d = Math.hypot(tgt.x - p.x, tgt.y - p.y);
+        if (w8.shoot && this.gun) return this._shoot(dt, I, w8, tgt, d);
+        this._holster();
+        if (w8.car && w8.car.speed < 6) {
+          const door2 = doorOf(w8.car);
+          return this._go(dt, I, door2[0], door2[1], Math.hypot(door2[0] - p.x, door2[1] - p.y) > 30, "door");
+        }
+        if (d < 9) {
+          p.mover.facing = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+          return I;
+        }
+        if (this.post && d > 90) return this._hold(I, tgt);
+        return this._go(dt, I, tgt.x, tgt.y, true, "player");
+      }
+      this._holster();
+      if (this.post) return this._hold(I, w8.lastKnown);
+      const L22 = w8.lastKnown;
+      if (!L22) return I;
+      if (!this.goal || this.goal.key !== "search") this.goal = { x: L22.x, y: L22.y, key: "search", reached: false };
+      if (Math.hypot(this.goal.x - p.x, this.goal.y - p.y) < 14) {
+        const a = this._r() * Math.PI * 2, r7 = (w8.searchR || 120) * (0.3 + 0.7 * this._r());
+        this.goal = { x: L22.x + Math.cos(a) * r7, y: L22.y + Math.sin(a) * r7, key: "search", reached: true };
+      }
+      return this._go(dt, I, this.goal.x, this.goal.y, !this.goal.reached, "search");
+    }
+    // in range with a clear shot: stop, aim at the chest and fire in bursts; out of range (or a Fed's flank): close in
+    _shoot(dt, I, w8, tgt, d) {
+      const p = this.ped;
+      if (p.inv.current !== this.gun) p.inv.select(this.gun);
+      if (this.flank && d > 70) {
+        const hx = w8.car ? Math.cos(w8.car.heading) : Math.cos(w8.player.mover.facing), hy = w8.car ? Math.sin(w8.car.heading) : Math.sin(w8.player.mover.facing);
+        const fx7 = tgt.x - hy * this.flank * 80, fy = tgt.y + hx * this.flank * 80;
+        if (Math.hypot(fx7 - p.x, fy - p.y) > 24) {
+          this._go(dt, I, fx7, fy, true, "flank");
+          this._aimAt(I, tgt, false);
+          return I;
+        }
+      }
+      const range = TUNE.copRange * (this.post ? 1.4 : 1), line = this._lineTo(tgt);
+      if (d > range || line === "wall") {
+        this._go(dt, I, tgt.x, tgt.y, true, "player");
+        return I;
+      }
+      if (line === "car" && !(w8.car && w8.car.speed < 6 && d < 40)) return this._aside(dt, I, tgt);
+      I.move[0] = I.move[1] = 0;
+      if (this.burst > 0) {
+        this.burst -= dt;
+        this._aimAt(I, tgt, true);
+        if (this.burst <= 0) this.pause = TUNE.copPause * (0.7 + 0.6 * this._r());
+      } else {
+        this.pause -= dt;
+        this._aimAt(I, tgt, false);
+        if (this.pause <= 0) {
+          this.burst = TUNE.copBurst * (0.7 + 0.6 * this._r());
+          this.off = (this._r() - 0.5) * 2 * TUNE.copAimOff;
+        }
+      }
+      return I;
+    }
+    // a roadblock's officer: at its post, facing the way the player is
+    _hold(I, at) {
+      const p = this.ped, [px, py] = this.post, d = Math.hypot(px - p.x, py - p.y);
+      if (d > 8) {
+        I.move[0] = (px - p.x) / d * 0.6;
+        I.move[1] = (py - p.y) / d * 0.6;
+      } else if (at) p.mover.facing = Math.atan2(at.y - p.y, at.x - p.x);
+      return I;
+    }
+    // stood down (or called back to drive on): back to its car's door and in; with no car, nothing
+    _home(dt, I) {
+      const p = this.ped, u = this.unit, v = u && u.car && u.car.v;
+      this._holster();
+      if (!v || v.wrecked) return I;
+      const d = Math.hypot(v.x - p.x, v.y - p.y);
+      if (d < v.hl + 16 && !v.seats[this.seat]) {
+        const plan2 = boardingFor(p, v, this.seat);
+        if (plan2) p.board(plan2);
+        return I;
+      }
+      return this._go(dt, I, v.x, v.y, d > 80, "car");
+    }
+  };
+  function doorOf(v) {
+    const s = v.model && v.model.seats && v.model.seats[0] || { x: 0, y: -1 };
+    return v.toWorld(s.x, (s.y >= 0 ? 1 : -1) * (v.hw + 7));
+  }
+
+  // src/motor/police/police.js
+  declare("policeTiers", shape({
+    cruisers: { type: "number", def: 1, min: 0 },
+    swat: { type: "number", def: 0, min: 0 },
+    feds: { type: "number", def: 0, min: 0 },
+    chopper: { type: "boolean", def: false },
+    roadblocks: { type: "number", def: 0, min: 0 },
+    spikes: { type: "number", def: 0, min: 0 },
+    shoot: { type: "boolean", def: false },
+    flank: { type: "boolean", def: false }
+  }));
+  knob("Police", "copSight", "Officers see", 240, 60, 600, 10, "How far an officer on foot sees (u)");
+  knob("Police", "copFov", "Officers' view", 2.6, 0.5, 6.3, 0.1, "How wide an officer on foot sees (radians)");
+  knob("Police", "carSight", "A crew in its car sees", 300, 60, 700, 10, "How far the crew of a police car sees, all round (u)");
+  knob("Police", "heliSight", "The Eye sees", 520, 100, 1200, 10, "How far the MPD Eye sees down, all round (u)");
+  knob("Police", "arrestTime", "Cuffed after", 0.8, 0.1, 4, 0.05, "Seconds a cop must be at a slow or unarmed player on foot to cuff them");
+  knob("Police", "doorTime", "Pulled out after", 1.5, 0.2, 6, 0.1, "Seconds a cop must stand at the door of the player's stopped car");
+  knob("Police", "arrestReach", "Cuffs within", 12, 4, 30, 1, "How near a cop must be to cuff the player (u)");
+  knob("Police", "slowSpeed", "Slow enough to cuff", 35, 5, 200, 5, "A player on foot slower than this can be cuffed even armed (u/s)");
+  knob("Police", "roadblockEvery", "A roadblock every", 18, 3, 120, 1, "Seconds between roadblocks (from 3 stars, while the player drives)");
+  knob("Police", "spikeEvery", "Spike strips every", 25, 3, 120, 1, "Seconds between spike strips (from 4 stars)");
+  knob("Police", "speedLimit", "Speeding above", 230, 60, 500, 5, "A speed a cop who sees it calls speeding (u/s)");
+  var UNITS2 = {
+    // (each kind's vehicle and crew; content may override: the fleet entry's police.units)
+    cruiser: { def: "cruiser", crew: ["mpd", "mpd"] },
+    swat: { def: "rhino", crew: ["swat", "swat", "swat"] },
+    fed: { def: "fedsedan", crew: ["fed", "fed"] }
+  };
+  var SENSE_EVERY = 0.2;
+  var DISPATCH_EVERY = 1;
+  var OUT_NEAR = 90;
+  var STUCK_OUT = 3;
+  var STUCK_NEAR = 320;
+  var PENDING = 3;
+  var FALL2 = 2.5;
+  var RECALL = 140;
+  var HELI_R = 110;
+  var HELI_CLAIM = 1600;
+  var NOAIM4 = { candidates: [], level: "off" };
+  function underDeck(city, P21) {
+    for (const d of city.decks || []) {
+      const h = d.heightAt(P21.x, P21.y);
+      if (h !== null && h > (P21.z || 0) + 20) return true;
+    }
+    return false;
+  }
+  var Police = class {
+    /** o: { life (CityLife: traffic, crowd, services, graph, gps, walks), city, fleet, combat, footprint, isPlayer(id),
+     *  spec (the fleet entry's police: { units }), rng } */
+    constructor(o) {
+      this.life = o.life;
+      this.city = o.city;
+      this.fleet = o.fleet;
+      this.combat = o.combat || null;
+      this.fp = o.footprint;
+      this.rng = o.rng || RNG.stream("police");
+      this.isPlayer = o.isPlayer || (() => false);
+      this.unitsSpec = { ...UNITS2, ...o.spec && o.spec.units || {} };
+      this.wanted = new Wanted({ isPlayer: this.isPlayer });
+      this.units = [];
+      this.cops = [];
+      this.blocks = [];
+      this.spikes = [];
+      this.heli = null;
+      this.pending = [];
+      this.t = 0;
+      this.step = 0;
+      this._senseT = 0;
+      this._dispT = 0;
+      this._blockT = 0;
+      this._spikeT = 0;
+      this._offT = 0;
+      this.seen = false;
+      this.copSees = false;
+      this.cuffT = 0;
+      this.doorT = 0;
+      this.busted = null;
+      this.fought = false;
+      this.player = null;
+      this.car = null;
+      this.idle = makeIntent();
+      this.parked = makeIntent();
+      this.parked.down.handbrake = true;
+      this._inBox = null;
+      this.spawned = 0;
+      this.claimed = 0;
+      this._unsub = [
+        BUS.on("crime", (e) => this._crime(e), "world"),
+        BUS.on("report", (e) => this._report(e), "world"),
+        BUS.on("hit", (e) => this._hit(e), "world")
+      ];
+    }
+    dispose() {
+      for (const u of this._unsub) u();
+      this._unsub = [];
+    }
+    /** the tier the stars call for (null at none) */
+    tier(stars = this.wanted.stars) {
+      return stars ? get("policeTiers", String(stars)) || { cruisers: 1 } : null;
+    }
+    // ---- what is seen, and what it earns
+    // a crime of the player's: each cop who sees them now takes it in (the mind's alert files it, in _sense)
+    _crime(e) {
+      if (!e || e.x === void 0 || !this.isPlayer(e.by)) return;
+      const c = this._classify(e), P21 = this.player;
+      if (!P21) return;
+      const S10 = Wanted.spec(c.type), boost = S10.violent || S10.severity >= 2 ? 1.2 : 0.7 + 0.1 * S10.severity;
+      for (const o of this._observers()) {
+        if (!this._sees(o, P21)) continue;
+        o.mind.level = Math.max(o.mind.level, boost);
+        o.mind.last = { x: P21.x, y: P21.y, z: P21.z || 0 };
+        this.pending.push({ e: c, mind: o.mind, t: this.t });
+      }
+    }
+    // the crime as the police name it: an officer's assault or murder, a police car taken
+    _classify(e) {
+      const vic = e.victim != null && this.combat ? this.combat.bodies.find((b) => b.id === e.victim) : null, cop = (vic ? vic.faction : e.victimFaction) === "police";
+      let type = e.type;
+      if (cop && e.type === "assault") type = "copAssault";
+      else if (cop && e.type === "murder") type = "copMurder";
+      else if ((e.type === "carjack" || e.type === "breakIn") && (cop || e.vehicle != null && this.fleet.byId(e.vehicle)?.def.role === "police")) type = "policeCarTheft";
+      if (type === "copAssault" || type === "copMurder") this.fought = true;
+      return type === e.type ? e : { ...e, type };
+    }
+    // a civilian's report: the player's crime files its heat; one that earns no star (or someone else's) brings a car to
+    // look round
+    _report(e) {
+      const c = { type: e.crime, x: e.x, y: e.y, by: e.by, victim: e.victim ?? null };
+      if (this.isPlayer(e.by)) {
+        this.wanted.crime(this._classify(c), { cop: false });
+        if (this.wanted.stars) return;
+      }
+      if (this.life.services) this.life.services.call("police", e.x, e.y, { crime: e.crime, by: e.by });
+    }
+    // the player hit a cop: from now on the police shoot back
+    _hit(e) {
+      if (this.isPlayer(e.by) && this.combat) {
+        const t = this.combat.bodies.find((b) => b.id === e.target);
+        if (t && t.faction === "police") this.fought = true;
+      }
+    }
+    /** every police body that looks: { x, y, z, facing, fov, range, eye, kind ('foot' | 'patrol' | 'call' | 'car' |
+     *  'block' | 'heli'), mind, ... }. make: false never makes a mind (the radar's view of them) */
+    _observers(make = true) {
+      const out = [], mind = (o, rise = 2.4) => o.mind || (make ? o.mind = new E.Suspicion({ rise }) : null);
+      for (const c of this.cops) {
+        const p = c.ped;
+        if (p.dead || p.seat || p.floored) continue;
+        out.push({ x: p.x, y: p.y, z: p.z || 0, facing: p.mover.facing, fov: TUNE.copFov, range: TUNE.copSight, kind: "foot", mind: c.mind, cop: c });
+      }
+      const C13 = this.life.crowd;
+      if (C13) for (const m of C13.members) {
+        const p = m.ped;
+        if (p.faction !== "police" || p.dead || m.deadT) continue;
+        out.push({ x: p.x, y: p.y, z: p.z || 0, facing: p.mover.facing, fov: TUNE.copFov, range: TUNE.copSight, kind: "patrol", mind: mind(m), member: m });
+      }
+      const S10 = this.life.services;
+      if (S10) for (const c of S10.calls) {
+        if (c.kind !== "police" || c.state === "done" || !c.unit) continue;
+        if (c.state === "sent") {
+          const v = c.unit.v;
+          out.push({ x: v.x, y: v.y, z: v.z, facing: v.heading, fov: 7, range: TUNE.carSight, eye: 14, kind: "call", mind: mind(c), call: c });
+          continue;
+        }
+        for (const f of c.crew) {
+          const p = f.ped;
+          if (p.dead || p.seat || p.floored) continue;
+          out.push({ x: p.x, y: p.y, z: p.z || 0, facing: p.mover.facing, fov: TUNE.copFov, range: TUNE.copSight, kind: "call", mind: mind(f), call: c });
+        }
+      }
+      for (const u of this.units) {
+        const v = u.car.v;
+        if (u.out || u.gone || v.wrecked || !u.car.crew.some((q) => q && q.seat && !q.dead)) continue;
+        out.push({ x: v.x, y: v.y, z: v.z, facing: v.heading, fov: 7, range: TUNE.carSight, eye: 14, kind: "car", mind: mind(u), unit: u });
+      }
+      for (const b of this.blocks) for (const v of b.cars) if (!v.wrecked) out.push({ x: v.x, y: v.y, z: v.z, facing: v.heading, fov: 7, range: TUNE.carSight * 0.8, eye: 14, kind: "block", mind: mind(b), block: b });
+      if (this.heli && !this.heli.v.wrecked) {
+        const v = this.heli.v;
+        out.push({ x: v.x, y: v.y, z: v.z, facing: v.heading, fov: 7, range: TUNE.heliSight, eye: 0, kind: "heli", mind: mind(this.heli, 3) });
+      }
+      return out.filter((o) => o.mind);
+    }
+    /** does this observer see the player? An alley shortens every sight; under a deck the ground units see a little way
+     *  and the Eye nothing */
+    _sees(o, P21) {
+      const under = this._underDeck(P21), alley = this.city.surfaceAtPoint && this.city.surfaceAtPoint(P21.x, P21.y) === "alley";
+      if (o.kind === "heli") {
+        if (under) return false;
+        if (Math.hypot(P21.x - o.x, P21.y - o.y) > o.range * (alley ? 0.6 : 1)) return false;
+        return !this.city.map.ray || this.city.map.ray({ x: o.x, y: o.y, z: o.z }, { x: P21.x, y: P21.y, z: P21.z || 0 }, { eye: 0, target: 10 }).clear;
+      }
+      const range = o.range * (alley ? 0.5 : 1) * (under ? 0.6 : 1);
+      return E.sees(o, P21, { map: this.city.map, range, fov: o.fov, facing: o.facing, eye: o.eye }).seen;
+    }
+    _underDeck(P21) {
+      return underDeck(this.city, P21);
+    }
+    // ---- the step
+    /** one step. ctx: { player (the possessed Ped), night, W (the drivers' world: { fleet, t, pedsNear, wet, sirens }) } */
+    update(dt, ctx = {}) {
+      this.t += dt;
+      this.step++;
+      const P21 = this.player = ctx.player || null;
+      if (!P21) return;
+      const car4 = this.car = P21.seat && P21.seat.vehicle && P21.seat.vehicle.driver === P21 ? P21.seat.vehicle : null, W26 = this.wanted;
+      this._senseT -= dt;
+      if (this._senseT <= 0) {
+        this._senseT = SENSE_EVERY;
+        this._sense(SENSE_EVERY, P21);
+      }
+      if (!this.busted) W26.update(dt, { seen: this.seen && !P21.dead, at: P21 });
+      if (car4 && !this.busted) this._offences(dt, P21, car4);
+      else this._inBox = null;
+      const standDown = !W26.stars;
+      if (standDown && !this.busted) this.fought = false;
+      this._dispT -= dt;
+      if (this._dispT <= 0) {
+        this._dispT = DISPATCH_EVERY;
+        this._dispatch(P21);
+      }
+      this._units(dt, ctx, P21, car4, standDown);
+      this._copsStep(dt, P21, car4, standDown);
+      this._heliStep();
+      this._blocksStep(dt, P21, car4, standDown);
+      this._nab(dt, P21, car4);
+    }
+    _sense(dt, P21) {
+      let seen = false, any = false;
+      const live = !P21.dead && !this.busted;
+      for (const o of this._observers()) {
+        const s = live && this._sees(o, P21);
+        o.mind.update(dt, s ? { exposure: 1, d: Math.hypot(P21.x - o.x, P21.y - o.y) } : false, P21);
+        if (o.cop) o.cop.sees = s;
+        if (!s) continue;
+        any = true;
+        if (this.wanted.stars) {
+          seen = true;
+          if (o.member) this._claim(o.member);
+          else if (o.call) this._claimCall(o.call);
+        }
+      }
+      this.seen = seen;
+      this.copSees = any;
+      for (let i = this.pending.length - 1; i >= 0; i--) {
+        const q = this.pending[i];
+        if (q.mind.state === "alert") {
+          this.wanted.crime(q.e, { cop: true });
+          this.pending.splice(i, 1);
+        } else if (this.t - q.t > PENDING) this.pending.splice(i, 1);
+      }
+    }
+    // speeding past a cop, a red light run in a cop's sight: crimes like any other (nobody else minds them)
+    _offences(dt, P21, car4) {
+      this._offT -= dt;
+      if (this._offT > 0) return;
+      this._offT = 0.25;
+      const G2 = this.life.graph;
+      let box2 = null;
+      if (G2) for (const R3 of G2.regions) {
+        if (R3.kind !== "junction") continue;
+        const [x0, y0, x1, y1] = R3.box;
+        if (car4.x >= x0 && car4.x <= x1 && car4.y >= y0 && car4.y <= y1 && Math.abs(car4.z - R3.z) < 12) {
+          box2 = R3;
+          break;
+        }
+      }
+      const entered = box2 && box2 !== this._inBox;
+      this._inBox = box2;
+      if (!this.copSees) return;
+      if (car4.speed > TUNE.speedLimit) BUS.emit("crime", { type: "speeding", x: car4.x, y: car4.y, by: P21.id, victim: null, severity: 0 });
+      if (entered && box2.signals === "signal" && car4.speed > 30) {
+        const axis = Math.abs(Math.cos(car4.heading)) > Math.abs(Math.sin(car4.heading)) ? "ew" : "ns";
+        if (signalAt(box2, this.life.t)[axis] === "red") BUS.emit("crime", { type: "redLight", x: car4.x, y: car4.y, by: P21.id, victim: null, severity: 0 });
+      }
+    }
+    // ---- the response
+    _dispatch(P21) {
+      const T21 = this.tier();
+      if (!T21 || this.busted) {
+        if (!T21 && this.heli) this._freeHeli();
+        return;
+      }
+      const W26 = this.wanted, at = W26.seen || !W26.lastKnown ? P21 : W26.lastKnown;
+      const want = { cruiser: T21.cruisers || 0, swat: T21.swat || 0, fed: T21.feds || 0 }, have = { cruiser: 0, swat: 0, fed: 0 };
+      for (const u of this.units) if (!u.gone) have[u.kind]++;
+      for (const k of ["fed", "swat", "cruiser"]) {
+        if (have[k] >= want[k]) continue;
+        const U2 = this.unitsSpec[k], c = this.life.traffic && this.life.traffic.dispatch(U2.def, at.x, at.y, { kind: "police", crew: U2.crew, stop: 0, z: at.z || 0 });
+        if (!c) break;
+        const u = this._unit(k, c);
+        u.flank = k === "fed" ? this.units.filter((q) => q.kind === "fed").length % 2 ? 1 : -1 : 0;
+        this.spawned++;
+        BUS.emit("dispatch", { kind: "police", unit: c.v.id, x: Math.round(at.x), y: Math.round(at.y), tier: k });
+        break;
+      }
+      for (const k of ["cruiser", "swat", "fed"]) {
+        const mine = this.units.filter((u) => u.kind === k && !u.gone && !u.out);
+        if (mine.length <= want[k]) continue;
+        mine.sort((a, b) => Math.hypot(b.car.v.x - P21.x, b.car.v.y - P21.y) - Math.hypot(a.car.v.x - P21.x, a.car.v.y - P21.y) || a.car.v.id - b.car.v.id);
+        this._release(mine[0]);
+      }
+      if (T21.chopper && !this.heli) this._claimHeli(P21);
+      if (!T21.chopper && this.heli) this._freeHeli();
+    }
+    _unit(kind, c) {
+      c.duty.ext = true;
+      c.v.owner = "police";
+      const u = { kind, car: c, drive: new PursuitDriver(c, { gps: this.life.gps }), I: this.idle, out: false, gone: false, recall: false, born: this.t, flank: 0, mind: null };
+      this.units.push(u);
+      return u;
+    }
+    // each unit: on the chase; near the player on foot (or stopped) its crew gets out; back in to drive on, or to leave
+    _units(dt, ctx, P21, car4, standDown) {
+      const W26 = this.wanted, WD = ctx.W || { fleet: this.fleet, t: this.life.t };
+      for (const u of this.units) {
+        const c = u.car, v = c.v;
+        if (c.duty && c.duty.lost && !v.wrecked && this.fleet.vehicles.includes(v)) this._bail(u);
+        if (!c.duty || c.duty.lost || v.wrecked || v.sunk || !this.fleet.vehicles.includes(v)) {
+          this._gone(u);
+          continue;
+        }
+        for (const q of c.crew) if (q && q.seat && q.seat.vehicle === v) q.ride();
+        const living = c.crew.filter((q) => q && !q.dead), aboard = living.filter((q) => q.seat && q.seat.vehicle === v);
+        if (!living.length) {
+          this.life.traffic.abandon(c);
+          this._gone(u);
+          continue;
+        }
+        if (u.out) {
+          u.I = this.parked;
+          u.recall = !standDown && !!car4 && car4.speed > 60 && Math.hypot(car4.x - v.x, car4.y - v.y) > RECALL;
+          living.forEach((q, i) => {
+            const cop = this.cops.find((k) => k.ped === q);
+            if (cop) cop.brain.seat = i;
+          });
+          if (aboard.length === living.length) {
+            if (!v.driver) {
+              const q = aboard[0];
+              v.unseat(q);
+              v.sit(q, 0);
+            }
+            c.crew = living;
+            c.driver = v.driver;
+            c.duty.out = false;
+            c.brain.parked = false;
+            u.out = false;
+            u.recall = false;
+            u.drive.goalAt = null;
+            u.drive.routeT = 0;
+            for (const q of living) this._dropCop(q, false);
+          }
+          continue;
+        }
+        if (standDown) {
+          this._release(u);
+          continue;
+        }
+        if (this.busted) {
+          u.I = this.parked;
+          continue;
+        }
+        const tgt = W26.seen || !W26.lastKnown ? { x: P21.x, y: P21.y, z: P21.z || 0, car: car4 } : { x: W26.lastKnown.x, y: W26.lastKnown.y, z: 0, car: null };
+        const stopFor = !car4 || car4.speed < 10, d = Math.hypot(tgt.x - v.x, tgt.y - v.y);
+        u.I = u.drive.update(dt, WD, tgt, this.fp, { map: this.city.map, stop: stopFor });
+        u.stillT = !v.kinematic && v.speed < 4 ? (u.stillT || 0) + dt : 0;
+        const T21 = this.life.traffic, onLane = T21.parkable(c) || T21.heldBehind(c);
+        if (stopFor && !v.kinematic && (W26.seen && v.speed < 8 && d < OUT_NEAR || u.stillT > STUCK_OUT && d < STUCK_NEAR && onLane)) this._crewOut(u);
+      }
+      this.units = this.units.filter((u) => !u.gone);
+    }
+    _crewOut(u) {
+      const c = u.car, v = c.v;
+      u.out = true;
+      u.I = this.parked;
+      c.duty.out = true;
+      if (c.brain) c.brain.parked = true;
+      c.crew.forEach((ped, i) => {
+        if (!ped || ped.dead || !ped.seat) return;
+        const plan2 = exitFor(ped, v);
+        if (plan2) ped.leave(plan2);
+        else {
+          v.unseat(ped);
+          const [x, y] = v.toWorld(0, (i % 2 ? 1 : -1) * (v.hw + 8));
+          ped.place(x, y, v.z);
+        }
+        this._addCop(ped, { unit: u, seat: i, flank: u.flank });
+      });
+    }
+    // a car the player took from a unit: whoever is still in it gets out and joins in on foot
+    _bail(u) {
+      const v = u.car.v;
+      u.car.crew.forEach((q, i) => {
+        if (!q || q.dead || !q.seat || q.seat.vehicle !== v || this.isPlayer(q.id)) return;
+        const plan2 = exitFor(q, v);
+        if (plan2) q.leave(plan2);
+        else {
+          v.unseat(q);
+          const [x, y] = v.toWorld(0, (i % 2 ? 1 : -1) * (v.hw + 8));
+          q.place(x, y, v.z);
+        }
+        this._addCop(q, {});
+      });
+    }
+    // a unit back to the traffic: siren off, its crew aboard (any still out walk back first: cop.js's stand-down)
+    _release(u) {
+      const c = u.car;
+      if (c.crew.some((q) => q && !q.dead && !q.seat)) {
+        u.out = true;
+        c.duty.out = true;
+        return;
+      }
+      u.gone = true;
+      c.duty.ext = false;
+      this.life.traffic.release(c);
+      c.v.owner = "world";
+      for (const q of c.crew) if (q) this._dropCop(q, false);
+    }
+    _gone(u) {
+      u.gone = true;
+      if (u.car.duty) u.car.duty.ext = false;
+      for (const c of this.cops) if (c.unit === u) c.unit = null;
+    }
+    // ---- cops on foot
+    _addCop(ped, o = {}) {
+      let c = this.cops.find((k) => k.ped === ped);
+      if (c) {
+        if (o.unit) {
+          c.unit = o.unit;
+          c.brain.unit = o.unit;
+          c.brain.seat = o.seat ?? c.brain.seat;
+        }
+        return c;
+      }
+      const brain = new CopBrain(ped, { walks: this.life.walks, map: this.city.map, fleet: this.fleet, rng: this.rng, unit: o.unit || null, seat: o.seat ?? 0, post: o.post || null, flank: o.flank || 0 });
+      c = { ped, brain, unit: o.unit || null, block: o.block || null, mind: new E.Suspicion({ rise: 2.4 }), sees: false, deadT: 0, crowd: !!o.crowd, arch: o.arch || ped.archetype || null };
+      this.cops.push(c);
+      if (this.combat) this.combat.add(ped);
+      ped.lazyRig = true;
+      ped.coast = false;
+      ped.crowd = false;
+      return c;
+    }
+    /** an officer out of its car some other way (pulled out by the player, rammed out): on foot, it joins in */
+    adoptCop(ped) {
+      return this._addCop(ped, {});
+    }
+    // off the police's hands: seated in its car again (combat: false keeps it in Combat's bodies), or gone
+    _dropCop(ped, combat = true) {
+      const i = this.cops.findIndex((c) => c.ped === ped);
+      if (i < 0) return;
+      this.cops.splice(i, 1);
+      if (combat && this.combat) this.combat.remove(ped);
+    }
+    // a patrol officer who sees the wanted player leaves its beat (the crowd lets it go) and joins the chase
+    _claim(m) {
+      const C13 = this.life.crowd;
+      if (!C13 || !C13.release(m)) return;
+      this._addCop(m.ped, { crowd: true, arch: m.arch });
+      this.claimed++;
+    }
+    // a car sent to look round (emergency.js) whose officers see the player wanted: the unit and its crew join the chase
+    _claimCall(call) {
+      const S10 = this.life.services, h = S10 && S10.handOver(call);
+      if (!h) return;
+      const u = this._unit("cruiser", h.unit);
+      u.out = h.scene;
+      this.claimed++;
+      if (!h.scene) {
+        h.unit.duty.out = false;
+        h.unit.brain.parked = false;
+      }
+      for (const f of h.crew) if (!f.ped.dead && !f.ped.seat) this._addCop(f.ped, { unit: u, seat: f.seat });
+    }
+    _copsStep(dt, P21, car4, standDown) {
+      const W26 = this.wanted, T21 = this.tier(), shoot = !!(T21 && T21.shoot) || this.fought;
+      const PW = { map: this.city.map, city: this.city, combat: this.combat, fleet: this.fleet, aim: NOAIM4 }, C13 = this.life.crowd;
+      for (const c of this.cops) {
+        const p = c.ped;
+        if (p.dead) {
+          if (!c.deadT) c.deadT = this.t;
+          if (this.t - c.deadT < FALL2) p.update(dt, this.idle, PW);
+          else if (C13) {
+            C13.adopt(p, "dead", { arch: c.arch ? get("peds", c.arch) : null });
+            c.returned = true;
+          }
+          continue;
+        }
+        if (p.seat) continue;
+        if (standDown && !c.block && (!c.unit || c.unit.gone) && C13) {
+          C13.adopt(p, "calm", { arch: c.arch ? get("peds", c.arch) : null });
+          c.returned = true;
+          continue;
+        }
+        const busted = !!this.busted, home = standDown || !!(c.unit && c.unit.recall);
+        const I = c.brain.update(dt, { player: P21, car: car4, seen: c.sees && W26.stars > 0 && !busted, stars: W26.stars, shoot: shoot && !busted, lastKnown: W26.lastKnown, searchR: W26.searchR, standDown: home });
+        if (busted) {
+          I.move[0] = I.move[1] = 0;
+          I.down.attack = false;
+          I.down.sprint = false;
+        }
+        p.update(dt, I, PW);
+      }
+      this.cops = this.cops.filter((c) => {
+        if (c.returned) return false;
+        if (standDown && !c.unit && !c.block && !C13 && this.fp.d(c.ped.x, c.ped.y) > TUNE.fpSpawnOut) {
+          if (this.combat) this.combat.remove(c.ped);
+          return false;
+        }
+        return true;
+      });
+    }
+    // ---- the Eye
+    _claimHeli(P21) {
+      let v = null, bd = HELI_CLAIM;
+      for (const q of this.fleet.vehicles) if (q.def.id === "eye" && !q.wrecked) {
+        const d = Math.hypot(q.x - P21.x, q.y - P21.y);
+        if (d < bd) {
+          bd = d;
+          v = q;
+        }
+      }
+      if (v) this.leaving = (this.leaving || []).filter((q) => q !== v);
+      if (!v) {
+        const a = this.rng.next() * Math.PI * 2, r7 = TUNE.fpSpawnIn + 40;
+        v = this.fleet.spawn("eye", P21.x + Math.cos(a) * r7, P21.y + Math.sin(a) * r7, a + Math.PI);
+        v.owner = "police";
+      }
+      const alt = v.body.h.hoverZ, h = this.heli = { v, patrol: v.ai || null, mind: null, orbit: this.rng.next() * Math.PI * 2 };
+      v.ai = (dt, me) => {
+        const W26 = this.wanted, at = W26.seen || !W26.lastKnown ? this.player : W26.lastKnown;
+        if (!at) return { to: [me.x, me.y], alt, spot: null };
+        h.orbit += dt * 0.35;
+        const ox = Math.cos(h.orbit) * HELI_R, oy = Math.sin(h.orbit) * HELI_R;
+        const sweep2 = W26.seen ? 0 : W26.searchR * 0.5, sx = at.x + Math.sin(this.t * 0.7) * sweep2, sy = at.y + Math.cos(this.t * 0.5) * sweep2;
+        return { to: [at.x + ox, at.y + oy], alt, face: Math.atan2(sy - me.y, sx - me.x), spot: [sx, sy] };
+      };
+      BUS.emit("dispatch", { kind: "police", unit: v.id, x: Math.round(P21.x), y: Math.round(P21.y), tier: "chopper" });
+    }
+    _freeHeli() {
+      const h = this.heli;
+      this.heli = null;
+      if (h.v.wrecked) return;
+      h.v.ai = h.patrol || ((dt, me) => ({ to: [me.x + Math.cos(me.heading) * 400, me.y + Math.sin(me.heading) * 400], alt: me.body.h.hoverZ, spot: null }));
+      if (!h.patrol) (this.leaving ||= []).push(h.v);
+    }
+    _heliStep() {
+      if (this.heli && this.heli.v.wrecked) this.heli = null;
+      if (this.leaving && this.leaving.length) this.leaving = this.leaving.filter((v) => {
+        if (v.wrecked || !this.fleet.vehicles.includes(v)) return false;
+        if (this.fp.d(v.x, v.y) > TUNE.fpSpawnOut + 100) {
+          this.fleet.remove(v);
+          return false;
+        }
+        return true;
+      });
+    }
+    // ---- roadblocks and spike strips: ahead of the player's car, inside the annulus
+    _blocksStep(dt, P21, car4, standDown) {
+      const T21 = this.tier();
+      if (!standDown && !this.busted && !this.noBlocks && T21 && car4 && car4.speed > 60) {
+        this._blockT -= dt;
+        this._spikeT -= dt;
+        if (T21.roadblocks && this._blockT <= 0 && this.blocks.length < T21.roadblocks) this._blockT = this._roadblock(car4) ? TUNE.roadblockEvery : 3;
+        if (T21.spikes && this._spikeT <= 0 && this.spikes.length < T21.spikes) this._spikeT = this._spikeStrip(car4) ? TUNE.spikeEvery : 3;
+      }
+      const behind3 = (x, y) => car4 && (x - car4.x) * Math.cos(car4.heading) + (y - car4.y) * Math.sin(car4.heading) < -200;
+      for (const b of this.blocks) if ((standDown || behind3(b.x, b.y) || this.t - b.t > 90) && this.fp.d(b.x, b.y) > TUNE.fpFull + 120) b.gone = true;
+      for (const b of this.blocks) {
+        if (!b.gone) continue;
+        for (const v of b.cars) if (this.fleet.vehicles.includes(v) && !v.occupied) this.fleet.remove(v);
+        for (const c of b.cops) if (!c.ped.dead) this._dropCop(c.ped);
+      }
+      this.blocks = this.blocks.filter((b) => !b.gone);
+      for (const s of this.spikes) if ((standDown || behind3(s.x, s.y) || this.t - s.t > 120) && this.fp.d(s.x, s.y) > TUNE.fpFull + 120) s.gone = true;
+      this.spikes = this.spikes.filter((s) => !s.gone);
+      for (const s of this.spikes) for (const v of this.fleet.near(s.x, s.y, s.half + 40)) {
+        if (!v.body || v.cls === "heli" || v.cls === "boat" || v.owner === "police" || s.hit.has(v) || Math.abs(v.z - s.z) > 6) continue;
+        if (segBox3(v, s.a, s.b)) {
+          s.hit.add(v);
+          if (v.flatten()) BUS.emit("spiked", { vehicle: v.id });
+        }
+      }
+    }
+    // a point on the road ahead of the car, inside the annulus: forward along its lanes (straight on where it can, the
+    // way a fleeing driver mostly goes) to the first point the annulus holds, clear of the roadblocks and strips already
+    // down; null when none
+    _ahead(car4) {
+      const G2 = this.life.graph;
+      if (!G2) return null;
+      const n = G2.nearestLane(car4.x, car4.y, car4.heading, car4.z, 80);
+      if (!n) return null;
+      let lane2 = n.lane, s = n.s;
+      const fp = this.fp;
+      for (let hops = 0; hops < 14 && lane2; hops++) {
+        for (; s < lane2.len; s += 16) {
+          const p = G2.pointOn(lane2, s), d = fp.d(p[0], p[1]);
+          if (d < TUNE.fpSpawnIn || d > TUNE.fpSpawnOut || (p[0] - car4.x) * Math.cos(car4.heading) + (p[1] - car4.y) * Math.sin(car4.heading) <= 0) continue;
+          if (this.blocks.some((b) => Math.hypot(b.x - p[0], b.y - p[1]) < 90) || this.spikes.some((q) => Math.hypot(q.x - p[0], q.y - p[1]) < 90)) continue;
+          return { lane: lane2, s, p };
+        }
+        const outs = lane2.out.map((id) => G2.conns[id]).filter((c2) => c2 && c2.kind !== "change" && c2.kind !== "uturn");
+        if (!outs.length) return null;
+        const c = outs.find((q) => q.kind === "straight") || outs[0];
+        lane2 = G2.lanes[c.to];
+        s = c.toS || 0;
+      }
+      return null;
+    }
+    // (A: where, { lane, p }: the dev menu's and the strips' own spot; else ahead of the car)
+    _roadblock(car4, A = this._ahead(car4)) {
+      if (!A) return false;
+      const { lane: lane2, p } = A, h = Math.atan2(lane2.dir[1], lane2.dir[0]), nx = -lane2.dir[1], ny = lane2.dir[0], U2 = this.unitsSpec.cruiser;
+      const b = { x: p[0], y: p[1], z: p[2], t: this.t, cars: [], cops: [], mind: null };
+      for (const side of [-1, 1]) {
+        const x = p[0] + nx * side * 15, y = p[1] + ny * side * 15;
+        if (this.fleet.near(x, y, 40).some((q) => q.body && Math.hypot(q.x - x, q.y - y) < q.hl + 20)) continue;
+        const v = this.fleet.spawn(U2.def, x, y, h + Math.PI / 2 * side);
+        v.body.z = p[2];
+        v.owner = "police";
+        v.siren = v.hasSiren;
+        b.cars.push(v);
+        const arch = get("peds", U2.crew[0]);
+        if (!arch) continue;
+        const px = x - lane2.dir[0] * 34, py = y - lane2.dir[1] * 34, ped = this._newCop(arch, px, py, p[2]);
+        b.cops.push(this._addCop(ped, { post: [px, py], block: b }));
+      }
+      if (!b.cars.length) return false;
+      this.blocks.push(b);
+      BUS.emit("roadblock", { x: Math.round(p[0]), y: Math.round(p[1]) });
+      return true;
+    }
+    _spikeStrip(car4, A = this._ahead(car4)) {
+      if (!A) return false;
+      const { lane: lane2, p } = A, nx = -lane2.dir[1], ny = lane2.dir[0], half = 26;
+      this.spikes.push({ x: p[0], y: p[1], z: p[2], half, a: [p[0] - nx * half, p[1] - ny * half], b: [p[0] + nx * half, p[1] + ny * half], t: this.t, hit: /* @__PURE__ */ new Set() });
+      BUS.emit("spikes", { x: Math.round(p[0]), y: Math.round(p[1]) });
+      return true;
+    }
+    _newCop(arch, x, y, z) {
+      const ped = new Ped({ x, y, z, faction: arch.faction || "police", look: pedLook(arch, this.rng), lazyRig: true, health: arch.health || 100, maxHealth: arch.health || 100, armor: arch.armor || 0, weapons: arch.weapons || ["fists"] });
+      ped.archetype = arch.id;
+      ped.place(x, y, z);
+      return ped;
+    }
+    // ---- NABBED
+    _nab(dt, P21, car4) {
+      if (this.busted || P21.dead || !this.wanted.stars) {
+        this.cuffT = this.doorT = 0;
+        return;
+      }
+      const reach = TUNE.arrestReach, able = (c) => !c.ped.dead && !c.ped.floored && !c.ped.seat && !c.ped.boarding && c.ped.vitals.stun <= 0;
+      const level2 = (c, z) => Math.abs((c.ped.z || 0) - (z || 0)) < 12;
+      if (!car4 && !P21.seat && !P21.boarding) {
+        const spec = P21.inv.spec(), unarmed = !spec || spec.projectile === "melee", slow = Math.hypot(P21.mover.vx, P21.mover.vy) < TUNE.slowSpeed;
+        const cop = this.cops.find((c) => able(c) && Math.hypot(c.ped.x - P21.x, c.ped.y - P21.y) < reach && level2(c, P21.z));
+        this.cuffT = cop && (unarmed || slow) ? this.cuffT + dt : Math.max(0, this.cuffT - dt * 2);
+        if (cop && this.cuffT >= TUNE.arrestTime) this._bust(cop.ped, "cuffed");
+        this.doorT = 0;
+      } else if (car4) {
+        const door2 = doorOf(car4), cop = car4.speed < 4 && this.cops.find((c) => able(c) && Math.hypot(c.ped.x - door2[0], c.ped.y - door2[1]) < reach + 4 && level2(c, car4.z));
+        this.doorT = cop ? this.doorT + dt : 0;
+        if (cop && this.doorT >= TUNE.doorTime) this._bust(cop.ped, "door");
+        this.cuffT = 0;
+      }
+    }
+    _bust(cop, how) {
+      this.busted = { by: cop.id, how, t: this.t };
+      BUS.emit("busted", { by: cop.id, how });
+    }
+    /** the scene has played the arrest out (or the player was wrecked): the chase is over, the stars cleared */
+    reset(why) {
+      this.busted = null;
+      this.cuffT = this.doorT = 0;
+      this.fought = false;
+      this.pending.length = 0;
+      this.wanted.clear(why);
+    }
+    /** the Intent a police vehicle is driven on this step (null: not one of ours) */
+    intentFor(v) {
+      for (const u of this.units) if (u.car.v === v && !u.gone) return v.kinematic ? clearIntent(this.idle) : u.I;
+      for (const b of this.blocks) if (b.cars.includes(v)) return this.parked;
+      return null;
+    }
+    /** the bodies on foot the police own (for drivers to yield to, and peds to keep apart from) */
+    get bodies() {
+      return this.cops.filter((c) => !c.ped.seat).map((c) => c.ped);
+    }
+    /** for the radar: the police's eyes ({ x, y, facing, fov, range, kind, state }) */
+    eyes() {
+      return this._observers(false).map((o) => ({ x: o.x, y: o.y, facing: o.facing, fov: o.fov, range: o.range, kind: o.kind, state: o.mind.state }));
+    }
+    /** draw the cops on foot round the focus, and the strips on the road */
+    draw(stage, fx7, fy, reach) {
+      for (const c of this.cops) {
+        const p = c.ped;
+        if (!p.seat && Math.abs(p.x - fx7) < reach && Math.abs(p.y - fy) < reach) p.draw(stage, { crowd: true, key: p.rig });
+      }
+      const near3 = this.spikes.filter((s) => Math.abs(s.x - fx7) < reach && Math.abs(s.y - fy) < reach);
+      if (near3.length) stage.floor((g, P21) => {
+        for (const s of near3) drawStrip(g, P21, s);
+      });
+    }
+    hash() {
+      let h = this.units.length * 31 + this.spawned;
+      for (const c of this.cops) h = h * 31 + Math.round(c.ped.x * 4) * 7 + Math.round(c.ped.y * 4) >>> 0;
+      return [...this.wanted.hash(), this.units.length, this.cops.length, this.blocks.length, this.spikes.length, this.heli ? 1 : 0, h];
+    }
+    stats() {
+      return { stars: this.wanted.stars, heat: Math.round(this.wanted.heat), seen: this.seen, units: this.units.map((u) => u.kind + (u.out ? ":out" : "")), cops: this.cops.length, heli: !!this.heli, blocks: this.blocks.length, spikes: this.spikes.length, spawned: this.spawned, claimed: this.claimed };
+    }
+  };
+  function segBox3(v, a, b) {
+    const [ax, ay] = v.toLocal(a[0], a[1]), [bx, by2] = v.toLocal(b[0], b[1]), L22 = v.hl + 1, W26 = v.hw + 1, dx = bx - ax, dy = by2 - ay;
+    let t0 = 0, t1 = 1;
+    for (const [p, q] of [[-dx, ax + L22], [dx, L22 - ax], [-dy, ay + W26], [dy, W26 - ay]]) {
+      if (p === 0) {
+        if (q < 0) return false;
+        continue;
+      }
+      const r7 = q / p;
+      if (p < 0) {
+        if (r7 > t1) return false;
+        if (r7 > t0) t0 = r7;
+      } else {
+        if (r7 < t0) return false;
+        if (r7 < t1) t1 = r7;
+      }
+    }
+    return t0 <= t1;
+  }
+  function drawStrip(g, P21, s) {
+    const a = P21.proj(s.a[0], s.a[1], s.z), b = P21.proj(s.b[0], s.b[1], s.z);
+    if (!a || !b) return;
+    const k = a[2] || 1, w8 = Math.max(2, Math.round(3 * k));
+    E.px.line(g, a[0], a[1], b[0], b[1], "#0c0c10", w8 + 2);
+    E.px.line(g, a[0], a[1], b[0], b[1], "#8a8a96", w8);
+    const n = Math.max(6, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3));
+    for (let i = 0; i <= n; i++) {
+      const x = a[0] + (b[0] - a[0]) * i / n, y = a[1] + (b[1] - a[1]) * i / n;
+      E.px.rect(g, Math.round(x), Math.round(y) - 1, 1, 2, i % 2 ? "#f0f0f8" : "#2a2a30");
+    }
+    for (const q of [a, b]) E.px.rect(g, Math.round(q[0]) - 1, Math.round(q[1]) - 1, 3, 3, "#ffd23a");
+  }
+
   // src/motor/ai/missionbot.js
   var RETARGET = 1.2;
   var CAR_NEAR = 220;
   var PLAYER_FIGHT = { range: 0.75, burst: 1.3, pause: 0.25, aimOff: 0.03, kite: 0.6 };
   var alive2 = (a) => a && !a.dead && !a.wrecked && !a.out;
   var ptOf = (a) => Array.isArray(a) ? a : [a.x, a.y];
+  var copOnFoot = (police, v, r7) => (police && police.cops || []).find((c) => !c.ped.dead && !c.ped.seat && !c.ped.floored && Math.hypot(c.ped.x - v.x, c.ped.y - v.y) < r7 && Math.abs((c.ped.z || 0) - (v.z || 0)) < 14);
   var MissionBot = class {
     /** o: { city, roads ({ graph, gps, walks }), fleet, junctions, pad (true: every weapon change by the d-pad's steps,
      *  as a pad would: the pad pilot's) } */
@@ -31381,42 +32666,76 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (I) return I;
       }
       const v = p.seat && p.seat.vehicle, P21 = v || p;
-      const q = v && (v.z || 0) < 10 && w8.police && w8.police.heli ? this._cover(v, w8) : null;
-      if (q) return this._go(dt, p, q[0], q[1], { stay: true, style, radius: 14, slack: 40, z: 0, hold: !!job3 }, w8);
+      const K2 = v && (v.z || 0) < 10 && w8.police && w8.police.heli ? this._cover(v, w8) : null;
+      if (K2 && K2.hid) return this._idle(clearIntent(this.I), v);
+      if (K2) {
+        const o = { stay: true, style, radius: 14, slack: 40, z: 0, hold: !!job3 };
+        if (this.coverFor !== K2) {
+          this.coverFor = K2;
+          this.auto.goto(K2.at[0], K2.at[1], { ...o, car: v });
+        }
+        return this._go(dt, p, K2.at[0], K2.at[1], o, w8);
+      }
       if (v && w8.respray && !W26.seen && Math.hypot(w8.respray[0] - v.x, w8.respray[1] - v.y) < 1200) return this._go(dt, p, w8.respray[0], w8.respray[1], { stay: true, style, radius: 18, slack: 30, hold: !!job3 }, w8);
       if (!this.dest || Math.hypot(this.dest[0] - P21.x, this.dest[1] - P21.y) < 80) this.dest = this._far(P21, w8);
       return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style, slack: 80, hold: !!job3 }, w8);
     }
-    // a spot on the road under a deck, out of the Eye's sight (null: none within 1200): the road cells under the decks'
-    // high cells, worked out once; of them the one best away from the police's cars and near. Kept till it is reached
-    // and a unit still sees the car there for 3 s (then another), or a minute has gone by without it
+    // a spot on a ground lane under a deck, out of the Eye's sight (null: none within 1200): points every 24 along the
+    // lanes under the decks' high stretches, 48 in from either end of the stretch, worked out once (on a lane, so a route
+    // ends there: a road cell's centre past a lane's end had the car crawl at the road's end short of it, in sight; and
+    // in from the ends, so a car stopped short is still under it); of them the one best away from the police's cars and
+    // the quickest drive (gps.costsFrom). Under any deck on the way (police.js underDeck) it is hidden (hid: held there
+    // while the stars flash out) till a unit sees it there for 3 s, or at all from close by: then another spot, away
+    // from there; and a spot not reached in a minute, or that leaves it short and in sight, another
     _cover(v, w8) {
       if (!this.covers) {
-        const C13 = this.city, T21 = C13.T;
+        const G3 = this.roads.graph, C13 = this.city, high = (x, y, z) => (C13.decks || []).some((d) => {
+          const h = d.heightAt(x, y);
+          return h !== null && h > z + 30;
+        });
         this.covers = [];
-        for (const d2 of C13.decks || []) for (const c of d2.cells) if (Math.min(c.z0, c.z1) > 30 && C13.surfaceAt(c.cx, c.cy) === "road") this.covers.push([(c.cx + 0.5) * T21, (c.cy + 0.5) * T21]);
+        const deep = (L22, s) => {
+          if (s < 48 || s > L22.len - 48) return false;
+          for (const ds of [-48, 0, 48]) {
+            const q = G3.pointOn(L22, s + ds);
+            if ((q[2] || 0) >= 4 || !high(q[0], q[1], q[2] || 0)) return false;
+          }
+          return true;
+        };
+        for (const L22 of G3.lanes) for (let s = 12; s < L22.len; s += 24) if (deep(L22, s)) {
+          const q = G3.pointOn(L22, s);
+          this.covers.push([q[0], q[1], L22.id, s]);
+        }
       }
-      const W26 = w8.wanted, K2 = this.cover, d = K2 ? Math.hypot(K2.at[0] - v.x, K2.at[1] - v.y) : 0;
+      const W26 = w8.wanted, K2 = this.cover, PO = w8.police, units = PO && PO.units ? PO.units.filter((u) => !u.gone && u.car && u.car.v).map((u) => u.car.v) : [];
       if (K2) {
-        K2.seenT = d < 40 && W26 && W26.seen ? K2.seenT + (this.t - K2.last) : 0;
+        const at = Math.hypot(K2.at[0] - v.x, K2.at[1] - v.y), dt = this.t - K2.last;
+        K2.hid = underDeck(this.city, v) && (!K2.seenAt || Math.hypot(v.x - K2.seenAt[0], v.y - K2.seenAt[1]) > 100);
+        K2.seenT = K2.hid && W26 && W26.seen ? K2.seenT + dt : 0;
+        K2.shortT = !K2.hid && at < 60 && v.speed < 3 ? K2.shortT + dt : 0;
         K2.last = this.t;
+        const close = K2.seenT > 0 && (units.some((u) => Math.hypot(u.x - v.x, u.y - v.y) < 80) || !!copOnFoot(PO, v, 100));
+        if (K2.seenT >= 3 || close) K2.seenAt = [v.x, v.y];
+        else if (K2.hid || this.t - K2.t < 60 && K2.shortT < 5) return K2;
       }
-      if (K2 && this.t - K2.t < 60 && K2.seenT < 3) return K2.at;
-      const units = w8.police && w8.police.units ? w8.police.units.filter((u) => !u.gone && u.car && u.car.v).map((u) => u.car.v) : [];
+      const G2 = this.roads.graph, n = G2.nearestLane(v.x, v.y, v.heading, v.z || 0), D = n ? this.roads.gps.costsFrom(n.lane.id, n.s) : null;
       let best = null, bd = -Infinity;
       for (const q of this.covers) {
         const dv = Math.hypot(q[0] - v.x, q[1] - v.y);
-        if (dv > 1200 || K2 && Math.hypot(q[0] - K2.at[0], q[1] - K2.at[1]) < 160) continue;
+        if (dv > 1200) continue;
+        if (K2 && (Math.hypot(q[0] - K2.at[0], q[1] - K2.at[1]) < 160 || K2.seenAt && Math.hypot(q[0] - K2.seenAt[0], q[1] - K2.seenAt[1]) < 200)) continue;
+        const L22 = G2.lanes[q[2]], secs = D ? D[q[2]] - (L22.len - q[3]) / L22.speed : dv / 150;
+        if (!(secs < Infinity)) continue;
         let du = 400;
         for (const u of units) du = Math.min(du, Math.hypot(q[0] - u.x, q[1] - u.y));
-        const s = du - dv * 0.6;
+        const s = du - Math.max(secs, 0) * 90;
         if (s > bd) {
           bd = s;
           best = q;
         }
       }
-      this.cover = best ? { at: best, t: this.t, last: this.t, seenT: 0 } : null;
-      return best;
+      this.cover = best ? { at: [best[0], best[1]], t: this.t, last: this.t, seenT: 0, shortT: 0, hid: false, seenAt: K2 ? K2.seenAt || null : null } : null;
+      return this.cover;
     }
     // the point of interest farthest from the police round the player (or from the player, with none about), past 500
     _far(P21, w8) {
@@ -31616,1180 +32935,6 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return P21;
     }
   };
-
-  // src/motor/police/wanted.js
-  declare("crimes", shape({
-    name: { type: "string", req: true },
-    heat: { type: "number", req: true, min: 0 },
-    report: { type: "boolean", def: true },
-    // a civilian who sees it may phone it in (traffic offences: only cops care)
-    violent: { type: "boolean", def: false },
-    // the crowd runs from it
-    severity: { type: "number", def: 1, min: 0, max: 3 }
-  }));
-  knob("Wanted", "star1", "1 star at heat", 20, 1, 2e3, 1, "Heat for one star");
-  knob("Wanted", "star2", "2 stars at heat", 60, 1, 2e3, 1, "Heat for two stars");
-  knob("Wanted", "star3", "3 stars at heat", 150, 1, 2e3, 1, "Heat for three stars");
-  knob("Wanted", "star4", "4 stars at heat", 300, 1, 4e3, 1, "Heat for four stars");
-  knob("Wanted", "star5", "5 stars at heat", 600, 1, 8e3, 1, "Heat for five stars");
-  knob("Wanted", "evade1", "Evade 1 star in", 10, 1, 120, 1, "Seconds out of every unit's sight that clear one star");
-  knob("Wanted", "evade2", "Evade 2 stars in", 15, 1, 120, 1, "Seconds out of sight that clear two stars");
-  knob("Wanted", "evade3", "Evade 3 stars in", 25, 1, 120, 1, "Seconds out of sight that clear three stars");
-  knob("Wanted", "evade4", "Evade 4 stars in", 35, 1, 120, 1, "Seconds out of sight that clear four stars");
-  knob("Wanted", "evade5", "Evade 5 stars in", 45, 1, 180, 1, "Seconds out of sight that clear five stars");
-  knob("Wanted", "copSeenMul", "Seen by a cop", 1.5, 1, 4, 0.05, "Heat a crime earns when a cop sees it, against a civilian's report");
-  knob("Wanted", "searchR0", "Search radius", 120, 20, 600, 10, "The search area's radius when the player is first lost (u)");
-  knob("Wanted", "searchGrow", "Search widens", 12, 0, 80, 1, "How fast the search area widens, u a second");
-  knob("Wanted", "searchMax", "Search radius at most", 520, 100, 1500, 10, "The widest the search area grows (u)");
-  var SAME_VICTIM = 30;
-  var SAME_T = 6;
-  var SAME_R = 120;
-  var MAX_HEAT = 2e3;
-  var Wanted = class _Wanted {
-    /** o: { isPlayer(id) -> bool (an id of one of the crew) } */
-    constructor(o = {}) {
-      this.isPlayer = o.isPlayer || (() => false);
-      this.heat = 0;
-      this.stars = 0;
-      this.floorStars = 0;
-      this.capStars = 5;
-      this.t = 0;
-      this.seen = false;
-      this.lastKnown = null;
-      this.lostT = 0;
-      this.searchR = 0;
-      this._searchT = 0;
-      this.recent = [];
-      this.log = [];
-    }
-    /** the crime type's spec (unknown types earn a little heat) */
-    static spec(type) {
-      return get("crimes", type) || { name: type, heat: 5, report: true, violent: false, severity: 1 };
-    }
-    /** a crime someone told the police about: its heat (more when a cop saw it), the last-known position its place.
-     *  e: the crime event ({ type, x, y, by, victim }); o: { cop (a cop saw it) }. Returns the heat it earned */
-    crime(e, o = {}) {
-      if (!e || !this.isPlayer(e.by)) return 0;
-      const S10 = _Wanted.spec(e.type);
-      const victim = e.victim ?? null;
-      for (const r7 of this.recent) {
-        if (r7.type !== e.type || r7.victim !== victim) continue;
-        if (victim !== null ? this.t - r7.t >= SAME_VICTIM : this.t - r7.t >= SAME_T || Math.hypot(r7.x - e.x, r7.y - e.y) >= SAME_R) continue;
-        if (o.cop && !r7.cop) {
-          r7.cop = true;
-          return this._add(S10.heat * (TUNE.copSeenMul - 1), e, "seen");
-        }
-        return 0;
-      }
-      this.recent.push({ type: e.type, victim: e.victim ?? null, x: e.x, y: e.y, t: this.t, cop: !!o.cop });
-      if (this.recent.length > 24) this.recent.shift();
-      return this._add(S10.heat * (o.cop ? TUNE.copSeenMul : 1), e, o.cop ? "cop" : "report");
-    }
-    _add(h, e, how) {
-      if (h <= 0) return 0;
-      this.heat = Math.min(MAX_HEAT, this.heat + h);
-      this.log.push({ type: e.type, heat: h, how, t: this.t });
-      if (this.log.length > 40) this.log.shift();
-      if (e.x !== void 0 && (!this.seen || !this.lastKnown)) {
-        this.lastKnown = { x: e.x, y: e.y };
-        this.lostT = 0;
-      }
-      this._restar();
-      return h;
-    }
-    /** the stars the heat earns, within the floor and the cap */
-    starsFor(heat) {
-      let s = 0;
-      for (let k = 1; k <= 5; k++) if (heat >= TUNE["star" + k]) s = k;
-      return Math.max(this.floorStars, Math.min(this.capStars, s));
-    }
-    _restar() {
-      const prev = this.stars;
-      this.stars = this.starsFor(this.heat);
-      if (this.stars !== prev) {
-        if (prev === 0) {
-          this.lostT = 0;
-        }
-        BUS.emit("wanted", { stars: this.stars, heat: Math.round(this.heat), prev });
-      }
-    }
-    /** set the stars outright (a mission, a test): the heat at that star's threshold */
-    set(n) {
-      n = Math.max(0, Math.min(5, n | 0));
-      this.heat = n ? TUNE["star" + n] : 0;
-      this._restar();
-    }
-    /** a mission's floor (the stars never fall below it) and cap (never above it); 0 and 5 lift them */
-    floor(n) {
-      this.floorStars = Math.max(0, Math.min(5, n | 0));
-      this._restar();
-    }
-    cap(n) {
-      this.capStars = Math.max(0, Math.min(5, n | 0));
-      this._restar();
-    }
-    /** a bribe: one star off */
-    lose(n = 1) {
-      const s = Math.max(0, this.stars - n);
-      this.heat = s ? TUNE["star" + s] : 0;
-      this._restar();
-    }
-    /** all clear (a respray, a pass, wrecked, nabbed, evaded): why goes in the log */
-    clear(why = "clear") {
-      const prev = this.stars;
-      this.heat = 0;
-      this.recent.length = 0;
-      this.lastKnown = null;
-      this.lostT = 0;
-      this.searchR = 0;
-      this.seen = false;
-      this.stars = this.starsFor(0);
-      if (prev !== this.stars) BUS.emit("wanted", { stars: this.stars, heat: 0, prev, why });
-    }
-    /** the evade time for the current stars (s) */
-    get evadeTime() {
-      return this.stars ? TUNE["evade" + this.stars] : 0;
-    }
-    /** the stars flash (the police lost sight of the player) */
-    get flashing() {
-      return this.stars > 0 && !this.seen;
-    }
-    /** one step. o: { seen (a unit sees the player now), at: { x, y } (the player) } */
-    update(dt, o = {}) {
-      this.t += dt;
-      if (!this.stars) {
-        this.seen = false;
-        this.searchR = 0;
-        return;
-      }
-      this.seen = !!o.seen;
-      if (this.seen) {
-        if (o.at) this.lastKnown = { x: o.at.x, y: o.at.y };
-        this.lostT = 0;
-        this.searchR = 0;
-        return;
-      }
-      this.lostT += dt;
-      this.searchR = Math.min(TUNE.searchMax, TUNE.searchR0 + TUNE.searchGrow * this.lostT);
-      if ((this._searchT -= dt) <= 0 && this.lastKnown) {
-        this._searchT = 1;
-        BUS.emit("search", { x: this.lastKnown.x, y: this.lastKnown.y, r: Math.round(this.searchR) });
-      }
-      if (this.lostT >= this.evadeTime && this.stars > this.floorStars) {
-        const s = this.stars;
-        this.clear("evaded");
-        BUS.emit("evaded", { stars: s });
-      }
-    }
-    hash() {
-      return [this.stars, Math.round(this.heat), this.seen ? 1 : 0, Math.round(this.lostT * 10)];
-    }
-    toJSON() {
-      return { stars: this.stars, heat: Math.round(this.heat) };
-    }
-  };
-
-  // src/motor/police/pursuit.js
-  knob("Police", "directFrom", "Drives straight within", 170, 40, 400, 10, "How near a unit leaves the lanes and steers straight for its target (u)");
-  knob("Police", "stopShort", "Stops short by", 26, 8, 80, 1, "How far short of a target on foot (or stopped) a unit stops (u)");
-  var REROUTE = 1.5;
-  var REGOAL = 90;
-  var LOD_IN2 = 20;
-  var HELD = 2.5;
-  var PursuitDriver = class {
-    /** car: the traffic record Traffic.dispatch made ({ v, brain, crew }); o: { gps, map } */
-    constructor(car4, o = {}) {
-      this.car = car4;
-      this.v = car4.v;
-      this.brain = car4.brain;
-      this.gps = o.gps;
-      this.I = makeIntent();
-      this.mode = "route";
-      this.routeT = 0;
-      this.goalAt = null;
-      this.t = 0;
-      this.pinned = 0;
-      this.backT = 0;
-      this.ramT = 0;
-      this.heldT = 0;
-      this.hops = 0;
-    }
-    /** one step. w: the DriverBrain's world ({ fleet, t, pedsNear, wet, sirens }); target as above; fp: the footprint
-     *  (the LOD ring); stop: stop short of the target (the crew gets out) */
-    update(dt, w8, target, fp, o = {}) {
-      const v = this.v, b = this.brain;
-      this.t += dt;
-      const I = clearIntent(this.I);
-      if (!v.body || v.wrecked || !target) return I;
-      const df = fp ? fp.d(v.x, v.y) : 0;
-      if (v.kinematic && df < TUNE.fpFull - LOD_IN2) {
-        v.kinematic = false;
-        v.body.setVelocity(Math.cos(v.heading) * b.speed, Math.sin(v.heading) * b.speed);
-      } else if (!v.kinematic && df > TUNE.fpFull + LOD_IN2 && this.mode === "route" && b.snap()) v.kinematic = true;
-      this.routeT -= dt;
-      if (this.routeT <= 0 && (!this.goalAt || Math.hypot(target.x - this.goalAt[0], target.y - this.goalAt[1]) > REGOAL || b.arrived || b.lost)) {
-        this.routeT = REROUTE;
-        const r7 = this.gps && this.gps.routeTo(v.x, v.y, v.heading, target.x, target.y, { z: v.z, tz: target.z || 0 });
-        if (r7) {
-          b.setRoute(r7.lanes, { lane: r7.to.lane.id, s: r7.to.s });
-          this.goalAt = [target.x, target.y];
-        }
-      }
-      const dx = target.x - v.x, dy = target.y - v.y, d = Math.hypot(dx, dy);
-      const sameLevel2 = Math.abs((target.z || 0) - v.z) < 14, clear = sameLevel2 && d < TUNE.directFrom && this._clearTo(target, o.map);
-      if (v.kinematic) {
-        this.mode = "route";
-        this.heldT = b.speed < 15 && !b.arrived ? this.heldT + dt : 0;
-        if (this.heldT > HELD) {
-          this.heldT = 0;
-          if (this._hop(w8, fp)) this.hops++;
-        }
-        b.step(dt, w8);
-        return I;
-      }
-      if (!clear) {
-        this.mode = "route";
-        return b.update(dt, w8);
-      }
-      const tc = target.car, moving = tc && tc.speed > 25 && !o.stop;
-      let px = target.x, py = target.y, stopAt = 0;
-      if (moving) {
-        const c = Math.cos(tc.heading), s = Math.sin(tc.heading), side = dx * -s + dy * c > 0 ? -1 : 1, lead = Math.min(0.7, d / 260);
-        px = tc.x - c * tc.hl * 0.7 + -s * side * tc.hw * 0.8 + tc.body.vx * lead;
-        py = tc.y - s * tc.hl * 0.7 + c * side * tc.hw * 0.8 + tc.body.vy * lead;
-      } else stopAt = TUNE.stopShort + (tc ? tc.hl : 0) + v.hl;
-      const want = Math.atan2(py - v.y, px - v.x), err = E.angDiff(v.heading, want), sp = v.body.u, dp = Math.hypot(px - v.x, py - v.y);
-      I.steer = E.clamp(err * 2.4, -1, 1);
-      let vWant = moving ? Math.max(tc.speed + 40, 120) : E.clamp((dp - stopAt) * 2.2, 0, 260);
-      const gap = this._pedAhead(w8, target, sp);
-      if (gap !== null) vWant = Math.min(vWant, Math.max(0, gap - 4) * 2);
-      if (sp < vWant - 8) I.throttle = Math.abs(err) > 1.6 ? 0.4 : 1;
-      else if (sp > vWant + 12) I.brake = E.clamp((sp - vWant) / 80, 0.2, 1);
-      if (Math.abs(err) > 1.1 && sp > 90) I.down.handbrake = true;
-      if (!moving && dp < stopAt + 4 && sp < 6) {
-        I.throttle = 0;
-        I.brake = 0;
-        I.down.handbrake = true;
-        this.mode = "stopped";
-      } else this.mode = "direct";
-      if (moving && dp < tc.hl + v.hl + 6) this.ramT += dt;
-      else this.ramT = 0;
-      return this._unpin(dt, I);
-    }
-    // the room before the nearest body on foot in the car's path ahead (its width and a little, as far as it takes to stop
-    // and more), the target's own body aside: null when clear
-    _pedAhead(w8, target, sp) {
-      if (!w8.pedsNear) return null;
-      const v = this.v, c = Math.cos(v.heading), s = Math.sin(v.heading), look3 = v.hl + 20 + Math.max(0, sp) * 0.6, mx = v.x + c * look3 / 2, my = v.y + s * look3 / 2;
-      let best = null;
-      for (const p of w8.pedsNear(mx, my, look3 / 2 + 12)) {
-        if (p.dead || p.seat || target.car === null && Math.hypot(p.x - target.x, p.y - target.y) < 3 || Math.abs((p.z || 0) - v.z) > 14) continue;
-        const dx = p.x - v.x, dy = p.y - v.y, f = dx * c + dy * s, l7 = -dx * s + dy * c;
-        if (f > v.hl - 2 && f < look3 && Math.abs(l7) < v.hw + 7) {
-          const gap = f - v.hl;
-          if (best === null || gap < best) best = gap;
-        }
-      }
-      return best;
-    }
-    // far off and held up: on along its route to the first free stretch of lane past the hold-up, the way there and the
-    // spot both out of sight (beyond fpSpawnIn); false when there is none
-    _hop(w8, fp) {
-      const b = this.brain, v = this.v;
-      if (!fp || !w8.fleet || fp.d(v.x, v.y) < TUNE.fpSpawnIn) return false;
-      for (let d = 40; d <= 640; d += 20) {
-        const a = b.ahead(d);
-        if (!a || a.j === b.path.length - 1 && a.s >= b.path[a.j].len - 1) return false;
-        if (fp.d(a.p[0], a.p[1]) < TUNE.fpSpawnIn) return false;
-        const e = b.path[a.j];
-        if (!e || e.k !== "lane" || a.s < v.hl + 8 || a.s > e.len - v.hl - 8) continue;
-        if (w8.fleet.near(a.p[0], a.p[1], 90).some((o) => o !== v && o.body && o.cls !== "heli" && Math.abs(o.z - a.p[2]) < 12 && Math.hypot(o.x - a.p[0], o.y - a.p[1]) < o.hl + v.hl + 12)) continue;
-        b._release();
-        b._advance(d, 0, 0);
-        b._grow();
-        b.speed = Math.max(b.speed, 40);
-        return true;
-      }
-      return false;
-    }
-    // a clear line from the unit to the target (nothing taller than a curb between them)
-    _clearTo(target, map) {
-      if (!map || !map.ray) return true;
-      return map.ray({ x: this.v.x, y: this.v.y, z: this.v.z }, { x: target.x, y: target.y, z: target.z || 0 }, { eye: 10, target: 8 }).clear;
-    }
-    // pushing and going nowhere: back off on the other lock a moment
-    _unpin(dt, I) {
-      const v = this.v;
-      if (this.backT > 0) {
-        this.backT -= dt;
-        I.throttle = 0;
-        I.down.handbrake = false;
-        I.brake = v.body.u < -30 ? 0 : 0.7;
-        I.steer = this._backSteer;
-        return I;
-      }
-      this.pinned = I.throttle > 0.3 && Math.abs(v.body.u) < 2 ? this.pinned + dt : 0;
-      if (this.pinned > 1.2) {
-        this.pinned = 0;
-        this.backT = 0.9;
-        this._backSteer = -(I.steer || 1);
-      }
-      return I;
-    }
-  };
-
-  // src/motor/police/cop.js
-  knob("Police", "copRange", "Officers shoot within", 150, 40, 400, 5, "How near an officer comes before it stops to shoot (u)");
-  knob("Police", "copBurst", "A burst lasts", 0.7, 0.1, 3, 0.05, "Seconds an officer holds the trigger");
-  knob("Police", "copPause", "Between bursts", 0.6, 0.1, 3, 0.05, "Seconds between an officer's bursts");
-  knob("Police", "copAimOff", "Officers' aim", 0.07, 0, 0.4, 0.01, "How far off (radians) an officer's burst may be");
-  var PROFILE = { burst: () => TUNE.copBurst, pause: () => TUNE.copPause, aimOff: () => TUNE.copAimOff };
-  var CopBrain = class extends Fighter {
-    /** ped: the cop's Ped; o: { walks (Sidewalks), map, rng, unit (its car's police unit, or null), seat, post ([x, y]:
-     *  a roadblock's), flank (-1 | 1: a Fed's side) } */
-    constructor(ped, o = {}) {
-      super(ped, { walks: o.walks, map: o.map, fleet: o.fleet, rng: o.rng, profile: PROFILE });
-      this.unit = o.unit || null;
-      this.seat = o.seat ?? 0;
-      this.post = o.post || null;
-      this.flank = o.flank || 0;
-      this.sees = false;
-    }
-    /** one step. w: { player (Ped), car (the player's vehicle or null), seen (this cop sees the player), stars, shoot
-     *  (the tier shoots, or the player fought the police), lastKnown, searchR, standDown } */
-    update(dt, w8) {
-      const I = clearIntent(this.I), p = this.ped, P21 = w8.player;
-      this.t += dt;
-      if (p.dead || p.floored || p.held || p.boarding || p.seat || !P21) return I;
-      if (w8.standDown) return this._home(dt, I);
-      if (w8.seen) {
-        const tgt = w8.car ? { x: w8.car.x, y: w8.car.y, z: w8.car.z } : P21, d = Math.hypot(tgt.x - p.x, tgt.y - p.y);
-        if (w8.shoot && this.gun) return this._shoot(dt, I, w8, tgt, d);
-        this._holster();
-        if (w8.car && w8.car.speed < 6) {
-          const door2 = doorOf(w8.car);
-          return this._go(dt, I, door2[0], door2[1], Math.hypot(door2[0] - p.x, door2[1] - p.y) > 30, "door");
-        }
-        if (d < 9) {
-          p.mover.facing = Math.atan2(tgt.y - p.y, tgt.x - p.x);
-          return I;
-        }
-        if (this.post && d > 90) return this._hold(I, tgt);
-        return this._go(dt, I, tgt.x, tgt.y, true, "player");
-      }
-      this._holster();
-      if (this.post) return this._hold(I, w8.lastKnown);
-      const L22 = w8.lastKnown;
-      if (!L22) return I;
-      if (!this.goal || this.goal.key !== "search") this.goal = { x: L22.x, y: L22.y, key: "search", reached: false };
-      if (Math.hypot(this.goal.x - p.x, this.goal.y - p.y) < 14) {
-        const a = this._r() * Math.PI * 2, r7 = (w8.searchR || 120) * (0.3 + 0.7 * this._r());
-        this.goal = { x: L22.x + Math.cos(a) * r7, y: L22.y + Math.sin(a) * r7, key: "search", reached: true };
-      }
-      return this._go(dt, I, this.goal.x, this.goal.y, !this.goal.reached, "search");
-    }
-    // in range with a clear shot: stop, aim at the chest and fire in bursts; out of range (or a Fed's flank): close in
-    _shoot(dt, I, w8, tgt, d) {
-      const p = this.ped;
-      if (p.inv.current !== this.gun) p.inv.select(this.gun);
-      if (this.flank && d > 70) {
-        const hx = w8.car ? Math.cos(w8.car.heading) : Math.cos(w8.player.mover.facing), hy = w8.car ? Math.sin(w8.car.heading) : Math.sin(w8.player.mover.facing);
-        const fx7 = tgt.x - hy * this.flank * 80, fy = tgt.y + hx * this.flank * 80;
-        if (Math.hypot(fx7 - p.x, fy - p.y) > 24) {
-          this._go(dt, I, fx7, fy, true, "flank");
-          this._aimAt(I, tgt, false);
-          return I;
-        }
-      }
-      const range = TUNE.copRange * (this.post ? 1.4 : 1), line = this._lineTo(tgt);
-      if (d > range || line === "wall") {
-        this._go(dt, I, tgt.x, tgt.y, true, "player");
-        return I;
-      }
-      if (line === "car" && !(w8.car && w8.car.speed < 6 && d < 40)) return this._aside(dt, I, tgt);
-      I.move[0] = I.move[1] = 0;
-      if (this.burst > 0) {
-        this.burst -= dt;
-        this._aimAt(I, tgt, true);
-        if (this.burst <= 0) this.pause = TUNE.copPause * (0.7 + 0.6 * this._r());
-      } else {
-        this.pause -= dt;
-        this._aimAt(I, tgt, false);
-        if (this.pause <= 0) {
-          this.burst = TUNE.copBurst * (0.7 + 0.6 * this._r());
-          this.off = (this._r() - 0.5) * 2 * TUNE.copAimOff;
-        }
-      }
-      return I;
-    }
-    // a roadblock's officer: at its post, facing the way the player is
-    _hold(I, at) {
-      const p = this.ped, [px, py] = this.post, d = Math.hypot(px - p.x, py - p.y);
-      if (d > 8) {
-        I.move[0] = (px - p.x) / d * 0.6;
-        I.move[1] = (py - p.y) / d * 0.6;
-      } else if (at) p.mover.facing = Math.atan2(at.y - p.y, at.x - p.x);
-      return I;
-    }
-    // stood down (or called back to drive on): back to its car's door and in; with no car, nothing
-    _home(dt, I) {
-      const p = this.ped, u = this.unit, v = u && u.car && u.car.v;
-      this._holster();
-      if (!v || v.wrecked) return I;
-      const d = Math.hypot(v.x - p.x, v.y - p.y);
-      if (d < v.hl + 16 && !v.seats[this.seat]) {
-        const plan2 = boardingFor(p, v, this.seat);
-        if (plan2) p.board(plan2);
-        return I;
-      }
-      return this._go(dt, I, v.x, v.y, d > 80, "car");
-    }
-  };
-  function doorOf(v) {
-    const s = v.model && v.model.seats && v.model.seats[0] || { x: 0, y: -1 };
-    return v.toWorld(s.x, (s.y >= 0 ? 1 : -1) * (v.hw + 7));
-  }
-
-  // src/motor/police/police.js
-  declare("policeTiers", shape({
-    cruisers: { type: "number", def: 1, min: 0 },
-    swat: { type: "number", def: 0, min: 0 },
-    feds: { type: "number", def: 0, min: 0 },
-    chopper: { type: "boolean", def: false },
-    roadblocks: { type: "number", def: 0, min: 0 },
-    spikes: { type: "number", def: 0, min: 0 },
-    shoot: { type: "boolean", def: false },
-    flank: { type: "boolean", def: false }
-  }));
-  knob("Police", "copSight", "Officers see", 240, 60, 600, 10, "How far an officer on foot sees (u)");
-  knob("Police", "copFov", "Officers' view", 2.6, 0.5, 6.3, 0.1, "How wide an officer on foot sees (radians)");
-  knob("Police", "carSight", "A crew in its car sees", 300, 60, 700, 10, "How far the crew of a police car sees, all round (u)");
-  knob("Police", "heliSight", "The Eye sees", 520, 100, 1200, 10, "How far the MPD Eye sees down, all round (u)");
-  knob("Police", "arrestTime", "Cuffed after", 0.8, 0.1, 4, 0.05, "Seconds a cop must be at a slow or unarmed player on foot to cuff them");
-  knob("Police", "doorTime", "Pulled out after", 1.5, 0.2, 6, 0.1, "Seconds a cop must stand at the door of the player's stopped car");
-  knob("Police", "arrestReach", "Cuffs within", 12, 4, 30, 1, "How near a cop must be to cuff the player (u)");
-  knob("Police", "slowSpeed", "Slow enough to cuff", 35, 5, 200, 5, "A player on foot slower than this can be cuffed even armed (u/s)");
-  knob("Police", "roadblockEvery", "A roadblock every", 18, 3, 120, 1, "Seconds between roadblocks (from 3 stars, while the player drives)");
-  knob("Police", "spikeEvery", "Spike strips every", 25, 3, 120, 1, "Seconds between spike strips (from 4 stars)");
-  knob("Police", "speedLimit", "Speeding above", 230, 60, 500, 5, "A speed a cop who sees it calls speeding (u/s)");
-  var UNITS2 = {
-    // (each kind's vehicle and crew; content may override: the fleet entry's police.units)
-    cruiser: { def: "cruiser", crew: ["mpd", "mpd"] },
-    swat: { def: "rhino", crew: ["swat", "swat", "swat"] },
-    fed: { def: "fedsedan", crew: ["fed", "fed"] }
-  };
-  var SENSE_EVERY = 0.2;
-  var DISPATCH_EVERY = 1;
-  var OUT_NEAR = 90;
-  var STUCK_OUT = 3;
-  var STUCK_NEAR = 320;
-  var PENDING = 3;
-  var FALL2 = 2.5;
-  var RECALL = 140;
-  var HELI_R = 110;
-  var HELI_CLAIM = 1600;
-  var NOAIM4 = { candidates: [], level: "off" };
-  var Police = class {
-    /** o: { life (CityLife: traffic, crowd, services, graph, gps, walks), city, fleet, combat, footprint, isPlayer(id),
-     *  spec (the fleet entry's police: { units }), rng } */
-    constructor(o) {
-      this.life = o.life;
-      this.city = o.city;
-      this.fleet = o.fleet;
-      this.combat = o.combat || null;
-      this.fp = o.footprint;
-      this.rng = o.rng || RNG.stream("police");
-      this.isPlayer = o.isPlayer || (() => false);
-      this.unitsSpec = { ...UNITS2, ...o.spec && o.spec.units || {} };
-      this.wanted = new Wanted({ isPlayer: this.isPlayer });
-      this.units = [];
-      this.cops = [];
-      this.blocks = [];
-      this.spikes = [];
-      this.heli = null;
-      this.pending = [];
-      this.t = 0;
-      this.step = 0;
-      this._senseT = 0;
-      this._dispT = 0;
-      this._blockT = 0;
-      this._spikeT = 0;
-      this._offT = 0;
-      this.seen = false;
-      this.copSees = false;
-      this.cuffT = 0;
-      this.doorT = 0;
-      this.busted = null;
-      this.fought = false;
-      this.player = null;
-      this.car = null;
-      this.idle = makeIntent();
-      this.parked = makeIntent();
-      this.parked.down.handbrake = true;
-      this._inBox = null;
-      this.spawned = 0;
-      this.claimed = 0;
-      this._unsub = [
-        BUS.on("crime", (e) => this._crime(e), "world"),
-        BUS.on("report", (e) => this._report(e), "world"),
-        BUS.on("hit", (e) => this._hit(e), "world")
-      ];
-    }
-    dispose() {
-      for (const u of this._unsub) u();
-      this._unsub = [];
-    }
-    /** the tier the stars call for (null at none) */
-    tier(stars = this.wanted.stars) {
-      return stars ? get("policeTiers", String(stars)) || { cruisers: 1 } : null;
-    }
-    // ---- what is seen, and what it earns
-    // a crime of the player's: each cop who sees them now takes it in (the mind's alert files it, in _sense)
-    _crime(e) {
-      if (!e || e.x === void 0 || !this.isPlayer(e.by)) return;
-      const c = this._classify(e), P21 = this.player;
-      if (!P21) return;
-      const S10 = Wanted.spec(c.type), boost = S10.violent || S10.severity >= 2 ? 1.2 : 0.7 + 0.1 * S10.severity;
-      for (const o of this._observers()) {
-        if (!this._sees(o, P21)) continue;
-        o.mind.level = Math.max(o.mind.level, boost);
-        o.mind.last = { x: P21.x, y: P21.y, z: P21.z || 0 };
-        this.pending.push({ e: c, mind: o.mind, t: this.t });
-      }
-    }
-    // the crime as the police name it: an officer's assault or murder, a police car taken
-    _classify(e) {
-      const vic = e.victim != null && this.combat ? this.combat.bodies.find((b) => b.id === e.victim) : null, cop = (vic ? vic.faction : e.victimFaction) === "police";
-      let type = e.type;
-      if (cop && e.type === "assault") type = "copAssault";
-      else if (cop && e.type === "murder") type = "copMurder";
-      else if ((e.type === "carjack" || e.type === "breakIn") && (cop || e.vehicle != null && this.fleet.byId(e.vehicle)?.def.role === "police")) type = "policeCarTheft";
-      if (type === "copAssault" || type === "copMurder") this.fought = true;
-      return type === e.type ? e : { ...e, type };
-    }
-    // a civilian's report: the player's crime files its heat; one that earns no star (or someone else's) brings a car to
-    // look round
-    _report(e) {
-      const c = { type: e.crime, x: e.x, y: e.y, by: e.by, victim: e.victim ?? null };
-      if (this.isPlayer(e.by)) {
-        this.wanted.crime(this._classify(c), { cop: false });
-        if (this.wanted.stars) return;
-      }
-      if (this.life.services) this.life.services.call("police", e.x, e.y, { crime: e.crime, by: e.by });
-    }
-    // the player hit a cop: from now on the police shoot back
-    _hit(e) {
-      if (this.isPlayer(e.by) && this.combat) {
-        const t = this.combat.bodies.find((b) => b.id === e.target);
-        if (t && t.faction === "police") this.fought = true;
-      }
-    }
-    /** every police body that looks: { x, y, z, facing, fov, range, eye, kind ('foot' | 'patrol' | 'call' | 'car' |
-     *  'block' | 'heli'), mind, ... }. make: false never makes a mind (the radar's view of them) */
-    _observers(make = true) {
-      const out = [], mind = (o, rise = 2.4) => o.mind || (make ? o.mind = new E.Suspicion({ rise }) : null);
-      for (const c of this.cops) {
-        const p = c.ped;
-        if (p.dead || p.seat || p.floored) continue;
-        out.push({ x: p.x, y: p.y, z: p.z || 0, facing: p.mover.facing, fov: TUNE.copFov, range: TUNE.copSight, kind: "foot", mind: c.mind, cop: c });
-      }
-      const C13 = this.life.crowd;
-      if (C13) for (const m of C13.members) {
-        const p = m.ped;
-        if (p.faction !== "police" || p.dead || m.deadT) continue;
-        out.push({ x: p.x, y: p.y, z: p.z || 0, facing: p.mover.facing, fov: TUNE.copFov, range: TUNE.copSight, kind: "patrol", mind: mind(m), member: m });
-      }
-      const S10 = this.life.services;
-      if (S10) for (const c of S10.calls) {
-        if (c.kind !== "police" || c.state === "done" || !c.unit) continue;
-        if (c.state === "sent") {
-          const v = c.unit.v;
-          out.push({ x: v.x, y: v.y, z: v.z, facing: v.heading, fov: 7, range: TUNE.carSight, eye: 14, kind: "call", mind: mind(c), call: c });
-          continue;
-        }
-        for (const f of c.crew) {
-          const p = f.ped;
-          if (p.dead || p.seat || p.floored) continue;
-          out.push({ x: p.x, y: p.y, z: p.z || 0, facing: p.mover.facing, fov: TUNE.copFov, range: TUNE.copSight, kind: "call", mind: mind(f), call: c });
-        }
-      }
-      for (const u of this.units) {
-        const v = u.car.v;
-        if (u.out || u.gone || v.wrecked || !u.car.crew.some((q) => q && q.seat && !q.dead)) continue;
-        out.push({ x: v.x, y: v.y, z: v.z, facing: v.heading, fov: 7, range: TUNE.carSight, eye: 14, kind: "car", mind: mind(u), unit: u });
-      }
-      for (const b of this.blocks) for (const v of b.cars) if (!v.wrecked) out.push({ x: v.x, y: v.y, z: v.z, facing: v.heading, fov: 7, range: TUNE.carSight * 0.8, eye: 14, kind: "block", mind: mind(b), block: b });
-      if (this.heli && !this.heli.v.wrecked) {
-        const v = this.heli.v;
-        out.push({ x: v.x, y: v.y, z: v.z, facing: v.heading, fov: 7, range: TUNE.heliSight, eye: 0, kind: "heli", mind: mind(this.heli, 3) });
-      }
-      return out.filter((o) => o.mind);
-    }
-    /** does this observer see the player? An alley shortens every sight; under a deck the ground units see a little way
-     *  and the Eye nothing */
-    _sees(o, P21) {
-      const under = this._underDeck(P21), alley = this.city.surfaceAtPoint && this.city.surfaceAtPoint(P21.x, P21.y) === "alley";
-      if (o.kind === "heli") {
-        if (under) return false;
-        if (Math.hypot(P21.x - o.x, P21.y - o.y) > o.range * (alley ? 0.6 : 1)) return false;
-        return !this.city.map.ray || this.city.map.ray({ x: o.x, y: o.y, z: o.z }, { x: P21.x, y: P21.y, z: P21.z || 0 }, { eye: 0, target: 10 }).clear;
-      }
-      const range = o.range * (alley ? 0.5 : 1) * (under ? 0.6 : 1);
-      return E.sees(o, P21, { map: this.city.map, range, fov: o.fov, facing: o.facing, eye: o.eye }).seen;
-    }
-    _underDeck(P21) {
-      for (const d of this.city.decks || []) {
-        const h = d.heightAt(P21.x, P21.y);
-        if (h !== null && h > (P21.z || 0) + 20) return true;
-      }
-      return false;
-    }
-    // ---- the step
-    /** one step. ctx: { player (the possessed Ped), night, W (the drivers' world: { fleet, t, pedsNear, wet, sirens }) } */
-    update(dt, ctx = {}) {
-      this.t += dt;
-      this.step++;
-      const P21 = this.player = ctx.player || null;
-      if (!P21) return;
-      const car4 = this.car = P21.seat && P21.seat.vehicle && P21.seat.vehicle.driver === P21 ? P21.seat.vehicle : null, W26 = this.wanted;
-      this._senseT -= dt;
-      if (this._senseT <= 0) {
-        this._senseT = SENSE_EVERY;
-        this._sense(SENSE_EVERY, P21);
-      }
-      if (!this.busted) W26.update(dt, { seen: this.seen && !P21.dead, at: P21 });
-      if (car4 && !this.busted) this._offences(dt, P21, car4);
-      else this._inBox = null;
-      const standDown = !W26.stars;
-      if (standDown && !this.busted) this.fought = false;
-      this._dispT -= dt;
-      if (this._dispT <= 0) {
-        this._dispT = DISPATCH_EVERY;
-        this._dispatch(P21);
-      }
-      this._units(dt, ctx, P21, car4, standDown);
-      this._copsStep(dt, P21, car4, standDown);
-      this._heliStep();
-      this._blocksStep(dt, P21, car4, standDown);
-      this._nab(dt, P21, car4);
-    }
-    _sense(dt, P21) {
-      let seen = false, any = false;
-      const live = !P21.dead && !this.busted;
-      for (const o of this._observers()) {
-        const s = live && this._sees(o, P21);
-        o.mind.update(dt, s ? { exposure: 1, d: Math.hypot(P21.x - o.x, P21.y - o.y) } : false, P21);
-        if (o.cop) o.cop.sees = s;
-        if (!s) continue;
-        any = true;
-        if (this.wanted.stars) {
-          seen = true;
-          if (o.member) this._claim(o.member);
-          else if (o.call) this._claimCall(o.call);
-        }
-      }
-      this.seen = seen;
-      this.copSees = any;
-      for (let i = this.pending.length - 1; i >= 0; i--) {
-        const q = this.pending[i];
-        if (q.mind.state === "alert") {
-          this.wanted.crime(q.e, { cop: true });
-          this.pending.splice(i, 1);
-        } else if (this.t - q.t > PENDING) this.pending.splice(i, 1);
-      }
-    }
-    // speeding past a cop, a red light run in a cop's sight: crimes like any other (nobody else minds them)
-    _offences(dt, P21, car4) {
-      this._offT -= dt;
-      if (this._offT > 0) return;
-      this._offT = 0.25;
-      const G2 = this.life.graph;
-      let box2 = null;
-      if (G2) for (const R3 of G2.regions) {
-        if (R3.kind !== "junction") continue;
-        const [x0, y0, x1, y1] = R3.box;
-        if (car4.x >= x0 && car4.x <= x1 && car4.y >= y0 && car4.y <= y1 && Math.abs(car4.z - R3.z) < 12) {
-          box2 = R3;
-          break;
-        }
-      }
-      const entered = box2 && box2 !== this._inBox;
-      this._inBox = box2;
-      if (!this.copSees) return;
-      if (car4.speed > TUNE.speedLimit) BUS.emit("crime", { type: "speeding", x: car4.x, y: car4.y, by: P21.id, victim: null, severity: 0 });
-      if (entered && box2.signals === "signal" && car4.speed > 30) {
-        const axis = Math.abs(Math.cos(car4.heading)) > Math.abs(Math.sin(car4.heading)) ? "ew" : "ns";
-        if (signalAt(box2, this.life.t)[axis] === "red") BUS.emit("crime", { type: "redLight", x: car4.x, y: car4.y, by: P21.id, victim: null, severity: 0 });
-      }
-    }
-    // ---- the response
-    _dispatch(P21) {
-      const T21 = this.tier();
-      if (!T21 || this.busted) {
-        if (!T21 && this.heli) this._freeHeli();
-        return;
-      }
-      const W26 = this.wanted, at = W26.seen || !W26.lastKnown ? P21 : W26.lastKnown;
-      const want = { cruiser: T21.cruisers || 0, swat: T21.swat || 0, fed: T21.feds || 0 }, have = { cruiser: 0, swat: 0, fed: 0 };
-      for (const u of this.units) if (!u.gone) have[u.kind]++;
-      for (const k of ["fed", "swat", "cruiser"]) {
-        if (have[k] >= want[k]) continue;
-        const U2 = this.unitsSpec[k], c = this.life.traffic && this.life.traffic.dispatch(U2.def, at.x, at.y, { kind: "police", crew: U2.crew, stop: 0, z: at.z || 0 });
-        if (!c) break;
-        const u = this._unit(k, c);
-        u.flank = k === "fed" ? this.units.filter((q) => q.kind === "fed").length % 2 ? 1 : -1 : 0;
-        this.spawned++;
-        BUS.emit("dispatch", { kind: "police", unit: c.v.id, x: Math.round(at.x), y: Math.round(at.y), tier: k });
-        break;
-      }
-      for (const k of ["cruiser", "swat", "fed"]) {
-        const mine = this.units.filter((u) => u.kind === k && !u.gone && !u.out);
-        if (mine.length <= want[k]) continue;
-        mine.sort((a, b) => Math.hypot(b.car.v.x - P21.x, b.car.v.y - P21.y) - Math.hypot(a.car.v.x - P21.x, a.car.v.y - P21.y) || a.car.v.id - b.car.v.id);
-        this._release(mine[0]);
-      }
-      if (T21.chopper && !this.heli) this._claimHeli(P21);
-      if (!T21.chopper && this.heli) this._freeHeli();
-    }
-    _unit(kind, c) {
-      c.duty.ext = true;
-      c.v.owner = "police";
-      const u = { kind, car: c, drive: new PursuitDriver(c, { gps: this.life.gps }), I: this.idle, out: false, gone: false, recall: false, born: this.t, flank: 0, mind: null };
-      this.units.push(u);
-      return u;
-    }
-    // each unit: on the chase; near the player on foot (or stopped) its crew gets out; back in to drive on, or to leave
-    _units(dt, ctx, P21, car4, standDown) {
-      const W26 = this.wanted, WD = ctx.W || { fleet: this.fleet, t: this.life.t };
-      for (const u of this.units) {
-        const c = u.car, v = c.v;
-        if (c.duty && c.duty.lost && !v.wrecked && this.fleet.vehicles.includes(v)) this._bail(u);
-        if (!c.duty || c.duty.lost || v.wrecked || v.sunk || !this.fleet.vehicles.includes(v)) {
-          this._gone(u);
-          continue;
-        }
-        for (const q of c.crew) if (q && q.seat && q.seat.vehicle === v) q.ride();
-        const living = c.crew.filter((q) => q && !q.dead), aboard = living.filter((q) => q.seat && q.seat.vehicle === v);
-        if (!living.length) {
-          this.life.traffic.abandon(c);
-          this._gone(u);
-          continue;
-        }
-        if (u.out) {
-          u.I = this.parked;
-          u.recall = !standDown && !!car4 && car4.speed > 60 && Math.hypot(car4.x - v.x, car4.y - v.y) > RECALL;
-          living.forEach((q, i) => {
-            const cop = this.cops.find((k) => k.ped === q);
-            if (cop) cop.brain.seat = i;
-          });
-          if (aboard.length === living.length) {
-            if (!v.driver) {
-              const q = aboard[0];
-              v.unseat(q);
-              v.sit(q, 0);
-            }
-            c.crew = living;
-            c.driver = v.driver;
-            c.duty.out = false;
-            c.brain.parked = false;
-            u.out = false;
-            u.recall = false;
-            u.drive.goalAt = null;
-            u.drive.routeT = 0;
-            for (const q of living) this._dropCop(q, false);
-          }
-          continue;
-        }
-        if (standDown) {
-          this._release(u);
-          continue;
-        }
-        if (this.busted) {
-          u.I = this.parked;
-          continue;
-        }
-        const tgt = W26.seen || !W26.lastKnown ? { x: P21.x, y: P21.y, z: P21.z || 0, car: car4 } : { x: W26.lastKnown.x, y: W26.lastKnown.y, z: 0, car: null };
-        const stopFor = !car4 || car4.speed < 10, d = Math.hypot(tgt.x - v.x, tgt.y - v.y);
-        u.I = u.drive.update(dt, WD, tgt, this.fp, { map: this.city.map, stop: stopFor });
-        u.stillT = !v.kinematic && v.speed < 4 ? (u.stillT || 0) + dt : 0;
-        const T21 = this.life.traffic, onLane = T21.parkable(c) || T21.heldBehind(c);
-        if (stopFor && !v.kinematic && (W26.seen && v.speed < 8 && d < OUT_NEAR || u.stillT > STUCK_OUT && d < STUCK_NEAR && onLane)) this._crewOut(u);
-      }
-      this.units = this.units.filter((u) => !u.gone);
-    }
-    _crewOut(u) {
-      const c = u.car, v = c.v;
-      u.out = true;
-      u.I = this.parked;
-      c.duty.out = true;
-      if (c.brain) c.brain.parked = true;
-      c.crew.forEach((ped, i) => {
-        if (!ped || ped.dead || !ped.seat) return;
-        const plan2 = exitFor(ped, v);
-        if (plan2) ped.leave(plan2);
-        else {
-          v.unseat(ped);
-          const [x, y] = v.toWorld(0, (i % 2 ? 1 : -1) * (v.hw + 8));
-          ped.place(x, y, v.z);
-        }
-        this._addCop(ped, { unit: u, seat: i, flank: u.flank });
-      });
-    }
-    // a car the player took from a unit: whoever is still in it gets out and joins in on foot
-    _bail(u) {
-      const v = u.car.v;
-      u.car.crew.forEach((q, i) => {
-        if (!q || q.dead || !q.seat || q.seat.vehicle !== v || this.isPlayer(q.id)) return;
-        const plan2 = exitFor(q, v);
-        if (plan2) q.leave(plan2);
-        else {
-          v.unseat(q);
-          const [x, y] = v.toWorld(0, (i % 2 ? 1 : -1) * (v.hw + 8));
-          q.place(x, y, v.z);
-        }
-        this._addCop(q, {});
-      });
-    }
-    // a unit back to the traffic: siren off, its crew aboard (any still out walk back first: cop.js's stand-down)
-    _release(u) {
-      const c = u.car;
-      if (c.crew.some((q) => q && !q.dead && !q.seat)) {
-        u.out = true;
-        c.duty.out = true;
-        return;
-      }
-      u.gone = true;
-      c.duty.ext = false;
-      this.life.traffic.release(c);
-      c.v.owner = "world";
-      for (const q of c.crew) if (q) this._dropCop(q, false);
-    }
-    _gone(u) {
-      u.gone = true;
-      if (u.car.duty) u.car.duty.ext = false;
-      for (const c of this.cops) if (c.unit === u) c.unit = null;
-    }
-    // ---- cops on foot
-    _addCop(ped, o = {}) {
-      let c = this.cops.find((k) => k.ped === ped);
-      if (c) {
-        if (o.unit) {
-          c.unit = o.unit;
-          c.brain.unit = o.unit;
-          c.brain.seat = o.seat ?? c.brain.seat;
-        }
-        return c;
-      }
-      const brain = new CopBrain(ped, { walks: this.life.walks, map: this.city.map, fleet: this.fleet, rng: this.rng, unit: o.unit || null, seat: o.seat ?? 0, post: o.post || null, flank: o.flank || 0 });
-      c = { ped, brain, unit: o.unit || null, block: o.block || null, mind: new E.Suspicion({ rise: 2.4 }), sees: false, deadT: 0, crowd: !!o.crowd, arch: o.arch || ped.archetype || null };
-      this.cops.push(c);
-      if (this.combat) this.combat.add(ped);
-      ped.lazyRig = true;
-      ped.coast = false;
-      ped.crowd = false;
-      return c;
-    }
-    /** an officer out of its car some other way (pulled out by the player, rammed out): on foot, it joins in */
-    adoptCop(ped) {
-      return this._addCop(ped, {});
-    }
-    // off the police's hands: seated in its car again (combat: false keeps it in Combat's bodies), or gone
-    _dropCop(ped, combat = true) {
-      const i = this.cops.findIndex((c) => c.ped === ped);
-      if (i < 0) return;
-      this.cops.splice(i, 1);
-      if (combat && this.combat) this.combat.remove(ped);
-    }
-    // a patrol officer who sees the wanted player leaves its beat (the crowd lets it go) and joins the chase
-    _claim(m) {
-      const C13 = this.life.crowd;
-      if (!C13 || !C13.release(m)) return;
-      this._addCop(m.ped, { crowd: true, arch: m.arch });
-      this.claimed++;
-    }
-    // a car sent to look round (emergency.js) whose officers see the player wanted: the unit and its crew join the chase
-    _claimCall(call) {
-      const S10 = this.life.services, h = S10 && S10.handOver(call);
-      if (!h) return;
-      const u = this._unit("cruiser", h.unit);
-      u.out = h.scene;
-      this.claimed++;
-      if (!h.scene) {
-        h.unit.duty.out = false;
-        h.unit.brain.parked = false;
-      }
-      for (const f of h.crew) if (!f.ped.dead && !f.ped.seat) this._addCop(f.ped, { unit: u, seat: f.seat });
-    }
-    _copsStep(dt, P21, car4, standDown) {
-      const W26 = this.wanted, T21 = this.tier(), shoot = !!(T21 && T21.shoot) || this.fought;
-      const PW = { map: this.city.map, city: this.city, combat: this.combat, fleet: this.fleet, aim: NOAIM4 }, C13 = this.life.crowd;
-      for (const c of this.cops) {
-        const p = c.ped;
-        if (p.dead) {
-          if (!c.deadT) c.deadT = this.t;
-          if (this.t - c.deadT < FALL2) p.update(dt, this.idle, PW);
-          else if (C13) {
-            C13.adopt(p, "dead", { arch: c.arch ? get("peds", c.arch) : null });
-            c.returned = true;
-          }
-          continue;
-        }
-        if (p.seat) continue;
-        if (standDown && !c.block && (!c.unit || c.unit.gone) && C13) {
-          C13.adopt(p, "calm", { arch: c.arch ? get("peds", c.arch) : null });
-          c.returned = true;
-          continue;
-        }
-        const busted = !!this.busted, home = standDown || !!(c.unit && c.unit.recall);
-        const I = c.brain.update(dt, { player: P21, car: car4, seen: c.sees && W26.stars > 0 && !busted, stars: W26.stars, shoot: shoot && !busted, lastKnown: W26.lastKnown, searchR: W26.searchR, standDown: home });
-        if (busted) {
-          I.move[0] = I.move[1] = 0;
-          I.down.attack = false;
-          I.down.sprint = false;
-        }
-        p.update(dt, I, PW);
-      }
-      this.cops = this.cops.filter((c) => {
-        if (c.returned) return false;
-        if (standDown && !c.unit && !c.block && !C13 && this.fp.d(c.ped.x, c.ped.y) > TUNE.fpSpawnOut) {
-          if (this.combat) this.combat.remove(c.ped);
-          return false;
-        }
-        return true;
-      });
-    }
-    // ---- the Eye
-    _claimHeli(P21) {
-      let v = null, bd = HELI_CLAIM;
-      for (const q of this.fleet.vehicles) if (q.def.id === "eye" && !q.wrecked) {
-        const d = Math.hypot(q.x - P21.x, q.y - P21.y);
-        if (d < bd) {
-          bd = d;
-          v = q;
-        }
-      }
-      if (v) this.leaving = (this.leaving || []).filter((q) => q !== v);
-      if (!v) {
-        const a = this.rng.next() * Math.PI * 2, r7 = TUNE.fpSpawnIn + 40;
-        v = this.fleet.spawn("eye", P21.x + Math.cos(a) * r7, P21.y + Math.sin(a) * r7, a + Math.PI);
-        v.owner = "police";
-      }
-      const alt = v.body.h.hoverZ, h = this.heli = { v, patrol: v.ai || null, mind: null, orbit: this.rng.next() * Math.PI * 2 };
-      v.ai = (dt, me) => {
-        const W26 = this.wanted, at = W26.seen || !W26.lastKnown ? this.player : W26.lastKnown;
-        if (!at) return { to: [me.x, me.y], alt, spot: null };
-        h.orbit += dt * 0.35;
-        const ox = Math.cos(h.orbit) * HELI_R, oy = Math.sin(h.orbit) * HELI_R;
-        const sweep2 = W26.seen ? 0 : W26.searchR * 0.5, sx = at.x + Math.sin(this.t * 0.7) * sweep2, sy = at.y + Math.cos(this.t * 0.5) * sweep2;
-        return { to: [at.x + ox, at.y + oy], alt, face: Math.atan2(sy - me.y, sx - me.x), spot: [sx, sy] };
-      };
-      BUS.emit("dispatch", { kind: "police", unit: v.id, x: Math.round(P21.x), y: Math.round(P21.y), tier: "chopper" });
-    }
-    _freeHeli() {
-      const h = this.heli;
-      this.heli = null;
-      if (h.v.wrecked) return;
-      h.v.ai = h.patrol || ((dt, me) => ({ to: [me.x + Math.cos(me.heading) * 400, me.y + Math.sin(me.heading) * 400], alt: me.body.h.hoverZ, spot: null }));
-      if (!h.patrol) (this.leaving ||= []).push(h.v);
-    }
-    _heliStep() {
-      if (this.heli && this.heli.v.wrecked) this.heli = null;
-      if (this.leaving && this.leaving.length) this.leaving = this.leaving.filter((v) => {
-        if (v.wrecked || !this.fleet.vehicles.includes(v)) return false;
-        if (this.fp.d(v.x, v.y) > TUNE.fpSpawnOut + 100) {
-          this.fleet.remove(v);
-          return false;
-        }
-        return true;
-      });
-    }
-    // ---- roadblocks and spike strips: ahead of the player's car, inside the annulus
-    _blocksStep(dt, P21, car4, standDown) {
-      const T21 = this.tier();
-      if (!standDown && !this.busted && !this.noBlocks && T21 && car4 && car4.speed > 60) {
-        this._blockT -= dt;
-        this._spikeT -= dt;
-        if (T21.roadblocks && this._blockT <= 0 && this.blocks.length < T21.roadblocks) this._blockT = this._roadblock(car4) ? TUNE.roadblockEvery : 3;
-        if (T21.spikes && this._spikeT <= 0 && this.spikes.length < T21.spikes) this._spikeT = this._spikeStrip(car4) ? TUNE.spikeEvery : 3;
-      }
-      const behind3 = (x, y) => car4 && (x - car4.x) * Math.cos(car4.heading) + (y - car4.y) * Math.sin(car4.heading) < -200;
-      for (const b of this.blocks) if ((standDown || behind3(b.x, b.y) || this.t - b.t > 90) && this.fp.d(b.x, b.y) > TUNE.fpFull + 120) b.gone = true;
-      for (const b of this.blocks) {
-        if (!b.gone) continue;
-        for (const v of b.cars) if (this.fleet.vehicles.includes(v) && !v.occupied) this.fleet.remove(v);
-        for (const c of b.cops) if (!c.ped.dead) this._dropCop(c.ped);
-      }
-      this.blocks = this.blocks.filter((b) => !b.gone);
-      for (const s of this.spikes) if ((standDown || behind3(s.x, s.y) || this.t - s.t > 120) && this.fp.d(s.x, s.y) > TUNE.fpFull + 120) s.gone = true;
-      this.spikes = this.spikes.filter((s) => !s.gone);
-      for (const s of this.spikes) for (const v of this.fleet.near(s.x, s.y, s.half + 40)) {
-        if (!v.body || v.cls === "heli" || v.cls === "boat" || v.owner === "police" || s.hit.has(v) || Math.abs(v.z - s.z) > 6) continue;
-        if (segBox3(v, s.a, s.b)) {
-          s.hit.add(v);
-          if (v.flatten()) BUS.emit("spiked", { vehicle: v.id });
-        }
-      }
-    }
-    // a point on the road ahead of the car, inside the annulus: forward along its lanes (straight on where it can, the
-    // way a fleeing driver mostly goes) to the first point the annulus holds, clear of the roadblocks and strips already
-    // down; null when none
-    _ahead(car4) {
-      const G2 = this.life.graph;
-      if (!G2) return null;
-      const n = G2.nearestLane(car4.x, car4.y, car4.heading, car4.z, 80);
-      if (!n) return null;
-      let lane2 = n.lane, s = n.s;
-      const fp = this.fp;
-      for (let hops = 0; hops < 14 && lane2; hops++) {
-        for (; s < lane2.len; s += 16) {
-          const p = G2.pointOn(lane2, s), d = fp.d(p[0], p[1]);
-          if (d < TUNE.fpSpawnIn || d > TUNE.fpSpawnOut || (p[0] - car4.x) * Math.cos(car4.heading) + (p[1] - car4.y) * Math.sin(car4.heading) <= 0) continue;
-          if (this.blocks.some((b) => Math.hypot(b.x - p[0], b.y - p[1]) < 90) || this.spikes.some((q) => Math.hypot(q.x - p[0], q.y - p[1]) < 90)) continue;
-          return { lane: lane2, s, p };
-        }
-        const outs = lane2.out.map((id) => G2.conns[id]).filter((c2) => c2 && c2.kind !== "change" && c2.kind !== "uturn");
-        if (!outs.length) return null;
-        const c = outs.find((q) => q.kind === "straight") || outs[0];
-        lane2 = G2.lanes[c.to];
-        s = c.toS || 0;
-      }
-      return null;
-    }
-    // (A: where, { lane, p }: the dev menu's and the strips' own spot; else ahead of the car)
-    _roadblock(car4, A = this._ahead(car4)) {
-      if (!A) return false;
-      const { lane: lane2, p } = A, h = Math.atan2(lane2.dir[1], lane2.dir[0]), nx = -lane2.dir[1], ny = lane2.dir[0], U2 = this.unitsSpec.cruiser;
-      const b = { x: p[0], y: p[1], z: p[2], t: this.t, cars: [], cops: [], mind: null };
-      for (const side of [-1, 1]) {
-        const x = p[0] + nx * side * 15, y = p[1] + ny * side * 15;
-        if (this.fleet.near(x, y, 40).some((q) => q.body && Math.hypot(q.x - x, q.y - y) < q.hl + 20)) continue;
-        const v = this.fleet.spawn(U2.def, x, y, h + Math.PI / 2 * side);
-        v.body.z = p[2];
-        v.owner = "police";
-        v.siren = v.hasSiren;
-        b.cars.push(v);
-        const arch = get("peds", U2.crew[0]);
-        if (!arch) continue;
-        const px = x - lane2.dir[0] * 34, py = y - lane2.dir[1] * 34, ped = this._newCop(arch, px, py, p[2]);
-        b.cops.push(this._addCop(ped, { post: [px, py], block: b }));
-      }
-      if (!b.cars.length) return false;
-      this.blocks.push(b);
-      BUS.emit("roadblock", { x: Math.round(p[0]), y: Math.round(p[1]) });
-      return true;
-    }
-    _spikeStrip(car4, A = this._ahead(car4)) {
-      if (!A) return false;
-      const { lane: lane2, p } = A, nx = -lane2.dir[1], ny = lane2.dir[0], half = 26;
-      this.spikes.push({ x: p[0], y: p[1], z: p[2], half, a: [p[0] - nx * half, p[1] - ny * half], b: [p[0] + nx * half, p[1] + ny * half], t: this.t, hit: /* @__PURE__ */ new Set() });
-      BUS.emit("spikes", { x: Math.round(p[0]), y: Math.round(p[1]) });
-      return true;
-    }
-    _newCop(arch, x, y, z) {
-      const ped = new Ped({ x, y, z, faction: arch.faction || "police", look: pedLook(arch, this.rng), lazyRig: true, health: arch.health || 100, maxHealth: arch.health || 100, armor: arch.armor || 0, weapons: arch.weapons || ["fists"] });
-      ped.archetype = arch.id;
-      ped.place(x, y, z);
-      return ped;
-    }
-    // ---- NABBED
-    _nab(dt, P21, car4) {
-      if (this.busted || P21.dead || !this.wanted.stars) {
-        this.cuffT = this.doorT = 0;
-        return;
-      }
-      const reach = TUNE.arrestReach, able = (c) => !c.ped.dead && !c.ped.floored && !c.ped.seat && !c.ped.boarding && c.ped.vitals.stun <= 0;
-      const level2 = (c, z) => Math.abs((c.ped.z || 0) - (z || 0)) < 12;
-      if (!car4 && !P21.seat && !P21.boarding) {
-        const spec = P21.inv.spec(), unarmed = !spec || spec.projectile === "melee", slow = Math.hypot(P21.mover.vx, P21.mover.vy) < TUNE.slowSpeed;
-        const cop = this.cops.find((c) => able(c) && Math.hypot(c.ped.x - P21.x, c.ped.y - P21.y) < reach && level2(c, P21.z));
-        this.cuffT = cop && (unarmed || slow) ? this.cuffT + dt : Math.max(0, this.cuffT - dt * 2);
-        if (cop && this.cuffT >= TUNE.arrestTime) this._bust(cop.ped, "cuffed");
-        this.doorT = 0;
-      } else if (car4) {
-        const door2 = doorOf(car4), cop = car4.speed < 4 && this.cops.find((c) => able(c) && Math.hypot(c.ped.x - door2[0], c.ped.y - door2[1]) < reach + 4 && level2(c, car4.z));
-        this.doorT = cop ? this.doorT + dt : 0;
-        if (cop && this.doorT >= TUNE.doorTime) this._bust(cop.ped, "door");
-        this.cuffT = 0;
-      }
-    }
-    _bust(cop, how) {
-      this.busted = { by: cop.id, how, t: this.t };
-      BUS.emit("busted", { by: cop.id, how });
-    }
-    /** the scene has played the arrest out (or the player was wrecked): the chase is over, the stars cleared */
-    reset(why) {
-      this.busted = null;
-      this.cuffT = this.doorT = 0;
-      this.fought = false;
-      this.pending.length = 0;
-      this.wanted.clear(why);
-    }
-    /** the Intent a police vehicle is driven on this step (null: not one of ours) */
-    intentFor(v) {
-      for (const u of this.units) if (u.car.v === v && !u.gone) return v.kinematic ? clearIntent(this.idle) : u.I;
-      for (const b of this.blocks) if (b.cars.includes(v)) return this.parked;
-      return null;
-    }
-    /** the bodies on foot the police own (for drivers to yield to, and peds to keep apart from) */
-    get bodies() {
-      return this.cops.filter((c) => !c.ped.seat).map((c) => c.ped);
-    }
-    /** for the radar: the police's eyes ({ x, y, facing, fov, range, kind, state }) */
-    eyes() {
-      return this._observers(false).map((o) => ({ x: o.x, y: o.y, facing: o.facing, fov: o.fov, range: o.range, kind: o.kind, state: o.mind.state }));
-    }
-    /** draw the cops on foot round the focus, and the strips on the road */
-    draw(stage, fx7, fy, reach) {
-      for (const c of this.cops) {
-        const p = c.ped;
-        if (!p.seat && Math.abs(p.x - fx7) < reach && Math.abs(p.y - fy) < reach) p.draw(stage, { crowd: true, key: p.rig });
-      }
-      const near3 = this.spikes.filter((s) => Math.abs(s.x - fx7) < reach && Math.abs(s.y - fy) < reach);
-      if (near3.length) stage.floor((g, P21) => {
-        for (const s of near3) drawStrip(g, P21, s);
-      });
-    }
-    hash() {
-      let h = this.units.length * 31 + this.spawned;
-      for (const c of this.cops) h = h * 31 + Math.round(c.ped.x * 4) * 7 + Math.round(c.ped.y * 4) >>> 0;
-      return [...this.wanted.hash(), this.units.length, this.cops.length, this.blocks.length, this.spikes.length, this.heli ? 1 : 0, h];
-    }
-    stats() {
-      return { stars: this.wanted.stars, heat: Math.round(this.wanted.heat), seen: this.seen, units: this.units.map((u) => u.kind + (u.out ? ":out" : "")), cops: this.cops.length, heli: !!this.heli, blocks: this.blocks.length, spikes: this.spikes.length, spawned: this.spawned, claimed: this.claimed };
-    }
-  };
-  function segBox3(v, a, b) {
-    const [ax, ay] = v.toLocal(a[0], a[1]), [bx, by2] = v.toLocal(b[0], b[1]), L22 = v.hl + 1, W26 = v.hw + 1, dx = bx - ax, dy = by2 - ay;
-    let t0 = 0, t1 = 1;
-    for (const [p, q] of [[-dx, ax + L22], [dx, L22 - ax], [-dy, ay + W26], [dy, W26 - ay]]) {
-      if (p === 0) {
-        if (q < 0) return false;
-        continue;
-      }
-      const r7 = q / p;
-      if (p < 0) {
-        if (r7 > t1) return false;
-        if (r7 > t0) t0 = r7;
-      } else {
-        if (r7 < t0) return false;
-        if (r7 < t1) t1 = r7;
-      }
-    }
-    return t0 <= t1;
-  }
-  function drawStrip(g, P21, s) {
-    const a = P21.proj(s.a[0], s.a[1], s.z), b = P21.proj(s.b[0], s.b[1], s.z);
-    if (!a || !b) return;
-    const k = a[2] || 1, w8 = Math.max(2, Math.round(3 * k));
-    E.px.line(g, a[0], a[1], b[0], b[1], "#0c0c10", w8 + 2);
-    E.px.line(g, a[0], a[1], b[0], b[1], "#8a8a96", w8);
-    const n = Math.max(6, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3));
-    for (let i = 0; i <= n; i++) {
-      const x = a[0] + (b[0] - a[0]) * i / n, y = a[1] + (b[1] - a[1]) * i / n;
-      E.px.rect(g, Math.round(x), Math.round(y) - 1, 1, 2, i % 2 ? "#f0f0f8" : "#2a2a30");
-    }
-    for (const q of [a, b]) E.px.rect(g, Math.round(q[0]) - 1, Math.round(q[1]) - 1, 3, 3, "#ffd23a");
-  }
 
   // src/motor/gangs/gangs.js
   declare("gangs", shape({
@@ -48962,7 +49107,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       P17([-14.4, -1.4, 9.8, -14, 1.4, 10.8], "#8a1a1a", "tail")
     ],
     wheels: [{ x: fx4, y: 0, r: r5, steer: true }, { x: rx4, y: 0, r: r5, steer: false }],
-    seats: [{ x: -6.8, y: 0 }],
+    seats: [{ x: -6.8, y: 0, z: 7 }],
+    // (z: the rider on the saddle, whose top is 10.6)
     // (side 0: a bike has no door, and a door with a side is drawn swinging open while its rider gets off)
     doors: [{ id: "l", x: -5, y: -10, side: 0, seat: 0 }, { id: "r", x: -5, y: 10, side: 0, seat: 0 }],
     lights: { head: [[9.6, 0, 12.5]], tail: [[-14.2, 0, 10.3]], siren: [] },
@@ -49154,7 +49300,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       P19([-16.2, -1.2, 9.8, -15.9, 1.2, 10.6], PLATE5, "trim")
     ],
     wheels: [{ x: fx5, y: 0, r: r6, steer: true }, { x: rx5, y: 0, r: r6, steer: false }],
-    seats: [{ x: -6.6, y: 0 }],
+    seats: [{ x: -6.6, y: 0, z: 8.2 }],
+    // (z: the rider up on the saddle, whose top is 11.8)
     // (side 0: a bike has no door, and a door with a side is drawn swinging open while its rider gets off)
     doors: [{ id: "l", x: -5, y: -10, side: 0, seat: 0 }, { id: "r", x: -5, y: 10, side: 0, seat: 0 }],
     lights: { head: [[13.4, -1.4, 11.6], [13.4, 1.4, 11.6]], tail: [[-16, 0, 11.4]], siren: [] },

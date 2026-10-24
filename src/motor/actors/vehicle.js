@@ -11,6 +11,7 @@ import { all } from '../core/registry.js';
 import { Actor } from '../sim/actor.js';
 import { vehicleDef, classOf, modelOf, makeBody } from '../sim/vehicle/defs.js';
 import { Damage } from '../sim/vehicle/damage.js';
+import { seatHeight } from '../sim/vehicle/model.js';
 
 knob('Vehicles', 'nitroTime', 'Nitro burst', 2.5, .5, 8, .25, 'Seconds a nitro charge lasts');
 knob('Vehicles', 'nitroBoost', 'Nitro power', 1.8, 1, 4, .05, 'A factor on power (and launch) while the nitro burns');
@@ -74,6 +75,8 @@ export class Vehicle {
   toLocal(x, y) { const c = Math.cos(this.heading), s = Math.sin(this.heading), dx = x - this.x, dy = y - this.y; return [dx * c + dy * s, -dx * s + dy * c]; }
   /** the seat's world spot and the door's for seat i (the nearest door to a point when several serve it) */
   seatAt(i) { const s = this.model.seats[Math.min(i, this.model.seats.length - 1)] || { x: 0, y: 0 }; return this.toWorld(s.x, s.y); }
+  /** the height a rider of seat i sits at (the seat's own z in the model, else its class's: SEAT_Z) */
+  seatZ(i) { return this.z + seatHeight(this.cls, this.model.seats[Math.min(i, this.model.seats.length - 1)]); }
   /** a ped sits down (boarding.js calls it once the beats have played) */
   sit(ped, i) { this.seats[i] = ped; ped.seat = { body: this, vehicle: this, index: i }; if (i === 0) this.ai = null; this.asleep = false; }
   /** a ped gets up out of its seat */

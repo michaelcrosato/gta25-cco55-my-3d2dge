@@ -86,6 +86,19 @@ test('a locked police car takes a break-in first (TUNE.breakIn seconds, a crime)
   assert.equal(b.driver, r); assert.ok(tb < .8, `mounted in ${tb.toFixed(2)} s`);
 });
 
+test('a rider sits at its seat\'s height: up on each bike\'s own saddle, a car\'s at 6, and the same as getting on ends as riding (HANDOFF L2)', async () => {
+  await import('../../src/game/vehicles/sparrow.js'); await import('../../src/game/vehicles/vandal.js');
+  for (const [id, h] of [['sparrow', 7], ['vandal', 8.2], ['t-bike', 14 * .82 - 3.6], ['cortez', 6]]) {
+    const Y = yard(), v = Y.fleet.spawn(id, 300, 300, 0), [x, y] = v.toWorld(0, -(v.hw + 8)), p = ped(Y, x, y);
+    p.board(boardingFor(p, v, 0)); let atEnd = null;
+    step(Y, 6, { until: () => { if (!p.boarding && atEnd === null) atEnd = p.mover.z; return v.driver === p && !p.boarding; } });
+    assert.equal(v.driver, p, id + ': aboard');
+    step(Y, .5);
+    assert.ok(Math.abs(p.mover.z - (v.z + h)) < 1e-9, `${id}: the rider at ${p.mover.z.toFixed(2)}, its seat ${(v.z + h).toFixed(2)}`);
+    assert.ok(Math.abs(atEnd - p.mover.z) < 1e-9, `${id}: getting on ended at ${atEnd.toFixed(2)}, riding at ${p.mover.z.toFixed(2)}`);
+  }
+});
+
 test('getting out above the bail-out speed is a dive roll: the ped ends clear, the car rolls on and stops by itself', () => {
   const Y = yard(), v = Y.fleet.spawn('cortez', 300, 480, 0), p = ped(Y, 300, 480); v.sit(p, 0);
   v.body.u = 160; const plan = exitFor(p, v); assert.equal(plan.kind, 'bailOut');

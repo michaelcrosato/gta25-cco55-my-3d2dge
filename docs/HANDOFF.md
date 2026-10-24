@@ -52,7 +52,7 @@ This is everything the docs leave open: what DECISIONS left for later, the known
 expansion path. Work it in this order (D32). An item closes when `npm run test:full` passes alone on its last commit
 and its evidence is in `PROGRESS.md`; then tick its box here.
 
-- [ ] **L1 · Determinism across runtimes** (D31's limit). The simulation computes with MOTOR's own `sin`, `cos` and
+- [x] **L1 · Determinism across runtimes** (D31's limit; done, D33). The simulation computes with MOTOR's own `sin`, `cos` and
   `pow`, and with its own version of any other Math function that a probe finds differing between Node and Chromium.
   Reach the engine's `E.Mover` through a GTM-PATCH (PLAN.md 12). Add a test that one seed's run hashes the same
   headless and in the page. Once this holds, the page's bot plays the same game as the headless run.
@@ -182,24 +182,18 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
 
 ## Known limits
 
-- **What the bot can't do** (D22: content never asks it):
-  - lose three stars (the Eye sees 520 u except under the decks, and roadblocks sit on its routes): content keeps a
-    stage's stars below three or drives them through to where the story drops them;
-  - always keep a delivery free of police stars: S1's long Brute is busted now and then, and wins on a retry;
-  - always turn a long truck at a tight corner: a failing turn is kept off its next route, but it costs time;
-  - fight back a passer-by who hits it: content sends them running instead (`m.shoo`).
-- **The bot can be pinned on foot:** with every car near it given up on for the trip, a car it left parked, a wall and
-  peds standing in the gap can close a pocket round it, and its walk then cycles its start nodes without leaving (met
-  once, in the page's run of Gutter Ball on seed 1, D31, before L1 made the page's game the headless one; no headless
-  run has met it). A player walks round, or takes the car.
-- **The bot gym through the pad is the touchiest probe:** `follow` (a calm car tailed across town) and `kill` pass,
-  but often on a retry; every MOTOR change moves them first.
-- **Night glows** (the head, tail and siren lights' halos) ignore occlusion. From some angles a far tail lamp's glow
-  shows over a roof at night.
+- **What the bot can't do** (D22 and D34: content never asks it):
+  - lose three stars for sure: it hides from the Eye under the decks, but the police on foot shoot its car to a wreck
+    while it is stopped or crawling, and which seeds get away moves with every change (the gym's `evade3`, played and
+    reported but not gating). Content keeps a stage's stars below three or drives them through to where the story drops
+    them;
+  - fight back a passer-by who hits it: content sends them running instead (`m.shoo`); it walks on regardless (the
+    gym's `passerby`);
+  - turn a long truck at every tight corner quickly: a failing turn is kept off its next route, but on some seeds it
+    costs minutes (the gym's `haul`: 35-102 s on seeds 1-3 and 5, 769 s on seed 4).
 - **Performance:** out of the Definition of Done since D29 (the owner's call: FPS targets and optimization come later,
   and L3 is that later). D20 has the budgets and where the frame goes; `node tools/perf.mjs --dist <old build>`
   measures interleaved with an older build. The machine's speed varies more than the budgets' margins.
-- **Bike riders** sit at a fixed height whatever the bike.
 
 ## Continuing the run: the /goal prompt
 

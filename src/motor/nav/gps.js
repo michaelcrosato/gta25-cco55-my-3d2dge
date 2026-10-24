@@ -5,7 +5,8 @@
 //   const gps = new GPS(graph);  gps.route(fromLane, toLane, { s, avoid }) -> { lanes, conns, cost } | null
 //   gps.routeTo(x, y, heading, tx, ty) (nearest lanes at both ends; a goal behind on the same lane: round the block to
 //   it); gps.dijkstra(fromLane, toLane) (the reference);
-//   gps.costsTo(lane) (every lane's cost to it: where to start a drive from)
+//   gps.costsTo(lane) (every lane's cost to it: where to start a drive from); gps.costsFrom(lane, s) (the cost from
+//   it to every lane: which of many places is the quickest drive)
 import { TURN_SPEED } from './roadgraph.js';
 
 /** seconds a move costs on top of its time: turning, crossing back, changing lane */
@@ -49,6 +50,18 @@ export class GPS {
     while (heap.size) {
       const j = heap.pop(); if (done[j]) continue; done[j] = 1;
       for (const c of this._in[j]) { const i = c.from, nd = D[j] + this.stepCost(c); if (nd < D[i] - 1e-12) { D[i] = nd; heap.push(i, nd); } }
+    }
+    return D;
+  }
+  /** the cost from lane `from` (s: how far along it we are) to the end of every lane (a Dijkstra forward over the
+   *  connectors): a Float64Array, Infinity where it can't be reached. One search answers "which of these places is
+   *  the quickest drive from here" */
+  costsFrom(from, s = 0) {
+    const G = this.g, L = G.lanes, D = new Float64Array(this.n).fill(Infinity); if (!L[from]) return D;
+    const heap = new Heap(), done = new Uint8Array(this.n); D[from] = Math.max(0, L[from].len - s) / L[from].speed; heap.push(from, D[from]);
+    while (heap.size) {
+      const i = heap.pop(); if (done[i]) continue; done[i] = 1;
+      for (const cid of L[i].out) { const c = G.conns[cid], j = c.to, nd = D[i] + this.stepCost(c); if (nd < D[j] - 1e-12) { D[j] = nd; heap.push(j, nd); } }
     }
     return D;
   }

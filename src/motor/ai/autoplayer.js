@@ -93,7 +93,16 @@ export class AutoPlayer {
     return this._walk(dt, p);
   }
   // ---- on foot
-  _walk(dt, p) { this.state = 'walk'; return this._walkTo(dt, p, this.goal.x, this.goal.y, 'goal'); }
+  // pinned (a pocket: the cars near it all given up on, one it left parked, a wall, peds in the gap) and within 40 of one
+  // spot for 20 s: the cars given up on are taken again, and the walk starts over from the nearest node (it had cycled
+  // its start nodes round and round there, D31)
+  _walk(dt, p) {
+    this.state = 'walk';
+    const K = this.pin && this.pin.goal === this.goal ? this.pin : (this.pin = { goal: this.goal, at: [p.x, p.y], t: 0 });
+    if (Math.hypot(p.x - K.at[0], p.y - K.at[1]) > 40) { K.at = [p.x, p.y]; K.t = 0; }
+    else if ((K.t += dt) > 20) { K.t = 0; this.tried.clear(); this.gaveUp.clear(); this.car = null; this.skip = 0; this.path = null; }
+    return this._walkTo(dt, p, this.goal.x, this.goal.y, 'goal');
+  }
   // to (tx, ty) on foot: the sidewalk graph's shortest way between the nodes nearest each end, then straight there;
   // stuck against something, a hop, then the way again from the next-nearest node
   _walkTo(dt, p, tx, ty, key) {
@@ -219,7 +228,7 @@ export class AutoPlayer {
       const n = this.G.nearestLane(v.x, v.y, null, v.z || 0, 300), q = n && this.G.pointOn(n.lane, n.s);
       if (q) { this.esc = { to: [q[0], q[1]], t: 0, slow: 0, back: 0, side: 1 }; this._dropBrain(); return this._escape(dt, v); }
     }
-    if (g.stay) { if (b.lost || b.arrived || (d < 70 && v.speed < 8)) return this._final(v, g, d); }   // (the last stretch: off the road, straight at it)
+    if (g.stay) { if (b.lost || b.arrived || (d < 70 && v.speed < 8)) return this._final(dt, v, g, d); }   // (the last stretch: off the road, straight at it)
     else if (b.lost || ((b.arrived || d < 70) && v.speed < 8) || (d < TUNE.autoArrive * 3 && v.speed < 20)) {   // there (or as near as the road goes): out, and on foot the rest
       if (v.speed > 6) { const I = clearIntent(this.I); I.brake = 1; return I; }
       this.state = 'exit'; this._dropBrain(); const I = clearIntent(this.I); I.tap.interact = true; I.down.interact = true; return I;
@@ -336,11 +345,15 @@ export class AutoPlayer {
   // it on), the handbrake once still
   _hold(v, I) { if (v.speed > 3) { if (this._fwd(v)) I.brake = 1; else I.throttle = 1; } else I.down.handbrake = true; return I; }
   // straight at the goal at a crawl (a yard, a plaza, the rest of the way past the road's end); reversing when it lies
-  // behind and close
-  _final(v, g, d) {
+  // behind and close. Held still for 1.5 s (a long truck's tail swung into a deck's pillar as it turned off the lane):
+  // backed off and on round it, as the way out of a jam goes (it had sat there till the stall's 15 s, then gone round
+  // the block to the same pillar, five times)
+  _final(dt, v, g, d) {
     const I = clearIntent(this.I); this.state = 'final';
     let da = Math.atan2(g.y - v.y, g.x - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
-    if (Math.abs(da) > 2.1 && d < 60) { I.steer = da > 0 ? -1 : 1; I.brake = v.speed > 4 && this._fwd(v) ? 1 : .7; return I; }
+    if (Math.abs(da) > 2.1 && d < 60) { I.steer = da > 0 ? -1 : 1; I.brake = v.speed > 4 && this._fwd(v) ? 1 : .7; this.finSlow = 0; return I; }
+    this.finSlow = v.speed < 3 ? (this.finSlow || 0) + dt : 0;
+    if (this.finSlow > 1.5) { this.finSlow = 0; this.esc = { to: [g.x, g.y], t: 0, slow: 0, back: 1, side: da > 0 ? 1 : -1 }; this._dropBrain(); return this._escape(dt, v); }
     const want = Math.min(FINAL * .6, 25 + d * .5);
     I.steer = Math.max(-1, Math.min(1, da * 2));
     if (v.speed < want) I.throttle = .7; else if (v.speed > want + 25) I.brake = .6;

@@ -75,6 +75,18 @@ test('A* finds what Dijkstra finds on 1,000 random pairs, and a route across the
   times.sort((p, q) => p - q); assert.ok(times[100] < 2, `median ${times[100].toFixed(3)} ms`);
 });
 
+test('the costs from one lane to every lane (gps.costsFrom) are what Dijkstra finds lane by lane, Infinity where none goes', () => {
+  const n = G.lanes.length;
+  for (let k = 0; k < 20; k++) {
+    const a = Math.floor(rand() * n), s = rand() * G.lanes[a].len, D = gps.costsFrom(a, s);
+    for (let m = 0; m < 10; m++) {
+      const b = Math.floor(rand() * n), y = gps.dijkstra(a, b, { s });
+      if (!y) { assert.equal(D[b], Infinity, `${a} -> ${b}: none`); continue; }
+      assert.ok(Math.abs(D[b] - y.cost) < 1e-6, `${a} -> ${b}: ${D[b]} against Dijkstra ${y.cost}`);
+    }
+  }
+});
+
 test('the signals: NS and EW are never open together; each phase lasts its time; junctions are offset; stop signs stay stop', () => {
   const sig = G.regions.filter(r => r.signals === 'signal'), stop = G.regions.find(r => r.signals === 'stop');
   assert.ok(sig.length >= 4, 'signalled junctions: ' + sig.length);

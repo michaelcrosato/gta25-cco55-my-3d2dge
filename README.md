@@ -121,7 +121,8 @@ and the feedback for the engine's maintainers is [`docs/FEEDBACK-FOR-ENGINE.md`]
   the browser suites: smoke, replay, the Proving Ground's self-tests, audio, the attract mode, photo mode, the dev
   tools, one seed played headless and in Chromium to the same hash (D33), the engine's checker on the city and the
   bank). `npm run test:full` adds the soaks, every mission through the
-  bot on three seeds and through a pad, the bot campaign to 100% (the bot invulnerable there: `--god`) and the rest
+  bot on three seeds and through a pad, the bot gym (a fixture per hint kind and per known limit, `tools/botgym.mjs`)
+  both ways, the bot campaign to 100% (the bot invulnerable there: `--god`) and the rest
   (`PROGRESS.md` has each run's evidence). In a Claude Code cloud session the SessionStart hook installs everything;
   elsewhere, run `npx playwright install chromium` once.
 - **Deep links:** `#title`, `#play` (or `#play/<spawn>`), `#interior/bank`, `#attract`, `#mission/<id>/<stage>`,

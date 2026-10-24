@@ -170,9 +170,10 @@ their own. The bot does not swim, fly or sail: a stage it must finish is reachab
 the best gun it carries that has rounds (so give a stage's loadout the gun you mean), drives as a player does (round a
 stalled queue, through a junction that stays shut, off the road out of a jam), and never takes a police car, an
 ambulance or a fire engine unless the stage hands it one. Two things it can't do, so content doesn't ask them: shake
-three stars or more (the Eye sees it everywhere but under the decks: keep a stage it must get through below three, or
-drive the three through to a point where the story drops them), and fight back a passer-by who hits it (`m.shoo`
-them).
+three stars or more for sure (it hides from the Eye under the decks, but the police on foot shoot its car to a wreck
+while it waits, and some seeds never get away, D34: keep a stage it must get through below three, or drive the three
+through to a point where the story drops them), and fight back a passer-by who hits it (`m.shoo` them; it walks on
+regardless).
 
 **Failing**: a `failIf`, the timer, an op's own (the escort dead, the delivery lost or wrecked) and the player
 WRECKED or NABBED stop the stage on JOB BLOWN (retry the stage, or quit). Give every fail a reason a player reads.
@@ -228,7 +229,7 @@ kits and the baseline definition. Put each model and its definitions in a file o
   - `truckParts({ length, width, height, wheel, kind: 'pumper' | 'tow' | 'flatbed', trim })`;
   - `bikeParts({ length, height, wheel, style: 'moped' | 'sport' })`, `boatParts({ length, width, height })`,
     `heliParts({ length, width, height })`, `trainParts({ length, width, height })`.
-- `wheels: [{ x, y, r, steer }]`, `seats: [{ x, y }]` (the driver first), `doors: [{ id, x, y, side: -1 | 1 | 0,
+- `wheels: [{ x, y, r, steer }]`, `seats: [{ x, y, z }]` (the driver first; `z`, if given, is how high its rider sits above the vehicle: a bike's on its saddle, else 7 on a bike and 6 in anything else), `doors: [{ id, x, y, side: -1 | 1 | 0,
   seat }]` (where a body stands to get in: outside the body), `lights: { head, tail, siren: [[x, y, z]] }` (where light
   comes from), `hook: [x, y]` (a tow truck's), `hitch: [x, y]`, `nozzle: [x, y, z]` (where a water cannon's jet
   leaves).
