@@ -8,13 +8,16 @@ the last entry of the log below. The owner's directions of 2026-10-22 (D29): per
 Done (the hardware is unlimited; FPS targets and optimization come later), and the bots may play invulnerable (the
 campaign plays `--god`; the mission bot's runs stay mortal).
 
-Next: the owner's review of PR 2 (a draft until they ask for it to be marked ready), then what they choose:
-performance (D29), the expansion path (PLAN.md 19).
+Merged: the owner merged PR 2 (M5-M13) into `main` on 2026-10-23 (`1a1f955`), after PR 1 (M0-M4).
 
-Blockers: none. (The 403 on pushing, D27, is gone: the branch takes pushes again since M13's part 3.) The run started
-inside the planning session (DECISIONS D5). At M4's close it was handed off (D16), and the next sessions carried it
-from M5 on the branch `claude/compassionate-shannon-h7k7zk` (draft PR 2). A new session picks it up from
-`docs/HANDOFF.md`'s `/goal`.
+Next: `docs/HANDOFF.md`'s W1-W8, in order (D32): performance (D29's "later"), determinism across runtimes (D31), the
+known limits, PLAN.md 19's backlog on Lowtown, the expansion's plan and its build, the platforms, the upstream
+offer. Its `/goal` finishes them.
+
+Blockers: none. (The 403 on pushing, D27, is gone since M13's part 3.) The run started inside the planning session
+(DECISIONS D5). At M4's close it was handed off (D16), and the next sessions carried it from M5 on the branch
+`claude/compassionate-shannon-h7k7zk` (PR 2, now merged). New work goes on a fresh branch cut from `main`, in a new
+draft PR; a new session picks it up from `docs/HANDOFF.md`'s `/goal`.
 
 | Milestone | Status | Evidence (commits · tests · shots · perf) |
 |---|---|---|

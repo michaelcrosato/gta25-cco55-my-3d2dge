@@ -1,9 +1,9 @@
-# Handoff: GRAND THEFT MOTO, the slice done (M0-M13)
+# Handoff: GRAND THEFT MOTO, the slice done (M0-M13) and merged
 
 This is where a fresh session picks up the run. `PLAN.md` is still the contract and `GOAL.md` is the prompt that
-started the run. This page says where the run stands, how the repository is worked, and what to watch for. The
-`/goal` prompt that continues the run is at the end. It is kept current as the run goes, so a session that stops
-anywhere can resume from it: the work in flight is listed with where it lives.
+started the run. This page says where the run stands, what is left (W1-W8), how the repository is worked, and what to
+watch for. The `/goal` prompt that finishes what is left is at the end. It is kept current as the run goes, so a
+session that stops anywhere can resume from it: the work in flight is listed with where it lives.
 
 ## Where it stands
 
@@ -28,17 +28,57 @@ anywhere can resume from it: the work in flight is listed with where it lives.
   (D29):** performance is out of the Definition of Done (the "perf gates" step left test:full; `tools/perf.mjs` stays
   for later), and the bots may play invulnerable (`?god=1`, the tools' `--god`; the campaign plays god by default,
   `--mortal` without; the mission bot's runs stay mortal).
-- **Left, and the owner's:** the review of PR 2 (a draft until the owner asks for it to be marked ready), and whatever
-  comes next: performance (D29), the expansion path (PLAN.md 19). Each change keeps the slice done: `npm test` before
-  every commit, test:full before a change closes, all merged content re-run after a MOTOR, bot or map change.
-- **Where runs go:** the validation trees `/home/user/gtm-m9` and `/home/user/gtm-v2` (detached worktrees, their
-  `node_modules` symlinks: never `git clean` them) are checked out at the commit under test; `npm test` runs alone or
-  beside one bot run at most (the container was restarted once under more). A new container has neither: make one with
-  `git worktree add --detach <dir> <commit>` and link its `node_modules` to the repository's.
-- **The pull requests:** michaelcrosato/gta25-cco55-my-3d2dge#1 carried M0-M4 and was merged into `main`. M5 onward is
-  on `claude/compassionate-shannon-h7k7zk`, in the draft michaelcrosato/gta25-cco55-my-3d2dge#2. Pushing works again
-  (the 403 of D27 is gone since M13's part 3).
+- **Merged:** the owner merged PR 2 (M5-M13) into `main` on 2026-10-23 (`1a1f955`), after PR 1 (M0-M4). `main` is the
+  slice; its old branch `claude/compassionate-shannon-h7k7zk` is spent. New work goes on a fresh branch cut from
+  `main` (a cloud session's own), in a new draft PR to `main`.
+- **Left:** the list below (W1-W8): what D29 left for later (performance), the known limits, and PLAN.md 19's
+  expansion path. Each change keeps the slice done: `npm test` before every commit, test:full before a change closes,
+  all merged content re-run after a MOTOR, bot or map change.
+- **The container** (checked 2026-10-24, D32): Node 22.22.0, npm 10.9.4, Playwright 1.56.1, ffmpeg and python3 on the
+  PATH, 4 CPUs and 15 GB. Its Chromium is now **153** (build 1243, `/opt/pw-browsers/chromium`; the hook sets
+  `CHROMIUM_PATH`), no longer the 141 (build 1194) PLAN.md 6.1 and D6 pinned Playwright for: Playwright 1.56.1 drives
+  it, and `npm test` passed every step on it. D31's drift is now Node's V8 against Chromium 153's.
+- **Where runs go:** the earlier containers' validation trees (`/home/user/gtm-m9`, `/home/user/gtm-v2`) are gone.
+  Make one with `git worktree add --detach <dir> <commit>` and link its `node_modules` to the repository's (never
+  `git clean` it). `npm test` runs alone or beside one bot run at most (a container was restarted once under more).
+- **The pull requests:** michaelcrosato/gta25-cco55-my-3d2dge#1 (M0-M4) and michaelcrosato/gta25-cco55-my-3d2dge#2
+  (M5-M13) are merged into `main`. Pushing works (the 403 of D27 is gone since M13's part 3).
 - **Fan-out points** (PLAN.md 16): A1 (M4), A2 (M8) and B (M13) ran; C (optional, M9's screens) was not used.
+
+## What's left (W1-W8)
+
+In this order; each item closes with test:full passing and its evidence in `PROGRESS.md`, and is ticked here.
+
+- [ ] **W1 · Performance** (D29 left it for later; D10 and D20 the budgets). The last reading of `tools/perf.mjs --gate`
+  was on a shared machine (M13 part 3): ISO 10.2-11.0 ms against 10.4, TOP-DOWN 9.6 against 12.7, MODE 7 12.3-14.9
+  against 12.7, the update 0.9-1.0 ms a step against 1.5. Take the reading of record alone on the machine
+  (`--rounds 3`), bring every view inside its gate without cutting the look (D28 has the levers taken and those left),
+  add the performance setting D29 names (a quality choice in SETTINGS for slower machines; the default keeps the full
+  look), and put the perf-gate step back in test:full with a DECISIONS entry that supersedes D29's first call.
+- [ ] **W2 · Determinism across runtimes** (D31): MOTOR's own `sin`, `cos` and `pow` (and whatever else a probe of the
+  simulation's Math finds differing) used by the simulation, the engine's `E.Mover` reached through a GTM-PATCH
+  (PLAN.md 12), and a test that one seed's run hashes the same in Node and in Chromium. Then a bot run in the page
+  plays the headless run's game.
+- [ ] **W3 · The known limits** (below): the night glows hidden where their lamp is; bike riders at their bike's
+  height; the bot's limits (three stars, a delivery free of stars, a long truck at a tight corner, a passer-by who
+  hits it, the pocket that pins it on foot, the gym's touchy pad pass), each fixed where it lives, with a test.
+- [ ] **W4 · PLAN.md 19's backlog, on Lowtown:** the free-turning chase camera (a fourth view, as view-independent as
+  the others), player-flown helicopters, boarding the L, more stations and photo filters, the Paramedic and Tow jobs
+  (three levels each), the Club Chrome interior, the arcade cabinet that runs an engine starter kit inside the game.
+  Each through the bot (seeds 1-3 and the pad) and the content recipes; the campaign to 100% with them counted.
+- [ ] **W5 · The expansion's plan:** `docs/EXPANSION.md`, written in PLAN.md's form (content spec, milestones with
+  acceptance, its Definition of Done) before any of it is built, and its scope recorded in DECISIONS: District 2
+  grown from its stub and a District 3, each with its interiors, three gangs, their missions and a heist (GTA2's shape:
+  3 districts x 3 gangs, plus 3 heists); the bridges opening with the story, one map at a time across a bridge fade;
+  the content packs (planes, more boats, weapons).
+- [ ] **W6 · The expansion, built** milestone by milestone as W5 has it (a fan-out per PLAN.md 16 for its content, if
+  the run allows workflows), the campaign to 100% across the three districts.
+- [ ] **W7 · Platforms:** a desktop wrapper (Electron or Tauri, for desktop and Steam Deck; a dev dependency and its own
+  build output, the one-file page unchanged inside it), and real DualSense haptics and adaptive triggers through WebHID
+  on desktop Chrome, the gamepad rumble the fallback (no pad here: `docs/QA-DUALSENSE.md` gets its manual checks).
+- [ ] **W8 · Upstream:** the seven patches' issue texts (`vendor/my-3d2dge/PATCHES.md`) and the feedback F7
+  (`docs/FEEDBACK-FOR-ENGINE.md`) brought current with W1-W7; offering them to my-3D2dge is the owner's call (ask
+  before anything is posted).
 
 ## Read first
 
@@ -47,9 +87,10 @@ anywhere can resume from it: the work in flight is listed with where it lives.
 3. `PROGRESS.md`: each milestone's status and evidence (the acceptance log has every milestone's runs).
 4. `docs/ARCHITECTURE.md`: the module map and the frozen contracts (the Stage and projectors, the registries, the
    Intent, the BUS).
-5. `docs/DECISIONS.md`: D1-D31, every call made without an answer. D21 is M8's, including what the bot does and why;
+5. `docs/DECISIONS.md`: D1-D32, every call made without an answer. D21 is M8's, including what the bot does and why;
    D29 has the owner's two directions (performance out of the Definition of Done, bots that may play god); D30 is
-   M13's part 5 (the campaign's stalls, each fixed where it lives); D31 its close (determinism per runtime).
+   M13's part 5 (the campaign's stalls, each fixed where it lives); D31 its close (determinism per runtime); D32 the
+   container's Chromium 153 and W1-W8 as the one list of what is left.
 6. `docs/CONTENT-GUIDE.md`: how each kind of content is added, the mission DSL and its `m` API included.
 7. `vendor/my-3d2dge/PATCHES.md`: the engine patches (GTM-PATCH markers). Never read the 742 KB engine whole. Search
    its `API-INDEX.md` first.
@@ -146,16 +187,26 @@ anywhere can resume from it: the work in flight is listed with where it lives.
 ## Continuing the run: the /goal prompt
 
 Start a new session at the effort you choose (PLAN.md 16 recommends **xhigh**; this run used max), then paste this
-block. It is plain ASCII and under the 4,000-character limit for `/goal` (`npm test`'s goal-sync step checks it).
+block. It is plain ASCII and under the 4,000-character limit for `/goal` (`npm test`'s goal-sync step checks it). Add
+`ultracode` to it to allow bounded workflows at PLAN.md 16's fan-out points (W6's content); without it the run stays
+single-agent.
 
 ```
-/goal Keep GRAND THEFT MOTO (ID GrandTheftMoto-5S) in michaelcrosato/gta25-cco55-my-3d2dge done, and take it where the owner asks. M0-M13 are done: every item of PLAN.md section 15 holds as amended in docs/DECISIONS.md, and PROGRESS.md has M13's acceptance with its evidence. PLAN.md stays the contract, and scope changes go only through docs/DECISIONS.md. Work on branch claude/compassionate-shannon-h7k7zk in draft PR #2 and keep its CI green. Read docs/HANDOFF.md first and follow its reading list, rules and tools.
+/goal Finish GRAND THEFT MOTO (ID GrandTheftMoto-5S) in michaelcrosato/gta25-cco55-my-3d2dge. The slice is done and merged (M0-M13 on main); what is left is the W1-W8 list in docs/HANDOFF.md, done in order. Read docs/HANDOFF.md first and follow its reading list, rules and tools. PLAN.md stays the contract; every scope change, the expansion's included, goes through docs/DECISIONS.md.
 
-The work is the owner's to set: their review of PR #2 (answer each comment; fix what they ask where it lives, with a test), and what they choose next (performance, D29; the expansion path, PLAN.md section 19). Mark the PR ready only when the owner asks.
+The work (HANDOFF has each item's detail and evidence):
+W1 performance: the perf gate's reading of record on a quiet machine, every view inside its D10/D20 budget without cutting the look, a quality setting, the gate back in test:full.
+W2 determinism across runtimes (D31): MOTOR's own sin, cos and pow, E.Mover through a GTM-PATCH, a test that one seed hashes the same in Node and Chromium.
+W3 the known limits: night glows occluded, bike riders at the bike's height, the bot's limits fixed where they live.
+W4 PLAN.md 19's backlog on Lowtown: the chase camera, player-flown helicopters, boarding the L, more stations and photo filters, the Paramedic and Tow jobs, the Club Chrome interior, the arcade cabinet.
+W5 docs/EXPANSION.md in PLAN.md's form, written before any of it is built: districts 2 and 3 with interiors, gangs, missions and heists (3 districts x 3 gangs, plus 3 heists), bridges that open with the story, the content packs.
+W6 build W5 milestone by milestone, the campaign to 100% across the districts.
+W7 platforms: a desktop wrapper (Electron or Tauri) round the unchanged page, and WebHID DualSense haptics and adaptive triggers with the rumble as fallback.
+W8 upstream: the patches' issue texts and F7 brought current; post them only when the owner says.
 
-Rules: every rule in GOAL.md holds (the vendored engine patched only per PLAN.md section 12; MOTOR in src/motor, content in src/game; no runtime dependencies, network or binary assets; a deterministic, view-independent, headless-testable simulation; the controller-first 10-foot UI; attract mode). Model identifiers stay out of repository files (D3).
+Rules: every rule in GOAL.md holds (the vendored engine patched only per PLAN.md section 12; MOTOR in src/motor, content in src/game; no runtime dependencies, network or binary assets in the game; a deterministic, view-independent, headless-testable simulation; the controller-first 10-foot UI; attract mode). Model identifiers stay out of repository files (D3).
 
-Process: commit after each green step, only when npm test exits 0 (check the exit code itself), with dist/index.html rebuilt; push. Bot runs are deterministic: after any MOTOR, bot or map change, re-run all merged content (tools/bot.mjs --all on seeds 1-3 and through the pad, the bot gym, the campaign to 100%), and run npm run test:full, alone, before a change closes. Keep PROGRESS.md (tests, shots with verdicts) and docs/HANDOFF.md current, so a paused run resumes exactly. Read your own screenshots and fix every look note.
+Process: work on this session's branch, cut from main, in a draft PR to main, and keep its CI green. Commit after each green step, only when npm test exits 0 (check the exit code itself), with dist/index.html rebuilt; push. After any MOTOR, bot or map change, re-run all merged content (tools/bot.mjs --all on seeds 1-3 and through the pad, the bot gym, the campaign to 100%). Run npm run test:full, alone, before each W item closes. Keep PROGRESS.md (tests, shots with verdicts, perf), docs/HANDOFF.md (each W ticked, the work in flight) and the release docs current, so a paused run resumes exactly. Read your own screenshots and fix every look note.
 
-End each piece of work with a chat report: what changed, the evidence (tests, runs, shots with verdicts), and the PR link.
+Done when W1-W8 hold and PLAN.md 15's Definition of Done (as DECISIONS amends it, and EXPANSION.md's) holds on the PR's head. End each W item with a chat report (what changed, the evidence, the PR link); the last also as PLAN.md 15 item 12 asks.
 ```

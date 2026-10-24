@@ -1,5 +1,9 @@
 # M8, FAN-OUT A2: where it stopped, and how to pick it up
 
+**Closed at M8** (D22, D27): every group was finished and merged, and every request here was done or settled. This
+folder is kept as the fan-out's record and its probes (`tools/`); nothing in it is open, and `wip/` holds the copies
+the workers left, not the missions as shipped (those are in `src/game/`).
+
 The run paused mid-M8 at the session's weekly limit (D21, the last bullet). Everything here is what the next session
 needs to finish M8's content and its acceptance. The scratchpad it came from is gone; this folder is the copy.
 

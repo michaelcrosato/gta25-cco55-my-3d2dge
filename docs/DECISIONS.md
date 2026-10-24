@@ -1312,3 +1312,20 @@ and where it landed.
   - **The page itself plays the missions through** (from file://, in Chromium, the mission bot at the browser's own
     frame rate: `?bot=1#mission/<id>`), as evidence beside the headless campaign, which stays 15.4's proof.
 - **Landed in:** M13 (its acceptance).
+
+## D32 · 2026-10-24 · After the merge: the container's Chromium 153, and what is left as one list
+- **Principle:** PLAN.md 6.1 (the stack, Playwright pinned for the container's Chromium) and 0 (scope changes only
+  here); HANDOFF's rule that a paused run resumes exactly.
+- **Calls:**
+  - **Playwright stays at 1.56.1.** The cloud container's Chromium is now 153 (build 1243) at the same path, not the
+    141 (build 1194) that D6 pinned it for. 1.56.1 drives it through `CHROMIUM_PATH` and `npm test` passed every step
+    on it (2026-10-24, on `1a1f955`), so the pin holds and nothing moves; a bump waits for a failure that needs one.
+    D31's drift is now Node's V8 against Chromium 153's (each proof holds within its runtime, as written).
+  - **What is left is one ordered list,** `docs/HANDOFF.md`'s W1-W8, and its `/goal` finishes it: performance (the
+    reading of record, the budgets met without cutting the look, a quality setting, the gate back in test:full,
+    superseding D29's first call when it lands), determinism across runtimes (D31), the known limits, PLAN.md 19's
+    backlog on Lowtown, `docs/EXPANSION.md` written before the expansion is built and then built, the platforms, and
+    the upstream offer (the owner's to send). Each item keeps the slice done (`npm test` before every commit,
+    test:full before it closes).
+- **Answered:** the owner asked for one goal that finishes all unfinished work and plans (2026-10-24). **Landed in:**
+  after M13 (docs only).

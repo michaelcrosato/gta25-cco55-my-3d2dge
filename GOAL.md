@@ -1,5 +1,8 @@
 # The /goal prompt for GRAND THEFT MOTO (GrandTheftMoto-5S)
 
+This is the prompt that started the run. The run is done (M0-M13, merged into `main`); the prompt that finishes what
+is left (W1-W8) is at the end of `docs/HANDOFF.md`.
+
 To start the run:
 1. Set the effort to **xhigh**.
 2. Run `/clear`.
