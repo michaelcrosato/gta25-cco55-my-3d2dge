@@ -1431,7 +1431,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     Courier on it; Club Chrome's inside (the hall, the bar, the dance floor, the VIP lounge, the office, its bouncers,
     dancers and VELVET on the speakers); and CHROME RAIDERS, the engine's own shooter starter kit, on a cabinet in the
     lounge, its 10,000 a checklist line (Arcade high scores, 2%).
-  - **The bot, on the commit's code:** Paramedic 9 of 9 on seeds 1-3 (4 gold; 7 retries over the nine: the Medic
+  - **The bot, on `816fe9f`'s code:** Paramedic 9 of 9 on seeds 1-3 (4 gold; 7 retries over the nine: the Medic
     wrecked three times, once by a burning car that blew up beside it in a jam on the Loop's ramp, and four patients
     who couldn't wait); Tow Truck 9 of 9 (8 gold, 2 retries); SkyCam
     9 of 9 (8 gold); L Courier 9 of 9 (8 gold, none retried); CHROME RAIDERS 3 of 3. Through a pad, seed 1: Paramedic
@@ -1457,3 +1457,15 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     20 definitions; the mission lint lets a job start on foot at a spot (L Courier's); the radio's and the sound's
     hooks for the tests had been commented out by a line's comment, and are back; docs/TUNING.md regenerated.
   - **`npm test`** passed every step on the commit's code.
+  - **What the campaign found** (it sets out as a player does: the job's vehicle taken in town, the job from the
+    phone; its first run with L4 in reached 91.3%): the SkyCam's pad had been laid on Marquee Plaza's fountain, out of
+    a ped's reach (moved south of it); the campaign hadn't counted the helicopter the player was still flying as the
+    next level's; the Car Park Roof's run-up had started on Chapel Street, where a parked car could stand across it
+    (it starts in the site's frontage now; it had passed before only on the cars it met); a failed activity had been
+    tried again at once, in the same jam (now after the rest); a Medic driven past the end of Loop Avenue had gone
+    into the bay, and the next lent where it went in after it (a sea wall stands there now, and a retry is lent a Medic
+    at Lowtown General's bay); a wrecked SkyCam or Medic had been gone for good (the landmarks' vehicles are kept now:
+    a fresh one at home, out of sight); and the bot's SkyCam had hung against a tower's corner that its look ahead
+    missed (it climbs when it goes nowhere now). Each a commit of its own (`63bcf53`, `ec30826`, `6ddd0b9`), each with
+    `npm test` green.
+  - **The campaign** on `6ddd0b9`'s code: 100.0% after 3.05 h of game, in 29 min.
