@@ -131,7 +131,7 @@ def('vehicles', 'hookline', {
   palette: ['#f0c020', '#dc5e18', '#e8e8ea'],
   handling: { mass: 2600, top: 200, accel: 50.5, brake: 520, grip: 320, drift: .35, steer: .66, steerRate: 2.6, drive: 'awd', wheelbase: 46, cg: .7, cgHeight: .32, rolling: .015, reverseTop: 60, gears: 4 },
   spec: { t100: 2.3, top: 200, brake100: 15 },
-  spawn: { zones: ['harbor', 'brick'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['tow', 'truck', 'service'],
+  spawn: { zones: ['harbor', 'brick', 'scrapyard'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['tow', 'truck', 'service'],
   about: 'Gus\'s wrecker: slow off the line, heavy in the corners, and the fire button drops the hook on whatever is behind it.',
 });
 

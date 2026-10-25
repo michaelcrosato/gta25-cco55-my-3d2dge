@@ -9,17 +9,17 @@ import { declare, all } from '../core/registry.js';
 import { shape } from '../core/schema.js';
 import { BUS } from '../core/bus.js';
 
-declare('stunts', shape({ name: { type: 'string', req: true }, takeoff: { type: 'array', req: true }, r: { type: 'number', def: 40 }, landing: { type: 'object', def: null }, minDist: { type: 'number', def: 160 }, minAir: { type: 'number', def: .5 }, reward: { type: 'number', def: 500 }, approach: { type: 'array', def: null } }));
+declare('stunts', shape({ name: { type: 'string', req: true }, district: { type: 'string', def: 'lowtown' }, takeoff: { type: 'array', req: true }, r: { type: 'number', def: 40 }, landing: { type: 'object', def: null }, minDist: { type: 'number', def: 160 }, minAir: { type: 'number', def: .5 }, reward: { type: 'number', def: 500 }, approach: { type: 'array', def: null } }));
 
 export class StuntJumps {
-  /** o: { save (stunts: the ids done) } */
-  constructor(o) { this.save = o.save; this.jump = null; this.last = null; }
+  /** o: { save (stunts: the ids done), district (the one played: its jumps alone) } */
+  constructor(o) { this.save = o.save; this.district = o.district || 'lowtown'; this.jump = null; this.last = null; }
   /** one step with the vehicle the player drives (or null): a jump that just landed, or null */
   update(dt, v) {
     const b = v && v.body; if (!b) { this.jump = null; return null; }
     if (b.airborne) {
       if (!this.jump || this.jump.v !== v) {   // (off the ground: within a stunt's takeoff circle?)
-        const s = all('stunts').find(q => Math.hypot(q.takeoff[0] - b.x, q.takeoff[1] - b.y) < q.r);
+        const s = all('stunts').find(q => q.district === this.district && Math.hypot(q.takeoff[0] - b.x, q.takeoff[1] - b.y) < q.r);
         this.jump = { v, s, x: b.x, y: b.y, z: b.z, t: 0, top: b.z, roll: 0, lastRoll: b.rollA || 0 };
       }
       const J = this.jump; J.t += dt; J.top = Math.max(J.top, b.z); const r = b.rollA || 0; J.roll += Math.abs(r - J.lastRoll); J.lastRoll = r;

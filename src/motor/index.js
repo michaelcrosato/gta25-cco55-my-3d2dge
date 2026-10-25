@@ -77,6 +77,7 @@ export { WorldClock, TIMES } from './world/clock.js';
 export { Weather, WEATHERS } from './world/weather.js';
 export { Drawbridge } from './world/drawbridge.js';
 export { Transit } from './world/transit.js';
+export { Crossings } from './world/crossing.js';
 export { Arcade } from './play/arcade.js';
 export { SurfacePainter, PALETTE } from './render/surface-paint.js';
 export { CityRenderer, drawDeckCell, drawSign, drawLeaf, PROP_MODELS } from './render/city-render.js';

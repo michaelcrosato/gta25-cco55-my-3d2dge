@@ -69,6 +69,6 @@ def('vehicles', 'sparrow', {
   handling: { mass: 140, top: 150, accel: 62, brake: 520, grip: 360, drift: .58, steer: .7, steerRate: 4, drive: 'rwd', wheelbase: 16.9, cg: .66, rolling: .015, reverseTop: 25, gears: 1 },
   spec: { t100: 2.4, top: 150, brake100: 13 },
   // (parked at the curbs where the couriers work: the Brickyard, the docks, the Neon Mile; its own spot is the Gas'n'Sip)
-  spawn: { zones: ['brick', 'harbor', 'neon'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['moped', 'bike', 'common'],
+  spawn: { zones: ['brick', 'harbor', 'neon', 'foundry', 'voltage'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['moped', 'bike', 'common'],
   about: 'A pastel step-through moped with a courier\'s box: slow and light, it slips through traffic and turns on a dime.',
 });

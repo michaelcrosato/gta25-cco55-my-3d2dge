@@ -104,7 +104,7 @@ def('vehicles', 'hauler', {
   palette: ['#e8e8e4', '#d8c8a0', '#8e9198', '#8ec0e8'],
   handling: { ...VAN, mass: 2600, top: 201, accel: 54, grip: 306, drift: .48, steer: .62, steerRate: 2.4, cgHeight: .35, rolling: .008 },
   spec: { t100: 2.2, top: 195, brake100: 15 },
-  spawn: { zones: ['harbor', 'brick'], weight: 2, timeOfDay: ['day'] }, tags: ['van', 'box', 'delivery'],
+  spawn: { zones: ['harbor', 'brick', 'foundry', 'scrapyard', 'voltage'], weight: 2, timeOfDay: ['day'] }, tags: ['van', 'box', 'delivery'],
   about: 'A delivery box van: slow off the line, heavy in a hit, a wide turning circle.',
 });
 def('vehicles', 'medic', {

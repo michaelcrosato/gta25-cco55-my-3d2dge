@@ -27,8 +27,12 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   game.go('play', { newGame: true });   // (NEW GAME: the title's own, deferred to the step's end)
   for (let k = 0; k < 400 && gtm.career === title; k++) game.advance(.25);
   if (gtm.career.saves) gtm.career.saves.backend = M.memoryBackend();   // (no localStorage headless: the saves kept in memory)
-  const C = () => gtm.career, R = () => gtm.career.R, P = () => gtm.crew.ped, S = () => gtm.career.save, city = gtm.city, roads = M.roadsOf(city);
-  const A = new M.AutoPlayer({ city, roads, fleet: gtm.fleet, junctions: gtm.life ? gtm.life.junctions : null }), idle = M.makeIntent();
+  const C = () => gtm.career, R = () => gtm.career.R, P = () => gtm.crew.ped, S = () => gtm.career.save, idle = M.makeIntent();
+  // the city, its roads and the campaign's AutoPlayer, made again when the scene enters again (a bridge the story opens,
+  // a crossing: EXPANSION.md 2.1): a new city, fleet and traffic
+  let city = null, roads = null, A = null;
+  const fresh = () => { if (city === gtm.city) return; city = gtm.city; roads = M.roadsOf(city); A = new M.AutoPlayer({ city, roads, fleet: gtm.fleet, junctions: gtm.life ? gtm.life.junctions : null }); };
+  fresh();
   let t = 0; const steps = [], limit = hours * 3600;
   const clock = () => `${Math.floor(t / 3600)}:${String(Math.floor(t / 60) % 60).padStart(2, '0')}:${String(Math.floor(t) % 60).padStart(2, '0')}`;
   const say = s => { if (verbose) out(`  ${clock()} ${s}`); };
@@ -39,7 +43,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   // in: the bot takes their cards) is quit at once, as ours() quits one on the way to another: whatever runs, the
   // career's bot has the controls, not the campaign
   let roam = false;
-  const run = (secs, until = null) => { for (let s = 0; s < secs; s += .25) { game.advance(.25); t += .25; if (roam && R().state === 'running') { say(`${R().id} started on the way: quit`); R().quit('not the campaign\'s'); } if (onStep) onStep(t, g, A); if (until && until()) return true; } return false; };
+  const run = (secs, until = null) => { for (let s = 0; s < secs; s += .25) { game.advance(.25); t += .25; fresh(); if (roam && R().state === 'running') { say(`${R().id} started on the way: quit`); R().quit('not the campaign\'s'); } if (onStep) onStep(t, g, A); if (until && until()) return true; } return false; };
   // a controller at the scene's pilot seam (the player's own) for secs, or until until()
   const pilot = (f, secs, until) => { gtm.pilot(f); const ok = run(secs, until); gtm.pilot(null); return ok; };
   // the AutoPlayer at the controls until it arrives (or until())

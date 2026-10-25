@@ -1,8 +1,9 @@
 // The screenshot matrix (PLAN.md 10): neighbourhood x time x view shots of the built page into docs/media/shots/, and
 // a contact sheet of them all (shots/sheet-<views>-<weather>.jpg), for the look review recorded in PROGRESS.
-//   node tools/shot-matrix.mjs [--hoods palm,neon,brick,harbor] [--times day,dusk,night] [--views iso,top,side7]
+//   node tools/shot-matrix.mjs [--hoods palm,neon,brick,harbor,foundry,scrapyard,voltage] [--times day,dusk,night] [--views iso,top,side7]
 //                              [--weather clear] [--scale .5] [--out docs/media/shots] [--sheet-only]
-// Each shot stands at a point of interest that shows its neighbourhood (SPOTS). --bank shoots the First Lowtown Bank's
+// Each shot stands at a point of interest that shows its neighbourhood (SPOTS), in its district (Ironside's three by
+// ?dev=1&district=ironside: EXPANSION.md X1). --bank shoots the First Lowtown Bank's
 // lobby in each view instead (bank-<view>.png, no sheet): M13's full matrix adds the bank (the UI screens are the UI
 // audit's: tools/ui-audit.mjs --shots).
 import { chromium } from 'playwright';
@@ -11,8 +12,9 @@ import { pathToFileURL } from 'node:url';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
-export const SPOTS = { palm: 'gas-n-sip', neon: 'hotel-marquee', brick: 'boom-box', harbor: 'cranes' };
-const hoods = arg('hoods', 'palm,neon,brick,harbor').split(','), times = arg('times', 'day,dusk,night').split(','), views = arg('views', 'iso').split(',');
+export const SPOTS = { palm: 'gas-n-sip', neon: 'hotel-marquee', brick: 'boom-box', harbor: 'cranes', foundry: 'union-hall', scrapyard: 'scrap-cathedral', voltage: 'power-station' };
+const DISTRICT = { foundry: 'ironside', scrapyard: 'ironside', voltage: 'ironside' };   // (Lowtown's when unsaid)
+const hoods = arg('hoods', Object.keys(SPOTS).join(',')).split(','), times = arg('times', 'day,dusk,night').split(','), views = arg('views', 'iso').split(',');
 const weather = arg('weather', 'clear'), scale = +arg('scale', .5), out = arg('out', 'docs/media/shots');
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
@@ -37,7 +39,8 @@ try {
 // the neighbourhoods' matrix, and its contact sheet
 async function matrix(page, errors, shots) {
   for (const view of views) for (const hood of hoods) for (const time of times) {
-    await page.goto(pathToFileURL(resolve('dist/index.html')).href + `?time=${time}&weather=${weather}&view=${view}&shot=${shots.length}#play/${SPOTS[hood]}`);   // (shot=: a new query each time, so the page reloads, never just its hash)
+    const where = DISTRICT[hood] ? `&dev=1&district=${DISTRICT[hood]}` : '';
+    await page.goto(pathToFileURL(resolve('dist/index.html')).href + `?time=${time}&weather=${weather}&view=${view}${where}&shot=${shots.length}#play/${SPOTS[hood]}`);   // (shot=: a new query each time, so the page reloads, never just its hash)
     await page.waitForFunction(() => window.__gtm && window.__gtm.ready, null, { timeout: 20000 });
     await page.waitForTimeout(2000);
     const png = await page.screenshot(), name = `${hood}-${time}-${view}.png`;

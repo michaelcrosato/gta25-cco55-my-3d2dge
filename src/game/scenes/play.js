@@ -25,7 +25,7 @@
 // M11: the attract mode plays it too (PLAY.make(app, demo)): a fresh world from demo.seed() each time it is entered, a
 // blank save never written, the career's demo (the director's reels, played by its bot), no pause, no phone, the
 // views the director's.
-import { E, def, get, all, expose, BUS, RNG, TUNE, knob, FloorChunks, WorldClock, Weather, Drawbridge, Transit, Arcade, skyAt, indoorSky, InteriorRun, drawBoxModel, carModel,
+import { E, def, get, all, expose, BUS, RNG, TUNE, knob, FloorChunks, WorldClock, Weather, Drawbridge, Transit, Crossings, Arcade, skyAt, indoorSky, InteriorRun, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
   Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, standable, boxDistance, stationLabel, modelOf, SpeedZoom, CityLife, AutoPlayer, roadsOf,
   Radar, drawWanted, hudLayout, drawSubtitle, setting, toggled, flashScale, resetActorIds, DIFFICULTY, Onboarding, Radio, AudioDirector, SfxMap, Rumble, PhotoMode, Overlays, devScreen, WEATHERS } from '../../motor/index.js';
@@ -59,16 +59,17 @@ const DOWN = { wrecked: { text: 'WRECKED', color: '#ff3a3a', tint: ['#280000', .
 const DOOR_R = 22, DOOR_FADE = .3;   // (how near a door's spot you stand to go through it; each half of its fade, s)
 
 export const PLAY = {
-  /** demo: the attract mode's ({ seed() -> the world's seed }), or null; opts.district: a district other than Lowtown
-   *  (one of the Proving Ground's; else ?dev=1&district=<id>, District 2), played as free roam alone; opts.bot: the career's
-   *  bot plays what it starts (the mission bench) */
+  /** demo: the attract mode's ({ seed() -> the world's seed }), or null; opts.district: one of the Proving Ground's
+   *  districts, played as free roam alone (a district the career plays comes by a crossing, a save, a job's deep link or
+   *  ?dev=1&district=<id>); opts.bot: the career's bot plays what it starts (the mission bench) */
   make(app, demo = null, opts = {}) {
     const { game, views, human, footprint, links, stage, bindings: B } = app;
     let city, map, cityR, floor, clock, weather, bridges = [], hoodName = '', tour = null, rec = null, crowd = null;
     let crew, combat, fx, weaponWheel, switchWheel, holdS = 0, toast = null, down = null, prevView = null, mouse0 = null, radar = null, inShop = false, lastCause = null;
     let fleet, vfx, zoom, fleetCount = null, lastRadio = null, lastT = 0, board = null, life = null, unsub = [], auto = null;
     let inside = null, transit = null, door = null, takedown = null, rails = null, stairs = null, lcar = null, spot = null, cab = null;   // (spot: an interior's spot in reach, a cabinet; cab: the cabinet played)   // (the interior the player is in; a door's fade; the door or the guard the prompt offers)
-    let district = 'lowtown';   // (the district played: Lowtown's, a Proving Ground one, District 2's)
+    let district = 'lowtown';   // (the district played: Lowtown, Ironside, a Proving Ground one)
+    let crossings = null, leaving = null;   // (the district's crossings to the others; leaving: the crossing being made, the fade under way)
     let career = null, save = null;   // (M8: the career on top of free roam, and the save it plays)
     let switchLatch = false;   // (the character wheel opened by a press, Settings, ACCESS)
     // photo mode (PLAN.md 8.22): the world stands still while the camera roams; a photo frames the bodies and the cars
@@ -99,7 +100,7 @@ export const PLAY = {
       }
       for (const s of city.pickupSpots) combat.pickups.place({ kind: s.kind, item: s.item, amount: s.amount, x: s.x, y: s.y, respawn: s.respawn });
       fleet = new Fleet({ city, combat, bridges, game });
-      const fl = get('fleets', 'lowtown'); fleetCount = fl ? spawnFleet(fleet, city, fl, city.seed) : null;
+      const fl = get('fleets', district) || get('fleets', 'lowtown'); fleetCount = fl ? spawnFleet(fleet, city, fl, city.seed) : null;   // (the district's own: Lowtown's for a lab)
       rails = new Transit(city, fleet);   // (the L's stations: their stairs, boarding a stopped train, riding it)
       if (life) life.dispose();
       life = links.query.get('traffic') === '0' ? null : new CityLife({ city, fleet, combat, footprint, spec: fl || {}, respect: save.respect, isPlayer: id => !!crew.ped && crew.ped.id === id });   // (?traffic=0: an empty city; respect: the save's)
@@ -187,7 +188,8 @@ export const PLAY = {
           vehicles: all('vehicles').map(d => d.id), spawn: id => { const p = hero(), v = fleet.spawn(id, p.x + 40, p.y, 0, { owner: 'world' }); if (v) fleet.wake(v); } },
         go: { missions: all('missions').map(m => ({ id: m.id, title: (m.title || m.id).toUpperCase(), stages: (m.stages || []).map(s => s.id) })), activities: all('activities').map(a => ({ id: a.id, title: (a.title || a.id).toUpperCase(), levels: a.levels || 1 })),
           start: (id, q) => career.startMission(id, q), zones: all('provingZones').map(z => z.id), zone: id => game.go('proving', { route: ['proving', id] }),
-          district2: get('districts', 'district2') ? () => game.go('play', { district: 'district2' }) : null } }));
+          // (a district the career plays, the game carried there as by a crossing, at its safehouse)
+          districts: all('districts').filter(d => d.career).map(d => ({ id: d.id, name: d.name.toUpperCase(), go: () => game.go('play', { carry: carryOut(d.id, { stars: 0, vehicle: null }) }) })) } }));
       return true;
     }
     // into photo mode, when free to (not in the demo, a card, a wheel, the switch, a fade, WRECKED or NABBED)
@@ -233,6 +235,50 @@ export const PLAY = {
     }
     // a door's fade: dark over DOOR_FADE, through the door at the dark, light again (the simulation's steps time it)
     const through = go => { transit = { t: 0, go, done: false }; };
+    // a crossing (EXPANSION.md 2.1): the possessed one in an open crossing's gate, on foot or at the wheel, and the play
+    // scene enters again with the district beyond (one map at a time, through the scene's fade): the save as it stands
+    // (the career's snapshot, its district the new one), the view, the stars, and what they drive (its definition,
+    // paint, mods, damage, radio and speed), set down at the far end of the same bridge. A job holds the bridge
+    function crossAt(p, v) {
+      if (leaving || !crossings || demo) return;
+      const c = crossings.at(v ? v.x : p.x, v ? v.y : p.y); if (!c) return;
+      if (career.R.active) { if (!toast) toast = { text: REFUSED.mission, t: 2 }; return; }
+      leaving = { crossing: c.id, to: c.to };
+      BUS.emit('crossing', { from: district, to: c.to, crossing: c.id, vehicle: v && v.driver === p ? v.def.id : null });
+      game.go('play', { carry: carryOut(c.to, { via: c.via }) });
+    }
+    // what a re-entry carries to district `to` (o: more of it, or in its place)
+    function carryOut(to, o = {}) {
+      const p = hero(), v = p.seat && p.seat.vehicle, drives = v && v.driver === p ? v : null, snap = career.snapshot(); snap.district = to;
+      return { to, from: district, save: snap, view: views.active, stars: stars(), vehicle: drives ? { ...drives.toJSON(), speed: Math.max(0, drives.body ? drives.body.u : 0), radio: drives.radio } : null, ...o };
+    }
+    // is a crossing open by the save's story? (?dev=1&bridges=open: every one)
+    const opens = c => !c.opens || save.missions.done.includes(c.opens) || (devOn && !demo && links.query.get('bridges') === 'open');
+    // a crossing the story has just opened (the job that opens it done): the scene enters again where it stands, its
+    // city built with the way through, the game carried as by a crossing
+    function reopen() {
+      const p = hero(), v = p.seat && p.seat.vehicle, at = v && v.driver === p ? v : null;
+      leaving = { to: district };
+      game.go('play', { carry: carryOut(district, { here: at ? { x: at.x, y: at.y, heading: at.heading } : { x: p.x, y: p.y, heading: p.mover.facing } }) });
+    }
+    // coming in by a crossing: set down at its arrival (a vehicle on the nearest lane running in), facing in, rolling on
+    // as it came off the bridge; the stars as they were. Entering again where one stood (here): there, as one was
+    function arrive(c) {
+      const a = c.here || crossings.arrival(c.via); if (!a) return;
+      const p = hero(), V = c.vehicle && get('vehicles', c.vehicle.def) ? c.vehicle : null; let x = a.x, y = a.y;
+      if (V) {
+        const G = roadsOf(city).graph, n = !c.here && G.nearestLane(x, y, a.heading, 0, 120), q = n && G.pointOn(n.lane, n.s); if (q) { x = q[0]; y = q[1]; }
+        const v = fleet.spawn(V.def, x, y, a.heading, { color: V.color, mods: V.mods, owner: 'world' }), D = V.damage;
+        if (D) { v.damage.health = Math.min(v.damage.max, D.health); Object.assign(v.damage.dents, D.dents || {}); v.damage.state = D.state === 'wrecked' ? 'smoking' : D.state; }
+        if (V.radio) v.radio = V.radio;
+        v.sit(p, 0); p.place(v.x, v.y, 0);
+        if (v.body) v.body.u = Math.min(V.speed || 0, 120);
+        fleet.wake(v);
+      } else { p.place(x, y, 0); p.mover.facing = a.heading; }
+      if (c.stars && life && life.wanted) life.wanted.set(c.stars, 'crossing');
+      BUS.emit('arrived', { district, crossing: c.via });
+      game.cam.snap = true; footprint.update(p.x, p.y);
+    }
     // an arcade cabinet (play/arcade.js): its kit's own game, on a canvas of its own in a browser, drawn into its bezel
     function openCabinet() {
       const kit = get('arcadeKits', 'shooter'); if (!kit) return;
@@ -345,14 +391,24 @@ export const PLAY = {
         // (every world from its seed, every stream from the start, and its actors' ids from 1, as a boot's: the attract
         // mode's from the reel's seed; a game's from the page's, whatever ran before it in the session: ids pace the brains)
         RNG.seed(demo ? demo.seed() : app.seed); resetActorIds();
-        const dq = !demo && links.query.get('dev') === '1' ? links.query.get('district') : null;   // (?dev=1&district=<id>)
-        district = opts.district || [data && data.district, dq].find(id => id && get('districts', id)) || 'lowtown';   // (the dev menu's GO to District 2 brings it in data)
-        ({ city, render: cityR } = cityFor(district, district === 'lowtown' ? citySeed(links) : get('districts', district).seed));
-        if (!demo) { const dv = links.query.get('view') || setting(game, 'defaultView', 'iso'); if (game.views.includes(dv) && views.active !== dv) game.setView(dv); }   // (Settings, Display: the view a game starts in; the attract's are its director's)
+        const Q = k => (demo ? null : links.query.get(k));   // (the attract mode takes nothing from the page's link)
+        const route = (!demo && data && data.route) || [], into = route[0] === 'interior' ? get('interiors', route[1] || 'bank') : null;   // (#interior/bank: in at its first door)
+        // (a slot that won't read, damaged or gone: a new game from the start, and the player told: PLAN.md 7.8)
+        const slot = (!demo && data && data.load) || Q('load'), read = slot ? saves.read(slot) : null, loaded = read ? read.data : null, broke = slot && !loaded ? (read && read.error) || 'empty' : null;
+        // a crossing's carry (EXPANSION.md 2.1): the save as it was at the bridge, the view, the stars, the vehicle
+        const carry = !demo && data && data.carry ? data.carry : null; leaving = null;
+        save = normalizeSave(carry ? carry.save : loaded || blankSave());
+        // the district: a Proving Ground lab's; a crossing's; the dev menu's GO; ?dev=1&district=<id>; a deep-linked job's
+        // own; a loaded save's; Lowtown
+        const dq = !demo && links.query.get('dev') === '1' ? links.query.get('district') : null, job = route[0] === 'mission' ? get('missions', route[1]) || get('activities', route[1]) : null;
+        district = opts.district || [carry && carry.to, data && data.district, dq, job && (job.district || 'lowtown'), loaded && save.district].find(id => id && get('districts', id)) || 'lowtown';
+        const open = (get('districts', district).crossings || []).filter(opens).map(c => c.id);   // (its bridges open by the story: the city built so)
+        ({ city, render: cityR } = cityFor(district, district === 'lowtown' ? citySeed(links) : get('districts', district).seed, open));
+        if (!demo && !carry) { const dv = links.query.get('view') || setting(game, 'defaultView', 'iso'); if (game.views.includes(dv) && views.active !== dv) game.setView(dv); }   // (Settings, Display: the view a game starts in; the attract's are its director's; a crossing keeps the one it was made in)
+        crossings = new Crossings(city, c => open.includes(c.id));
         map = city.map;
         floor = new FloorChunks({ w: map.w * map.T, h: map.h * map.T, paint: (g, x0, y0, x1, y1) => city.painter.paint(g, x0, y0, x1, y1) });
         stage.setWorld({ map, city, floor });
-        const Q = k => (demo ? null : links.query.get(k));   // (the attract mode takes nothing from the page's link)
         clock = new WorldClock(Q('time') || 'night');
         const w = Q('weather'); weather = new Weather(w ? { state: w, fixed: true } : {});
         bridges = city.drawbridges.map(b => new Drawbridge(b, city)); cityR.bridges = bridges;
@@ -360,10 +416,6 @@ export const PLAY = {
         tour = Q('tour') === '1' && city.tour.length ? { leg: 0, at: [...city.tour[0]] } : null;
         rec = Q('perf') === '1' ? { update: [], render: [], steps: [], frames: 0 } : null; stage.profFlush = Q('prof') === '1';   // (?prof=1: the depth views' sections timed with their raster: tools/_prof)
         crowd = Q('crowd') === '1' ? standIns() : null;
-        const route = (!demo && data && data.route) || [], into = route[0] === 'interior' ? get('interiors', route[1] || 'bank') : null;   // (#interior/bank: in at its first door)
-        // (a slot that won't read, damaged or gone: a new game from the start, and the player told: PLAN.md 7.8)
-        const slot = (!demo && data && data.load) || Q('load'), read = slot ? saves.read(slot) : null, loaded = read ? read.data : null, broke = slot && !loaded ? (read && read.error) || 'empty' : null;
-        save = normalizeSave(loaded || blankSave());
         spawnCrew(into ? into.doors[0].from : route[0] === 'mission' ? null : route[1]);
         if (tour) hero().place(city.tour[0][0], city.tour[0][1]);
         // ?auto=<poi>: the AutoPlayer takes the possessed protagonist there (walking, or driving a long way)
@@ -380,14 +432,16 @@ export const PLAY = {
         if (!game.headless) floor.warm(hero().x, hero().y, 420);
         if (into) goInside(city.poi(into.doors[0].from));
         if (career) career.dispose();
-        career = demo ? new Career({ app, world, save, saves, bot: true, demo: true }) : new Career({ app, world, save, saves, bot: opts.bot || (links.query.get('bot') === 'pad' ? 'pad' : links.query.get('bot') === '1'), lab: district !== 'lowtown', god: links.query.get('god') === '1' });
+        career = demo ? new Career({ app, world, save, saves, bot: true, demo: true }) : new Career({ app, world, save, saves, bot: opts.bot || (links.query.get('bot') === 'pad' ? 'pad' : links.query.get('bot') === '1'), lab: !get('districts', district).career, god: links.query.get('god') === '1' });
         radio ||= new Radio({ stations: all('stations'), ads: Object.fromEntries(all('radioAds').map(a => [a.id, a])), seed: app.seed });
         if (sound) sound.dispose(); sound = new AudioDirector(game, { radio });
         if (sfx) sfx.dispose(); sfx = new SfxMap(game, () => { const q = hero(), v = q.seat && q.seat.vehicle; return v ? [v.x, v.y] : [q.x, q.y]; }, { isPlayer: id => !!crew.ped && crew.ped.id === id, where: id => { const v = fleet.vehicles.find(q => q.id === id); return v ? [v.x, v.y] : null; } }).attach();
         if (rumble) rumble.dispose(); rumble = new Rumble(game, { player: () => crew && crew.ped, off: () => !!demo }).attach();   // (the controller's: never in the demo)
-        career.start({ loaded: !!loaded, newGame: !!(data && data.newGame) || !!broke, mission: route[0] === 'mission' ? route[1] : null, stage: route[0] === 'mission' ? route[2] : undefined, level: +links.query.get('level') || undefined });
+        career.start({ loaded: !!loaded || !!carry, newGame: !carry && (!!(data && data.newGame) || !!broke), mission: route[0] === 'mission' ? route[1] : null, stage: route[0] === 'mission' ? route[2] : undefined, level: +links.query.get('level') || undefined });
+        if (carry) arrive(carry);
         expose('career', career); expose('pilot', f => { pilot = f || null; }); expose('context', () => (cab ? 'arcade' : hero().seat ? 'vehicle' : 'onFoot')); expose('sound', sound); expose('radio', radio);   // (context: the controls in use, for a pad pilot)
-        expose('snapshot', () => { const p = hero(), v = p.seat && p.seat.vehicle; return { scene: 'play', view: views.active, hero: [p.x, p.y, p.z].map(v => Math.round(v)), hood: hoodName, time: clock.label(), weather: weather.state,
+        expose('crossings', crossings);
+        expose('snapshot', () => { const p = hero(), v = p.seat && p.seat.vehicle; return { scene: 'play', district, view: views.active, hero: [p.x, p.y, p.z].map(v => Math.round(v)), hood: hoodName, time: clock.label(), weather: weather.state,
           crew: crew.active, health: Math.round(p.health), armor: Math.round(p.armor), weapon: p.inv.current, switching: crew.switching, fund: crew.fund,
           vehicle: v ? v.def.id : null, speed: v ? Math.round(v.speed) : 0, boarding: p.boarding ? p.boarding.plan.kind : null, vehicles: fleet.vehicles.length, awake: fleet.awake, traffic: life && life.traffic ? life.traffic.count : 0, peds: life && life.crowd ? life.crowd.count : 0,
           stars: stars(), down: down ? down.kind : null, interior: inside ? inside.id : null, alarm: inside ? !!inside.run.alarm : false, door: door ? door.id || door.label : null, career: career ? career.debug() : null }; });
@@ -511,6 +565,8 @@ export const PLAY = {
         if (p.dead && (!down || down.kind !== 'wrecked')) { down = { kind: 'wrecked', t: 0, who: p }; crew.abort(); BUS.emit('wrecked', { cause: lastCause || 'unknown' }); lastCause = null; }   // (down mid-switch: the switch is called off, they are still the one played)
         if (down) { down.t += dt; if (down.t > TUNE.cardTime) { const k = down.kind, who = down.who; down = null; if (inside) goOutside(null); respawn(k, who); } }
         if (v && !down) respray(p, v);
+        if (!inside && !busy && !down && !p.dead && !p.boarding) crossAt(p, v);   // (over a bridge to the next district)
+        if (!demo && !leaving && !inside && !down && !career.R.active && !career.busy && crossings.list.some(c => c.open !== opens(c))) reopen();   // (a bridge the story opened just now)
         if (!busy && !down && !demo) views.context(v ? 'vehicle' : 'foot', v ? v.speed / ((v.body && v.body.h.top) || 260) : 0);   // (the view kept on foot and in a vehicle; Auto. The attract's are its director's)
         stage.update(dt, { vehicle: !!v, vel: v && v.body ? [v.body.vx, v.body.vy] : [p.mover.vx, p.mover.vy], heading: v ? v.heading : p.mover.facing });   // (MODE 7's Auto-rail, the chase camera's heading)
         if (I.tap.view && !busy) views.next();

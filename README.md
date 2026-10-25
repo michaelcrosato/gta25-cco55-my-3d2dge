@@ -135,7 +135,7 @@ and the feedback for the engine's maintainers is [`docs/FEEDBACK-FOR-ENGINE.md`]
   elsewhere, run `npx playwright install chromium` once.
 - **Deep links:** `#title`, `#play` (or `#play/<spawn>`), `#interior/bank`, `#attract`, `#mission/<id>/<stage>`,
   `#proving/<zone>`. Options: `?view=iso|top|side7`, `?time=day|dusk|night`, `?weather=`, `?seed=`, `?dev=1` (the dev
-  menu, and District 2 behind the closed bridge), `?record=1`, `?perf=1`, `?selftest=1`, `?god=1` (the crew and their
+  menu, its GO to Ironside; `&district=ironside` starts there, `&bridges=open` opens every bridge), `?record=1`, `?perf=1`, `?selftest=1`, `?god=1` (the crew and their
   rides take no harm: the bots').
 
 ## Repository

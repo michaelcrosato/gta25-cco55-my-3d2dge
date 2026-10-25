@@ -1,4 +1,4 @@
-// The city soak (PLAN.md 8.9 and 8.10's acceptance): Lowtown in play, its traffic, crowd and services running round a
+// The city soak (PLAN.md 8.9 and 8.10's acceptance): Lowtown (or another district: EXPANSION.md X1) in play, its traffic, crowd and services running round a
 // focus that hops between the city's points of interest every `hop` seconds (as a drive would take it), watched every
 // step for:
 //   - cars inside each other (centres nearer than OVERLAP at the same level), and the longest any traffic car stands
@@ -17,8 +17,8 @@ import { loadGame } from './harness.mjs';
 const OVERLAP = 14, DT = 1 / 120;
 const LEGIT = new Set(['queue', 'ped', 'signal', 'stop', 'yield', 'exit', 'arrived', 'scene']);   // (DriverBrain's causes; 'crash' is no cause to stand; 'scene': behind a unit parked at its call, no way round: reported as its own longest wait)
 
-export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather = 'clear', hop = 20, log = null, watch = null } = {}) {
-  const { game, gtm } = await loadGame({ hash: '#play', query: { seed: String(seed), time, weather } });
+export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather = 'clear', hop = 20, log = null, watch = null, district = null } = {}) {
+  const { game, gtm } = await loadGame({ hash: '#play', query: { seed: String(seed), time, weather, ...(district ? { dev: '1', district } : {}) } });   // (district: another than Lowtown, EXPANSION.md: Ironside)
   const M = gtm.motor, L = gtm.life, T = L.traffic, C = L.crowd, G = L.graph, fp = T.fp, TUNE = M.TUNE;
   const pois = gtm.city.pois.filter(p => p.kind !== 'gang');
   const r = { secs, seed, time, weather, steps: 0, overlaps: 0, overlapAt: null, maxStall: 0, stallAt: null, redRuns: 0, redAt: null, speedSum: 0, speedN: 0,

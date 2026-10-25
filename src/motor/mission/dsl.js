@@ -58,12 +58,16 @@ const missionShape = shape({
   // allowSwitch: the crew's switch allowed meanwhile; unlock(save, W): an extra requirement (the heist's)
   plays: { type: 'string', def: 'any' },
   allowSwitch: { type: 'boolean', def: false },
+  // (EXPANSION.md 2.1) the district it is given and played in: offered only there
+  district: { type: 'string', def: 'lowtown' },
 });
 declare('missions', (spec, id) => [...missionShape(spec, id), ...checkStages(spec.stages)]);
 const activityShape = shape({ title: { type: 'string', req: true }, start: { type: 'object', def: {} }, levels: { type: 'number', def: 1, min: 1 }, stages: { type: 'array', req: true },
   // (M8, optional) kind: what it counts as (completion.js: jobs at their top level, races and MAYHEMs passed; events
   // happen by themselves, mission/ambient.js); brief: the card's lines; rewards or rewardsFor(level): its pay
-  kind: { type: 'string', def: 'other', oneOf: ['job', 'race', 'mayhem', 'arcade', 'event', 'other'] }, brief: { type: 'array', def: [] } });
+  kind: { type: 'string', def: 'other', oneOf: ['job', 'race', 'mayhem', 'arcade', 'event', 'other'] }, brief: { type: 'array', def: [] },
+  // (EXPANSION.md 2.1) the district it starts in: offered and marked only there (a random event happens in any)
+  district: { type: 'string', def: 'lowtown' } });
 declare('activities', (spec, id) => [...activityShape(spec, id), ...checkStages(spec.stages)]);
 
 // (M11) a reel of the attract mode (PLAN.md 9.11): staged as a mission and played by the mission bot from its hints,

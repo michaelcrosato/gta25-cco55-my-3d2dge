@@ -18,7 +18,7 @@ export function blankProtagonist() {
 }
 /** a new game */
 export function blankSave() {
-  return { schema: SCHEMA, game: GAME_ID, slot: '1', label: 'Lowtown', playtime: 0, gameDay: 0, clock: 23, weather: 'clear', active: 'dex',
+  return { schema: SCHEMA, game: GAME_ID, slot: '1', label: 'Lowtown', district: 'lowtown', playtime: 0, gameDay: 0, clock: 23, weather: 'clear', active: 'dex',
     protagonists: Object.fromEntries(PROTAGONISTS.map(p => [p, blankProtagonist()])), crewFund: 250,
     respect: Object.fromEntries(GANGS.map(g => [g, 0])), missions: { done: [], medals: {} }, activities: {}, collectibles: [], stunts: [], properties: [], garage: [],
     completion: 0, rngSeed: 1 };
@@ -30,10 +30,11 @@ function normProtagonist(p) {
   return { pos, map: str(q.map, b.map), outfit: num(q.outfit, 0, 0, 15) | 0, weapons, current: str(q.current, 'fists'), ammo: Object.fromEntries(Object.entries(obj(q.ammo)).filter(([, v]) => Number.isFinite(v)).map(([k, v]) => [k, Math.max(0, v | 0)])),   // (outfit: a character's own count checks it on load: a recipe adds looks)
     health: num(q.health, 100, 0, 100), armor: num(q.armor, 0, 0, 100), stats: Object.fromEntries(STATS.map(s => [s, num(stats[s], b.stats[s], 0, 100)])), ability: num(q.ability, 0, 0, 1) };
 }
-/** check every field and fill what is missing or wrong (PLAN.md 7.8: loading checks every field) */
+/** check every field and fill what is missing or wrong (PLAN.md 7.8: loading checks every field). district: where the
+ *  player is (EXPANSION.md 2.1; one no build has loads Lowtown: the play scene's choice) */
 export function normalizeSave(d) {
   const b = blankSave(), p = obj(d.protagonists), m = obj(d.missions), r = obj(d.respect);
-  const out = { ...b, schema: SCHEMA, game: GAME_ID, slot: str(d.slot, b.slot), label: str(d.label, b.label), playtime: num(d.playtime, 0, 0), gameDay: num(d.gameDay, 0, 0) | 0,
+  const out = { ...b, schema: SCHEMA, game: GAME_ID, slot: str(d.slot, b.slot), label: str(d.label, b.label), district: str(d.district, b.district), playtime: num(d.playtime, 0, 0), gameDay: num(d.gameDay, 0, 0) | 0,
     clock: num(d.clock, b.clock, 0, 24), weather: str(d.weather, b.weather), active: PROTAGONISTS.includes(d.active) ? d.active : b.active,
     protagonists: Object.fromEntries(PROTAGONISTS.map(k => [k, normProtagonist(p[k])])), crewFund: num(d.crewFund, b.crewFund, 0) | 0,
     respect: Object.fromEntries(GANGS.map(g => [g, num(r[g], 0, -100, 100)])), missions: { done: arr(m.done, x => (typeof x === 'string' ? x : undefined)), medals: obj(m.medals) },

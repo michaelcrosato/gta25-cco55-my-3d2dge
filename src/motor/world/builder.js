@@ -147,6 +147,9 @@ export function buildDistrict(spec, o = {}) {
   const railType = nextType++; types[railType] = { h: 7, top: '#8a8a92', side: '#6a6a72', face: 'stone', roof: 'plain', texture: false };
   for (let i = 0; i < W * H; i++) if (cells[i] === -2) cells[i] = railType;
   for (const wall of spec.walls || []) { const id = nextType++; types[id] = wall.type; rect(wall.rect, (x, y, i) => { cells[i] = id; }); }
+  // openings: cells cut back out of the walls, after everything above (a crossing's gate through an embankment, X1:
+  // the blocks, lots and props laid out as they were without it)
+  for (const o of spec.openings || []) rect(o.rect, (x, y, i) => { cells[i] = 0; C.lot[i] = -1; C.surface[i] = SURF[o.surface || 'road']; });
   C.types = types;
 
   // 5. decks: the Loop, the L, stubs; pillars and railings; raised solids for peds

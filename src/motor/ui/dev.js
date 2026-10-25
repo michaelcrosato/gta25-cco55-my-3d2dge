@@ -5,11 +5,11 @@
 //   - OVERLAYS: what the simulation thinks, drawn over the world (debug/overlays.js): lanes, junctions, the sidewalks,
 //     the minds, the boxes, the perf readout;
 //   - WORLD: the hour, the weather, the wanted stars, a teleport to any point of interest, any vehicle at your side;
-//   - GO: any mission at any stage, any activity at a level, any Proving Ground zone, District 2's block.
+//   - GO: any mission at any stage, any activity at a level, any Proving Ground zone, any district the career plays.
 // MOTOR knows no game: o hands it what to show and how to act. o: { overlays (an Overlays), world: { hour(), setHour(h),
 // weather(), weathers, setWeather(s), stars(), setStars(n), pois: [ids], teleport(id), vehicles: [ids], spawn(id) },
 // go: { missions: [{ id, title, stages: [ids] }], activities: [{ id, title, levels }], start(id, { stage, level,
-// activity }), zones: [ids], zone(id), district2() } }
+// activity }), zones: [ids], zone(id), districts: [{ id, name, go() }] } }
 import { List, UI } from './tenfoot.js';
 import { tabbedScreen, confirmScreen } from './menus.js';
 import { TUNE, tuneSet, knobs, sections, tuneReset, tuneSave } from '../core/tune.js';
@@ -56,7 +56,7 @@ export function devScreen(app, o) {
     A.length && { label: 'START THE ACTIVITY', act: () => { S.closeAll(); G.start(A[ai].id, { activity: true, level: lv }); } },
     Z.length && { kind: 'choice', label: 'PROVING GROUND', help: 'A developer zone (?selftest=1 runs its self-test)', get: () => zi, set: v => { zi = v; }, options: Z.map((z, i) => [i, z]) },
     Z.length && { label: 'GO TO THE ZONE', act: () => { S.closeAll(); G.zone(Z[zi]); } },
-    G.district2 && { label: 'DISTRICT 2 (THE STUB)', help: 'One block behind the closed bridge: a district added as content', act: () => { S.closeAll(); G.district2(); } },
+    ...(G.districts || []).map(d => ({ label: 'GO TO ' + d.name, help: 'The district, as a new game there (EXPANSION.md: one map at a time)', act: () => { S.closeAll(); d.go(); } })),
   ].filter(Boolean) });
   return tabbedScreen({ id: 'dev', title: 'DEV', color: UI.pink, w: 420, back: o.back, tabs: [
     { id: 'tuning', label: 'TUNING', page: { list: tuning, tips: true } },

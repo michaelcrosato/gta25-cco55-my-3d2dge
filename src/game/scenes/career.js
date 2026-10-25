@@ -34,7 +34,7 @@ export class Career {
    *  too), saves (a SaveStore), bot, demo (the attract mode's: the reels its bot plays, no offers, no random events, no
    *  hold-ups, no cards, nothing ever written) } */
   constructor(o) {
-    this.app = o.app; this.W = o.world; this.save = o.save || normalizeSave(blankSave()); this.saves = o.saves || makeSaves(); this.demo = !!o.demo; this.lab = !!o.lab;   // (lab: a district not Lowtown's, the Proving Ground's lab or District 2: free roam alone, no tokens, hold-ups or random events)
+    this.app = o.app; this.W = o.world; this.save = o.save || normalizeSave(blankSave()); this.saves = o.saves || makeSaves(); this.demo = !!o.demo; this.lab = !!o.lab;   // (lab: a district the career doesn't play, the Proving Ground's: free roam alone, no tokens, hold-ups or random events)
     this.saves.locked = this.demo || this.lab;   // (neither the demo nor a lab ever writes: PLAN.md 7.8, 8.19)
     /** god (?god=1, the bot tools' --god: D29): the crew take no harm, nor what they drive, and their guns never run dry */
     this.god = !!o.god; this._godRides = new Set();
@@ -42,7 +42,8 @@ export class Career {
     this.econ = new Economy({ save: this.save, fund });
     this.R = new MissionRuntime({ world: () => W, save: this.save, onEnd: r => this._ended(r) });
     this.events = new AmbientEvents({ world: () => W, save: this.save, onEnd: r => this._eventEnded(r) });
-    this.stunts = new StuntJumps({ save: this.save }); this.holdups = null; this.tokens = null;
+    this.district = (W.city && W.city.id) || 'lowtown';   // (EXPANSION.md 2.1: its missions, jobs, tokens and stunts alone)
+    this.stunts = new StuntJumps({ save: this.save, district: this.district }); this.holdups = null; this.tokens = null;
     this.bot = o.bot ? new MissionBot({ city: W.city, roads: roadsOf(W.city), fleet: W.fleet, junctions: W.junctions, pad: o.bot === 'pad' }) : null;
     this.padMode = o.bot === 'pad'; this.botI = null;   // (the pad pilot's: the bot's Intent kept for a tool to press on a pad, the player's controller read instead)
     this.card = null; this.prompt = null; this.pops = []; this.waypoint = null; this.visited = null; this.t = 0; this.hours = 0; this.botTries = 0; this.unsub = [];
@@ -53,7 +54,7 @@ export class Career {
   start(o = {}) {
     const W = this.W, S = this.save;
     W.crew.fund = S.crewFund;
-    this.tokens = this.lab ? null : new Collectibles({ combat: W.combat, save: S }).place();
+    this.tokens = this.lab ? null : new Collectibles({ combat: W.combat, save: S, district: this.district }).place();
     this.garage = {};   // (the stashed vehicles: back where they were left)
     for (const q of S.garage) { if (!q || !q.id || !q.def || !Array.isArray(q.at)) continue; const v = W.fleet.spawn(q.def, q.at[0], q.at[1], q.at[2] || 0, { color: q.color, mods: q.mods, owner: 'world' }); v.stashed = q.id; this.garage[q.id] = v; }
     this.holdups = this.lab ? null : new Holdups({ city: W.city, combat: W.combat, rng: RNG.stream('shops') });
@@ -81,15 +82,15 @@ export class Career {
   }
   /** the missions on offer: requirements met, not done (in the registry's order) */
   available() {
-    const S = this.save, done = S.missions.done; if (this.lab) return [];   // (another district: free roam alone, no job on offer)
-    return all('missions').filter(m => !done.includes(m.id) && (m.requires || []).every(r => done.includes(r)) && (!m.unlock || m.unlock(S, this.W)) && giverAt(this.W.city, m));
+    const S = this.save, done = S.missions.done; if (this.lab) return [];   // (a lab: free roam alone, no job on offer)
+    return all('missions').filter(m => m.district === this.district && !done.includes(m.id) && (m.requires || []).every(r => done.includes(r)) && (!m.unlock || m.unlock(S, this.W)) && giverAt(this.W.city, m));
   }
   // Spray & Pray's bay while the player can pay for a respray (the bot's way to lose the stars), else null
   _respray() { const q = this.W.sprayBay ? this.W.sprayBay() : null; return q && this.W.crew.fund >= (TUNE.resprayFee ?? 100) ? q : null; }
   /** where a mission's giver stands: [x, y] (its marker), or null */
   giverOf(m) { return giverAt(this.W.city, m); }
   /** the activities with a place to start: [{ spec, at }] (jobs start from the phone) */
-  startable() { if (this.lab) return []; return all('activities').filter(a => a.start && a.start.at && a.kind !== 'event').map(a => ({ spec: a, at: this.W.city.poi(a.start.at) ? [this.W.city.poi(a.start.at).x, this.W.city.poi(a.start.at).y] : a.start.at })); }
+  startable() { if (this.lab) return []; return all('activities').filter(a => a.start && a.start.at && a.kind !== 'event' && a.district === this.district).map(a => ({ spec: a, at: this.W.city.poi(a.start.at) ? [this.W.city.poi(a.start.at).x, this.W.city.poi(a.start.at).y] : a.start.at })); }
   // ---- each step
   /** ctx: { p (the possessed ped), I (its intent), inside, busy (a wheel, the switch camera, a door's fade), down
    *  (WRECKED or NABBED playing), dt }. Returns the Intent to use: the bot's while it plays */
@@ -284,7 +285,7 @@ export class Career {
     const W = this.W, p = W.crew.ped, kinds = new Set(['safehouse', 'shop', 'property', 'gang', 'landmark', 'hospital', 'police', 'marina']), stars = W.wanted() ? W.wanted().stars : 0, v = p.seat && p.seat.vehicle;
     const dests = W.city.pois.filter(q => kinds.has(q.kind) && q.label).sort((a, b) => a.label.localeCompare(b.label));
     const why = stars ? 'NOT WHILE WANTED' : v ? 'ON FOOT ONLY' : '';
-    this._open({ id: 'cabs', style: 'phone', title: 'LOWTOWN CABS', color: '#ffd23a', body: [why || `CASH  $${W.crew.fund.toLocaleString('en-US')}`], back: () => this._contacts(),
+    this._open({ id: 'cabs', style: 'phone', title: ((W.city.spec && W.city.spec.name) || 'Lowtown').toUpperCase() + ' CABS', color: '#ffd23a', body: [why || `CASH  $${W.crew.fund.toLocaleString('en-US')}`], back: () => this._contacts(),
       items: dests.map(q => { const fee = this.cabFee(p, q); return { label: q.label.toUpperCase(), right: '$' + fee, icon: 'cab', disabled: !!why || fee > W.crew.fund, act: () => this.cab(q) }; }) });
   }
   phone_() { const sel = this._phoneSel || 0; this.close(); this.phone(); if (this.card) { this.card.sel = Math.min(sel, this.card.items.length - 1); this._phoneSel = sel; } }   // (back on the app it opened)
@@ -319,7 +320,7 @@ export class Career {
   }
   _jobs() {
     const W = this.W, p = W.crew.ped, v = p.seat && p.seat.vehicle;
-    const items = all('activities').filter(a => a.kind === 'job' && a.start && a.start.vehicle).map(a => {
+    const items = all('activities').filter(a => a.kind === 'job' && a.start && a.start.vehicle && a.district === this.district).map(a => {
       const next = Math.min(a.levels || 1, (this.save.activities[a.id] || 0) + 1), ok = !!v && v.driver === p && fits(a.start.vehicle, v), need = [].concat(a.start.vehicle)[0];
       if (ok) return { ...this._start(a.title.toUpperCase(), () => this.startMission(a.id, { activity: true, level: next }), `START  LEVEL ${next}/${a.levels || 1}`), label: a.title.toUpperCase(), icon: 'job' };
       return { label: a.title.toUpperCase(), sub: 'IN ' + ((get('vehicles', need) || {}).name || String(need)).toUpperCase(), icon: 'job', disabled: true, act: () => {} };
@@ -330,8 +331,8 @@ export class Career {
   /** the save from the live world */
   snapshot() {
     const W = this.W, S = this.save, out = JSON.parse(JSON.stringify(S));
-    out.crewFund = W.crew.fund; out.active = W.crew.active; out.clock = W.clock.hour; out.weather = W.weather.state;
-    for (const id of PROTAGONISTS) { const m = W.crew.member(id); if (!m) continue; const j = m.ped.toJSON(), q = out.protagonists[id]; q.pos = j.pos; q.health = j.health; q.armor = j.armor; q.weapons = j.weapons; q.ammo = j.ammo; q.current = j.current; q.ability = j.ability; q.outfit = m.outfit || 0; if (j.stats) q.stats = { ...q.stats, ...j.stats }; }
+    out.crewFund = W.crew.fund; out.active = W.crew.active; out.clock = W.clock.hour; out.weather = W.weather.state; out.district = this.district;
+    for (const id of PROTAGONISTS) { const m = W.crew.member(id); if (!m) continue; const j = m.ped.toJSON(), q = out.protagonists[id]; q.pos = j.pos; q.health = j.health; q.armor = j.armor; q.weapons = j.weapons; q.ammo = j.ammo; q.current = j.current; q.ability = j.ability; q.outfit = m.outfit || 0; q.map = this.district; if (j.stats) q.stats = { ...q.stats, ...j.stats }; }
     if (W.life && W.life.gangs) out.respect = { ...W.life.gangs.respect };
     out.completion = completion(S).pct;
     return out;
@@ -351,7 +352,7 @@ export class Career {
     const W = this.W;
     for (const id of PROTAGONISTS) {
       const m = W.crew.member(id), q = S.protagonists[id]; if (!m || !q) continue; const p = m.ped;
-      if (q.pos) p.place(q.pos[0], q.pos[1], q.pos[2] || 0);
+      if (q.pos && (q.map || 'lowtown') === this.district) p.place(q.pos[0], q.pos[1], q.pos[2] || 0);   // (one saved in another district stands at their start here)
       p.vitals.health = q.health; p.vitals.armor = q.armor;
       // (the guns as saved, and only those: the start kit's a confiscation took stays gone; each magazine full from its
       // rounds; the one in hand)

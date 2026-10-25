@@ -57,6 +57,8 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The ISO cut-away by lot (per view), the quarter turn, the speed zoom | `src/motor/render/cutaway.js`, `stage.js`, `speed-zoom.js` | M2 |
 | The sky by hour and weather; rain, wet streets, haze and lightning on screen; MOTOR's light pass and glows | `src/motor/render/sky.js`, `weather-fx.js`, `stage.js` | M2 |
 | Lowtown: four neighbourhoods, every landmark, the Loop and the L, the canal and the drawbridge | `src/game/districts/lowtown/` | M2 |
+| The crossings between districts: a gate at a road's end at the map's edge, a city built for the ones open (`buildCity`'s `open`: openings cut, barricades left out); crossed, the play scene enters the other district with the save, the vehicle, the view and the stars (one map at a time) | `src/motor/world/crossing.js`, `district.js`, `src/game/scenes/play.js` (`crossAt`, `reopen`, `arrive`) | X1 |
+| Ironside, District 2: the Foundry, Scrapyard Flats and Voltage Row, the Flyover, the canal and the river, the east bridge | `src/game/districts/ironside/` | X1 |
 | Engine patch 7 (canvas lighting cost) and patch 1's `cutTop` | `vendor/my-3d2dge/PATCHES.md` | M2 |
 | Saves: a JSON document per slot (migrate, normalize, keep a corrupt one as `:bak`, locked in the demo) | `src/motor/core/save.js`, `src/game/save.js` | M3 |
 | Combat data: the `weapons` registry, Vitals (armour, regeneration, knockdown, stun), Inventory (slots of a kind, magazines, reloads), Stats, Abilities | `src/motor/combat/weapons.js`, `vitals.js`, `inventory.js`, `stats.js`, `abilities.js` | M3 |

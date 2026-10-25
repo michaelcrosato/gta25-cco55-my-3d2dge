@@ -8,17 +8,17 @@ import { shape } from '../core/schema.js';
 import { BUS } from '../core/bus.js';
 
 declare('collectibles', (spec, id) => {
-  const out = shape({ name: { type: 'string', req: true }, spots: { type: 'array', req: true }, reward: { type: 'number', def: 100 }, bonus: { type: 'number', def: 0 } })(spec, id), ids = new Set();
+  const out = shape({ name: { type: 'string', req: true }, spots: { type: 'array', req: true }, reward: { type: 'number', def: 100 }, bonus: { type: 'number', def: 0 }, district: { type: 'string', def: 'lowtown' } })(spec, id), ids = new Set();
   for (const [i, s] of (spec.spots || []).entries()) { if (!s || typeof s.id !== 'string' || !Array.isArray(s.at)) out.push(`spot ${i} needs { id, at: [x, y, z] }`); else if (ids.has(s.id)) out.push(`spot "${s.id}" twice`); else ids.add(s.id); }
   return out;
 });
 
 export class Collectibles {
-  /** o: { combat (its pickups), save (collectibles: the ids found) } */
-  constructor(o) { this.combat = o.combat; this.save = o.save; this.placed = []; }
-  /** every spot not found yet laid out as a token */
+  /** o: { combat (its pickups), save (collectibles: the ids found), district (the one played: its sets alone) } */
+  constructor(o) { this.combat = o.combat; this.save = o.save; this.district = o.district || 'lowtown'; this.placed = []; }
+  /** every spot of the district's sets not found yet laid out as a token */
   place() {
-    for (const set of all('collectibles')) for (const s of set.spots) {
+    for (const set of all('collectibles')) if (set.district === this.district) for (const s of set.spots) {
       if (this.save.collectibles.includes(s.id)) continue;
       const k = this.combat.pickups.place({ kind: 'token', item: set.id, id: s.id, x: s.at[0], y: s.at[1], z: s.at[2] || 0, respawn: 0 }); this.placed.push(k);
     }

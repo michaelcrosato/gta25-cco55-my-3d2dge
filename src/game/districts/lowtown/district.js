@@ -6,11 +6,13 @@
 import { def } from '../../../motor/index.js';
 import { STYLES, HOODS } from './styles.js';
 
+const EMBANKMENT = { h: 32, top: '#5a6a4a', side: '#7a7468', face: 'stone', roof: 'grass' };
+
 const NS = (at, from, to, kind = 'street', name = '', oneway) => ({ axis: 'y', at, from, to, kind, name, oneway });
 const EW = (at, from, to, kind = 'street', name = '', oneway) => ({ axis: 'x', at, from, to, kind, name, oneway });
 
 def('districts', 'lowtown', {
-  name: 'Lowtown', size: [160, 160], seed: 1999, storey: 24,
+  name: 'Lowtown', size: [160, 160], seed: 1999, storey: 24, career: true,
   hoods: HOODS, styles: STYLES,
   hoodMap: [[0, 0, 79, 76, 'palm'], [80, 0, 159, 76, 'neon'], [0, 77, 79, 159, 'brick'], [80, 77, 159, 159, 'harbor']],
   water: [
@@ -38,16 +40,20 @@ def('districts', 'lowtown', {
       stations: [{ name: 'Palm', rect: [76, 12, 84, 23] }, { name: 'Neon Mile', rect: [76, 38, 84, 49] }, { name: 'Brickyard', rect: [76, 86, 84, 97] }, { name: 'Harbor', rect: [76, 136, 84, 147] }] },
   ],
   walls: [
-    // the embankments round the north and west edges, and the west end of Loop Avenue: the closed bridge
-    { rect: [0, 0, 159, 1], type: { h: 32, top: '#5a6a4a', side: '#7a7468', face: 'stone', roof: 'grass' } },
-    { rect: [0, 2, 1, 151], type: { h: 32, top: '#5a6a4a', side: '#7a7468', face: 'stone', roof: 'grass' } },
+    // the embankments round the north and west edges (Loop Avenue's way on west to Ironside cut back out of it: openings)
+    { rect: [0, 0, 159, 1], type: EMBANKMENT }, { rect: [0, 2, 1, 151], type: EMBANKMENT },
     // the sea wall across Loop Avenue's east end, where it stops at the bay (the Causeway's place, EXPANSION.md): a road
     // run out into the water had taken a job's Medic, driven on past its end, with it
     { rect: [154, 73, 154, 85], type: { h: 12, top: '#a8a49a', side: '#7a7468', face: 'stone', roof: 'slab' } },
   ],
   props: { lampEvery: 6, clutter: .3 },
-  // the closed bridge's notice on the embankment at Loop Avenue's west end (PLAN.md 9.1: the hook for District 2)
-  signs: [{ rect: [0, 75, 1, 81], text: 'BRIDGE CLOSED: GNOMES ON STRIKE', color: '#ff5a3a', h: 32, low: true }],
+  // the west bridge (EXPANSION.md 2.1): Loop Avenue goes on west over the canal to Ironside, closed by the Gnomes'
+  // strike (the embankment across the avenue's end, and the notice on it) until The Big Withdrawal is done. Open, the
+  // embankment's two columns at the avenue's end are its gate, cut back out once the city is laid out (its blocks, lots
+  // and props as they were); one comes in from Ironside eastbound, short of Gnome Row
+  openings: [{ rect: [0, 74, 1, 82], surface: 'road', crossing: 'west-bridge' }, { rect: [0, 72, 1, 73], surface: 'walk', crossing: 'west-bridge' }, { rect: [0, 83, 1, 84], surface: 'walk', crossing: 'west-bridge' }],
+  crossings: [{ id: 'west-bridge', label: 'The west bridge: to Ironside', to: 'ironside', via: 'east-bridge', gate: [0, 72, 1, 84], dir: 'W', arrive: [2, 80], opens: 'heist_big_withdrawal' }],
+  signs: [{ rect: [0, 75, 1, 81], text: 'BRIDGE CLOSED: GNOMES ON STRIKE', color: '#ff5a3a', h: 32, low: true, gate: 'west-bridge' }],
   // Dock Road's bridge over the canal lifts for the boats (PLAN.md 9.1): its span, sidewalks and all
   drawbridges: [{ id: 'dock', rect: [124, 124, 132, 131], axis: 'y' }],
   // a loop through all four neighbourhoods on the streets, under the Loop twice (perf runs, the attract camera)

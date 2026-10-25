@@ -59,9 +59,10 @@ test('the four random events: registered as events, each with a where, a reward 
   const { game, gtm } = await loadGame({ hash: '#play/safehouse', query: { seed: '1999' } });
   game.advance(.5);
   const M = gtm.motor, W = gtm.career.W, C = W.city, bad = [];
-  // players about the city: on foot at the safehouse and at a few points of the ground lanes, facing along them
-  const lanes = W.roads.graph.lanes.filter(L => L.ground), poses = [];
-  for (let k = 0; k < 40; k++) { const L = lanes[Math.floor(k * lanes.length / 40)], f = Math.atan2(L.dir[1], L.dir[0]); poses.push({ x: L.a[0], y: L.a[1], z: 0, facing: f, seat: null }); }
+  // players about the city: on foot at the start of every ground lane, facing along it (every lane, not a sample of
+  // them: a sample's lanes move with the road graph, and the stalled car, which wants a clear stretch mid-block, finds a
+  // spot from about one lane start in ten)
+  const lanes = W.roads.graph.lanes.filter(L => L.ground), poses = lanes.map(L => ({ x: L.a[0], y: L.a[1], z: 0, facing: Math.atan2(L.dir[1], L.dir[0]), seat: null }));
   for (const id of EVENTS) {
     const a = M.get('activities', id);
     if (!a) { bad.push(`${id}: not registered`); continue; }
