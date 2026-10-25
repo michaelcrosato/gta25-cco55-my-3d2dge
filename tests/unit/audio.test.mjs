@@ -87,3 +87,15 @@ test('the SFX map: the game\'s events heard near the listener, quieter farther o
   M.dispose(); heard.length = 0; BUS.emit('explode', { x: 0, y: 0 }); assert.equal(heard.length, 0, 'gone with its scene');
   game.headless = true; assert.equal(M.play('cash'), false, 'a headless game hears nothing');
 });
+
+test('a content pack\'s genres (def(\'genres\')): every station\'s genre composes, the new stations\' too, each within its tempo', async () => {
+  const { all, get } = await import('../../src/motor/core/registry.js');
+  await import('../../src/motor/audio/stations.js'); await import('../../src/game/radio/stations.js');
+  const st = all('stations'); assert.ok(st.length >= 6, 'six stations: ' + st.map(s => s.id).join(', '));
+  for (const s of st) {
+    const G = GENRES[s.genre] || get('genres', s.genre); assert.ok(G, `${s.id}: its genre ${s.genre} is known`);
+    const song = compose(s.genre, s.seed); assert.ok(song.bpm >= G.bpm[0] && song.bpm <= G.bpm[1] && song.tracks.length >= 3 && song.tracks.every(t => t.notes && t.notes.length), `${s.id}: a song at ${song.bpm} bpm, its tracks`);
+  }
+  assert.deepEqual(compose('surf-rock', 973), compose('surf-rock', 973), 'the same seed, the same song');
+  assert.notDeepEqual(compose('lounge', 1), compose('lounge', 2), 'another seed, another song');
+});

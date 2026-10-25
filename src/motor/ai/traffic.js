@@ -225,7 +225,7 @@ export class Traffic {
   // a towed car's spot (where it was parked as the world was made) with no other vehicle on it
   _homeFree(v) { const h = v.home; return this.fleet.near(h.x, h.y, v.hl + 80).every(o => o === v || Math.hypot(o.x - h.x, o.y - h.y) > o.hl + v.hl + 4); }
   // a towed car back at its spot, parked, the tow's clocks off
-  _home(v) { const h = v.home, b = v.body; b.x = h.x; b.y = h.y; b.z = 0; b.heading = h.heading; b.u = b.v = b.w = 0; b.vz = 0; b.airborne = false; v.abandonT = v.leftT = undefined; v.asleep = false; }
+  _home(v) { const h = v.home, b = v.body; b.x = h.x; b.y = h.y; b.z = 0; b.heading = h.heading; b.u = b.v = b.w = 0; b.vz = 0; b.airborne = false; if (v.cls === 'heli') { b.landed = true; b.wx = b.wy = 0; } v.abandonT = v.leftT = undefined; v.asleep = false; }   // (a heli: landed on its pad)
   // a car leaves the traffic: its brain lets go of its junctions; despawned, it is removed with its driver; jacked, its
   // old driver is handed on
   _drop(c, jacked, despawn = false) {

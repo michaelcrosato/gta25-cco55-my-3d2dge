@@ -83,7 +83,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     const kinds = need ? [].concat(need) : null, rank = v => kinds ? kinds.findIndex(n => fits(n, v)) : 0;
     let best = null, bs = -Infinity;   // (a far one still counts: the only Pumper may be across town)
     for (const v of gtm.fleet.vehicles) {
-      if (v.wrecked || (v.locked && !need) || v.cls === 'rail' || v.cls === 'boat' || v.cls === 'heli') continue;   // (the player's own counts: the Pumper the last call was answered in)
+      if (v.wrecked || (v.locked && !need) || v.cls === 'rail' || v.cls === 'boat' || (v.cls === 'heli' && !(need && v.body.landed))) continue;   // (the player's own counts: the Pumper the last call was answered in; a helicopter only when a job asks for one, on the ground)
       if (need ? !fits(need, v) : !M.pickable(v) || v.cls !== 'car') continue;
       const driven = !!(v.driver && v.driver !== P()); if (driven !== jack || shunned(v.id) || (v.z || 0) > 10) continue;   // (at street level: one parked up on the Loop is walked to from under it)
       if (jack && !(v.speed < 2 && v.brain && v.brain.cause === 'signal' && !v.duty && !v.gang && v.owner !== 'mission')) continue;   // (never a unit on a call, a gang's or a job's)
@@ -253,7 +253,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     const m = C().available().find(q => again('m:' + q.id)); if (m) { mission(m); continue; }
     const A2 = S().activities, todo = M.all('activities').filter(a => a.kind !== 'event' && (A2[a.id] || 0) < (a.kind === 'job' ? a.levels || 1 : 1));
     const a = todo.find(q => again(`a:${q.id}:${(A2[q.id] || 0) + 1}`));
-    if (a) { if (a.kind === 'job') job(a, (A2[a.id] || 0) + 1); else activity(a); continue; }
+    if (a) { if (a.kind === 'job' && a.start.vehicle) job(a, (A2[a.id] || 0) + 1); else activity(a); continue; }   // (a job started on foot, at its marker: L Courier's at Palm station, as an activity's start)
     const tok = M.Collectibles.spots().find(s => !S().collectibles.includes(s.id) && again('t:' + s.id)); if (tok) { token(tok); continue; }
     const st = M.all('stunts').find(s => !S().stunts.includes(s.id) && again('s:' + s.id)); if (st) { stunt(st); continue; }
     const pr = M.all('properties').find(q => !owned(q.id) && gtm.crew.fund >= Math.round(M.amountOf(q.price)) && again('p:' + q.id)); if (pr) { property(pr); continue; }
@@ -261,7 +261,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     const want = M.all('properties').find(q => !owned(q.id) && (tried.get('p:' + q.id) || 0) < TRIES);
     const jobs = M.all('activities').filter(q => q.kind === 'job' && (A2[q.id] || 0) >= (q.levels || 1)), pay = q => ((q.rewardsFor ? q.rewardsFor(q.levels || 1) : q.rewards) || {}).cash || 0;
     const best = jobs.sort((x, y) => pay(y) - pay(x))[0];
-    if (want && best && pay(best) > 0 && again('cash:' + Math.floor(t / 60))) { job(best, best.levels || 1); continue; }
+    if (want && best && pay(best) > 0 && again('cash:' + Math.floor(t / 60))) { if (best.start.vehicle) job(best, best.levels || 1); else activity(best); continue; }
     break;   // (nothing left that might still go)
   }
   const c = M.completion(S()), fund = gtm.crew.fund, errors = [...R().errors.map(e => String(e.err && e.err.message || e.err)), ...gtm.BUS.errors.map(e => String(e.err && e.err.message || e.err))];

@@ -18,11 +18,14 @@ declare('districts', shape({
 /** an interior (PLAN.md 5.4, 8.21): its rooms as block ASCII (builder.js buildInterior), the doors it is entered by
  *  (doors: [{ id, from (the city's door poi), at: [cx, cy] (the cell inside it, where one comes in) }]), its guards
  *  ([{ arch, at, route: [[cx, cy]...], facing }]), its CCTV ([{ at, z, facing, sweep, period, range, fov }]), its lights
- *  ([{ at, radius, color }]), its music */
+ *  ([{ at, radius, color }]), its music, its patrons (bodies posed where they stand: [{ arch, at, clip, pose, facing }]: a
+ *  club's dancers) and its spots (a marked cell the player does something at: [{ id, mark, label }]: a club's arcade
+ *  cabinet) */
 declare('interiors', shape({
   name: { type: 'string', req: true }, blocks: { type: 'array', req: true }, legend: { type: 'object', req: true }, types: { type: 'object', req: true },
   floor: { type: 'string', def: 'concrete' }, rooms: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, doors: { type: 'array', def: [] },
   guards: { type: 'array', def: [] }, cameras: { type: 'array', def: [] }, lights: { type: 'array', def: [] }, music: { type: 'string', def: '' }, seed: { type: 'number', def: 1 },
+  patrons: { type: 'array', def: [] }, spots: { type: 'array', def: [] },
 }));
 declare('landmarks', shape({ district: { type: 'string', req: true }, name: { type: 'string', req: true }, lots: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, props: { type: 'array', def: [] }, decks: { type: 'array', def: [] } }));
 

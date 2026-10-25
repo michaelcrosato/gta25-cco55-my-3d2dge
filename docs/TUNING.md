@@ -67,6 +67,8 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `bailSpeed` Bail-out speed | 60 | 20..200 | Getting out above this speed (u/s) is a dive roll |
 | `enterReach` Enter reach | 40 | 10..120 | How near a vehicle's side a ped must be to get in (u) |
 | `boardSpeed` Boards below | 45 | 0..200 | A vehicle moving faster than this can't be got into (u/s) |
+| `stairsReach` L stairs reach | 18 | 6..60 | How near a station's stairs the player stands to take them (u) |
+| `trainReach` L door reach | 30 | 8..80 | How near a stopped L car's side a body on the platform boards it (u) |
 
 ## Attract
 

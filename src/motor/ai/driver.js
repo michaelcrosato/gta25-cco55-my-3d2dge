@@ -494,7 +494,7 @@ export class DriverBrain {
     this.queueT = this.cause === 'queue' && sp < 3 ? (this.queueT || 0) + dt : 0;
     const cur = this.path[this.i], left = cur && cur.k === 'lane' ? cur.len - this.s : 0;   // (a queue at a junction's line is no place to squeeze: only mid-lane, room past it)
     const squeeze = !!this.p.squeeze && this.queueT > this.p.squeeze && !!L && left > L.gap + L.v.hl * 2 + 50;
-    const stuck = L && L.speed < 2 && L.gap < 30 && sp < 3 && (!this._queued(L.v) || (ob && ob.leader && ob.leader.v === v) || squeeze) && (!this.cause || squeeze);
+    const stuck = L && L.speed < 2 && L.gap < 30 && sp < 3 && (!this._queued(L.v) || (ob && ob.leader && ob.leader.v === v) || squeeze) && (!this.cause || squeeze || (this.cause === 'stop' && this._throughBox(L.v)));   // (a car nobody drives on a stop sign's line: the halt there never comes, so round it as anywhere; it had held the street behind it for good)
     this.blocked = stuck ? this.blocked + dt : Math.max(0, this.blocked - dt * 2);
     if (stuck && this.siren) this.blocked = Math.max(this.blocked, TUNE.passAfter * this.p.patience);   // (a siren goes round at once)
     if (stuck) this.cause = L.v.duty && L.v.duty.out ? 'scene' : null;   // (a unit at its scene: a cause to wait, while it tries to go round)

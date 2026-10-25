@@ -295,3 +295,22 @@ test('an empty car broadside across a car\'s way stands its ground on its handbr
   assert.ok(held < 6, `on its handbrake it barely moves: ${held.toFixed(1)} u`);
   assert.ok(gave > 20, `shoved, it slides out of the way: ${gave.toFixed(1)} u`);
 });
+
+test('a helicopter is flown (HANDOFF L4): landed it waits; the climb lifts it, the pedals push it, the stick yaws it; let down it settles; left only on the ground', async () => {
+  await import('../../src/game/vehicles/skycam.js');
+  const Y = yard(), v = Y.fleet.spawn('skycam', 400, 400, 0), [x, y] = v.toWorld(0, -(v.hw + 8)), p = ped(Y, x, y);
+  step(Y, 1); assert.ok(v.body.landed && v.z === 0, 'it stands landed on its pad: z ' + v.z);
+  p.board(boardingFor(p, v, 0)); step(Y, 6, { until: () => v.driver === p && !p.boarding }); assert.equal(v.driver, p, 'aboard by its door');
+  const fly = f => v2 => { const I = clearIntent(makeIntent()); if (v2 === v) f(I); return I; };
+  step(Y, 3, { intent: fly(I => { I.down.handbrake = true; }) });
+  assert.ok(!v.body.landed && v.z > 100, 'R1 climbs: z ' + v.z.toFixed(0));
+  assert.equal(exitFor(p, v), null, 'never left in the air');
+  const z0 = v.z, x0 = v.x, h0 = v.heading; step(Y, 2, { intent: fly(I => { I.throttle = 1; }) });
+  assert.ok(v.x - x0 > 100 && Math.abs(v.z - z0) < 1, `R2 pushes it on along its heading at its height: x +${(v.x - x0).toFixed(0)}, z ${v.z.toFixed(0)}`);
+  step(Y, 1, { intent: fly(I => { I.steer = 1; }) }); assert.ok(v.heading - h0 > 1, 'the stick yaws it: ' + (v.heading - h0).toFixed(2));
+  step(Y, 4); assert.ok(v.speed < 10, 'let go, the air slows it: ' + v.speed.toFixed(1));
+  step(Y, 6, { intent: fly(I => { I.down.nitro = true; }), until: () => v.body.landed });
+  assert.ok(v.body.landed && v.z === 0, 'L1 lets it down, and it settles: z ' + v.z.toFixed(1));
+  const out = exitFor(p, v); assert.ok(out, 'got out on the ground'); p.leave(out); step(Y, 2, { until: () => !p.boarding }); assert.equal(p.seat, null);
+  step(Y, 3); assert.ok(v.body.landed && v.z === 0, 'with nobody at the controls it stays put');
+});

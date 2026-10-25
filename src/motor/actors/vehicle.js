@@ -1,7 +1,8 @@
 // A vehicle in the world (PLAN.md 8.8): a definition's body (the class's physics), its model (the kit folded in), its
 // paint, damage, seats and the people in them, doors, lights, siren, horn, radio and mods. Its driver's Intent drives
 // it (throttle, brake, steer, handbrake; nitro, horn and siren, the radio); with nobody at the wheel it coasts to a
-// stop and sits on its handbrake. An AI-only class (the heli) takes its ctl from v.ai. The Fleet steps every vehicle
+// stop and sits on its handbrake. A heli takes its ctl from v.ai (the Eye's), or flies by its pilot's (the shoulders
+// climb and descend), or with nobody at the controls settles where it is. The Fleet steps every vehicle
 // and settles what they hit; Combat sees each one as a box (shots hit it, blasts hurt it).
 // Everything here is simulation (fixed steps, no drawing state read), except `look`, which the renderer eases.
 //   const v = new Vehicle('cortez', { x, y, heading, color });  fleet.add(v);  v.driver · v.seats · v.damage
@@ -103,7 +104,10 @@ export class Vehicle {
     // what the controls ask
     let ctl;
     if (this.ai && live) ctl = this.ai(dt, this, w) || {};
-    else if (I && live && this.driver) {
+    else if (I && live && this.driver && this.cls === 'heli') {   // (a player's helicopter: the handbrake's shoulder climbs, the nitro's descends)
+      ctl = { pilot: true, throttle: I.throttle, brake: I.brake, steer: I.steer, climb: (I.down.handbrake ? 1 : 0) - (I.down.nitro ? 1 : 0) };
+      if (I.tap.radioNext || I.tap.radioPrev) this.radio = nextStation(this.radio, I.tap.radioNext ? 1 : -1);
+    } else if (I && live && this.driver) {
       ctl = { throttle: I.throttle, brake: I.brake, steer: I.steer, handbrake: !!I.down.handbrake, handle: this.driver.handling ? this.driver.handling() : 1 };   // (handle: the driver's Driving stat and OVERDRIVE)
       if (I.tap.nitro && this.mods.nitro > 0 && this.nitroT <= 0) { this.mods.nitro--; this.nitroT = TUNE.nitroTime; }
       if (this.hasSiren && I.tap.horn) this.siren = !this.siren; else this.horn = !!I.down.horn && !this.hasSiren;

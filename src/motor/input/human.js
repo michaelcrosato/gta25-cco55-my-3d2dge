@@ -23,6 +23,8 @@ export class HumanController {
       const [sx] = B.stick('LS');
       I.steer = sx || ((B.down('right') ? 1 : 0) - (B.down('left') ? 1 : 0));
       I.throttle = B.value('throttle'); I.brake = B.value('brake');
+    } else if (context === 'arcade') {   // (a cabinet's stick: the screen's own directions, not the ground's)
+      const [mx, my] = B.direction('arcade'); I.move[0] = mx; I.move[1] = my;
     } else {
       const [mx, my] = B.direction('onFoot'), d = this.views.screenDirToGround(mx, my);
       I.move[0] = d[0]; I.move[1] = d[1];

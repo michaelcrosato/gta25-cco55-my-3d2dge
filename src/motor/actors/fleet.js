@@ -168,14 +168,14 @@ export class Fleet {
     this.awake = awake;
     for (const j of [...this.tows]) { if (j.truck.wrecked || j.car.wrecked || j.length > j.rest * 4 + 40) this._untow(j); else { this.wake(j.truck); this.wake(j.car); j.update(dt); } }
     this._regrid();
-    // vehicles against vehicles (towing pairs aside; boats only meet boats; helis fly over it all): each awake one
+    // vehicles against vehicles (towing pairs aside; boats only meet boats; helis fly over it all, a landed one is met): each awake one
     // against its neighbours; a sleeper it touches wakes
     // (far traffic on its lanes meets nothing by itself: its brain keeps it off other cars and its lanes clear of the
     // parked ones; the physical vehicles meet it)
     for (const a of this.vehicles) {
-      if (a.asleep || !a.body || a.cls === 'heli' || a.kinematic) continue;
+      if (a.asleep || !a.body || (a.cls === 'heli' && !a.body.landed) || a.kinematic) continue;
       for (const b of this.around(a.x, a.y, a.hl + 8)) {
-        if (b === a || !b.body || b.cls === 'heli' || (!b.asleep && !b.kinematic && b._i < a._i)) continue;
+        if (b === a || !b.body || (b.cls === 'heli' && !b.body.landed) || (!b.asleep && !b.kinematic && b._i < a._i)) continue;
         if ((a.cls === 'boat') !== (b.cls === 'boat')) continue;
         if (a.towing && a.towing.car === b || b.towing && b.towing.car === a) continue;
         const imp = collideCars(a.body, b.body);
@@ -283,7 +283,7 @@ export class Fleet {
       let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
       for (const c of tr.cars) { x0 = Math.min(x0, c.x - c.hl - 10); x1 = Math.max(x1, c.x + c.hl + 10); y0 = Math.min(y0, c.y - c.hl - 10); y1 = Math.max(y1, c.y + c.hl + 10); z0 = Math.min(z0, c.z - 10); z1 = Math.max(z1, c.z + 10); }
       for (const p of peds) {
-        if (p.seat || p.dead || p.coast) continue; const m = p.mover;
+        if (p.seat || p.dead || p.coast || p.onTrain) continue; const m = p.mover;   // (onTrain: riding in it)
         if (m.z < z0 || m.z > z1 || m.x < x0 || m.x > x1 || m.y < y0 || m.y > y1) continue;
         for (const c of tr.cars) {
           if (Math.abs(m.z - c.z) > 10 || Math.abs(m.x - c.x) > c.hl + 10 || Math.abs(m.y - c.y) > c.hl + 10) continue;

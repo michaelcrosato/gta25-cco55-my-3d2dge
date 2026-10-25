@@ -20,7 +20,7 @@ export class Overlays {
   /** after the scene: o { graph, junctions, walks, fleet, bodies, focus: [x, y], reach, stats: { renderMs, updateMs, items } } */
   draw(stage, r, o) {
     if (!this.any || !r || !r.overlay) return;
-    const F = this.flags, P = stage.projector(), [fx, fy] = o.focus, reach = Math.min(o.reach || 600, stage.depth && stage.depth === stage.side7 ? 300 : 1e9);   // (MODE 7: near the rail only, the horizon is a smear)
+    const F = this.flags, P = stage.projector(), [fx, fy] = o.focus, reach = Math.min(o.reach || 600, stage.mode7 ? 300 : 1e9);   // (MODE 7: near the rail only, the horizon is a smear)
     const near = (x, y) => Math.abs(x - fx) < reach && Math.abs(y - fy) < reach;
     const pt = (x, y, z = 0) => { const q = P.proj(x, y, z); return q && q[2] > 0 && isFinite(q[0]) && isFinite(q[1]) ? q : null; };
     r.overlay(g => {

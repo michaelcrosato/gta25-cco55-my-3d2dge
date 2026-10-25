@@ -34,19 +34,24 @@ export class Side7View {
   constructor(o) {
     Object.assign(this, { id: 'side7', label: 'MODE 7', heading: 0, x: 0, y: 0, h: 70, pitch: 14, fov: 50, near: 110, far: 260, farClip: 600, fogStart: 300,
       sky: ['#07061a', '#1c1438', '#3a2450'], fog: '#2a1f3e', ready: false, zoom: 1, views: new Map(), stats: { rows: 0, quads: 0, actors: 0 } }, o);
-    this.fogRGB = E.hex(this.fog);
+    this.fogRGB = E.hex(this.fog); this.mode7 = true;
   }
+  /** the heading kept images are keyed by (a body's, a prop's image is redrawn when it moves on) */
+  get keyHeading() { return this.heading; }
+  /** the rail's axes { f, r } (the chase camera's own, at any heading: ChaseView) */
+  ax() { return RAIL[this.heading]; }
   /** turn the rail to a heading (0, 90, 180, 270) round the focus, keeping its distance */
   setHeading(deg, fx, fy) {
     deg = ((Math.round(deg / 90) * 90) % 360 + 360) % 360; if (deg === this.heading && this.ready) return;
     const d = (this.near + this.far) / 2, a = RAIL[deg]; this.heading = deg;
     if (fx !== undefined) { this.x = fx - a.f[0] * d; this.y = fy - a.f[1] * d; this.ready = true; }
   }
-  /** the lens for where the focus is (in a vehicle or not) and how fast (speed01, 0..1 of top speed): eased, so getting
-   *  in or out moves the camera rather than cutting it */
-  rig(dt, vehicle, speed01 = 0) {
+  /** the lens for where the focus is (in a vehicle or not), how fast (speed01, 0..1 of top speed) and how high (fz: the
+   *  lens rides that much higher, on a deck or in the air): eased, so getting in or out moves the camera rather than
+   *  cutting it */
+  rig(dt, vehicle, speed01 = 0, fz = 0) {
     const R = this.indoor ? RIGS.indoor : vehicle ? RIGS.vehicle : RIGS.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R.fov + R.widen * E.clamp(speed01, 0, 1);
-    this.h += (R.h - this.h) * k; this.near += (R.near - this.near) * k; this.far += (R.far - this.far) * k; this.fov += (fov - this.fov) * k;
+    this.h += (R.h + fz - this.h) * k; this.near += (R.near - this.near) * k; this.far += (R.far - this.far) * k; this.fov += (fov - this.fov) * k;
   }
   /** Auto-rail: given a vehicle's velocity each step, the heading of the axis it has held steady for 1.5 s (going
    *  faster than 40, nine tenths of it along that axis) once it differs from the rail's own, else null */
@@ -60,7 +65,7 @@ export class Side7View {
   /** the camera follows the focus: sideways always (smoothed), in depth only when it comes nearer than near or goes past
    *  far. Presentation only: the simulation never reads it */
   follow(dt, fx, fy) {
-    const a = RAIL[this.heading];
+    const a = this.ax();
     if (!this.ready) { const d = (this.near + this.far) / 2; this.x = fx - a.f[0] * d; this.y = fy - a.f[1] * d; this.ready = true; return; }
     const rx = fx - this.x, ry = fy - this.y, L = rx * a.r[0] + ry * a.r[1], D = rx * a.f[0] + ry * a.f[1];
     const k = 1 - Math.exp(-dt * 5), want = E.clamp(D, this.near, this.far), mv = (D - want) * Math.min(1, k * 2);
@@ -68,7 +73,7 @@ export class Side7View {
   }
   /** set up the projection for this frame (r: the engine renderer: its buffer size and sub-pixel offset) */
   frame(r) {
-    const sc = r.game.screen, p = this.pitch * DEG, fov = 2 * Math.atan(Math.tan(this.fov * DEG / 2) / (this.zoom || 1)), a = RAIL[this.heading];
+    const sc = r.game.screen, p = this.pitch * DEG, fov = 2 * Math.atan(Math.tan(this.fov * DEG / 2) / (this.zoom || 1)), a = this.ax();
     // a level camera with its lens shifted down (the horizon where a camera pitched this.pitch would see it): the floor
     // recedes as from the pitched camera, but walls and figures stay upright, as in the SNES games (no leaning towers)
     const F = r.H / 2 / Math.tan(fov / 2), cy = r.H / 2 + (sc.fy || 0);
@@ -91,21 +96,21 @@ export class Side7View {
     return [this.x + P.f[0] * D + P.r[0] * L, this.y + P.f[1] * D + P.r[1] * L];
   }
   /** depth along the rail of a world point: the draw order key (bigger is farther) */
-  depth(x, y) { const a = RAIL[this.heading]; return (x - this.x) * a.f[0] + (y - this.y) * a.f[1]; }
+  depth(x, y) { const a = this.ax(); return (x - this.x) * a.f[0] + (y - this.y) * a.f[1]; }
   /** a point's depth for sorting a model's parts (bigger is farther; the camera is level, so height breaks ties) */
   depth3(x, y, z = 0) { return this.depth(x, y) - z * 1e-3; }
   /** how far right of the rail's centre line a world point is (its screen-across coordinate, in world units) */
-  lateral(x, y) { const a = RAIL[this.heading]; return (x - this.x) * a.r[0] + (y - this.y) * a.r[1]; }
+  lateral(x, y) { const a = this.ax(); return (x - this.x) * a.r[0] + (y - this.y) * a.r[1]; }
   /** a direction pushed on screen (x right, y down) -> a ground direction: up the screen is along the rail */
   /** a world offset on screen, linear: across the rail to the right, along it up the screen (foreshortened by the
    *  pitch), height up */
-  screenVec(x, y, z = 0) { const a = RAIL[this.heading]; return [x * a.r[0] + y * a.r[1], -(x * a.f[0] + y * a.f[1]) * .3 - z]; }
+  screenVec(x, y, z = 0) { const a = this.ax(); return [x * a.r[0] + y * a.r[1], -(x * a.f[0] + y * a.f[1]) * .3 - z]; }
   /** the stick's push screenDirToGround reads as the ground direction (x, y): its inverse (screenVec squashes the
    *  depth for the lock-on's cone on screen; a stick pushed up is straight along the rail) */
-  groundDirToScreen(x, y) { const a = RAIL[this.heading]; return [x * a.r[0] + y * a.r[1], -(x * a.f[0] + y * a.f[1])]; }
+  groundDirToScreen(x, y) { const a = this.ax(); return [x * a.r[0] + y * a.r[1], -(x * a.f[0] + y * a.f[1])]; }
   screenDirToGround(dx, dy) {
     if (!dx && !dy) return [0, 0];
-    const a = RAIL[this.heading], gx = a.r[0] * dx - a.f[0] * dy, gy = a.r[1] * dx - a.f[1] * dy, l = Math.hypot(gx, gy) || 1, m = Math.min(1, Math.hypot(dx, dy));
+    const a = this.ax(), gx = a.r[0] * dx - a.f[0] * dy, gy = a.r[1] * dx - a.f[1] * dy, l = Math.hypot(gx, gy) || 1, m = Math.min(1, Math.hypot(dx, dy));
     return [gx / l * m, gy / l * m];
   }
   /** the engine View a rig is drawn with at k pixels per unit (whole 1/16ths, so views are reused), facing the rail */
@@ -116,7 +121,7 @@ export class Side7View {
   }
   /** the chunk range [i0, j0, i1, j1] the camera's wedge can see (to farClip) */
   wedge(size) {
-    const P = this.P, a = RAIL[this.heading], half = this.farClip * (P.W / 2) / P.F + 64, fx = this.x + a.f[0] * this.farClip, fy = this.y + a.f[1] * this.farClip;
+    const P = this.P, a = this.ax(), half = this.farClip * (P.W / 2) / P.F + 64, fx = this.x + a.f[0] * this.farClip, fy = this.y + a.f[1] * this.farClip;
     const xs = [this.x - a.r[0] * 64 - a.f[0] * 32, fx - a.r[0] * half, fx + a.r[0] * half, this.x + a.r[0] * 64 - a.f[0] * 32];
     const ys = [this.y - a.r[1] * 64 - a.f[1] * 32, fy - a.r[1] * half, fy + a.r[1] * half, this.y + a.r[1] * 64 - a.f[1] * 32];
     return [Math.floor(Math.min(...xs) / size), Math.floor(Math.min(...ys) / size), Math.floor(Math.max(...xs) / size), Math.floor(Math.max(...ys) / size)];
@@ -131,7 +136,7 @@ export class Side7View {
   drawSky(g, top, bd = null, r = null) {
     const P = this.P;
     if (bd && r) {
-      const a = RAIL[this.heading], R = this._R && this._Rof === r ? this._R : (this._Rof = r, this._R = Object.create(r));   // (kept: its own caches, the sky's baked strips, last)
+      const a = this.ax(), R = this._R && this._Rof === r ? this._R : (this._Rof = r, this._R = Object.create(r));   // (kept: its own caches, the sky's baked strips, last)
       g.fillStyle = this.fog; g.fillRect(0, 0, P.W, P.H);   // (below the band, where no floor row is drawn: the fog's colour)
       const own = { ctx: g, bh: Math.max(4, Math.ceil((top + 2) / 4) * 4), ix: this.heading * 4 + (this.x * a.r[0] + this.y * a.r[1]) * .25, iy: 0 };
       for (const k in own) Object.defineProperty(R, k, { value: own[k], writable: true, configurable: true });   // (own values over the renderer's getters)
@@ -212,7 +217,7 @@ export class Side7View {
    *  slice's far edge), front faces (key: their depth) and the tops of spans lower than the camera. focus: [x, y]; a
    *  span wholly between the camera and the focus, across its line of sight, drops to a stub (its cutH) */
   spanItems(spans, items, focus, night = true) {
-    const a = RAIL[this.heading], P = this.P, T = 16, PER = FACE_PERIOD, mod = (v, m) => ((v % m) + m) % m;
+    const a = this.ax(), P = this.P, T = 16, PER = FACE_PERIOD, mod = (v, m) => ((v % m) + m) % m;
     const fD = focus ? this.depth(focus[0], focus[1]) : 0, fL = focus ? (focus[0] - this.x) * a.r[0] + (focus[1] - this.y) * a.r[1] : 0;
     const cAlong = this.x * a.f[0] + this.y * a.f[1], cAcross = this.x * a.r[0] + this.y * a.r[1];   // the camera's own coordinates along and across the rail
     for (const s of spans) {

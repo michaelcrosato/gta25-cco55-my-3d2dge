@@ -43,12 +43,22 @@ const contentPlugin = (extra = []) => ({
   },
 });
 
+/** the engine's reference slices as text ('virtual:kit/<file>'): an arcade cabinet's starter kit, read-only from
+ *  vendor/my-3d2dge/reference (play/arcade.js runs it) */
+const kitPlugin = () => ({
+  name: 'kit',
+  setup(b) {
+    b.onResolve({ filter: /^virtual:kit\// }, a => ({ path: a.path.slice('virtual:kit/'.length), namespace: 'kit' }));
+    b.onLoad({ filter: /.*/, namespace: 'kit' }, a => ({ contents: 'export default ' + JSON.stringify(readFileSync(join(ROOT, 'vendor/my-3d2dge/reference', a.path + '.js'), 'utf8')) + ';', loader: 'js' }));
+  },
+});
+
 /** the game bundle as one IIFE (a string); extra: content files bundled as if they were under src/game (the recipe
  *  tests' fixtures: [{ file, as }]) */
 export async function bundle({ minify = false, extra = [] } = {}) {
   const r = await build({
     entryPoints: [join(ROOT, 'src/main.js')], bundle: true, format: 'iife', target: 'es2022', platform: 'browser',
-    write: false, plugins: [contentPlugin(extra)], legalComments: 'none', charset: 'utf8', logLevel: 'warning', minify,
+    write: false, plugins: [contentPlugin(extra), kitPlugin()], legalComments: 'none', charset: 'utf8', logLevel: 'warning', minify,
   });
   return r.outputFiles[0].text;
 }

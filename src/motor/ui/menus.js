@@ -19,15 +19,18 @@ export const ACTION_LABELS = { up: 'UP', down: 'DOWN', left: 'LEFT', right: 'RIG
   wheel: 'WEAPON WHEEL', aim: 'AIM', attack: 'ATTACK', crouch: 'CROUCH', weaponPrev: 'WEAPON BACK', weaponNext: 'WEAPON ON', view: 'CHANGE VIEW', turnLeft: 'TURN LEFT',
   turnRight: 'TURN RIGHT', ability: 'ABILITY', phone: 'PHONE', switch: 'SWITCH CHARACTER', map: 'MAP', pause: 'PAUSE', photo: 'PHOTO MODE', throttle: 'ACCELERATE',
   brake: 'BRAKE / REVERSE', handbrake: 'HANDBRAKE', nitro: 'NITRO', fire: 'DRIVE-BY', horn: 'HORN', radioPrev: 'RADIO BACK', radioNext: 'RADIO ON', confirm: 'CONFIRM',
-  back: 'BACK', tabPrev: 'TAB LEFT', tabNext: 'TAB RIGHT', secondary: 'MORE', tertiary: 'FILTER', close: 'CLOSE ALL', zoomIn: 'ZOOM IN', zoomOut: 'ZOOM OUT', snap: 'TAKE THE SHOT' };
-export const actionLabel = a => ACTION_LABELS[a] || String(a).replace(/([A-Z])/g, ' $1').toUpperCase();
+  back: 'BACK', tabPrev: 'TAB LEFT', tabNext: 'TAB RIGHT', secondary: 'MORE', tertiary: 'FILTER', close: 'CLOSE ALL', zoomIn: 'ZOOM IN', zoomOut: 'ZOOM OUT', snap: 'TAKE THE SHOT', look: 'THE LOOK (A FILTER)' };
+/** an action's label in one context where it differs (a cabinet's ✕ fires, its ○ bombs) */
+const CONTEXT_LABELS = { arcade: { fire: 'FIRE', roll: 'BOMB', interact: 'STEP AWAY' } };
+export const actionLabel = (a, ctx = null) => (ctx && CONTEXT_LABELS[ctx] && CONTEXT_LABELS[ctx][a]) || ACTION_LABELS[a] || String(a).replace(/([A-Z])/g, ' $1').toUpperCase();
 /** the contexts the player rebinds, each in pages of a group (six at most): [context, its name, [[group, actions]]] */
 export const REBIND = [
   ['onFoot', 'ON FOOT', [['MOVING', ['up', 'down', 'left', 'right', 'sprint', 'jump']], ['DOING', ['roll', 'crouch', 'interact', 'ability', 'switch', 'phone']],
     ['FIGHTING', ['aim', 'attack', 'reload', 'wheel', 'weaponPrev', 'weaponNext']], ['CAMERA AND MENUS', ['view', 'turnLeft', 'turnRight', 'map', 'photo', 'pause']]]],
   ['vehicle', 'IN A VEHICLE', [['DRIVING', ['left', 'right', 'throttle', 'brake', 'handbrake', 'nitro']], ['DOING', ['fire', 'horn', 'interact', 'radioPrev', 'radioNext', 'ability']],
     ['CAMERA AND MENUS', ['view', 'turnLeft', 'turnRight', 'phone', 'switch', 'map']], ['MORE', ['photo', 'pause']]]],
-  ['photo', 'PHOTO MODE', [['FRAMING', ['up', 'down', 'left', 'right', 'zoomIn', 'zoomOut']], ['THE SHOT', ['view', 'snap', 'back']]]],
+  ['photo', 'PHOTO MODE', [['FRAMING', ['up', 'down', 'left', 'right', 'zoomIn', 'zoomOut']], ['THE SHOT', ['view', 'look', 'snap', 'back']]]],
+  ['arcade', 'AT A CABINET', [['PLAYING', ['up', 'down', 'left', 'right', 'fire', 'roll']], ['MORE', ['interact', 'pause']]]],
 ];
 const LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt|KeyP$)/;   // (the bindings' own rule: the menus and the browser keep them)
 const PADLIKE = /^(Pad|LS|RS)/, KEYS = /^(Key[A-Z]|Digit\d|Numpad\d|Arrow(Up|Down|Left|Right)|Space|Shift(Left|Right)|Tab|Backspace|Backquote|Minus|Equal|Bracket(Left|Right)|Backslash|Semicolon|Quote|Comma|Period|Slash|CapsLock|Mouse[0-4])$/;
@@ -56,7 +59,7 @@ export function rebindScreen(app, ctx) {
   const rows = () => spec[2].flatMap(([, acts]) => acts.filter(a => B.map[ctx] && B.map[ctx][a]).map(action => {
     const list = B.codes(action, ctx), dev = pad(), i = list.findIndex(c => PADLIKE.test(c) === dev), code = i >= 0 ? list[i] : null;
     const fixed = !code || /[+>^]/.test(code) || LOCKED.test(code);
-    return { label: actionLabel(action), action, prompt: code ? `{${ctx}:${action}}` : undefined, right: code ? undefined : 'STICK', sub: fixed && code ? 'FIXED' : '', disabled: fixed,
+    return { label: actionLabel(action, ctx), action, prompt: code ? `{${ctx}:${action}}` : undefined, right: code ? undefined : 'STICK', sub: fixed && code ? 'FIXED' : '', disabled: fixed,
       help: fixed ? 'Kept as it is: the menus, a chord or a stick need it' : 'Press, then the button you want', act: () => { capture = { action, slot: i, dev, t: 0, steps: 0 }; said = null; } };
   }));
   const list = new List({ id: 'rebind-' + ctx, items: rows() });
@@ -79,10 +82,10 @@ export function rebindScreen(app, ctx) {
       for (const c of fresh) {
         if (c === 'Escape' || c === 'Pad9') { capture = null; return 'back'; }
         if (capture.dev ? !/^Pad\d+$/.test(c) : !KEYS.test(c)) continue;
-        const r = B.rebind(ctx, capture.action, c, capture.slot < 0 ? null : capture.slot), what = actionLabel(capture.action);
+        const r = B.rebind(ctx, capture.action, c, capture.slot < 0 ? null : capture.slot), what = actionLabel(capture.action, ctx);
         capture = null;
         if (r.ok) { B.save(); list.set(rows()); said = { text: what + ' CHANGED', color: UI.green, t: 1.5 }; return 'confirm'; }
-        said = { text: r.reason === 'conflict' ? `THAT ONE IS ${actionLabel(r.with)}` : 'THAT ONE STAYS AS IT IS', color: UI.red, t: 2.2 }; return 'error';
+        said = { text: r.reason === 'conflict' ? `THAT ONE IS ${actionLabel(r.with, ctx)}` : 'THAT ONE STAYS AS IT IS', color: UI.red, t: 2.2 }; return 'error';
       }
       if (capture.t > 8) { capture = null; return 'back'; }
       return true;   // (waiting for the button: nothing else moves)
@@ -94,7 +97,7 @@ export function rebindScreen(app, ctx) {
         const w = 240, h = 52, x = Math.round(P.W / 2 - w / 2), y = Math.round(P.H / 2 - h / 2);
         P.shade(.5); P.panel(x, y, w, h, { kind: 'capture' });
         P.text('PRESS A ' + (capture.dev ? 'BUTTON' : 'KEY') + ' FOR', P.W / 2, y + 8, UI.dim, { align: 'center' });
-        P.text(actionLabel(capture.action), P.W / 2, y + 20, UI.accent, { align: 'center' });
+        P.text(actionLabel(capture.action, ctx), P.W / 2, y + 20, UI.accent, { align: 'center' });
         P.legend(capture.dev ? '{menu:close} CANCEL' : '{menu:back} CANCEL', P.W / 2, y + h - 13);
         P.focus(x, y, w, h);
       }
@@ -109,7 +112,7 @@ export function layoutScreen(app) {
   const scr = { id: 'layout', title: 'BUTTON LAYOUT', w: 400, tabs, bodyH: 6 * 14 + 8,
     body(P, x, y, w) {
       const ctx = tabs.current.id, acts = REBIND.find(r => r[0] === ctx)[2].flatMap(g => g[1]).filter(a => B.map[ctx] && B.map[ctx][a]), per = Math.ceil(acts.length / 2), colW = Math.floor(w / 2);
-      acts.forEach((a, i) => { const cx = x + 8 + Math.floor(i / per) * colW, cy = y + 4 + (i % per) * Math.min(14, Math.floor(86 / per)); P.prompt(`{${ctx}:${a}} ${actionLabel(a)}`, cx, cy, { color: UI.ink }); });
+      acts.forEach((a, i) => { const cx = x + 8 + Math.floor(i / per) * colW, cy = y + 4 + (i % per) * Math.min(14, Math.floor(86 / per)); P.prompt(`{${ctx}:${a}} ${actionLabel(a, ctx)}`, cx, cy, { color: UI.ink }); });
       return this.bodyH;
     } };
   return scr;

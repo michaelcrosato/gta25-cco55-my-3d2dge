@@ -8,19 +8,25 @@ files. Everything is drawn and played by code.
 
 ![The attract mode: the Joyride reel](docs/media/m11/attract-joyride.gif)
 
-The vertical slice is one district, **Lowtown**, with an enterable bank, seen three ways:
+The vertical slice is one district, **Lowtown**, with an enterable bank and Club Chrome, seen four ways:
 - **ISOMETRIC** (primary), with a quarter-turning camera that pulls out with speed;
 - **TOP-DOWN**: GTA2's perspective lean, the camera climbing as you go faster;
 - **SIDE-SCROLL MODE 7**: the engine's side scrolling with depth, a rail camera that follows you sideways while the
-  avenues recede into the distance.
+  avenues recede into the distance;
+- **CHASE**: a free-turning Mario Kart-style camera behind what you drive (or the way you walk), pulled in short of the
+  walls.
 
-Switch any time (R3); the simulation never notices which view you watch it in.
+Switch any time (R3); the simulation never notices which view you watch it in. Beyond the slice's fourteen missions and
+side content: a helicopter to fly (Channel 6's SkyCam), the L to ride, seven jobs, and an arcade cabinet in Club Chrome
+that plays the engine's own shooter starter kit.
 
 | ISO at night | MODE 7 in the rain | TOP-DOWN |
 |---|---|---|
 | ![Neon Mile at night in ISO](docs/media/shots/neon-night-iso.png) | ![MODE 7 at night in the rain](docs/media/m7/side7-sky-night-rain.png) | ![TOP-DOWN by the bank](docs/media/m7/top-lean-bank.png) |
 | **The First Lowtown Bank** | **The HUD in a car** | **JOB DONE** |
 | ![The bank's lobby](docs/media/m7/bank-lobby-iso.png) | ![The HUD, the radar and its GPS line](docs/media/m9/hud-car-gps-1080p.png) | ![A JOB DONE card](docs/media/m9/job-done-1080p.png) |
+| **SkyCam, behind it in CHASE** | **CHROME RAIDERS in Club Chrome** | **Riding the L** |
+| ![The SkyCam helicopter in the chase view](docs/media/l4/skycam-chase.png) | ![The arcade cabinet's bezel over the club](docs/media/l4/club-cabinet.png) | ![On the L in ISO](docs/media/l4/l-riding.png) |
 
 ## What's in it
 
@@ -28,18 +34,20 @@ Switch any time (R3); the simulation never notices which view you watch it in.
   ex-detective, Gus Pilchard the tow-truck philosopher, each with an ability of their own.
 - **14 missions:** the prologue, three for each of the Chrome Saints, the Harbor Rats and the Lawn Gnomes, and the
   heist on the First Lowtown Bank in three setups and a finale played LOUD or QUIET.
-- **Side content:** three jobs at three levels (Moto Courier, Vigilante, Firefighter), two street races, three
-  MAYHEMs, 25 Moto Tokens, five stunt jumps, random events, two properties to buy, shops, a respray.
+- **Side content:** seven jobs at three levels (Moto Courier, Vigilante, Firefighter, Paramedic, Tow Truck, SkyCam in
+  the helicopter, L Courier on the train), two street races, three MAYHEMs, a high score on Club Chrome's cabinet, 25
+  Moto Tokens, five stunt jumps, random events, two properties to buy, shops, a respray.
 - **A city that lives:** traffic on one-way streets and the Loop's elevated deck, crowds on the sidewalks, the police
   by wanted level (up to a helicopter and roadblocks), ambulances and fire engines, three gangs with respect, turf and
   turf wars, a drawbridge, weather and a day.
 - **A controller-first 10-foot UI** for a DualSense on a TV (keyboard and mouse work too): the HUD, the phone, the
   map, the pause, every setting, rebinding per context.
-- **Sound:** four radio stations composed at run time (synth-punk, boom-bap, synthwave and a talk show), with DJs and
-  ads, and a score that comes up under the action.
+- **Sound:** six radio stations composed at run time (synth-punk, boom-bap, synthwave, surf rock, lounge and a talk
+  show), with DJs and ads, and a score that comes up under the action.
 - **An attract mode** that plays the game by itself after ten idle seconds on the title, and leaves on any input.
 - **The Proving Ground** (EXTRAS on the title): the handling ground, the traffic lab, the combat range, a wanted
-  sandbox, the mission bench, a stress pad, the UI gallery and jukebox, photo mode and the dev tools (`?dev=1`).
+  sandbox, the mission bench, a stress pad, the UI gallery and jukebox, photo mode (with its filters) and the dev tools
+  (`?dev=1`).
 
 ## How to play
 

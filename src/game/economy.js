@@ -56,5 +56,6 @@ def('properties', 'pixel-palace', { name: 'Pixel Palace Arcade', poi: 'pixel-pal
 
 // the completion checklist (tenths of a percent: they sum to 1000)
 const K = (id, label, kind, weight, order) => def('completion', id, { label, kind, weight, order });
-K('missions', 'Missions', 'missions', 420, 1); K('jobs', 'Jobs at level 3', 'jobs', 120, 2); K('races', 'Street races', 'races', 60, 3); K('mayhem', 'MAYHEM', 'mayhem', 90, 4);
-K('stunts', 'Unique stunt jumps', 'stunts', 100, 5); K('tokens', 'Moto Tokens', 'tokens', 100, 6); K('properties', 'Properties', 'properties', 110, 7);
+K('missions', 'Missions', 'missions', 420, 1); K('jobs', 'Jobs at level 3', 'jobs', 120, 2); K('races', 'Street races', 'races', 60, 3); K('mayhem', 'MAYHEM', 'mayhem', 80, 4);
+K('arcade', 'Arcade high scores', 'arcade', 20, 5);   // (L4: the cabinet in Club Chrome; its tenth from MAYHEM's and the stunts')
+K('stunts', 'Unique stunt jumps', 'stunts', 90, 6); K('tokens', 'Moto Tokens', 'tokens', 100, 7); K('properties', 'Properties', 'properties', 110, 8);

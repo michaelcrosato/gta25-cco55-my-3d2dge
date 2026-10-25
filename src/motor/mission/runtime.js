@@ -242,6 +242,8 @@ export class MissionContext {
   get mover() { return this.vehicle || this.player; }
   get elapsed() { return this.R.t; }
   get stageTime() { return this.R.stageT; }
+  /** how many times the job has been retried (a stage's setup can tell a retry from the first try) */
+  get retries() { return this.R.retries; }
   get rng() { return this.R.rng; }
   get stars() { return this.wanted.stars; }
   /** the game's save, to read (respect, missions done: a choice's terms); the runtime writes what a pass earns */
@@ -303,9 +305,9 @@ export class MissionContext {
   /** the crew fund now; and money paid in (n > 0) or out (a bribe: n < 0), with what for */
   get fund() { return this.crew ? this.crew.fund || 0 : 0; }
   pay(n, why = 'mission') { if (this.W.cash) this.W.cash(n, why); }
-  /** the GPS's time by road (seconds at the streets' limits) from the player, or their vehicle, to a point; null with
-   *  no way there (a job's clock: a drop's fair time) */
-  eta(at) { const G = this.W.roads && this.W.roads.gps, P = this.mover, q = this.at(at); if (!G || !P) return null; const r = G.routeTo(P.x, P.y, P.heading ?? P.facing ?? 0, q[0], q[1], { z: P.z || 0, tz: q[2] }); return r ? r.cost : null; }
+  /** the GPS's time by road (seconds at the streets' limits) from the player, or their vehicle (or from: an actor or a
+   *  point), to a point; null with no way there (a job's clock: a drop's fair time) */
+  eta(at, from = null) { const G = this.W.roads && this.W.roads.gps, P = from ? (Array.isArray(from) ? { x: from[0], y: from[1], z: from[2] || 0, heading: 0 } : from) : this.mover, q = this.at(at); if (!G || !P) return null; const r = G.routeTo(P.x, P.y, P.heading ?? P.facing ?? 0, q[0], q[1], { z: P.z || 0, tz: q[2] }); return r ? r.cost : null; }
   /** a body or a vehicle by its id (a BUS event's target or by: who it was, its gang, whose it is), or null */
   byId(id) { const C = this.W.combat, F = this.W.fleet; return (C && C.bodies.find(b => b.id === id)) || (F && F.vehicles.find(v => v.id === id)) || null; }
   /** a blast at a point, nobody's (a drum the fire set off): o { damage (80), splash (56), z (6), fire (false: no

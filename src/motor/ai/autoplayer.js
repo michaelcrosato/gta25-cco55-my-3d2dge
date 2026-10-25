@@ -12,7 +12,7 @@
 // a last stretch off the road (a yard, a plaza) driven straight at the goal, slowly. Deterministic: it reads only the
 // simulation.
 //   const A = new AutoPlayer({ city, roads: roadsOf(city), fleet, junctions });  A.goto(x, y)  ·  A.board(vehicle)
-//   each step: I = A.update(dt, ped, { t, pedsNear, wanted, police })  ·  A.state: 'idle' | 'walk' | 'board' | 'drive' | 'escape' | 'final' | 'exit' | 'arrived'
+//   each step: I = A.update(dt, ped, { t, pedsNear, wanted, police })  ·  A.state: 'idle' | 'walk' | 'board' | 'drive' | 'escape' | 'final' | 'fly' | 'land' | 'exit' | 'arrived'
 import { TUNE, knob } from '../core/tune.js';
 import { makeIntent, clearIntent } from '../sim/intent.js';
 import { DriverBrain } from './driver.js';
@@ -56,11 +56,11 @@ export class AutoPlayer {
    *  there seated; o.style: 'calm' | 'careful' | 'player' | 'race'; o.radius: near enough; o.z: the goal's height (a
    *  deck: driven to the lane up there); o.hold: never give up the vehicle it drives (a job's own: a jam it can't drive
    *  out of is backed and driven round, again and again, never left); o.heading: come in along a lane running that way
-   *  (a tow truck to stand facing it); o.keep: the same trip to a
+   *  (a tow truck to stand facing it); o.hover: in a helicopter, held over it (not landed); o.keep: the same trip to a
    *  goal that moved (what it learned on the way kept: the car it is taking, the cars it gave up on, the lanes it keeps
    *  off, how long it has been stuck) */
   goto(x, y, o = {}) {
-    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null }; this.state = 'idle'; this.path = null; this._dropBrain();   // (heading: the route's last lane one running that way)
+    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null, hover: !!o.hover }; this.state = 'idle'; this.path = null; this._dropBrain();   // (heading: the route's last lane one running that way; hover: a helicopter held over it, not landed)
     // (a new trip's counts start at nothing: they had run on from trip to trip, so a long-lived AutoPlayer (the campaign's,
     // the career's mission bot's) got out of the car at its first box once three were behind it anywhere, gave up a car
     // at a glance once 20 s of walks to doors were, and after its first hop anywhere never walked straight again, each
@@ -71,7 +71,7 @@ export class AutoPlayer {
   /** get into this vehicle (out of another first) */
   board(v) { this.goal = { x: v.x, y: v.y, board: v }; this.state = 'board'; this.path = null; this.car = v; this.esc = null; this.wedge = null; this._dropBrain(); return this; }   // (the cars given up on are kept: the mission bot's, one it could not reach, had come back after the next and the next, round and round)
   /** a new goal point for the trip under way (a moving target): re-routed only when it moved more than o.slack (24) */
-  retarget(x, y, o = {}) { const g = this.goal; if (!g || g.board || Math.hypot(g.x - x, g.y - y) > (o.slack ?? 24)) return this.goto(x, y, { foot: g ? g.foot : false, stay: g ? g.stay : false, style: g ? g.style : 'player', radius: g ? g.radius : 0, hold: g ? g.hold : false, keep: !!g && !g.board, ...o }); return this; }
+  retarget(x, y, o = {}) { const g = this.goal; if (!g || g.board || Math.hypot(g.x - x, g.y - y) > (o.slack ?? 24)) return this.goto(x, y, { foot: g ? g.foot : false, stay: g ? g.stay : false, style: g ? g.style : 'player', radius: g ? g.radius : 0, hold: g ? g.hold : false, hover: g ? g.hover : false, keep: !!g && !g.board, ...o }); return this; }
   get arrived() { return this.state === 'arrived'; }
   /** one step for the possessed ped: its Intent (on foot or at the wheel). w: { t (the signals' clock), pedsNear } */
   update(dt, p, w = {}) {
@@ -86,6 +86,7 @@ export class AutoPlayer {
       if (v) return this._exit(v);
       this.car = g.board; this.state = 'board'; return this._board(dt, p, true);
     }
+    if (v && v.cls === 'heli') return this._fly(dt, p, v, g, d);
     if (v) return g.foot ? this._exit(v) : this._drive(dt, p, v, w);
     if (d < Math.max(TUNE.autoArrive, g.radius ? g.radius * .6 : 0)) { this.state = 'arrived'; return I; }
     // a long way on foot: a vehicle near enough to take?
@@ -249,20 +250,27 @@ export class AutoPlayer {
     const L = b.leader, waits = L && L.v && L.v.brain && !L.v.brain.parked && ['signal', 'queue', 'yield'].includes(L.v.brain.cause), held = (L && L.gap < 14 && L.speed < 2 && !waits) || b.cause === 'ped';   // (a leader waiting at a light, in a queue: traffic, not a box)
     this.boxT = held && v.speed < 3 && !b.pass && b.cause !== 'signal' && b.cause !== 'arrived' ? (this.boxT || 0) + dt : 0;
     if (this.boxT > (b.cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
-    const I = b.update(dt, { fleet: this.fleet, t: w.t || this.t, pedsNear: w.pedsNear || null, wet: w.wet || 0, sirens: null });
+    const Bs = this.fleet && this.fleet.bridges, closed = Bs && Bs.length ? id => Bs.some(q => q.id === id && q.closed) : null;   // (a drawbridge's gates shut: stopped short as traffic is; unwatched, a job's truck had met a rising leaf at full tilt and flown past its turn)
+    const I = b.update(dt, { fleet: this.fleet, t: w.t || this.t, pedsNear: w.pedsNear || null, wet: w.wet || 0, sirens: null, closed });
     return I;
   }
   // out of a jam the player's way: off the road (a sidewalk, a plaza, the wrong side) toward a point farther along the
   // route, backing off whatever it runs into, for a few seconds; then the route again from there
   _escape(dt, v) {
     const X = this.esc, I = clearIntent(this.I); X.t += dt; this.state = 'escape';
+    // (a truck with a car on its hook backs only a moment, pinned: reversing folds the rig; it pulls on along its own
+    // heading, the car swinging in behind it, then the route again: jackknifed at a corner it had sawn back and forth to
+    // the job's end, and never backing at all, its nose on a kerb's bench, it had pushed at it for minutes)
+    if (v.towing && !X.tow) {   // (to the lane ahead of it, the road's middle: straight on, its corner had met the kerb's lamp)
+      const a = [v.x + Math.cos(v.heading) * 120, v.y + Math.sin(v.heading) * 120], n = this.G.nearestLane(a[0], a[1], v.heading, v.z || 0, 120), q = n && this.G.pointOn(n.lane, n.s); X.tow = true; X.to = q ? [q[0], q[1]] : a; X.t = Math.min(X.t, 3); X.back = 0; X.slow = 0;
+    }
     if (X.back > 0) { X.back -= dt; if (this._footIn(v, -1)) { X.back = 0; return this._hold(v, I); } I.brake = .8; I.steer = -X.side; return I; }   // (backing: the nose swings toward it; never into someone behind)
     const d = Math.hypot(X.to[0] - v.x, X.to[1] - v.y);
     if (X.t > 9 || d < 40) { this.esc = null; this._dropBrain(); return I; }
     if (this._footIn(v, 1)) return this._hold(v, I);   // (someone ahead: held till they are by)
     let da = Math.atan2(X.to[1] - v.y, X.to[0] - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
     X.slow = v.speed < 3 ? X.slow + dt : 0;
-    if (X.slow > 1.2) { X.slow = 0; X.back = 1 + Math.max(0, v.hl - 30) / 20; X.side = da > 0 ? 1 : -1; return I; }   // (a long truck backs farther: a second's reverse turned it a hair, and it sawed at a kerb for minutes)
+    if (X.slow > 1.2) { X.slow = 0; X.back = v.towing ? .7 : 1 + Math.max(0, v.hl - 30) / 20; X.side = da > 0 ? 1 : -1; return I; }   // (a long truck backs farther: a second's reverse turned it a hair, and it sawed at a kerb for minutes)
     I.steer = Math.max(-1, Math.min(1, da * 2)); if (v.speed < 35) I.throttle = .6; return I;
   }
   // no nearer the goal (d) and no farther on for 15 s: a stall (true once, then the clock starts again), counted in
@@ -358,6 +366,35 @@ export class AutoPlayer {
     const want = Math.min(FINAL * .6, 25 + d * .5);
     I.steer = Math.max(-1, Math.min(1, da * 2));
     if (v.speed < want) I.throttle = .7; else if (v.speed > want + 25) I.brake = .6;
+    return I;
+  }
+  // ---- in the air (a helicopter: no lanes): lifted off, up to a cruising height clear of what stands below, turned to
+  // the goal and flown at it straight, slowed as it nears; there (within its radius, slow), held where it is (o.hover),
+  // else let down to land, and out of it if the rest is on foot. Its height kept clear of the roofs: the body never
+  // flies into them, but it brakes against a tower's side
+  _fly(dt, p, v, g, d) {
+    const I = clearIntent(this.I), b = v.body; this.state = 'fly'; this._dropBrain();
+    const near = Math.max(TUNE.autoArrive * 2, (g.radius || 0) * .6), there = d < near;
+    if (b.landed) {
+      if (there || (g.foot && d < 200)) { if (g.foot || !g.stay) return this._exit(v); this.state = 'arrived'; return I; }
+      I.down.handbrake = true; return I;   // (lift off)
+    }
+    let da = Math.atan2(g.y - v.y, g.x - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
+    const u = b.u || 0, cruise = Math.max(110, (b.pad ? (b.pad(this.fleet.world, g.x, g.y) ?? 0) : 0) + 60);   // (a roof at the goal: over it)
+    if (there && v.speed < 40) {   // there: held (hover), or down
+      this.state = g.hover ? 'arrived' : 'land';
+      if (u > 8) I.brake = 1; else if (u < -8) I.throttle = .4;
+      if (!g.hover) I.down.nitro = true;
+      return I;
+    }
+    // (what stands ahead taller than it flies, a tower on the way: up over it first, held where it is)
+    const W = this.fleet.world, ah = b.pad ? b.pad(W, v.x + Math.cos(v.heading) * 90, v.y + Math.sin(v.heading) * 90) : null;
+    if (ah !== null && ah + 24 > v.z) { I.down.handbrake = true; I.steer = Math.max(-1, Math.min(1, da * 2.5)); if (u > 10) I.brake = 1; return I; }
+    if (v.z < cruise - 10) I.down.handbrake = true; else if (v.z > cruise + 40 && d > 300) I.down.nitro = true;
+    I.steer = Math.max(-1, Math.min(1, da * 2.5));
+    const want = Math.min(b.h.top, 20 + d * .9);
+    if (Math.abs(da) > .9 || v.z < 60) { if (u > 20) I.brake = 1; return I; }   // (turned, or still climbing: hanging there)
+    if (u < want) I.throttle = Math.min(1, (want - u) / 40 + .3); else if (u > want + 15) I.brake = 1;
     return I;
   }
   _fwd(v) { const b = v.body; return b ? b.vx * Math.cos(b.heading) + b.vy * Math.sin(b.heading) > 0 : true; }

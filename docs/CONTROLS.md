@@ -58,6 +58,13 @@ chords and the held modifiers. PlayStation names below; an Xbox or Nintendo pad 
 | Photo mode | Create | B |
 | Pause | Options | Esc |
 
+In a helicopter (Channel 6's SkyCam) the same buttons fly it: the stick yaws, R2 / W pushes on and L2 / S back, R1 /
+Space climbs and L1 / Shift descends; it holds its height between. Let down slow over a street or a roof, it settles,
+and △ / E gets out only on the ground.
+
+On foot at the L: △ / E at a station's stairs (the blue rings, at the sidewalk and up on the platform) climbs or goes
+down; on the platform, △ / E by a stopped train boards it, and at a later stop gets off.
+
 ## Photo mode
 
 | Action | Controller | Keyboard and mouse |
@@ -69,8 +76,21 @@ chords and the held modifiers. PlayStation names below; an Xbox or Nintendo pad 
 | Zoom in | R2 | E |
 | Zoom out | L2 | Q |
 | Change view | R3 (tap) | V |
+| The look (a filter) | R1 | F |
 | Take the shot | ✕ | Space, Enter |
 | Back | ○, Create | Esc, B |
+
+## At an arcade cabinet
+
+Stand at the cabinet (Club Chrome's VIP lounge) and press △ / E to play; its title takes a coin on ✕.
+
+| Action | Controller | Keyboard and mouse |
+|---|---|---|
+| Up, down, left, right | left stick, D-pad | W A S D, arrows |
+| Fire (held: autofire) | ✕ | Z, Space |
+| Bomb | ○ | X |
+| Step away | △ | E |
+| Pause | Options | Esc |
 
 ## Menus
 

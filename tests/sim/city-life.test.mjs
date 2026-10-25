@@ -35,7 +35,7 @@ test('switching views mid-run (R3\'s cycle) and turning the camera leave the sim
     const { game, gtm, snap } = await loadGame({ hash: '#play/safehouse', query: { seed: '1999', time: 'day', weather: 'clear', auto: 'rats-hq' } });
     const p0 = [gtm.crew.ped.x, gtm.crew.ped.y];
     for (let t = 0; t < 24; t += .5) {
-      if (switches && t % 4 === 2) seen.add(gtm.views.next());   // (ISO, TOP-DOWN, MODE 7, ISO...)
+      if (switches && t % 4 === 2) seen.add(gtm.views.next());   // (ISO, TOP-DOWN, MODE 7, CHASE, ISO...)
       if (switches && t % 6 === 3) gtm.stage.turn(1);   // (ISO's yaw, MODE 7's rail)
       game.advance(.5);
     }
@@ -44,7 +44,7 @@ test('switching views mid-run (R3\'s cycle) and turning the camera leave the sim
     return [...game.stateHash()];
   };
   assert.deepEqual(await run(true), await run(false));
-  assert.deepEqual([...seen].sort(), ['iso', 'side7', 'top'], 'every view was switched to');
+  assert.deepEqual([...seen].sort(), ['chase', 'iso', 'side7', 'top'], 'every view was switched to');
 });
 
 test('a shot: the peds round it run away from it (of ten on the sidewalks 30-110 u off, those that flee are all farther off 2 s later, on average by 60 u and more)', async () => {

@@ -38,6 +38,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | L1 Determinism across runtimes | done | MOTOR's deterministic Math (`src/motor/core/dmath.js`, V8 12.4's fdlibm and `hypot` in plain arithmetic, bit for bit Node 22's own) installed by the prelude before the engine; a car's drawn explosion no longer stops the clock; `tests/e2e/cross-runtime.mjs` in the gate (D33) · test:full passed every step on `81a34ee` (100 min 36 s, the campaign at 100%), the gym 13/13 both ways · see the acceptance log |
 | L2 The known limits | done | the glows' halos cut by the walls in front, riders at their saddles, the bot's cover on the lanes under the decks, the last stretch's unstick, the pocket's restart, a tow truck lined up in the road, the campaign's jobs from the middle of town, the gym in test:full; three stars, a passer-by and a long truck's corners kept (D34) · closed on b7b7556: test:full passed, alone, in 107 min 43 s · see the acceptance log |
 | L3 Performance | done | crowd bodies redrawn into a pixel array and put by the box they cover, MODE 7's faces and images stopped where nearer walls hide them, its decks a row at a time, its city gathered from the lens's wedge, its far bodies, cars, props and decks faded into the haze, a body by its lens kept and enlarged; the Graphics setting (part 1); the perf gate back in test:full, five rounds (D35) · the reading of record: ISO 10.25 ms (10.4), TOP-DOWN 9.05 (12.7), MODE 7 12.13 (12.7) · closed on a70cd51: test:full passed, alone, in 117 min 20 s (its perf gate: 10.01, 8.86, 12.07) · see the acceptance log |
+| L4 PLAN.md 19's backlog | done | the chase camera (a fourth view), photo filters, SURF CITY and VELVET, Paramedic and Tow Truck, the player-flown helicopter (SkyCam), boarding the L (L Courier), Club Chrome's interior, CHROME RAIDERS on its cabinet and Arcade high scores on the checklist (D36) · each through the bot on seeds 1-3 and a pad, the gym's rail, fly and arcade fixtures both ways, a recipe for each new kind · the look read and fixed (docs/media/l4) · see the acceptance log |
 
 ## Acceptance log
 
@@ -1422,3 +1423,37 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     rounds) read ISO 10.01 ms, TOP-DOWN 8.86 and MODE 7 12.07 against 10.4, 12.7 and 12.7; the gym on seeds 1-3 and
     through a pad, every mission and activity through the bot on seeds 1-3 and a pad, the campaign at 100%. CI's
     `npm test` is green on the same head.
+
+- **L4 · PLAN.md 19's backlog on Lowtown (D36), done:**
+  - **What's in:** the chase camera, a fourth view behind what the player drives or the way they walk (R3 cycles to
+    it); photo mode's five looks; SURF CITY 97.3 and VELVET 92.1, each with a genre of its own; Paramedic and Tow
+    Truck at three levels; the SkyCam, a helicopter the player flies, and its job; the L boarded and ridden, and L
+    Courier on it; Club Chrome's inside (the hall, the bar, the dance floor, the VIP lounge, the office, its bouncers,
+    dancers and VELVET on the speakers); and CHROME RAIDERS, the engine's own shooter starter kit, on a cabinet in the
+    lounge, its 10,000 a checklist line (Arcade high scores, 2%).
+  - **The bot, on the commit's code:** Paramedic 9 of 9 on seeds 1-3 (4 gold; 7 retries over the nine: the Medic
+    wrecked three times, once by a burning car that blew up beside it in a jam on the Loop's ramp, and four patients
+    who couldn't wait); Tow Truck 9 of 9 (8 gold, 2 retries); SkyCam
+    9 of 9 (8 gold); L Courier 9 of 9 (8 gold, none retried); CHROME RAIDERS 3 of 3. Through a pad, seed 1: Paramedic
+    3 of 3 (1 retry), Tow Truck 3 of 3 (5 retries), SkyCam 3 of 3, L Courier 3 of 3, CHROME RAIDERS 1 of 1. The gym's
+    new fixtures (`rail`, `fly`, `arcade`): 9 of 9 on seeds 1-3 and 3 of 3 through a pad.
+  - **What the pad's runs found** (D36): the bot's driving now sees a drawbridge's gates shut; a driver held at a stop
+    sign behind a car nobody drives goes round it (the halt never came, and the street behind it waited for good);
+    the tow bot tries a car's other end only when a lane runs that way, and a retry's Hookline starts a block behind
+    the car in its lane, facing its way. Before these, Tow through the pad passed 2 levels of 3.
+  - **Its clocks:** L Courier's counts the longest wait for a train (about 43 s: the loop over its two trains), which
+    is most of a parcel's time; with the ride and a grace alone level 3 had needed 1-2 retries on every seed.
+  - **The recipes:** a helicopter a player flies, an L line's stations, an interior's patrons and spots, an arcade
+    kit, an arcade high score, and a station's genre of its own (the station recipe's fixture now brings one).
+  - **The look,** read shot by shot (`docs/media/l4`): the cabinet had never been drawn indoors (only the street's
+    frame drew it) and, drawn, showed one grey pixel stretched (a canvas sized to where it sits on the page, and it
+    sits nowhere); the kit's own buffer is drawn now, and its drawing missed `lerp` (found with ESLint's no-undef over
+    the kit: none missing now); at the cabinet the street's HUD is off. Photo mode's look now shows indoors too
+    (VAPOR over the dance floor). A helicopter at 120 sat cut off at the top of ISO and above the chase camera's
+    frame: every view now follows the focus's height, and in MODE 7 and the chase camera the objective's band sits
+    over the skyline, off the player's vehicle. No notes left on Club Chrome's hall, the platforms, the ride, a tow
+    on the hook or the ambulance on a call.
+  - **The tests it needed:** the views' sim-hash tests switch through four views now; the fleet holds 14 models and
+    20 definitions; the mission lint lets a job start on foot at a spot (L Courier's); the radio's and the sound's
+    hooks for the tests had been commented out by a line's comment, and are back; docs/TUNING.md regenerated.
+  - **`npm test`** passed every step on the commit's code.

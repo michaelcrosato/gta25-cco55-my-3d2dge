@@ -64,7 +64,7 @@ export function drawVehicle(stage, v, o = {}) {
   // ISO's projection is the same everywhere, so a car on the move looks the same wherever it is: its image is kept too,
   // redrawn when its heading (2 degree steps), lean, steering, lights or paint change (a car driving straight: once);
   // in MODE 7 a car looks the same while its bearing from the lens holds (TOP-DOWN leans it by where it is on screen)
-  const d7 = stage.depth && stage.depth === stage.side7 ? stage.depth : null, moving = plain && !still && (!stage.depth || d7) && v.cls !== 'bike';
+  const d7 = stage.mode7, moving = plain && !still && (!stage.depth || d7) && v.cls !== 'bike';
   const sig = still ? `${b.heading.toFixed(3)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}|${doorSig}|${v.color}|${b.steerAngle.toFixed(2)}`
     : moving ? `m${Math.round(b.heading / HEADING_STEP)}|${Math.round(look.roll / .03)}|${Math.round(look.pitch / .02)}|${Math.round(b.steerAngle / .1)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}${v.lights.reverse ? 1 : 0}|${doorSig}|${v.color}|${wreck ? 1 : 0}${d7 ? '|' + Math.round(Math.atan2(d7.lateral(b.x, b.y), d7.depth(b.x, b.y)) / HEADING_STEP) : ''}` : '';
   const draw = (g, P) => drawBoxModel(g, P, v.model, b.x, b.y, z, b.heading, opts);

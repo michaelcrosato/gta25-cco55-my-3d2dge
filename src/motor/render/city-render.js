@@ -118,7 +118,7 @@ export class CityRenderer {
     // (MODE 7 sees a wedge ahead of its lens, not the square round the focus: only the chunks under it)
     const wd = stage.depth === stage.side7 && stage.side7.P ? stage.side7.wedge(CH) : null, I0 = wd ? Math.max(ci - n, wd[0]) : ci - n, J0 = wd ? Math.max(cj - n, wd[1]) : cj - n, I1 = wd ? Math.min(ci + n, wd[2]) : ci + n, J1 = wd ? Math.min(cj + n, wd[3]) : cj + n;
     const under = player && this.city.deckAt(player[0], player[1], 1e9); const fade = under && under.z > (player[2] || 0) + 24 ? player : null;
-    const cut7 = stage.depth === stage.side7 && player ? stage.side7 : null, pz = player ? player[2] || 0 : 0, fd = cut7 ? cut7.depth(player[0], player[1]) : 0, fl = cut7 ? cut7.lateral(player[0], player[1]) : 0;
+    const cut7 = stage.mode7 && player ? stage.mode7 : null, pz = player ? player[2] || 0 : 0, fd = cut7 ? cut7.depth(player[0], player[1]) : 0, fl = cut7 ? cut7.lateral(player[0], player[1]) : 0;
     const rows = stage.depth === stage.side7 ? (this._rows || (this._rows = new Map())) : null; if (rows) rows.clear();   // (MODE 7: a deck's cells by their row across the rail)
     for (let j = J0; j <= J1; j++) for (let i = I0; i <= I1; i++) {
       const k = j * 64 + i;

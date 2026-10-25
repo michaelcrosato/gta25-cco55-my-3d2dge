@@ -43,6 +43,6 @@ test('the mission lint: every stage a setup and a generator run, every mission a
     for (const r of m.requires || []) if (!PLANNED.includes(r)) bad.push(m.id + ': requires an unknown ' + r);
     for (const b of m.bonus || []) if (!b.id || !b.text || typeof b.check !== 'function') bad.push(m.id + ': a bonus objective needs { id, text, check }');
   }
-  for (const a of M.all('activities')) if (a.kind === 'job' && !(a.start && a.start.vehicle)) bad.push(a.id + ': a job starts in a vehicle (start.vehicle)');
+  for (const a of M.all('activities')) if (a.kind === 'job' && !(a.start && (a.start.vehicle || (a.start.foot && a.start.at)))) bad.push(a.id + ': a job starts in a vehicle (start.vehicle) or on foot at a spot (start.foot, start.at: L Courier\'s)');
   assert.deepEqual(bad, [], bad.join('\n'));
 });

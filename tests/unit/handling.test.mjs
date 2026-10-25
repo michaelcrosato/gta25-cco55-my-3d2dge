@@ -28,6 +28,6 @@ for (const d of defs) {
     assert.ok(d.palette.length >= 1 && d.palette.every(c => /^#[0-9a-f]{6}$/i.test(c)), 'a palette of #rrggbb colours');
   });
 }
-test('the registry holds the slice\'s fleet once A1 has landed (13 models, 19 definitions)', { skip: only.length > 0 || all('vehicles').length < 19 }, () => {
-  assert.equal(all('vehicleModels').length, 13); assert.equal(all('vehicles').length, 19);
+test('the registry holds the slice\'s fleet once A1 has landed (14 models, 20 definitions: L4\'s SkyCam)', { skip: only.length > 0 || all('vehicles').length < 19 }, () => {
+  assert.equal(all('vehicleModels').length, 14); assert.equal(all('vehicles').length, 20);
 });

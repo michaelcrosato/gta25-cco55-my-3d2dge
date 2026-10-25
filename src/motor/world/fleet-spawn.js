@@ -2,7 +2,7 @@
 // game's content:
 //   { district, curb: { every (cells between spots), chance, roles, classes },
 //     spots: [{ def, near (a point of interest's id) | at: [cx, cy], kit, color, n }],
-//     water: [{ def, at: [cx, cy], heading }], rail: [{ deck, def, trains, gauge }],
+//     water: [{ def, at: [cx, cy], heading }], pads: [{ def, at: [cx, cy], heading }] (a heli landed there), rail: [{ deck, def, trains, gauge }],
 //     air: [{ def, patrol: [[cx, cy], ...], alt }] }
 // Curb parking walks each street's two outer lanes (right-hand traffic: a parked car sits against the curb facing its
 // lane's way), every `every` cells, clear of intersections and crosswalks, and parks a definition chosen by weight from
@@ -17,7 +17,7 @@ import { shape } from '../core/schema.js';
 
 declare('fleets', shape({
   district: { type: 'string', req: true }, curb: { type: 'object', def: {} }, spots: { type: 'array', def: [] },
-  water: { type: 'array', def: [] }, rail: { type: 'array', def: [] }, air: { type: 'array', def: [] }, traffic: { type: 'object', def: {} }, crowd: { type: 'object', def: {} },
+  water: { type: 'array', def: [] }, pads: { type: 'array', def: [] }, rail: { type: 'array', def: [] }, air: { type: 'array', def: [] }, traffic: { type: 'object', def: {} }, crowd: { type: 'object', def: {} },
 }));
 const HEADINGS = { E: 0, S: Math.PI / 2, W: Math.PI, N: -Math.PI / 2 };
 
@@ -82,7 +82,7 @@ function busyNear(city, r, cx, cy) {
 
 /** park and set going a district's fleet in a Fleet. Returns the counts */
 export function spawnFleet(fleet, city, spec, seed = 1) {
-  const rng = E.rng(seed * 7919 + 17), out = { parked: 0, spots: 0, boats: 0, trains: 0, helis: 0 }, T = city.T;
+  const rng = E.rng(seed * 7919 + 17), out = { parked: 0, spots: 0, boats: 0, pads: 0, trains: 0, helis: 0 }, T = city.T;
   const C = spec.curb || {}, every = C.every || 6, chance = C.chance ?? .3, roles = C.roles || ['civilian'], classes = C.classes || ['car', 'bike'];
   const pool = all('vehicles').filter(d => d.spawn && d.spawn.zones && (d.spawn.weight || 0) > 0 && roles.includes(d.role) && classes.includes(d.class || (get('vehicleModels', d.model) || {}).class));
   const noSpawn = city.zones.filter(z => z.kind === 'noSpawn');
@@ -129,6 +129,8 @@ export function spawnFleet(fleet, city, spec, seed = 1) {
   }
   // boats on the water
   for (const w of spec.water) { if (!get('vehicles', w.def)) continue; fleet.spawn(w.def, (w.at[0] + .5) * T, (w.at[1] + .5) * T, typeof w.heading === 'string' ? HEADINGS[w.heading] : w.heading || 0, { color: w.color }); out.boats++; }
+  // helicopters on their pads, landed till flown (home: one left about is set back on its pad, out of sight)
+  for (const w of spec.pads) { if (!get('vehicles', w.def)) continue; fleet.spawn(w.def, (w.at[0] + .5) * T, (w.at[1] + .5) * T, typeof w.heading === 'string' ? HEADINGS[w.heading] : w.heading || 0, { color: w.color, home: true }); out.pads++; }
   // the L: a loop along its deck, a stop at every station on both tracks
   for (const R of spec.rail) {
     const deck = city.decks.find(d => d.id === R.deck), d = get('vehicles', R.def); if (!deck || !d || !deck.path || deck.path.length < 2) continue;

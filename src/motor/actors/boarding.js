@@ -89,7 +89,7 @@ E.ACTIONS.bailOut = {
 /** the door a ped at (x, y) uses to reach seat (the nearest door that serves it; any door for a driver's seat: a
  *  passenger door slides across), and whether getting in needs a jack, a break-in or a hop. null: it can't be boarded */
 export function boardingFor(ped, v, seat = 0) {
-  if (!v.body || v.wrecked || v.sunk || v.cls === 'heli' || v.cls === 'rail' || v.towedBy || !level(ped, v)) return null;
+  if (!v.body || v.wrecked || v.sunk || (v.cls === 'heli' && !v.body.landed) || v.cls === 'rail' || v.towedBy || !level(ped, v)) return null;   // (a heli on the ground only: the Eye has no doors)
   if (v.speed > TUNE.boardSpeed) return null;
   const doors = v.model.doors; if (!doors.length) return null;
   let best = null, bd = Infinity;
@@ -109,13 +109,14 @@ export function inReach(ped, v) { const dx = ped.x - v.x, dy = ped.y - v.y, c = 
 export const level = (a, b, tol = 12) => Math.abs((a.z || 0) - (b.z || 0)) < tol;
 /** the way out: the seat's own door (a driver's on the left), or, where that is blocked, the nearest clear one (across
  *  the car); a dive roll above the bail-out speed. ok(x, y): can a body stand there (a wall, the water)? A boat is only
- *  left where a door opens onto dry ground (null otherwise: nobody swims in the slice) */
+ *  left where a door opens onto dry ground (null otherwise: nobody swims in the slice), a heli only landed and where a
+ *  door opens onto ground a ped can walk (a roof isn't: flown down first) */
 export function exitFor(ped, v, ok = null) {
-  const seat = v.seats.indexOf(ped); if (seat < 0) return null;
+  const seat = v.seats.indexOf(ped); if (seat < 0 || (v.cls === 'heli' && !v.body.landed)) return null;   // (a heli is left on the ground, never from the air)
   const own = v.model.doors.filter(d => d.seat === seat), rest = v.model.doors.filter(d => d.seat !== seat);
   let door = null;
   for (const d of [...own, ...rest]) { const p = W(v, d.x, d.y); if (!ok || ok(p.x, p.y)) { door = d; break; } }
-  if (!door) { if (v.cls === 'boat') return null; door = own[0] || v.model.doors[0] || { id: 'x', x: 0, y: -v.hw - 6, side: -1, seat }; }
+  if (!door) { if (v.cls === 'boat' || v.cls === 'heli') return null; door = own[0] || v.model.doors[0] || { id: 'x', x: 0, y: -v.hw - 6, side: -1, seat }; }
   const s = v.model.seats[Math.min(seat, v.model.seats.length - 1)] || { x: 0, y: 0 }, at = W(v, door.x, door.y), kind = v.speed > TUNE.bailSpeed && v.cls !== 'boat' ? 'bailOut' : 'exitCar';
   const plan = { vehicle: v, door, seat, seatSpot: s, kind, at };
   if (kind === 'bailOut' && ok) {   // the dive goes as far as the ground it lands on goes on (a wall, the deck's edge: short of it)

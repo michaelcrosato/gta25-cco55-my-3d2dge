@@ -15,14 +15,14 @@
 // Deterministic: its own RNG streams ('interior:<id>', and its combat's), so the city's rolls are left as they were;
 // the view is never read.
 //   const R = new InteriorRun({ id, game, isPlayer, crime });  R.enter(ped, 'front')  R.update(dt, { player, wanted })
-//   R.takedownFor(player)  R.takedown(player, guard)  R.doorAt(player)  R.leave(ped)  R.lights(fn)  R.draw(stage)  R.hash()
+//   R.takedownFor(player)  R.takedown(player, guard)  R.doorAt(player)  R.spotAt(player)  R.leave(ped)  R.lights(fn)  R.draw(stage)  R.hash()
 //   A mission's hold on it (m.inside.run): R.loopCameras(on)  R.pass(on)  R.watch() (what it may read: a copy)
 import { E } from '../engine.js';
 import { BUS } from '../core/bus.js';
 import { TUNE, knob } from '../core/tune.js';
 import { RNG } from '../core/rng.js';
 import { get } from '../core/registry.js';
-import { clearIntent } from '../sim/intent.js';
+import { clearIntent, makeIntent } from '../sim/intent.js';
 import { Ped } from '../actors/ped.js';
 import { pedLook } from '../actors/peds.js';
 import { Fighter } from '../ai/fighter.js';
@@ -88,10 +88,20 @@ export class InteriorRun {
       ped.archetype = arch.id; ped.guard = i; this.combat.add(ped);
       return new Guard(ped, { map: this.map, rng: this.rng, route: g.route.map(([x, y]) => [(x + .5) * T, (y + .5) * T]) });
     });
+    // the patrons (a club's dancers and drinkers): bodies posed where they stand, a mocap clip or a pose each, minding
+    // nothing (the guards mind the player for the house)
+    this.patrons = (this.spec.patrons || []).map(q => {
+      const arch = get('peds', q.arch), [cx, cy] = q.at;
+      const ped = new Ped({ x: (cx + .5) * T, y: (cy + .5) * T, faction: 'civilian', look: pedLook(arch, this.rng), lazyRig: true, health: 60, maxHealth: 60 });
+      ped.archetype = arch.id; ped.mover.facing = q.facing ?? Math.PI / 2; if (q.clip) ped.clip = q.clip; if (q.pose) ped.posing = q.pose; this.combat.add(ped);
+      return ped;
+    });
+    this._pI = makeIntent();
     this.looped = false; this.staff = false;
     this.cameras = this.spec.cameras.map(c => ({ x: (c.at[0] + .5) * T, y: (c.at[1] + .5) * T, z: c.z, base: c.facing, sweep: c.sweep, period: c.period, range: c.range, fov: c.fov, facing: c.facing, mind: new E.Suspicion({ rise: 2.4, decay: .4 }), sees: false }));
     this.alarm = null; this.t = 0; this.player = null; this.lastShot = 0; this.downs = 0;
-    this.lobby = (this.spec.rooms.find(r => r.public) || { rect: [0, 0, -1, -1] }).rect;   // (where the public may be)
+    this.publics = this.spec.rooms.filter(r => r.public).map(r => r.rect);   // (where the public may be: a bank's lobby; a club's floor, stage and lounge)
+    this.lobby = this.publics[0] || [0, 0, -1, -1];
     this._unsub = [BUS.on('crime', e => { if (e.type === 'shooting') this._noise(e.x, e.y, 0, TUNE.shotHeard, e.by); }, 'interior'), BUS.on('explode', e => this._noise(e.x, e.y, e.z || 0, TUNE.shotHeard * 1.5, e.by), 'interior')];
   }
   dispose() { for (const u of this._unsub) u(); this._unsub = []; }
@@ -109,10 +119,18 @@ export class InteriorRun {
     for (const d of this.spec.doors) for (const [mx, my] of this.city.marks[d.mark] || []) if (Math.abs(mx - cx) <= 1 && Math.abs(my - cy) <= 1) return d;
     return null;
   }
+  /** the spot whose marked cell the body stands at (or beside): { id, mark, label }, or null (a club's arcade cabinet) */
+  spotAt(ped) {
+    const cx = Math.floor(ped.x / T), cy = Math.floor(ped.y / T);
+    for (const s of this.spec.spots || []) for (const [mx, my] of this.city.marks[s.mark] || []) if (Math.abs(mx - cx) <= 1 && Math.abs(my - cy) <= 1) return s;
+    return null;
+  }
+  /** a spot's cell's middle (world units), or null */
+  spotCell(id) { const s = (this.spec.spots || []).find(q => q.id === id), m = s && this.city.marks[s.mark]; return m && m.length ? [(m[0][0] + .5) * T, (m[0][1] + .5) * T] : null; }
   /** what a guard or a camera minds about the player: past the counter (anywhere but the lobby and its doors), a gun
    *  out, or wanted */
   _minds(P, wanted) {
-    const cx = Math.floor(P.x / T), cy = Math.floor(P.y / T), L = this.lobby, inLobby = cx >= L[0] && cx <= L[2] && cy >= L[1] && cy <= L[3];
+    const cx = Math.floor(P.x / T), cy = Math.floor(P.y / T), inLobby = this.publics.some(L => cx >= L[0] && cx <= L[2] && cy >= L[1] && cy <= L[3]);
     const spec = P.inv && P.inv.spec(P.inv.current), gun = spec && spec.projectile !== 'melee' && P.inv.current !== 'fists';
     return (!inLobby && !this.staff) || gun || P.aiming || wanted > 0 || !!this.alarm;
   }
@@ -137,6 +155,7 @@ export class InteriorRun {
       if (g.sees && g.mind.state === 'alert' && !this.alarm) this.raise('guard', P);
       p.update(dt, g.update(dt, { player: P || p, seen }), W);
     }
+    for (const p of this.patrons) p.update(dt, clearIntent(this._pI), W);
     // a sprint close by is heard
     if (P && P.mover && P.mover.sprinting && Math.hypot(P.mover.vx, P.mover.vy) > 60) this._noise(P.x, P.y, P.z || 0, TUNE.stepHeard, P.id);
     this.combat.update(dt, { takers: [], take: () => false });
@@ -190,6 +209,7 @@ export class InteriorRun {
    *  its eye (red while it sees you), through the stage (every view) */
   draw(stage) {
     const cones = [];
+    for (const p of this.patrons) p.draw(stage);
     for (const g of this.guards) {
       const p = g.ped; p.draw(stage);
       if (p.dead || g.down) continue;
@@ -221,6 +241,7 @@ export class InteriorRun {
   /** the interior's state: its alarm, its guards, its fights and where the player is in it */
   hash() {
     let h = this.alarm ? 7 : 0; for (const g of this.guards) h = (h * 31 + Math.round(g.ped.x * 4) * 7 + Math.round(g.ped.y * 4) + (g.down ? 3 : 0)) >>> 0;
+    for (const p of this.patrons) h = (h * 31 + (p.dead ? 5 : 0) + Math.round(p.x * 4)) >>> 0;
     const P = this.player;
     return [h, this.combat.hash(), this.downs, P ? Math.round(P.x * 8) : 0, P ? Math.round(P.y * 8) : 0, P ? Math.round((P.z || 0) * 8) : 0];
   }

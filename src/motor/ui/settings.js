@@ -37,7 +37,7 @@ export function defineSettings(game) {
   const def = sp => { if (!S.spec(sp.key)) S.define(sp); };
   def({ key: 'promptStyle', group: 'Controller', label: 'Button symbols', type: 'select', value: 'auto', options: [['auto', 'Auto'], ['playstation', 'PlayStation'], ['xbox', 'Xbox'], ['nintendo', 'Nintendo'], ['keyboard', 'Keyboard']],
     help: 'Auto: the symbols of the controller in use, or the keys', apply: (g, v) => { PROMPTS.keys = v === 'keyboard'; if (g.input) g.input.glyphs = v === 'keyboard' ? 'auto' : v; } });
-  def({ key: 'defaultView', group: 'Display', label: 'Default view', type: 'select', value: 'iso', options: [['iso', 'ISO'], ['top', 'Top-down'], ['side7', 'Mode 7']], help: 'The view a game starts in' });
+  def({ key: 'defaultView', group: 'Display', label: 'Default view', type: 'select', value: 'iso', options: [['iso', 'ISO'], ['top', 'Top-down'], ['side7', 'Mode 7'], ['chase', 'Chase']], help: 'The view a game starts in' });
   def({ key: 'autoRail', group: 'Display', label: 'Auto-rail', type: 'toggle', value: true, help: 'MODE 7 in a vehicle: the rail turns to the way you have held', apply: (g, v) => tuneSet('autoRail', v ? 1 : 0) });
   def({ key: 'quality', group: 'Display', label: 'Graphics', type: 'select', value: 'full', options: [['full', 'Full'], ['fast', 'Fast']], help: 'Fast, for a slower machine: a coarser light, the crowd animated less often, half the rain', apply: (g, v) => { for (const [k, full, fast] of QUALITY) tuneSet(k, v === 'fast' ? fast : full); } });
   def({ key: 'sharpSide7', group: 'Display', label: 'Sharp MODE 7', type: 'toggle', value: false, help: 'MODE 7 drawn at the screen\'s own resolution: crisp instead of the pixel look' });

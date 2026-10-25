@@ -1510,3 +1510,83 @@ and where it landed.
   10.08-10.25 over six runs on these builds). The reading of record (five rounds, alone): ISO 10.25 ms (budget 10.4),
   TOP-DOWN 9.05 (12.7), MODE 7 12.13 (12.7); the update 0.81-0.97 ms a step (1.5).
 - **Answered:** no. **Landed in:** after M13 (L3).
+
+## D36 · 2026-10-25 · L4: PLAN.md 19's backlog on Lowtown
+- **Principle:** HANDOFF's L4 (each through the bot on seeds 1-3 and through the pad, a recipe if it is a new kind,
+  counted toward 100%); GOAL.md's rules (MOTOR in src/motor, content in src/game, no runtime dependency, network or
+  binary asset; a deterministic, view-independent, headless-testable simulation; the controller-first UI).
+- **Calls:**
+  - **The chase camera is a fourth view** (`render/depth/chase.js`, a MODE 7 lens): it swings behind what the player
+    drives or the way they walk, the swing turned in the simulation's step (`stage.update`, which maps the stick:
+    turned in the draw, a frame rate changed the run), pulled in short of a wall between it and the player, R3 cycles
+    to it and ] / [ swing it a quarter. Nothing simulated reads it.
+  - **Photo filters and two stations.** Photo mode's F / R1 cycles a look over the frame (noir, sepia, vapour, ARCADE,
+    postcard): the picture and its PNG. SURF CITY 97.3 (surf rock) and VELVET 92.1 (lounge) join the dial, two ads
+    with them: their genres are their own, a template each for the composer (`def('genres')`: surf rock's drive in
+    mixolydian, a lounge's brushed swing in dorian), and the composer gains the pentatonic and blues scales for others.
+  - **Paramedic and Tow Truck, three levels each** (jobs four and five). A tow's car is impounded when it comes within
+    130 of the precinct's gate on the hook; the stage's own check stops watching it then (removed at the gate, it had
+    read as a wreck and failed the stage). A ticket's car is left in the traffic lane, square to it; its clock is the
+    road's time to the car and then the car's to the impound (it had been the truck's own to the impound: a ticket
+    across town from both ran out on the way back); a retry gives a fresh Hookline a block short of the car (the last
+    one could be wedged at a kerb, or in the jam that ran the clock out). The bot's staging is L2's (D34), a truck's
+    length farther out; a missed hook pulls forward along the car's axis and backs again, twice, before staging anew
+    (a re-route at each miss had sent it round the block for a hair's offset at the hook); a rig pinned at a kerb with
+    a car on its hook backs a moment (never backing at all, it had pushed at a bench for minutes). The bot on seeds
+    1-3 at each level: 9 of 9 (8 gold); before these, 3 of 9.
+  - **The player flies a helicopter** (`HeliBody`'s pilot mode): Channel 6's SkyCam on its pad on Marquee Plaza. The
+    stick yaws, R2 / L2 push on and back, R1 climbs, L1 descends, and it holds its height between; let down slow over
+    flat ground or a roof it settles, and only on the ground is it boarded or left (SET DOWN FIRST otherwise). With
+    nobody at the controls it sinks and settles; the AI's (the Eye) flies as before. A landed one is met by cars. Its
+    job, SkyCam (job six): stories to get on camera, a smash's wreck or a chase, held over steadily for 5-7 s. The bot
+    flies it straight at a cruising height clear of the roofs (`AutoPlayer._fly`), held over a point (`hover`) or a
+    mover (`follow`), set down to land.
+  - **The L is boarded** (`world/transit.js`): each station's stairs on either side (the sidewalk's foot, the
+    platform's top; △, a fade), a stopped train's doors from the platform (△ boards; the rider is hidden, carried with
+    its car, never run over by it), and off at any later stop (△). Its job, L Courier (job seven, started on foot at
+    Palm station): parcels to stations by train. The bot climbs to the side whose train reaches the stop sooner, waits
+    at the platform's edge, boards, and gets off there (a `rail` hint). A parcel's clock is the longest wait for a
+    train (the loop's time, its run, dwells and the slowing round each stop, over the trains on it: about 43 s), the
+    ride stretched by the level, and a grace: the wait is most of a parcel's time (the stops are 2-19 s apart by
+    train), and a clock of the ride and a grace alone ran out at level 3 whenever a train had just left (2 retries on
+    seeds 1 and 2). The bot on seeds 1-3 at each level: 9 of 9, no retries.
+  - **Club Chrome has an inside** (`interiors/club-chrome.js`): the hall, the bar, the dance floor (a lit-tile surface,
+    `dance`) under the DJ's stage, the VIP lounge, Father Fender's office; the Saints' bouncers mind the office, a gun
+    and a wanted face; dancers (an interior's `patrons`, a mocap clip each); VELVET plays inside (an interior's `music`
+    names a station). An interior may have several public rooms, and spots (a marked cell to act at).
+  - **An arcade cabinet runs an engine starter kit** (`play/arcade.js`): CHROME RAIDERS in the club's lounge is the
+    engine's shooter slice, vendored and verbatim (`vendor/my-3d2dge/reference/starter-30-shooter.js`, bundled as text),
+    run as a second engine game that never loops: the play scene steps it while the player stands at it and draws it
+    into a bezel; the five names the starter file shares with its slices are given (a best score, prompts, the corner,
+    a padded score, no touch); the kit's dice are its own (seeded per play, swapped in for Math.random while it runs, so
+    the game's stream is untouched and the same steps make the same play). Its controls are an `arcade` context (the
+    stick, ✕, ○; △ steps away), so a person, the bot and the bot through a pad play it alike. Its high score (10,000
+    in a play) is a new activity kind, `arcade`, and a checklist category, Arcade high scores (2%: MAYHEM's 9% to 8%,
+    the stunts' 10% to 9%).
+  - **The cabinet, seen.** Its screen is drawn over an interior's frame as well as the street's (it had been drawn in
+    the street's branch only: never in the club), from the kit's own buffer at the kit's resolution (the engine sizes
+    a canvas to where it sits on the page, and the cabinet's sits nowhere: it had shown one grey pixel, stretched); the
+    kit is given the engine's `lerp` too (a sixth name its starter file shares, read only in its drawing: the headless
+    tests never drew it; ESLint's no-undef over the kit with the cabinet's names now finds none missing). At the
+    cabinet the street's HUD is off, as a menu has it (its screen and the way back, STEP AWAY, under the bezel).
+    Photo mode's look is drawn indoors too (the same branch had kept it from interiors).
+  - **The camera at the focus's height.** ISO and TOP centre on the focus where it is, up in the air, on a platform of
+    the L or on a deck's road (they had centred on the street under it: a helicopter at 120 sat cut off at the top of
+    the frame); MODE 7's and the chase camera's lens rides that much higher, eased, still behind and above it. In
+    MODE 7 and the chase camera the objective's band is at the top, over the skyline (their lens holds the player's
+    vehicle where the band had been). Presentation only: the views' sim-hash tests still hold.
+  - **Found through the pad** (its runs take other lines through the traffic, so they met what the bot's had not):
+    the bot's driving sees a drawbridge's gates shut, as traffic does (it had not: a job's fresh truck met a rising
+    leaf at full tilt, flew past its turn and into a dead end at the map's edge); a driver held at a stop sign behind a
+    car nobody drives goes round it, as it would anywhere (the halt it waited for never came: a car left on a stop line
+    held the street behind it for good, a Hookline sent for that very car in the queue); the tow bot tries a car's
+    other end only when a lane runs that way by it (on a one-way street the far end faced the wrong way up it: no route
+    came in that way, and the truck arrived on the cross street at speed and drove off to the map's edge to turn).
+    (Tried and not taken: a ticket's car left mid-block, shoved along by the traffic going round it and staged for from
+    places the truck could not reach; staging again whenever the car had been nudged, which sent the truck off on
+    fresh routes for a car's length; and a towing rig kept off the decks, where Lowtown's one-way streets leave no way
+    to the impound without the Loop's ramp, which a rig climbs at 60-100 u/s straight on.)
+  - **The recipes.** The new kinds each have one in docs/CONTENT-GUIDE.md: a helicopter a player flies, an L line's
+    stations, an interior's patrons and spots, an arcade kit, an arcade high score, and a station's genre of its own
+    (`def('genres')`, the station recipe's fixture now bringing one).
+- **Answered:** no. **Landed in:** after M13 (L4).

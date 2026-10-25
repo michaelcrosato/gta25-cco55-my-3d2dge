@@ -2,7 +2,7 @@
 // neighbourhood (each definition's spawn zones and weight); the landmarks' own vehicles at their doors (cruisers and the
 // Rhino at the precinct, the Medic at the hospital, the Strongbox and a Fed Sedan at the bank, the Pumper and the Drill
 // Rig by the L depot, the Hookline at Crush Hour, bikes at the Greasy Spoke...); the Bilge Rat at the marina; two L
-// trains on the elevated line; the MPD Eye on its patrol over the district. Definitions not registered are skipped.
+// trains on the elevated line; Channel 6's SkyCam on its pad on Marquee Plaza; the MPD Eye on its patrol over the district. Definitions not registered are skipped.
 // The traffic and the crowd round the focus come from their specs here too.
 import { def } from '../../../motor/index.js';
 
@@ -19,6 +19,7 @@ def('fleets', 'lowtown', {
     { def: 'retiree', near: 'palm-park' }, { def: 'cortez', near: 'safehouse' }, { def: 'hauler', near: 'kwik-lux-harbor' },
   ],
   water: [{ def: 'bilgerat', at: [143.5, 115.4], heading: 'E' }],   // (in the slip, alongside the south pier, bow out to sea)
+  pads: [{ def: 'skycam', at: [116, 18], heading: 'E' }],   // (Channel 6's, on Marquee Plaza by the Hotel Marquee)
   rail: [{ deck: 'L', def: 'thel', trains: 2, gauge: 10 }],
   air: [{ def: 'eye', alt: 150, patrol: [[93, 70], [128, 30], [32, 30], [32, 118], [128, 118]] }],
   // the traffic round the focus (PLAN.md 8.9): Neon Mile's streets busiest, the harbour's quietest

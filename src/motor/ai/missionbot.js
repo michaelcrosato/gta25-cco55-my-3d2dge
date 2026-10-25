@@ -18,6 +18,7 @@
 // is read (no RNG of its own).
 //   const B = new MissionBot({ city, roads, fleet, junctions });  each step: I = B.update(dt, ped, R, { t, pedsNear, wanted, police, inside })
 import { makeIntent, clearIntent } from '../sim/intent.js';
+import { TUNE } from '../core/tune.js';
 import { AutoPlayer, pickable } from './autoplayer.js';
 import { Fighter, lineOfFire } from './fighter.js';
 import { boxDistance } from '../actors/fleet.js';
@@ -119,8 +120,58 @@ export class MissionBot {
       case 'photo': return this._photo(dt, p, R, h, w);
       case 'stealth': return this._stealth(dt, p, R, h, w);
       case 'drive': return this._floor(p, h);
+      case 'rail': return this._rail(dt, p, R, h, w);
+      case 'arcade': return this._arcade(dt, p, R, h, w);
       default: return this._idle(I, v);
     }
+  }
+  // the L (a rail hint: { to: a station's name }): on the street, to the stairs of the nearest station (on the side
+  // whose trains reach the stop sooner) and up them; on a platform, at its edge by the track until a train stops with
+  // its doors open, and aboard; riding, off when it stops at the stop. Out of a vehicle first
+  _rail(dt, p, R, h, w) {
+    const T = this.fleet && this.fleet.transit, I = clearIntent(this.I), v = p.seat && p.seat.vehicle; if (!T) return I;
+    const press = () => { const beat = this.t * 4 | 0; if (beat % 2 === 0) { I.down.interact = true; if (beat !== this._tapBeat) { this._tapBeat = beat; I.tap.interact = true; } } return I; };
+    if (p.onTrain) { const tr = p.onTrain.train; return tr.state === 'stop' && tr.station === h.to ? press() : I; }
+    if (v) return this._out(v);
+    const at = T.sideAt(p);
+    if (at) {
+      if (at.station.name === h.to) return I;   // (there: the stage's own check)
+      if (T.trainAt(p)) return press();
+      // (waiting at the platform's edge by the track, level with its middle: a train's doors in reach whichever car stops there)
+      const [a0, b0, a1, b1] = at.side.cells, Tc = T.city.T, inner = at.side.side < 0 ? (st => (st.axis === 'y' ? (a1 + 1) * Tc - 6 : (b1 + 1) * Tc - 6))(at.station) : (st => (st.axis === 'y' ? a0 * Tc + 6 : b0 * Tc + 6))(at.station);
+      const goal = at.station.axis === 'y' ? [inner, at.side.platform[1]] : [at.side.platform[0], inner], dx = goal[0] - p.x, dy = goal[1] - p.y, d = Math.hypot(dx, dy);
+      if (d > 4) { I.move[0] = dx / d; I.move[1] = dy / d; }
+      return I;
+    }
+    let best = null, bd = Infinity;   // (the nearest station's stairs, its side toward the stop)
+    for (const st of T.stations) { const side = T.towardSide(st.name, h.to), sd = st.sides.find(q => q.side === side) || st.sides[0], d = Math.hypot(sd.foot[0] - p.x, sd.foot[1] - p.y); if (d < bd) { bd = d; best = sd; } }
+    if (!best) return I;
+    if (bd < TUNE.stairsReach * .8 && T.stairsAt(p)) return press();
+    return this._go(dt, p, best.foot[0], best.foot[1], { foot: true, stay: true, radius: 8 }, w);
+  }
+  // an arcade cabinet (an arcade hint: { at: [x, y] by it, path: [[x, y], ...] the way there from the door, score }):
+  // along the path to it and △ (the scene opens it); at it, its kit played as a player plays a shoot-'em-up: ✕ in
+  // bursts (a held press carried into a new scene is lost), the ship weaving across the playfield, a bomb every 9 s; ✕
+  // at its title (a coin) and at its GAME OVER (again); △ once a play has made the score
+  _arcade(dt, p, R, h, w) {
+    const A = w.arcade, I = clearIntent(this.I), t = this.t;
+    if (A) {
+      const st = A.state;
+      if (st.best >= h.score) { const beat = t * 4 | 0; if (beat % 2 === 0 && beat !== this._tapBeat) { this._tapBeat = beat; I.tap.interact = true; I.down.interact = true; } return I; }
+      if (st.scene !== A.kit.scene || st.over) { if ((t * 4 | 0) % 2 === 0) I.down.fire = true; return I; }   // (a coin; again)
+      const s = st.ship, want = 136 + 70 * Math.sin(t * .8);
+      I.down.fire = (t % .3) < .25; I.down.roll = (t % 9) < .05;
+      if (s) I.move[0] = s.x > want + 4 ? -1 : s.x < want - 4 ? 1 : 0;
+      return I;
+    }
+    const v = p.seat && p.seat.vehicle; if (v) return this._out(v);
+    const run = w.inside && w.inside.run;
+    if (run && run.spotAt && run.spotAt(p) && run.spotAt(p).id === 'arcade') { const beat = t * 4 | 0; if (beat % 2 === 0 && beat !== this._tapBeat) { this._tapBeat = beat; I.tap.interact = true; I.down.interact = true; } return I; }
+    const path = [...(h.path || []), h.at]; this.si = Math.min(this.si || 0, path.length - 1);
+    while (this.si < path.length - 1 && Math.hypot(path[this.si][0] - p.x, path[this.si][1] - p.y) < 10) this.si++;
+    const q = path[this.si], dx = q[0] - p.x, dy = q[1] - p.y, l = Math.hypot(dx, dy) || 1;
+    if (l > 4) { I.move[0] = dx / l; I.move[1] = dy / l; }
+    return I;
   }
   // full throttle along a heading (radians), the wheel held on it, nitro if asked (a stunt's run-up: off a deck's open
   // end, up a ramp)
@@ -131,6 +182,7 @@ export class MissionBot {
   }
   _idle(I, v) {
     if (!v) return I;
+    if (v.cls === 'heli') { const u = v.body.u || 0; if (u > 8) I.brake = 1; else if (u < -8) I.throttle = .4; return I; }   // (a helicopter hangs where it is: the handbrake's shoulder would climb)
     const b = v.body, u = b ? b.vx * Math.cos(b.heading) + b.vy * Math.sin(b.heading) : 0;   // (its speed along its nose: < 0 rolling back)
     if (u > 4) I.brake = 1; else if (u < -4) I.throttle = 1; else I.down.handbrake = true;   // (a brake held rolling back, or stopped, drives it backwards: body.js)
     return I;
@@ -176,7 +228,7 @@ export class MissionBot {
       return this._go(dt, p, sp[0], sp[1], { stay: true, radius: (h.reach || 110) * 1.2, slack: 30 }, w);
     }
     if (h.interact && !p.seat && Math.hypot(at[0] - p.x, at[1] - p.y) < Math.min(16, h.radius || 16)) { const I = clearIntent(this.I); const beat = this.t * 4 | 0; if (beat % 2 === 0) { I.down.interact = true; if (beat !== this._tapBeat) { this._tapBeat = beat; I.tap.interact = true; } } return I; }   // (there: △, a door's or a prompt's)
-    return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat }, w);   // (to be got to in a vehicle: never out of it in a jam, backed and driven round again and again: H4's getaway failed on "Dex left the getaway car")
+    return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat, hover: !!h.hover }, w);   // (to be got to in a vehicle: never out of it in a jam, backed and driven round again and again: H4's getaway failed on "Dex left the getaway car")
   }
   _deliver(dt, p, R, h, w) {
     const what = R.actors.tagged(h.what).find(alive), v = p.seat && p.seat.vehicle;
@@ -206,20 +258,24 @@ export class MissionBot {
       if (dS < 30 && truck.speed < 10) { T.phase = Math.abs(ah) < .35 ? 'back' : 'align'; T.t = 0; T.best = dH; }
       else {
         // (no nearer it for 25 s, a long truck wedged at a corner short of it: the other end, from another way in)
-        if (dS < (T.sBest ?? 1e9) - 20) { T.sBest = dS; T.st = 0; } else if ((T.st = (T.st || 0) + dt) > 25) { T.n++; T.st = 0; T.sBest = 1e9; T.end = this._towEnd(car, truck, T.end); this.auto.goal = null; return I; }
+        if (dS < (T.sBest ?? 1e9) - 20) { T.sBest = dS; T.st = 0; } else if ((T.st = (T.st || 0) + dt) > 25) { T.n++; T.st = 0; T.sBest = 1e9; T.end = this._swapEnd(car, truck, T.end); T.S = null; this.auto.goal = null; return I; }
         return this._go(dt, p, S[0], S[1], { stay: true, radius: 16, slack: 10, z: car.z, heading: e.h }, w);   // (on a deck: the staging point up there)
       }
     }
-    if (T.phase === 'align') {   // on along the axis, away from the car, until the truck faces its way
-      T.t += dt; const A = [S[0] + dir[0] * 140, S[1] + dir[1] * 140]; let da = Math.atan2(A[1] - truck.y, A[0] - truck.x) - truck.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
-      if (Math.abs(ah) < .3 || T.t > 6) { T.phase = 'back'; T.t = 0; T.best = dH; return I; }
+    if (T.phase === 'align') {   // on along the axis, away from the car, until the truck faces its way on it
+      T.t += dt; const A = [E[0] + dir[0] * (truck.hl + 200), E[1] + dir[1] * (truck.hl + 200)]; let da = Math.atan2(A[1] - truck.y, A[0] - truck.x) - truck.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
+      const off = Math.abs((truck.x - E[0]) * -dir[1] + (truck.y - E[1]) * dir[0]), out = (truck.x - E[0]) * dir[0] + (truck.y - E[1]) * dir[1];
+      if ((Math.abs(ah) < .2 && off < 6 && out > truck.hl + 30) || T.t > 7) { T.phase = 'back'; T.t = 0; T.best = dH; return I; }
       I.steer = Math.max(-1, Math.min(1, da * 2)); if (truck.speed < 15) I.throttle = .5; return I;   // (slow: a wide turn put it off the axis)
     }
     // backing: the hook onto the car's end, steered by where that end lies behind (still rolling on from the turn: the
     // brakes first, the clock not yet running: it had given up on the hook before it ever went back)
     const fwd = truck.body.u || 0; if (fwd > 2) { I.brake = 1; I.steer = 0; return I; }
     T.t += dt; if (dH < T.best - 1) { T.best = dH; T.t = 0; }
-    if (T.t > 2.5) { T.n++; T.phase = 'stage'; T.t = 0; T.st = 0; T.sBest = 1e9; if (T.n % 2 === 0) T.end = this._towEnd(car, truck, T.end); this.auto.goal = null; return I; }
+    // (no closer for 2.5 s: pulled forward along the axis and backed again, as a driver shuffles in, twice; then staged
+    // again, and the next time from the other end: a re-route at each miss had sent it round the block for a hair's
+    // offset at the hook)
+    if (T.t > 2.5) { T.n++; T.t = 0; if (T.n % 3) { T.phase = 'align'; return I; } T.phase = 'stage'; T.st = 0; T.sBest = 1e9; if (T.n % 6 === 0) { T.end = this._swapEnd(car, truck, T.end); T.S = null; } this.auto.goal = null; return I; }
     const back = Math.atan2(E[1] - H[1], E[0] - H[0]); let a = back - (truck.heading + Math.PI); a = Math.atan2(Math.sin(a), Math.cos(a));
     I.steer = Math.max(-1, Math.min(1, -a * 2.5)); if (truck.speed < 14) I.brake = .55; return I;
   }
@@ -228,7 +284,7 @@ export class MissionBot {
   // car parked there, it had gone the wrong way up the street to it and wedged itself at the corner); with no such lane
   // near, on the axis
   _towStage(car, truck, e) {
-    const c = Math.cos(e.h), s = Math.sin(e.h), E = car.toWorld(e.k * car.hl, 0), off = truck.hl + 50, A = [E[0] + c * off, E[1] + s * off];
+    const c = Math.cos(e.h), s = Math.sin(e.h), E = car.toWorld(e.k * car.hl, 0), off = truck.hl + 90, A = [E[0] + c * off, E[1] + s * off];   // (room to come back to the line after passing it)
     const G = this.roads && this.roads.graph, n = G && G.nearestLane(A[0], A[1], e.h, car.z || 0, 90);
     if (!n || c * n.lane.dir[0] + s * n.lane.dir[1] < .8) return A;
     const q = G.pointOn(n.lane, n.s); return [q[0], q[1]];
@@ -240,14 +296,23 @@ export class MissionBot {
     if (other) return ends.find(e => e.k !== other.k);
     const room = e => {
       const E = car.toWorld(e.k * car.hl, 0), c = Math.cos(e.h), s = Math.sin(e.h), at = d => [E[0] + c * d, E[1] + s * d];
-      for (let d = truck.hl * .5; d <= truck.hl * 2 + 60; d += 12) {
+      for (let d = 6; d <= truck.hl + 24; d += 8) {   // (the room its body takes backing in at a slant from the lane: a car parked further along is no matter)
         const [x, y] = at(d); if (blockedSpot(this.city, x, y, e.h, 8, truck.hw)) return false;
         if (this.fleet.near(x, y, 40).some(o => o !== car && o !== truck && o.body && o.speed < 15 && boxDistance(o, x, y) < truck.hw + 3)) return false;   // (parked: traffic going by is gone in a moment)
       }
       return true;
     };
-    return ends.find(room) || ends[0];
+    // (a lane running the way the truck would face, near where it stands: hooked from the wrong end on a one-way
+    // street, it faced up it and towed the car the long way round the map's edge)
+    const lane = e => this._endLane(car, truck, e);
+    return ends.find(e => room(e) && lane(e)) || ends.find(room) || ends.find(lane) || ends[0];
   }
+  // is there a lane running the way the truck faces for end e, by where it would stand?
+  _endLane(car, truck, e) { const E = car.toWorld(e.k * car.hl, 0), off = truck.hl + 90, x = E[0] + Math.cos(e.h) * off, y = E[1] + Math.sin(e.h) * off, G = this.roads && this.roads.graph, n = G && G.nearestLane(x, y, e.h, car.z || 0, 90); return !!n && Math.cos(e.h) * n.lane.dir[0] + Math.sin(e.h) * n.lane.dir[1] > .8; }
+  // the other end to try, if a lane runs its way (on a one-way street the far end faced the wrong way up it: no route
+  // came in that way, and the truck arrived on the cross street at speed and drove off the map's edge to turn); else
+  // this one again, from a fresh route
+  _swapEnd(car, truck, e) { const o = this._towEnd(car, truck, e); return this._endLane(car, truck, o) || !this._endLane(car, truck, e) ? o : e; }
   _kill(dt, p, R, h, w) {
     if (h.vehicle) { const hv = R.actors.tagged(h.vehicle).find(alive); if (hv && (!p.seat || p.seat.vehicle !== hv)) return this._board(dt, p, hv, w); }   // (the job's to be done from that one)
     const v = p.seat && p.seat.vehicle, live = a => alive(a) && !(a.damage && a.damage.burning) && !(h.done && h.done(a)); let t = null, td = 1e9;   // (h.done: when the job counts one: a car once it smokes)
@@ -403,6 +468,7 @@ export class MissionBot {
     const t = R.actors.tagged(h.target).find(alive); if (!t) return this._idle(clearIntent(this.I), p.seat && p.seat.vehicle);
     if (!p.seat) { const I = this._car(dt, p, w); if (I) return I; }
     const v = p.seat && p.seat.vehicle, d = Math.hypot(t.x - v.x, t.y - v.y), dist = h.dist || 120;
+    if (v.cls === 'heli') return this._go(dt, p, t.x, t.y, { stay: true, hover: true, radius: dist * .5, slack: 16 }, w);   // (a helicopter: over them, held there)
     if (d < dist * .6) { const I = clearIntent(this.I); I.brake = v.speed > 20 ? .6 : 0; return I; }   // (too close: held back)
     return this._go(dt, p, t.x, t.y, { stay: true, style: d > dist * 2 ? 'race' : 'player', slack: 40 }, w);
   }

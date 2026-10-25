@@ -103,7 +103,7 @@ export class Career {
     let I = ctx.I;
     this.botI = null;
     if (this.god) this._god();
-    if (this.bot && this.R.state === 'running' && !ctx.busy && !ctx.down) { const B = this.bot.update(dt, p, this.R, { t: W.life ? W.life.t : 0, pedsNear: W.life ? (x, y, r) => W.life.pedsNear(x, y, r) : null, wet: W.weather.wet, wanted: W.wanted(), police: W.life && W.life.police, inside: ctx.inside, heat: W.combat && W.combat.fire ? (x, y) => W.combat.fire.heatAt(x, y) : null, respray: this._respray() }); if (this.padMode) this.botI = B; else I = B; }
+    if (this.bot && this.R.state === 'running' && !ctx.busy && !ctx.down) { const B = this.bot.update(dt, p, this.R, { t: W.life ? W.life.t : 0, pedsNear: W.life ? (x, y, r) => W.life.pedsNear(x, y, r) : null, wet: W.weather.wet, wanted: W.wanted(), police: W.life && W.life.police, inside: ctx.inside, heat: W.combat && W.combat.fire ? (x, y) => W.combat.fire.heatAt(x, y) : null, respray: this._respray(), arcade: W.arcade ? W.arcade() : null }); if (this.padMode) this.botI = B; else I = B; }
     if (this.card) I = clearIntent(I);   // (the card's own input is the screens': MOTOR's step wrapper gave it first)
     this.R.update(dt);   // (WRECKED or NABBED fails the job at once; JOB BLOWN waits for the card)
     if (this.demo) { const v = p.seat && p.seat.vehicle, st = this.stunts.update(dt, v && v.driver === p ? v : null); if (st && st.ok) this.pop('STUNT  ' + st.name.toUpperCase(), st.score + ' PTS', '#5af0ff'); return I; }   // (the attract mode: its director sees a reel's end; a stunt still shows)
@@ -130,6 +130,7 @@ export class Career {
   // once its card is answered (or not asked), the door under it answers again (the chapel's SAVE, the diner's SHOP). A
   // visit lasts till the player is twice the marker's reach away: stepping about a door under a giver asks nothing again
   _free(p, v, I) {
+    if (p.onTrain) return;   // (riding the L: the markers it passes over offer nothing)
     const W = this.W, C = W.city, R2 = TUNE.giverReach, quiet = !this.armed, P = v || p; this.armed = true;
     const visit = (id, at, r) => { this.visited = id; this.visitAt = [at[0], at[1], r * 2]; };
     if (!v && !p.boarding) for (const m of this.available()) { const at = giverAt(C, m); if (Math.hypot(at[0] - p.x, at[1] - p.y) < R2) { if (this.visited !== m.id) { visit(m.id, at, R2); if (!quiet) { this._jobCard(m); return; } } this._doors(p, null); return; } }
@@ -400,13 +401,15 @@ export class Career {
     return out;
   }
   /** the HUD's part, on the UI layer: the objective, the timer, the race's checkpoint, the subtitles (Settings: on by
-   *  default, the speaker's name in colour), the pops, a hold-up's bar, the prompt at a door (o.blocked: another's) */
+   *  default, the speaker's name in colour), the pops, a hold-up's bar, the prompt at a door (o.blocked: another's;
+   *  o.objective false: the objective off, a cabinet's screen in front of the street; o.high: the objective at the top,
+   *  over the skyline: MODE 7 and the chase camera hold the player's vehicle where its band would be) */
   hud(P, o = {}) {
     const R = this.R, t = this.W.game.real || 0, L = hudLayout(P), cx = P.W / 2, fw = footWidth(P);
-    if (R.state === 'running' && R.objective && !this.card && !this.demo) {   // (on a band of its own: over a busy street it had blurred into the scene)
+    if (R.state === 'running' && R.objective && !this.card && !this.demo && o.objective !== false) {   // (on a band of its own: over a busy street it had blurred into the scene)
       // (a control named in it, '{interact} to hop on': drawn in the player's own glyphs)
       const tok = r => /\{[a-zA-Z]+(:[a-zA-Z]+)?\}/.test(r), wd = r => (tok(r) ? P.promptWidth(r) : P.width(r));
-      const rows = wrapLines(P, R.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map(wd)) + 14), y = L.sy1 - 78;
+      const rows = wrapLines(P, R.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map(wd)) + 14), y = o.high ? L.sy0 + 24 : L.sy1 - 78;
       P.fill(cx - bw / 2, y - 3, bw, rows.length * 10 + 5, '#05030c', .6);
       rows.forEach((r, i) => (tok(r) ? P.prompt(r, cx, y + i * 10, { align: 'center', color: '#f0ecff' }) : P.text(r, cx, y + i * 10, '#f0ecff', { align: 'center' })));
     }

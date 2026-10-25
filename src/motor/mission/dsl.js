@@ -10,7 +10,7 @@ import { shape } from '../core/schema.js';
 
 /** the bot hints an objective can carry, and the fields each needs ([x, y] points; tags name mission actors) */
 export const HINTS = {
-  goto: ['at'],                // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); inVehicle (in one, never left); interact (△ there);
+  goto: ['at'],                // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); inVehicle (in one, never left); interact (△ there); hover (a helicopter held over it, not landed);
                                // spray: [x, y] (within reach, aimed there, the fire button held: a fire hose's, a gun's); reach
   enterVehicle: ['vehicle'],   // vehicle: a tag
   kill: ['targets'],           // targets: a tag; vehicle (a tag: rammed from that vehicle, never left for the job on foot)
@@ -21,6 +21,8 @@ export const HINTS = {
   photo: ['target'],           // target: a tag; from: [x, y]
   stealth: ['path'],           // path: [[x, y], ...] waypoints; cover: [[x, y], ...]
   drive: ['heading'],          // heading: radians, held at full throttle (a stunt's run-up); nitro
+  rail: ['to'],                // to: an L station's name: up a station's stairs, aboard a stopped train, off at that stop
+  arcade: ['at', 'score'],     // at: [x, y] by a cabinet (indoors); path: [[x, y], ...] the way there from the door; score: what to reach
 };
 /** the problems with a hint ({ kind, ...data }), as strings */
 export function checkHint(h) {
@@ -61,7 +63,7 @@ declare('missions', (spec, id) => [...missionShape(spec, id), ...checkStages(spe
 const activityShape = shape({ title: { type: 'string', req: true }, start: { type: 'object', def: {} }, levels: { type: 'number', def: 1, min: 1 }, stages: { type: 'array', req: true },
   // (M8, optional) kind: what it counts as (completion.js: jobs at their top level, races and MAYHEMs passed; events
   // happen by themselves, mission/ambient.js); brief: the card's lines; rewards or rewardsFor(level): its pay
-  kind: { type: 'string', def: 'other', oneOf: ['job', 'race', 'mayhem', 'event', 'other'] }, brief: { type: 'array', def: [] } });
+  kind: { type: 'string', def: 'other', oneOf: ['job', 'race', 'mayhem', 'arcade', 'event', 'other'] }, brief: { type: 'array', def: [] } });
 declare('activities', (spec, id) => [...activityShape(spec, id), ...checkStages(spec.stages)]);
 
 // (M11) a reel of the attract mode (PLAN.md 9.11): staged as a mission and played by the mission bot from its hints,
@@ -69,7 +71,7 @@ declare('activities', (spec, id) => [...activityShape(spec, id), ...checkStages(
 // never recorded
 const reelShape = shape({ title: { type: 'string', req: true }, shows: { type: 'string', def: '' }, views: { type: 'array', def: [] },
   time: { type: 'number', def: 90, min: 10 }, stages: { type: 'array', req: true } });
-declare('reels', (spec, id) => [...reelShape(spec, id), ...checkStages(spec.stages), ...spec.stages.filter(s => s && s.view && !['iso', 'top', 'side7'].includes(s.view)).map(s => `stage "${s.id}": view "${s.view}" (iso, top or side7)`)]);
+declare('reels', (spec, id) => [...reelShape(spec, id), ...checkStages(spec.stages), ...spec.stages.filter(s => s && s.view && !['iso', 'top', 'side7', 'chase'].includes(s.view)).map(s => `stage "${s.id}": view "${s.view}" (iso, top or side7)`)]);
 /** register a reel: defReel(id, { title, shows, views, time (s: the most it may run), stages: [{ id, view, caption,
  *  setup(m), *run(m) }] }) */
 export const defReel = (id, spec) => def('reels', id, spec);

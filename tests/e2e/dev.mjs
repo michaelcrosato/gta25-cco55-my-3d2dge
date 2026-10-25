@@ -13,7 +13,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = []; page.on('pageerror', e => errors.push(String(e))); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 await page.goto(url); await page.waitForFunction(() => window.__gtm && window.__gtm.ready, null, { timeout: 20000 });
 await page.evaluate(() => { const g = window.__gtm.game; g.stop(); for (let i = 0; i < 60; i++) g.advance(1 / 30); for (const k of Object.keys(window.__gtm.overlays.flags)) window.__gtm.overlays.flags[k] = true; });
-for (const v of ['iso', 'top', 'side7']) {
+for (const v of ['iso', 'top', 'side7', 'chase']) {
   const before = errors.length;
   await page.evaluate(v => { const g = window.__gtm.game; g.setView(v); for (let i = 0; i < 20; i++) g.advance(1 / 30, { draw: true }); }, v);
   ok(`every overlay drawn in ${v}`, errors.length === before, errors.slice(before).join(' | '));

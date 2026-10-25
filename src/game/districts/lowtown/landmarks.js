@@ -38,7 +38,8 @@ L('pixel-palace', 'Pixel Palace', [{ rect: [87, 41, 95, 49], kind: 'building', s
 L('bank', 'First Lowtown Bank', [{ rect: [109, 35, 123, 49], kind: 'plaza', surface: 'plaza' }, { rect: [111, 37, 121, 47], kind: 'building', storeys: 8, look: neon('#8a8070', '#4a4440', { face: 'stone', windows: { w: 4, h: 14, step: 12, lit: .5 }, floor: '#c8bca8' }), sign: { text: 'FIRST LOWTOWN BANK', color: '#ffe066' } }],
   [{ id: 'bank-door', kind: 'door', interior: 'bank', at: [116, 49], label: 'First Lowtown Bank' }, { id: 'bank-sewer', kind: 'door', interior: 'bank', door: 'sewer', at: [108, 44], label: 'Sewer grate' }]);
 L('club-chrome', 'Club Chrome', [{ rect: [133, 45, 144, 49], kind: 'plaza', surface: 'plaza' }, { rect: [134, 36, 143, 44], kind: 'building', storeys: 2, look: neon('#a8b0c0', '#5a6070', { face: '#a8b0c0 metal', windows: { lit: .7 } }), sign: { text: 'CLUB CHROME', color: '#7ae0ff' } }],
-  [{ id: 'saints-hq', kind: 'gang', gang: 'saints', at: [138, 46], label: 'Club Chrome' }, { id: 'phone-saints', kind: 'payphone', gang: 'saints', at: [133, 50] }]);
+  [{ id: 'saints-hq', kind: 'gang', gang: 'saints', at: [138, 46], label: 'Club Chrome' }, { id: 'phone-saints', kind: 'payphone', gang: 'saints', at: [133, 50] },
+    { id: 'club-chrome-door', kind: 'door', interior: 'club-chrome', at: [135, 45], label: 'Club Chrome' }]);   // (its doors, by the plaza's west end: clear of the Saints' marker)
 L('precinct', 'MPD 5th Precinct', [{ rect: [87, 59, 99, 67], kind: 'building', storeys: 4, look: neon('#5a6a8a', '#3a4458', { windows: { lit: .6, w: 5 } }), sign: { text: 'MPD', color: '#5a8aff' } }, { rect: [87, 68, 99, 71], kind: 'yard', surface: 'yard' }],
   [{ id: 'precinct', kind: 'police', at: [93, 70], label: 'MPD 5th Precinct' }]);
 L('kwik-lux-neon', 'Kwik-Lux (Neon)', [{ rect: [117, 65, 123, 71], kind: 'building', storeys: 1, look: neon('#3a5a4a', '#2a3a32', { windows: { lit: .7 } }), sign: { text: 'KWIK-LUX', color: '#5aff8a' } }],
@@ -52,6 +53,7 @@ L('construction', 'The Construction Site', [{ rect: [11, 85, 27, 97], kind: 'con
   [{ kind: 'drill', at: [20, 88] }, { kind: 'mound', at: [14, 93], solid: { hx: 20, hy: 14, top: 10 } }, { kind: 'scaffold', at: [24, 95] }]);
 L('spray-pray', 'Spray & Pray', [{ rect: [11, 107, 18, 113], kind: 'building', storeys: 1, look: brick('#5a6a8a', '#3a3a44', { door: { chance: 1, w: 12, h: 14 } }), sign: { text: 'SPRAY & PRAY', color: '#ff8af0' } }],
   [{ id: 'spray-pray', kind: 'shop', shop: 'respray', at: [15, 114], label: 'Spray & Pray' }]);
+L('l-palm', 'Palm Station', [], [{ id: 'l-palm', kind: 'landmark', at: [75, 21], label: 'Palm station (the L)' }]);   // (by the stairs up to the L's Palm platform, on Motor Avenue's west sidewalk: Overhead Express's start, clear of the stairs' own spot)
 L('l-depot', 'L Depot', [{ rect: [61, 107, 73, 113], kind: 'yard', surface: 'rail' }], [{ id: 'l-depot', kind: 'landmark', at: [67, 110], label: 'L Depot' }]);
 L('car-wash', 'Palm Car Wash', [{ rect: [37, 107, 51, 113], kind: 'yard', surface: 'yard' }, { rect: [37, 107, 44, 113], kind: 'building', storeys: 1, look: brick('#5ab0d0', '#3a6a8a', { face: 'plaster' }), sign: { text: 'CAR WASH', color: '#5af0ff' } }],
   [{ id: 'car-wash', kind: 'property', property: 'carwash', at: [47, 114], label: 'Palm Car Wash' }]);
