@@ -223,8 +223,8 @@ export class MissionActors {
   }
   // a mission vehicle's driver: a DriverBrain on the GPS to its drive's next point (re-planned for a chase or a flight)
   _drive(dt, e, P) {
-    const v = e.a, D = e.drive; e.I = null; if (v.wrecked || !v.driver || v.driver.dead || v.driver === P) return;   // (anyone but the player at its wheel: a mission's driver, a protagonist not played)
-    if (!D) { const I = clearIntent(e.Ib || (e.Ib = makeIntent())); I.down.handbrake = true; e.I = I; return; }   // (a crew with no orders: parked, the handbrake on, not nudged along by traffic)
+    const v = e.a, D = e.drive; e.I = null; if (v.wrecked || !v.driver || v.driver.dead || v.driver === P) { v.drivenBy = null; return; }   // (anyone but the player at its wheel: a mission's driver, a protagonist not played)
+    if (!D) { v.drivenBy = null; const I = clearIntent(e.Ib || (e.Ib = makeIntent())); I.down.handbrake = true; e.I = I; return; }   // (a crew with no orders: parked, the handbrake on, not nudged along by traffic; and no brain to read: one parked kept its last 'queue', and a bot behind it waited on it for good)
     const W = this.W, roads = W.roads; if (!roads) return;
     let goal = null;
     if (D.chase && P) { const T = D.chase === 'player' ? P : this.tagged(D.chase).find(a => !a.dead && !a.wrecked), t = T && T.seat && T.seat.vehicle ? T.seat.vehicle : T; if (t) goal = [t.x, t.y, t.z || 0]; }
@@ -240,17 +240,17 @@ export class MissionActors {
     } else if (D.to && !D.done) { goal = this._at(D.to); if (Math.hypot(goal[0] - v.x, goal[1] - v.y) < 40 && v.speed < 30) { D.done = true; goal = null; } }
     if (!goal) {
       if (D.then === 'flee' && P) { D.flee = 'player'; D.dest = null; return; }
-      const I = clearIntent(e.Ib || (e.Ib = makeIntent())); if (v.speed > 2) I.brake = 1; else I.down.handbrake = true; e.I = I; return;   // (there: it stops; stopped, the handbrake: a brake held at a stop backs it up)
+      v.drivenBy = null; const I = clearIntent(e.Ib || (e.Ib = makeIntent())); if (v.speed > 2) I.brake = 1; else I.down.handbrake = true; e.I = I; return;   // (there: it stops; stopped, the handbrake: a brake held at a stop backs it up)
     }
     if (D.siren && v.hasSiren && !v.siren) v.siren = true;   // (the traffic pulls over for it: city life's sirens)
     D.replan -= dt;
     const key = Math.round(goal[0]) + ',' + Math.round(goal[1]);
     if (!e.brain || D.replan <= 0 || (!D.chase && e.brainGoal !== key)) {
-      if (!e.brain) { e.brain = new DriverBrain(v, roads.graph, { junctions: W.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? 'race' : 'fast')] || STYLES.fast, siren: !!D.siren }); v.drivenBy = e.brain; }   // (drivenBy: who reads what it waits for, a racer at a red light, as a city car's own brain says it)
+      if (!e.brain) e.brain = new DriverBrain(v, roads.graph, { junctions: W.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? 'race' : 'fast')] || STYLES.fast, siren: !!D.siren });
       const r = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z, tz: goal[2] ?? 0 }); if (r) e.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); else { e.brain.arrived = false; if (D.flee) D.dest = null; }   // (a goal up on a deck says so; no way there: not there, and somewhere else to run to)
       e.brainGoal = key; D.replan = D.chase || D.flee ? REPLAN : 1e9;
     }
-    const L = W.life;
+    const L = W.life; v.drivenBy = e.brain;   // (drivenBy: what it waits for, read as a city car's own brain says it: a racer at a red light; only while it drives)
     e.I = e.brain.update(dt, { fleet: W.fleet, t: L ? L.t : this.t, pedsNear: L ? (x, y, r) => L.pedsNear(x, y, r) : null, wet: 0, sirens: null });
     if (D.chase && P && Math.hypot(goal[0] - v.x, goal[1] - v.y) < 70) { const a = Math.atan2(goal[1] - v.y, goal[0] - v.x); e.I.steer = E.clamp(E.angDiff(v.heading, a) * 2, -1, 1); e.I.throttle = 1; e.I.brake = 0; }   // (close: straight at it)
   }

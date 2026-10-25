@@ -94,6 +94,7 @@ rampage('mayhem_bat_saints', {
   text: 'MAYHEM: smash 7 Saints cars with the bat (half-wrecked, they catch fire)', lines: ['MAYHEM!', 'Seven Saints cars. One bat. Two and a half minutes.'], done: 'MAYHEM over. Fender\'s going to cry.',
   rewards: { cash: 2000, respect: { saints: -10 } }, gangs: ['saints'],
   spawn(m) {
+    m.clearSpot(FOUNTAIN, 100);   // (the meet's marshals clear the plaza: Channel 6's SkyCam off its pad by the fountain, inside the ring, kept out of it till the meet's over and back when nobody's looking; left there, a swing at a Saint caught it, it burned, and its blast and its wreck finished the job)
     if (m.tagged('scar').length) return;
     SAINT_SPOTS.forEach((p, i) => m.spawn.vehicle(i % 3 === 2 ? 'zephyr' : 'saint', p, { tag: 'scar', heading: Math.atan2(FOUNTAIN[1] - p[1], FOUNTAIN[0] - p[0]), gang: 'saints', color: i % 2 ? '#c8c8d0' : '#5af0ff' }));
   },

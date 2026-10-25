@@ -337,9 +337,11 @@ export class DriverBrain {
    *  wrecked: no brain, nobody at the wheel), any driver; round a unit parked at its scene, an assertive one (the
    *  player's, a siren's): either would stand in the lane for good */
   _throughBox(o) { return (!o.brain && !o.driver) || (!!this.siren && !!o.brain && (!!o.brain.parked || !!(o.duty && o.duty.out))); }
-  /** stuck behind a car nobody drives a while (4 x TUNE.gridlock s), with no pass round it (at a junction's mouth, on a
-   *  connector): shove it aside at a creep, as the gridlock breaker shoves a ring's next car */
-  _shoves(L, stuck) { return !!(stuck && !this.pass && L && !L.v.brain && !L.v.driver && L.v.owner !== 'mission' && this.blocked > TUNE.gridlock * 4 && !(this.creepT > 0)); }   // (never a job's: a roadblock stays where it was put)
+  /** stuck behind a car nobody drives a while (4 x TUNE.gridlock s; a wreck, TUNE.gridlock s: nobody comes back for
+   *  it), with no pass round it (at a junction's mouth, on a connector): shove it aside at a creep, as the gridlock
+   *  breaker shoves a ring's next car. (A turf war's wrecks in a junction had stood the streets round it for minutes, the
+   *  units sent to them queued behind, each shove 16 s after the last) */
+  _shoves(L, stuck) { return !!(stuck && !this.pass && L && !L.v.brain && !L.v.driver && L.v.owner !== 'mission' && this.blocked > TUNE.gridlock * (L.v.wrecked ? 1 : 4) && !(this.creepT > 0)); }   // (never a job's: a roadblock stays where it was put)
   // a pass round a stopped obstacle: the smallest sideways offset whose corridor is clear (walls, street furniture,
   // water, other vehicles, peds), out to past its far end; null when neither side is
   _planPass(L, w, S) {

@@ -15,7 +15,7 @@ const TICKETS = [
 const CARS = ['cortez', 'zephyr', 'saint'];
 const MAX = 4;   // (level 3's cars; level n tows n + 1)
 const count = m => Math.min(MAX, 1 + m.level);
-const SLACK = [0, 3.8, 3.4, 3.0], GRACE = [0, 50, 44, 40];   // (a tow is slower than a run: backing up to the car, a car on the hook round the corners)
+const SLACK = [0, 3.8, 3.4, 3.2], GRACE = [0, 50, 44, 44];   // (a tow is slower than a run: backing up to the car, a car on the hook round the corners. Level 3 at 3.0 and 40 s had the bot miss its last ticket two to four times a run, short of the impound by a block)
 const clock = (m, at, from = null) => Math.round(GRACE[m.level] + (m.eta(at, from) ?? Math.hypot(at[0] - (from ? from.x : m.mover.x), at[1] - (from ? from.y : m.mover.y)) * 1.4 / 150) * SLACK[m.level]);   // (from: the car, for the tow's own leg)
 const IMPOUND = 'precinct', IN = 130;   // (the impound's gate by the precinct, and how near the towed car must come: the truck stops on the gate, the car a length behind)
 const ETA = [6, 14];
@@ -33,7 +33,7 @@ function ticketFor(m, k) {
 function freeLane(m, p, heading = null) {
   for (const k of [0, 1, -1, 2, -2, 3]) {
     const q = m.lane([p[0] + k * 40, p[1] + k * 24], heading);
-    if ((q.z || 0) < 4 && !m.fleet.near(q.x, q.y, 40).some(v => !v.wrecked && Math.hypot(v.x - q.x, v.y - q.y) < 40)) return q;
+    if ((q.z || 0) < 4 && !m.fleet.near(q.x, q.y, 40).some(v => Math.hypot(v.x - q.x, v.y - q.y) < 40)) return q;   // (a wreck too: a turf war's, burnt out where the retry's truck was put down)
   }
   return m.lane(p, heading);
 }

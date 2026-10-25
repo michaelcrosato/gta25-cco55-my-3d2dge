@@ -303,9 +303,10 @@ export class MissionBot {
       return true;
     };
     // (a lane running the way the truck would face, near where it stands: hooked from the wrong end on a one-way
-    // street, it faced up it and towed the car the long way round the map's edge)
+    // street, it faced up it and towed the car the long way round the map's edge. Before room: a queue standing at one
+    // end's light had sent it to the other end, against a one-way, by a route round the map's edge it wedged on)
     const lane = e => this._endLane(car, truck, e);
-    return ends.find(e => room(e) && lane(e)) || ends.find(room) || ends.find(lane) || ends[0];
+    return ends.find(e => room(e) && lane(e)) || ends.find(lane) || ends.find(room) || ends[0];
   }
   // is there a lane running the way the truck faces for end e, by where it would stand?
   _endLane(car, truck, e) { const E = car.toWorld(e.k * car.hl, 0), off = truck.hl + 90, x = E[0] + Math.cos(e.h) * off, y = E[1] + Math.sin(e.h) * off, G = this.roads && this.roads.graph, n = G && G.nearestLane(x, y, e.h, car.z || 0, 90); return !!n && Math.cos(e.h) * n.lane.dir[0] + Math.sin(e.h) * n.lane.dir[1] > .8; }

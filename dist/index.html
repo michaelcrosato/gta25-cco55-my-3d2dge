@@ -22036,10 +22036,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _throughBox(o) {
       return !o.brain && !o.driver || !!this.siren && !!o.brain && (!!o.brain.parked || !!(o.duty && o.duty.out));
     }
-    /** stuck behind a car nobody drives a while (4 x TUNE.gridlock s), with no pass round it (at a junction's mouth, on a
-     *  connector): shove it aside at a creep, as the gridlock breaker shoves a ring's next car */
+    /** stuck behind a car nobody drives a while (4 x TUNE.gridlock s; a wreck, TUNE.gridlock s: nobody comes back for
+     *  it), with no pass round it (at a junction's mouth, on a connector): shove it aside at a creep, as the gridlock
+     *  breaker shoves a ring's next car. (A turf war's wrecks in a junction had stood the streets round it for minutes, the
+     *  units sent to them queued behind, each shove 16 s after the last) */
     _shoves(L22, stuck) {
-      return !!(stuck && !this.pass && L22 && !L22.v.brain && !L22.v.driver && L22.v.owner !== "mission" && this.blocked > TUNE.gridlock * 4 && !(this.creepT > 0));
+      return !!(stuck && !this.pass && L22 && !L22.v.brain && !L22.v.driver && L22.v.owner !== "mission" && this.blocked > TUNE.gridlock * (L22.v.wrecked ? 1 : 4) && !(this.creepT > 0));
     }
     // (never a job's: a roadblock stays where it was put)
     // a pass round a stopped obstacle: the smallest sideways offset whose corridor is clear (walls, street furniture,
@@ -23816,8 +23818,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _drive(dt, e, P21) {
       const v = e.a, D = e.drive;
       e.I = null;
-      if (v.wrecked || !v.driver || v.driver.dead || v.driver === P21) return;
+      if (v.wrecked || !v.driver || v.driver.dead || v.driver === P21) {
+        v.drivenBy = null;
+        return;
+      }
       if (!D) {
+        v.drivenBy = null;
         const I = clearIntent(e.Ib || (e.Ib = makeIntent()));
         I.down.handbrake = true;
         e.I = I;
@@ -23865,6 +23871,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           D.dest = null;
           return;
         }
+        v.drivenBy = null;
         const I = clearIntent(e.Ib || (e.Ib = makeIntent()));
         if (v.speed > 2) I.brake = 1;
         else I.down.handbrake = true;
@@ -23875,10 +23882,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       D.replan -= dt;
       const key = Math.round(goal[0]) + "," + Math.round(goal[1]);
       if (!e.brain || D.replan <= 0 || !D.chase && e.brainGoal !== key) {
-        if (!e.brain) {
-          e.brain = new DriverBrain(v, roads.graph, { junctions: W26.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? "race" : "fast")] || STYLES.fast, siren: !!D.siren });
-          v.drivenBy = e.brain;
-        }
+        if (!e.brain) e.brain = new DriverBrain(v, roads.graph, { junctions: W26.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? "race" : "fast")] || STYLES.fast, siren: !!D.siren });
         const r7 = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z, tz: goal[2] ?? 0 });
         if (r7) e.brain.setRoute(r7.lanes, { lane: r7.to.lane.id, s: r7.to.s });
         else {
@@ -23889,6 +23893,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         D.replan = D.chase || D.flee ? REPLAN : 1e9;
       }
       const L22 = W26.life;
+      v.drivenBy = e.brain;
       e.I = e.brain.update(dt, { fleet: W26.fleet, t: L22 ? L22.t : this.t, pedsNear: L22 ? (x, y, r7) => L22.pedsNear(x, y, r7) : null, wet: 0, sirens: null });
       if (D.chase && P21 && Math.hypot(goal[0] - v.x, goal[1] - v.y) < 70) {
         const a = Math.atan2(goal[1] - v.y, goal[0] - v.x);
@@ -31523,6 +31528,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       const L22 = b.leader, LB = L22 && L22.v && (L22.v.brain || L22.v.drivenBy), waits = !!LB && !LB.parked && ["signal", "queue", "yield"].includes(LB.cause), held = L22 && L22.gap < 14 && L22.speed < 2 && !waits || b.cause === "ped";
       this.boxT = held && v.speed < 3 && !b.pass && b.cause !== "signal" && b.cause !== "arrived" ? (this.boxT || 0) + dt : 0;
+      if (this.boxT > 5 && v.towing) {
+        this.boxT = 0;
+        if (L22 && !L22.v.brain && !L22.v.driver && L22.v.owner !== "mission") b.blocked = Math.max(b.blocked, TUNE.gridlock * 4 + 0.01);
+      }
       if (this.boxT > (b.cause === "ped" ? 8 : 5)) {
         this.boxT = 0;
         this.boxed = (this.boxed || 0) + 1;
@@ -33561,7 +33570,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return true;
       };
       const lane2 = (e) => this._endLane(car4, truck2, e);
-      return ends.find((e) => room(e) && lane2(e)) || ends.find(room) || ends.find(lane2) || ends[0];
+      return ends.find((e) => room(e) && lane2(e)) || ends.find(lane2) || ends.find(room) || ends[0];
     }
     // is there a lane running the way the truck faces for end e, by where it would stand?
     _endLane(car4, truck2, e) {
@@ -39807,8 +39816,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var CARS2 = ["cortez", "zephyr", "saint"];
   var MAX7 = 4;
   var count6 = (m) => Math.min(MAX7, 1 + m.level);
-  var SLACK6 = [0, 3.8, 3.4, 3];
-  var GRACE6 = [0, 50, 44, 40];
+  var SLACK6 = [0, 3.8, 3.4, 3.2];
+  var GRACE6 = [0, 50, 44, 44];
   var clock6 = (m, at, from = null) => Math.round(GRACE6[m.level] + (m.eta(at, from) ?? Math.hypot(at[0] - (from ? from.x : m.mover.x), at[1] - (from ? from.y : m.mover.y)) * 1.4 / 150) * SLACK6[m.level]);
   var IMPOUND = "precinct";
   var IN = 130;
@@ -39830,7 +39839,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   function freeLane5(m, p, heading = null) {
     for (const k of [0, 1, -1, 2, -2, 3]) {
       const q = m.lane([p[0] + k * 40, p[1] + k * 24], heading);
-      if ((q.z || 0) < 4 && !m.fleet.near(q.x, q.y, 40).some((v) => !v.wrecked && Math.hypot(v.x - q.x, v.y - q.y) < 40)) return q;
+      if ((q.z || 0) < 4 && !m.fleet.near(q.x, q.y, 40).some((v) => Math.hypot(v.x - q.x, v.y - q.y) < 40)) return q;
     }
     return m.lane(p, heading);
   }
@@ -40225,6 +40234,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     rewards: { cash: 2e3, respect: { saints: -10 } },
     gangs: ["saints"],
     spawn(m) {
+      m.clearSpot(FOUNTAIN, 100);
       if (m.tagged("scar").length) return;
       SAINT_SPOTS.forEach((p, i) => m.spawn.vehicle(i % 3 === 2 ? "zephyr" : "saint", p, { tag: "scar", heading: Math.atan2(FOUNTAIN[1] - p[1], FOUNTAIN[0] - p[0]), gang: "saints", color: i % 2 ? "#c8c8d0" : "#5af0ff" }));
     },
