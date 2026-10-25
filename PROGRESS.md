@@ -37,7 +37,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | M13 Polish + release | done | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts, the campaign's stalls fixed to its 100% (part 5, `6efaf9c` to `5c7c2ef`, D30); what test:full and the audit found on the way: the gang shoot-out's tip, the page from a static server, the 10-foot UI at HUD Huge (`293a2b9` to `154eb02`); test:full on `154eb02`, every step, and the Definition of Done item by item · 343 unit + sim tests, 78 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
 | L1 Determinism across runtimes | done | MOTOR's deterministic Math (`src/motor/core/dmath.js`, V8 12.4's fdlibm and `hypot` in plain arithmetic, bit for bit Node 22's own) installed by the prelude before the engine; a car's drawn explosion no longer stops the clock; `tests/e2e/cross-runtime.mjs` in the gate (D33) · test:full passed every step on `81a34ee` (100 min 36 s, the campaign at 100%), the gym 13/13 both ways · see the acceptance log |
 | L2 The known limits | done | the glows' halos cut by the walls in front, riders at their saddles, the bot's cover on the lanes under the decks, the last stretch's unstick, the pocket's restart, a tow truck lined up in the road, the campaign's jobs from the middle of town, the gym in test:full; three stars, a passer-by and a long truck's corners kept (D34) · closed on b7b7556: test:full passed, alone, in 107 min 43 s · see the acceptance log |
-| L3 Performance | in progress | crowd bodies redrawn into a pixel array and put by the box they cover, MODE 7's faces and images stopped where nearer walls hide them, its decks a row at a time, its city gathered from the lens's wedge, its far bodies, cars, props and decks faded into the haze, a body by its lens kept and enlarged; the Graphics setting (part 1); the perf gate back in test:full, five rounds (D35) · the reading of record: ISO 10.25 ms (10.4), TOP-DOWN 9.05 (12.7), MODE 7 12.13 (12.7) · see the acceptance log |
+| L3 Performance | done | crowd bodies redrawn into a pixel array and put by the box they cover, MODE 7's faces and images stopped where nearer walls hide them, its decks a row at a time, its city gathered from the lens's wedge, its far bodies, cars, props and decks faded into the haze, a body by its lens kept and enlarged; the Graphics setting (part 1); the perf gate back in test:full, five rounds (D35) · the reading of record: ISO 10.25 ms (10.4), TOP-DOWN 9.05 (12.7), MODE 7 12.13 (12.7) · closed on a70cd51: test:full passed, alone, in 117 min 20 s (its perf gate: 10.01, 8.86, 12.07) · see the acceptance log |
 
 ## Acceptance log
 
@@ -1400,7 +1400,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
   - **Closed on `b7b7556`:** `npm run test:full` passed every step, alone, in 107 min 43 s (the gym on seeds 1-3
     and through a pad among them, every mission and activity through the bot on seeds 1-3 and a pad, the campaign at
     100%). CI's `npm test` is green on the same head.
-- **L3 · performance (D35), in progress:**
+- **L3 · performance (D35), done:**
   - **Where it stood** (`node tools/perf.mjs --gate`, three rounds, alone): on L2's closing commit ISO 10.60 ms,
     TOP-DOWN 9.07, MODE 7 13.77; on L2's head ISO 10.43, TOP-DOWN 9.39, MODE 7 13.51 (budgets 10.4, 12.7, 12.7).
   - **Where the frame went,** each part left out of every other frame in one page: MODE 7's bodies 2.3 ms of about
@@ -1418,3 +1418,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     near the lens nothing moves but a walker right by it, now a little soft; far down the street the cars and walkers
     fade into the haze with the buildings, and a car's lights still show through it; the decks' tops, undersides and
     edges are unchanged.
+  - **Closed on `a70cd51`:** `npm run test:full` passed every step, alone, in 117 min 20 s: its perf gate (five
+    rounds) read ISO 10.01 ms, TOP-DOWN 8.86 and MODE 7 12.07 against 10.4, 12.7 and 12.7; the gym on seeds 1-3 and
+    through a pad, every mission and activity through the bot on seeds 1-3 and a pad, the campaign at 100%. CI's
+    `npm test` is green on the same head.

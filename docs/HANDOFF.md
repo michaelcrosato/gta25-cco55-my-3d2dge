@@ -62,7 +62,7 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
   - bike riders at a fixed height instead of their own bike's;
   - the bot's limits: three stars, a delivery kept free of stars, a long truck at a tight corner, a passer-by who hits
     it, the pocket that pins it on foot, and the retries in the pad's gym.
-- [ ] **L3 · Performance** (left for later by D29). D10 and D20 have the budgets, and D28 lists the levers taken and
+- [x] **L3 · Performance** (left for later by D29; done, D35). D10 and D20 have the budgets, and D28 lists the levers taken and
   those left.
   - Take the reading of record (`node tools/perf.mjs --gate --rounds 3`, alone on the machine).
   - Bring every view inside its budget, or inside targets the owner sets, without cutting the look.
