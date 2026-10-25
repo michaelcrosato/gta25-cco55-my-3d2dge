@@ -23875,7 +23875,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       D.replan -= dt;
       const key = Math.round(goal[0]) + "," + Math.round(goal[1]);
       if (!e.brain || D.replan <= 0 || !D.chase && e.brainGoal !== key) {
-        if (!e.brain) e.brain = new DriverBrain(v, roads.graph, { junctions: W26.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? "race" : "fast")] || STYLES.fast, siren: !!D.siren });
+        if (!e.brain) {
+          e.brain = new DriverBrain(v, roads.graph, { junctions: W26.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? "race" : "fast")] || STYLES.fast, siren: !!D.siren });
+          v.drivenBy = e.brain;
+        }
         const r7 = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z, tz: goal[2] ?? 0 });
         if (r7) e.brain.setRoute(r7.lanes, { lane: r7.to.lane.id, s: r7.to.s });
         else {
@@ -23934,6 +23937,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (e.kind === "vehicle") {
           const v = e.a;
           if (e.brain && e.brain.dispose) e.brain.dispose();
+          v.drivenBy = null;
           if (v.adopted) {
             v.owner = v.adopted;
             v.adopted = null;
@@ -24016,6 +24020,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.list = this.list.filter((q) => q !== e);
       a.owner = "world";
       if (e.brain && e.brain.dispose) e.brain.dispose();
+      a.drivenBy = null;
     }
     /** how many of the mission's actors are about (the count check) */
     get count() {
@@ -31516,7 +31521,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this._dropBrain();
         return this._escape(dt, v);
       }
-      const L22 = b.leader, waits = L22 && L22.v && L22.v.brain && !L22.v.brain.parked && ["signal", "queue", "yield"].includes(L22.v.brain.cause), held = L22 && L22.gap < 14 && L22.speed < 2 && !waits || b.cause === "ped";
+      const L22 = b.leader, LB = L22 && L22.v && (L22.v.brain || L22.v.drivenBy), waits = !!LB && !LB.parked && ["signal", "queue", "yield"].includes(LB.cause), held = L22 && L22.gap < 14 && L22.speed < 2 && !waits || b.cause === "ped";
       this.boxT = held && v.speed < 3 && !b.pass && b.cause !== "signal" && b.cause !== "arrived" ? (this.boxT || 0) + dt : 0;
       if (this.boxT > (b.cause === "ped" ? 8 : 5)) {
         this.boxT = 0;
@@ -39120,10 +39125,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
   var REACH = 130;
   var inEngine = (m) => !!m.vehicle && m.vehicle.def.tool === "cannon" && m.vehicle.driver === m.player;
-  function freeLane(m, p, self = null) {
-    for (const k of [0, 1, -1, 2, -2, 3]) {
-      const q = m.lane([p[0] + k * 60, p[1]]);
-      if ((q.z || 0) < 4 && !m.fleet.near(q.x, q.y, 50).some((v) => v !== self && !v.wrecked && Math.hypot(v.x - q.x, v.y - q.y) < 50)) return q;
+  function freeLane(m, p, self = null, heading = null) {
+    const hl5 = self ? self.hl : 44, taken4 = (q) => {
+      const c = Math.cos(q.heading), s = Math.sin(q.heading);
+      return m.fleet.near(q.x, q.y, hl5 + 60).some((v) => {
+        if (v === self || v.wrecked) return false;
+        const dx = v.x - q.x, dy = v.y - q.y;
+        return Math.abs(dx * c + dy * s) < hl5 + v.hl && Math.abs(dy * c - dx * s) < 14;
+      });
+    };
+    for (const h of heading === null ? [null] : [heading, null]) for (const k of [0, 1, -1, 2, -2, 3]) {
+      const q = m.lane([p[0] + k * 60, p[1]], h);
+      if ((q.z || 0) < 4 && (h === null || Math.cos(q.heading - h) > 0.7) && !taken4(q)) return q;
     }
     return m.lane(p);
   }
@@ -39224,7 +39237,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const e = engine(m), c = callFor(m, k), tries = m.data.tries || (m.data.tries = {});
       if (e.damage && !e.damage.burning && e.damage.share < 0.6) e.damage.repair();
       if ((tries[k] = (tries[k] || 0) + 1) > 1 && m.vehicle === e) {
-        const q = freeLane(m, [e.x, e.y], e);
+        const q = freeLane(m, [e.x, e.y], e, e.heading);
         m.place(e, q, { heading: q.heading });
       }
       const cells = [];

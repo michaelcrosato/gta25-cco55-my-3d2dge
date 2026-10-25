@@ -247,7 +247,9 @@ export class AutoPlayer {
       this.round = { t: dx * c + dy * s > 0 ? 0 : 1.1, side: c * dy - s * dx > 0 ? -1 : 1 }; return this._round(dt, v);
     }
     if (this._wedged(dt, v, b)) { this.esc = { to: this._ahead(b, 180) || [g.x, g.y], t: 0, slow: 0, back: 0, side: this.wedge.n % 2 ? 1 : -1 }; this._dropBrain(); return this._escape(dt, v); }   // (off the road round it, as the second try does)
-    const L = b.leader, waits = L && L.v && L.v.brain && !L.v.brain.parked && ['signal', 'queue', 'yield'].includes(L.v.brain.cause), held = (L && L.gap < 14 && L.speed < 2 && !waits) || b.cause === 'ped';   // (a leader waiting at a light, in a queue: traffic, not a box)
+    // (a leader waiting at a light, in a queue: traffic, not a box; a job's car too, by its driver's brain: a race's rival
+    // stopped at a red, taken for a box, was swung round and the fresh route from the swerve went round the block)
+    const L = b.leader, LB = L && L.v && (L.v.brain || L.v.drivenBy), waits = !!LB && !LB.parked && ['signal', 'queue', 'yield'].includes(LB.cause), held = (L && L.gap < 14 && L.speed < 2 && !waits) || b.cause === 'ped';
     this.boxT = held && v.speed < 3 && !b.pass && b.cause !== 'signal' && b.cause !== 'arrived' ? (this.boxT || 0) + dt : 0;
     if (this.boxT > (b.cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
     const Bs = this.fleet && this.fleet.bridges, closed = Bs && Bs.length ? id => Bs.some(q => q.id === id && q.closed) : null;   // (a drawbridge's gates shut: stopped short as traffic is; unwatched, a job's truck had met a rising leaf at full tilt and flown past its turn)

@@ -35,11 +35,14 @@ function clock(m, at, n) {
 const REACH = 130;   // (how near the burning cell the cannon is played from: the jet goes 150 from the nozzle)
 
 const inEngine = m => !!m.vehicle && m.vehicle.def.tool === 'cannon' && m.vehicle.driver === m.player;
-// a ground lane's point near p with no vehicle on it but self (the engine's spot)
-function freeLane(m, p, self = null) {
-  for (const k of [0, 1, -1, 2, -2, 3]) {
-    const q = m.lane([p[0] + k * 60, p[1]]);
-    if ((q.z || 0) < 4 && !m.fleet.near(q.x, q.y, 50).some(v => v !== self && !v.wrecked && Math.hypot(v.x - q.x, v.y - q.y) < 50)) return q;
+// a ground lane's point near p with no vehicle on it but self (the engine's spot); heading: one running that way first
+// (a retry's engine kept to the way it was going: put on the next street's lane the other way, the call was a lap of
+// the city off). On it: a vehicle across the engine's length in the lane, not one parked at the curb beside it
+function freeLane(m, p, self = null, heading = null) {
+  const hl = self ? self.hl : 44, taken = q => { const c = Math.cos(q.heading), s = Math.sin(q.heading); return m.fleet.near(q.x, q.y, hl + 60).some(v => { if (v === self || v.wrecked) return false; const dx = v.x - q.x, dy = v.y - q.y; return Math.abs(dx * c + dy * s) < hl + v.hl && Math.abs(dy * c - dx * s) < 14; }); };
+  for (const h of heading === null ? [null] : [heading, null]) for (const k of [0, 1, -1, 2, -2, 3]) {
+    const q = m.lane([p[0] + k * 60, p[1]], h);
+    if ((q.z || 0) < 4 && (h === null || Math.cos(q.heading - h) > .7) && !taken(q)) return q;
   }
   return m.lane(p);
 }
@@ -132,7 +135,7 @@ const fireStage = k => ({
     const e = engine(m), c = callFor(m, k), tries = m.data.tries || (m.data.tries = {});
     if (e.damage && !e.damage.burning && e.damage.share < .6) e.damage.repair();   // (between calls the crew patches the engine up)
     // a retry: the engine back on the road where it stands, the way its lane runs (wedged on a corner, it would stay so)
-    if ((tries[k] = (tries[k] || 0) + 1) > 1 && m.vehicle === e) { const q = freeLane(m, [e.x, e.y], e); m.place(e, q, { heading: q.heading }); }
+    if ((tries[k] = (tries[k] || 0) + 1) > 1 && m.vehicle === e) { const q = freeLane(m, [e.x, e.y], e, e.heading); m.place(e, q, { heading: q.heading }); }
     const cells = [];
     tags(m, k).forEach((tag, j) => {
       let v = m.one(tag);

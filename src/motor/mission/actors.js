@@ -246,7 +246,7 @@ export class MissionActors {
     D.replan -= dt;
     const key = Math.round(goal[0]) + ',' + Math.round(goal[1]);
     if (!e.brain || D.replan <= 0 || (!D.chase && e.brainGoal !== key)) {
-      if (!e.brain) e.brain = new DriverBrain(v, roads.graph, { junctions: W.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? 'race' : 'fast')] || STYLES.fast, siren: !!D.siren });
+      if (!e.brain) { e.brain = new DriverBrain(v, roads.graph, { junctions: W.junctions || null, rng: this.rng, personality: STYLES[D.style || (D.race ? 'race' : 'fast')] || STYLES.fast, siren: !!D.siren }); v.drivenBy = e.brain; }   // (drivenBy: who reads what it waits for, a racer at a red light, as a city car's own brain says it)
       const r = roads.gps.routeTo(v.x, v.y, v.heading, goal[0], goal[1], { z: v.z, tz: goal[2] ?? 0 }); if (r) e.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); else { e.brain.arrived = false; if (D.flee) D.dest = null; }   // (a goal up on a deck says so; no way there: not there, and somewhere else to run to)
       e.brainGoal = key; D.replan = D.chase || D.flee ? REPLAN : 1e9;
     }
@@ -279,7 +279,7 @@ export class MissionActors {
     for (const e of this.list) {
       if (!pred(e)) continue; e.gone = true;
       if (e.kind === 'vehicle') {
-        const v = e.a; if (e.brain && e.brain.dispose) e.brain.dispose();
+        const v = e.a; if (e.brain && e.brain.dispose) e.brain.dispose(); v.drivenBy = null;
         if (v.adopted) { v.owner = v.adopted; v.adopted = null; continue; }   // (the world's own, lent to the job: back to the world)
         for (const q of e.crew || []) { const c = this.entry(q); if (c) c.gone = true; if (q.seat && q.seat.vehicle === v) continue; if (q.seat) q.seat.vehicle.unseat(q); if (W.combat) W.combat.remove(q); }   // (its crew go with it, wherever they are)
         if (P && P.seat && P.seat.vehicle === v && o.evict) { v.unseat(P); P.boarding = null; P.place(v.x + Math.cos(v.heading + Math.PI / 2) * (v.hw + 10), v.y + Math.sin(v.heading + Math.PI / 2) * (v.hw + 10), 0); }
@@ -311,7 +311,7 @@ export class MissionActors {
   /** the player takes one down: the paired action on both bodies; it is out of it (counted as a kill's) */
   takedown(P, e) { const p = e.a; p.held = P.mover.play('takedown', { other: p.mover, map: this.W.city.map }); e.down = true; p.out = true; BUS.emit('takedown', { interior: null, guard: p.id, by: P.id }); return true; }
   /** let the world keep an actor (a stashed car): out of the mission's list, owned by the world, never released */
-  adopt(a) { const e = this.entry(a); if (!e) return; this.list = this.list.filter(q => q !== e); a.owner = 'world'; if (e.brain && e.brain.dispose) e.brain.dispose(); }
+  adopt(a) { const e = this.entry(a); if (!e) return; this.list = this.list.filter(q => q !== e); a.owner = 'world'; if (e.brain && e.brain.dispose) e.brain.dispose(); a.drivenBy = null; }
   /** how many of the mission's actors are about (the count check) */
   get count() { return this.list.length; }
   hash() {
