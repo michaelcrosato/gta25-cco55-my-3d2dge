@@ -10,7 +10,7 @@ import { E } from '../engine.js';
 import { TUNE, knob } from '../core/tune.js';
 import { all } from '../core/registry.js';
 import { Actor } from '../sim/actor.js';
-import { vehicleDef, classOf, modelOf, makeBody } from '../sim/vehicle/defs.js';
+import { vehicleDef, classOf, modelOf, makeBody, flyer } from '../sim/vehicle/defs.js';
 import { Damage } from '../sim/vehicle/damage.js';
 import { seatHeight } from '../sim/vehicle/model.js';
 
@@ -92,7 +92,7 @@ export class Vehicle {
     if (o.kind === 'explosion' && this.body && o.knock) {   // thrown about by a blast: shoved, lifted, rolled
       const dir = o.dir || [0, 0], m = o.knock * .45;
       this.body.setVelocity(this.body.vx + dir[0] * m, this.body.vy + dir[1] * m);
-      if (o.knock > 120 && this.cls !== 'boat' && this.cls !== 'heli') this.body.launch(o.knock * .5, (dir[0] * -Math.sin(this.heading) + dir[1] * Math.cos(this.heading)) * (o.knock > 200 ? 9 : 3));
+      if (o.knock > 120 && this.cls !== 'boat' && !flyer(this)) this.body.launch(o.knock * .5, (dir[0] * -Math.sin(this.heading) + dir[1] * Math.cos(this.heading)) * (o.knock > 200 ? 9 : 3));
     }
     this.lastBy = o.by ?? this.lastBy;
     return { health: took, armor: 0, killed: false };
@@ -104,7 +104,7 @@ export class Vehicle {
     // what the controls ask
     let ctl;
     if (this.ai && live) ctl = this.ai(dt, this, w) || {};
-    else if (I && live && this.driver && this.cls === 'heli') {   // (a player's helicopter: the handbrake's shoulder climbs, the nitro's descends)
+    else if (I && live && this.driver && flyer(this)) {   // (a player's helicopter or plane: the handbrake's shoulder climbs, the nitro's descends)
       ctl = { pilot: true, throttle: I.throttle, brake: I.brake, steer: I.steer, climb: (I.down.handbrake ? 1 : 0) - (I.down.nitro ? 1 : 0) };
       if (I.tap.radioNext || I.tap.radioPrev) this.radio = nextStation(this.radio, I.tap.radioNext ? 1 : -1);
     } else if (I && live && this.driver) {
@@ -122,7 +122,7 @@ export class Vehicle {
     if (this.flats > 0) { b.flat = this.flats; this.flatT += dt; if (b.speed > 20) ctl = { ...ctl, steer: E.clamp((ctl.steer || 0) + Math.sin(this.flatT * 7) * .14 * this.flats, -1, 1) }; }   // (on its rims: the wheel tugs)
     this.ctlNow = ctl;
     // a land vehicle in deep water goes under (its people swim out: the Fleet's business)
-    if (this.cls !== 'boat' && this.cls !== 'heli' && w.water && b.z < 4 && w.water(Math.floor(b.x / 16), Math.floor(b.y / 16))) {
+    if (this.cls !== 'boat' && this.cls !== 'heli' && !(this.cls === 'plane' && b.h.water) && w.water && b.z < 4 && w.water(Math.floor(b.x / 16), Math.floor(b.y / 16))) {
       this.sinking += dt; b.u *= Math.exp(-3 * dt); b.v *= Math.exp(-3 * dt); b.w *= Math.exp(-3 * dt); ctl = { throttle: 0, brake: 0, steer: 0, handbrake: false };
       if (this.sinking >= TUNE.sinkTime && !this.sunk) this.sunk = true;
     }
@@ -144,7 +144,7 @@ export class Vehicle {
     const a = this.actor; a.x = b.x; a.y = b.y; a.z = b.z; a.facing = b.heading; a.dead = wreck;
   }
   /** its tyres burst (a spike strip): a land vehicle with wheels only */
-  flatten(k = 1) { if (!this.body || this.cls === 'heli' || this.cls === 'boat' || this.cls === 'rail') return false; this.flats = Math.min(1, this.flats + k); this.asleep = false; return true; }
+  flatten(k = 1) { if (!this.body || flyer(this) || this.cls === 'boat' || this.cls === 'rail') return false; this.flats = Math.min(1, this.flats + k); this.asleep = false; return true; }
   /** for state hashes */
   hash() { const b = this.body; return b ? [Math.round(b.x * 8), Math.round(b.y * 8), Math.round(b.z * 8), Math.round(b.heading * 1000), this.damage.hash()] : [this.damage.hash()]; }
   /** the save's part (Boom Box mods and the garage): definition, paint, mods, health */

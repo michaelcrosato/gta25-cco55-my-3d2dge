@@ -13,6 +13,7 @@
 //   class CopBrain extends Fighter  ·  const F = new Fighter(ped, { walks, rng, profile });  I = F.attack(dt, I, target)
 import { TUNE } from '../core/tune.js';
 import { makeIntent } from '../sim/intent.js';
+import { aloft } from '../sim/vehicle/defs.js';
 
 const NODE_NEAR = 9, THROW_MIN = 70, THROW_MAX = 230, THROW_EVERY = 6, BLAST = 110;
 /** how a fighter fights: its range (a share of its gun's), bursts and pauses (s), aim (radians off at most), and kite
@@ -173,7 +174,7 @@ export function lineOfFire(p, tgt, map = null, fleet = null) {
   }
   if (fleet) {
     const mx = (p.x + tgt.x) / 2, my = (p.y + tgt.y) / 2, r = Math.hypot(tgt.x - p.x, tgt.y - p.y) / 2 + 30, own = tgt.seat ? tgt.seat.vehicle : tgt.body ? tgt : null, mine = p.seat ? p.seat.vehicle : null;
-    for (const v of fleet.near(mx, my, r)) if (v !== own && v !== mine && v.body && v.cls !== 'heli' && v.z < (p.z || 0) + 18 && crosses(v, p, tgt)) return 'car';
+    for (const v of fleet.near(mx, my, r)) if (v !== own && v !== mine && v.body && !aloft(v) && v.z < (p.z || 0) + 18 && crosses(v, p, tgt)) return 'car';
   }
   return true;
 }

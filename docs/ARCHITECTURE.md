@@ -74,6 +74,7 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The Proving Ground: the combat `range`, the view lab's scale yard, `?selftest=1` self-tests (e2e) | `src/game/proving/range-zone.js`, `city-zones.js`, `tests/e2e/selftest.mjs` | M3 |
 | Vehicle models (box parts with kits) and their builders; definitions by model id (D15) | `src/motor/sim/vehicle/model.js`, `defs.js` | M4 |
 | The class bodies: the tyre model over the ground (decks, ramps, jumps, flips, towing), boats, the heli, the L's lines and trains, the tow joint | `src/motor/sim/vehicle/body.js`, `boat.js`, `heli.js`, `rail.js`, `tow.js` | M4 |
+| Planes: a body that rolls on its gear, lifts off past its rotation speed, banks to turn, stalls under its stall speed and sets down gently or crashes (a seaplane on water); the AutoPlayer flying one (a clear run, a cruising height, an approach, a glide and a go-around) | `src/motor/sim/vehicle/plane.js`, `model.js` (`planeParts`), `src/motor/ai/autoplayer.js` (`_plane`) | X2 |
 | Vehicle damage (zone dents, smoke, fire, the explosion) and the handling bench per definition | `src/motor/sim/vehicle/damage.js`, `handling.js` | M4 |
 | The Vehicle actor (seats, doors, lights, siren, horn, radio, nitro, mods, sinking) and the Fleet (sleeping, a neighbour grid, cars on cars, knockdowns, street furniture, chains, trains, tools) | `src/motor/actors/vehicle.js`, `fleet.js` | M4 |
 | Boarding: enter, carjack, break-in, mount, exit and bail-out as `E.ACTIONS` beats | `src/motor/actors/boarding.js` | M4 |

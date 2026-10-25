@@ -23,6 +23,7 @@ import { BUS } from '../core/bus.js';
 import { makeIntent, clearIntent } from '../sim/intent.js';
 import { TRAITS } from '../actors/peds.js';
 import { boxDistance } from '../actors/fleet.js';
+import { aloft } from '../sim/vehicle/defs.js';
 
 knob('Crowd', 'fleeTime', 'Flees for', 7, 1, 30, .5, 'Seconds a scared ped runs before it calms down');
 knob('Crowd', 'callAfter', 'Call lasts', 2, .5, 10, .25, 'Seconds a witness spends on the phone before the police have the report (it can be stopped before then)');
@@ -209,7 +210,7 @@ export class PedBrain {
     this._stillBlock = false; if (!e || !w.fleet) return true;
     const A = this.S.nodes[e.a], B = this.S.nodes[e.b], mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
     for (const v of w.fleet.around(mx, my, e.len / 2 + 90)) {
-      if (!v.body || v.wrecked || v.cls === 'heli') continue;
+      if (!v.body || v.wrecked || aloft(v)) continue;
       const dx = mx - v.x, dy = my - v.y, d = Math.hypot(dx, dy);
       let near = Infinity; if (d < v.hl + e.len / 2 + 50) for (const k of CROSS_K) near = Math.min(near, boxDistance(v, A.x + (B.x - A.x) * k, A.y + (B.y - A.y) * k));
       if (near < (v.speed < 2 ? 3 : 9)) { this._stillBlock = v.speed < 2; return false; }   // (a car on it, moving or not; one stopped short of it is yielding: it goes first)

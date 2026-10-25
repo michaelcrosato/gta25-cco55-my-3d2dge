@@ -23,6 +23,7 @@ import { RailLine, Train } from '../sim/vehicle/rail.js';
 import { Damage } from '../sim/vehicle/damage.js';
 import { Vehicle } from './vehicle.js';
 import { sq } from '../core/dmath.js';
+import { flyer, aloft } from '../sim/vehicle/defs.js';
 
 knob('Vehicles', 'carBlastDamage', 'Car blast damage', 160, 0, 600, 5, 'A vehicle\'s explosion: damage at its centre');
 knob('Vehicles', 'carBlastSplash', 'Car blast reach', 96, 20, 300, 2, 'A vehicle\'s explosion: its radius (u)');
@@ -164,7 +165,7 @@ export class Fleet {
       if (I && v.bombArmed && v.mods.bomb !== 'remote' && I.throttle > .1 && v.driver.id !== v.bombBy && v.chainT < 0) { v.bombArmed = false; v.chainT = .6; v.chainBy = v.bombBy; }   // (the ignition: a moment, then up)
       v.update(dt, I, W);
       if (I && v.driver && !v.wrecked) this._tools(dt, v, I);
-      if (v.cls === 'heli' && v.wrecked) v.body.falling = true;
+      if (flyer(v) && v.wrecked) v.body.falling = true;
       // at rest with nobody at it: asleep after a second
       const b = v.body;
       if (b && !v.driver && !v.ai && !v.towing && !v.towedBy && !v.damage.burning && !v.sinking && v.chainT < 0 && b.speed < .5 && Math.abs(b.w) < .01 && !b.airborne && !(b.lifted) && Object.values(v.doors).every(d => d === 0)) { v._still = (v._still || 0) + dt; if (v._still > 1) v.asleep = true; }
@@ -178,9 +179,9 @@ export class Fleet {
     // (far traffic on its lanes meets nothing by itself: its brain keeps it off other cars and its lanes clear of the
     // parked ones; the physical vehicles meet it)
     for (const a of this.vehicles) {
-      if (a.asleep || !a.body || (a.cls === 'heli' && !a.body.landed) || a.kinematic) continue;
+      if (a.asleep || !a.body || (flyer(a) && !a.body.landed) || a.kinematic) continue;
       for (const b of this.around(a.x, a.y, a.hl + 8)) {
-        if (b === a || !b.body || (b.cls === 'heli' && !b.body.landed) || (!b.asleep && !b.kinematic && b._i < a._i)) continue;
+        if (b === a || !b.body || (flyer(b) && !b.body.landed) || (!b.asleep && !b.kinematic && b._i < a._i)) continue;
         if ((a.cls === 'boat') !== (b.cls === 'boat')) continue;
         if (a.towing && a.towing.car === b || b.towing && b.towing.car === a) continue;
         const imp = collideCars(a.body, b.body);
@@ -262,7 +263,7 @@ export class Fleet {
   _peds(dt, peds) {
     let p = null, m = null;
     const meet = v => {
-      if (!v.body || v.cls === 'heli' || v.cls === 'boat' || v.sunk || (p.boarding && p.boarding.v === v)) return;
+      if (!v.body || aloft(v) || v.cls === 'boat' || v.sunk || (p.boarding && p.boarding.v === v)) return;
       const b = v.body, reach = v.hl + 12;
       if (Math.abs(m.x - b.x) > reach || Math.abs(m.y - b.y) > reach || m.z > b.z + v.height || m.z + 30 < b.z) return;
       const hit = circleObb(v, m.x, m.y, p.r || 6); if (!hit) return;

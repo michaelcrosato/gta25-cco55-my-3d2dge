@@ -11,6 +11,7 @@
 import { E } from '../engine.js';
 import { TUNE, knob } from '../core/tune.js';
 import { clearIntent, makeIntent } from '../sim/intent.js';
+import { aloft } from '../sim/vehicle/defs.js';
 
 knob('Police', 'directFrom', 'Drives straight within', 170, 40, 400, 10, 'How near a unit leaves the lanes and steers straight for its target (u)');
 knob('Police', 'stopShort', 'Stops short by', 26, 8, 80, 1, 'How far short of a target on foot (or stopped) a unit stops (u)');
@@ -83,7 +84,7 @@ export class PursuitDriver {
       const a = b.ahead(d); if (!a || (a.j === b.path.length - 1 && a.s >= b.path[a.j].len - 1)) return false;   // (past the path's end)
       if (fp.d(a.p[0], a.p[1]) < TUNE.fpSpawnIn) return false;   // (it would come into sight: it waits like anyone)
       const e = b.path[a.j]; if (!e || e.k !== 'lane' || a.s < v.hl + 8 || a.s > e.len - v.hl - 8) continue;   // (on a lane, never in a junction's box)
-      if (w.fleet.near(a.p[0], a.p[1], 90).some(o => o !== v && o.body && o.cls !== 'heli' && Math.abs(o.z - a.p[2]) < 12 && Math.hypot(o.x - a.p[0], o.y - a.p[1]) < o.hl + v.hl + 12)) continue;
+      if (w.fleet.near(a.p[0], a.p[1], 90).some(o => o !== v && o.body && !aloft(o) && Math.abs(o.z - a.p[2]) < 12 && Math.hypot(o.x - a.p[0], o.y - a.p[1]) < o.hl + v.hl + 12)) continue;
       b._release(); b._advance(d, 0, 0); b._grow(); b.speed = Math.max(b.speed, 40); return true;
     }
     return false;

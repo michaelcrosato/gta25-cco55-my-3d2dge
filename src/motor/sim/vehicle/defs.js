@@ -11,6 +11,7 @@ import { VehicleBody } from './body.js';
 import { CLASSES, vehicleModel, modelWithKit } from './model.js';
 import { BoatBody } from './boat.js';
 import { HeliBody } from './heli.js';
+import { PlaneBody } from './plane.js';
 
 export const ROLES = ['civilian', 'police', 'medic', 'fire', 'gang', 'service', 'special'];
 declare('vehicles', shape({
@@ -46,11 +47,15 @@ export function classOf(d) { return d.class || vehicleModel(d.model).class; }
 /** a definition's model with its kit folded in */
 export function modelOf(d) { return modelWithKit(d.model, d.kit); }
 /** a body for a definition: the class's body (cars, trucks, tow trucks and bikes share the tyre model; boats, helis
- *  their own), with the model's sizes and the definition's handling. Rail cars are placed by their line (rail.js) */
+ *  their own, planes theirs), with the model's sizes and the definition's handling. Rail cars are placed by their line (rail.js) */
 export function makeBody(id, x, y, heading = 0) {
   const d = vehicleDef(id), m = vehicleModel(d.model), cls = classOf(d);
   const spec = Object.assign({ length: m.length, width: m.width, height: m.height }, d.handling);
-  const B = cls === 'boat' ? BoatBody : cls === 'heli' ? HeliBody : VehicleBody;
+  const B = cls === 'boat' ? BoatBody : cls === 'heli' ? HeliBody : cls === 'plane' ? PlaneBody : VehicleBody;
   const b = new B(spec, x, y, heading); b.def = d; b.cls = cls; return b;
 }
 export { CLASSES };
+/** a vehicle that flies (a helicopter, a plane: boarded and left only landed) */
+export const flyer = v => v.cls === 'heli' || v.cls === 'plane';
+/** a vehicle that is no obstacle on the ground: a helicopter (as the slice has it, landed or not) or a plane in the air */
+export const aloft = v => v.cls === 'heli' || (v.cls === 'plane' && !!v.body && !v.body.landed);

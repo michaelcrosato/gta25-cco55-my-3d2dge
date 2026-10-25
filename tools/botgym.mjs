@@ -32,6 +32,15 @@ export const FIX = {
   // L4's hint kinds: the L ridden to a stop, a helicopter flown over a point and held there, the cabinet played to a score
   rail: m => ({ stages: [{ id: 's', setup() {}, *run(m) { m.objective('Take the L to Harbor', { hint: { kind: 'rail', to: 'Harbor' } }); yield m.waitUntil(mm => { const T = mm.fleet.transit, at = T && !mm.player.onTrain && T.sideAt(mm.player); return !!at && at.station.name === 'Harbor'; }); } }] }),
   fly: m => ({ stages: [{ id: 's', setup(m) { const q = m.lane([m.player.x + 120, m.player.y + 100]); m.ensure.vehicle('heli', 'skycam', q, { heading: q.heading }); }, *run(m) { yield m.enter('heli'); const at = m.at('lead-farm'); m.objective('Fly over Lead Farm', { hint: { kind: 'goto', at, radius: 60, vehicle: 'heli', hover: true } }); yield m.waitUntil(mm => !!mm.vehicle && mm.vehicle.cls === 'heli' && Math.hypot(mm.vehicle.x - at[0], mm.vehicle.y - at[1]) < 60 && mm.vehicle.speed < 40); } }] }),
+  // X2's: the Duster off Ironside's airstrip, over Union Hall, and down on the runway again (land: the strip's heading)
+  plane: m => ({ district: 'ironside', stages: [{ id: 's', setup(m) { m.ensure.vehicle('plane', 'duster', [95.5 * 16, 90.5 * 16], { heading: Math.PI }); m.place('player', [95.5 * 16, 94 * 16], { within: 400 }); },
+    *run(m) {
+      yield m.enter('plane'); const over = m.at('union-hall'), strip = [72.5 * 16, 92.5 * 16];
+      m.objective('Fly over Union Hall', { hint: { kind: 'goto', at: over, radius: 90, vehicle: 'plane' } });
+      yield m.waitUntil(mm => !!mm.vehicle && mm.vehicle.cls === 'plane' && !mm.vehicle.body.landed && Math.hypot(mm.vehicle.x - over[0], mm.vehicle.y - over[1]) < 90);
+      m.objective('Land on the airstrip', { hint: { kind: 'goto', at: strip, radius: 60, vehicle: 'plane', land: Math.PI } });
+      yield m.waitUntil(mm => !!mm.vehicle && mm.vehicle.cls === 'plane' && mm.vehicle.body.landed && mm.vehicle.speed < 5 && !mm.vehicle.wrecked && Math.hypot(mm.vehicle.x - strip[0], mm.vehicle.y - strip[1]) < 240);
+    } }] }),
   arcade: m => ({ stages: [
     { id: 'in', setup() {}, *run(m) { const door = m.at('club-chrome-door'); m.objective('Into Club Chrome', { hint: { kind: 'goto', at: door, radius: 16, foot: true, interact: true } }); yield m.waitUntil(mm => !!mm.inside && mm.inside.id === 'club-chrome'); } },
     { id: 's', setup(m) { m.on('arcadeEnd', e => { m.data.best = Math.max(m.data.best || 0, e.score); }); }, *run(m) { const C = ([x, y]) => [x * 16 + 8, y * 16 + 8]; m.objective('3,000 on the cabinet', { hint: { kind: 'arcade', at: C([37, 5]), path: [[19, 21], [33, 18], [33, 9], [35, 9], [35, 7], [37, 7]].map(C), score: 3000 } }); yield m.waitUntil(mm => (mm.data.best || 0) >= 3000); } }] }),
@@ -41,10 +50,11 @@ const names = Object.keys(FIX).filter(k => !only || only.includes(k));
 let failed = 0, runs = 0, limits = 0, limitsOk = 0;
 if (import.meta.url === `file://${process.argv[1]}`) for (const seed of seeds) for (const name of names) {
   const P = usePad ? fakePad(0) : null;
-  const g = await loadGame({ hash: '#play/safehouse', query: { seed, time: 'day', weather: 'clear', bot: usePad ? 'pad' : '1', ...(god ? { god: '1' } : {}) }, pads: P ? [P] : null });
+  const spec = FIX[name](), where = spec.district ? { dev: '1', district: spec.district } : {};   // (a fixture in another district: played there)
+  const g = await loadGame({ hash: '#play/safehouse', query: { seed, time: 'day', weather: 'clear', bot: usePad ? 'pad' : '1', ...(god ? { god: '1' } : {}), ...where }, pads: P ? [P] : null });
   const { game, gtm } = g, M = gtm.motor, C = gtm.career, R = C.R; game.advance(.5);
   const pilot = P ? new M.PadPilot(P, gtm.bindings, gtm.views, game.input) : null, idle = M.makeIntent();
-  M.defMission('gym_' + name, { title: 'Gym: ' + name, rewards: { cash: 1 }, ...FIX[name]() });
+  M.defMission('gym_' + name, { title: 'Gym: ' + name, rewards: { cash: 1 }, ...spec });
   C.startMission('gym_' + name);
   const t0 = Date.now(); let t = 0; const step = pilot ? 1 / 120 : .25, fails = [];
   gtm.BUS.on('stageFail', e => fails.push(e.reason), 'global');

@@ -6,7 +6,7 @@
 //          color, role }: role 'body' takes the vehicle's paint; 'cabin', 'glass', 'wheel', 'light' (head, lit at
 //          night), 'tail' (brake), 'siren' (alternating), 'bumper', 'trim', 'rotor' (a heli's, spun when drawn).
 //          The builders below make the usual shapes from sizes (carParts, vanParts, truckParts, bikeParts, boatParts,
-//          heliParts, trainParts); a model may also list its parts by hand.
+//          heliParts, trainParts, planeParts); a model may also list its parts by hand.
 //   wheels: [{ x, y, r, steer }] (front wheels steer visibly); seats: [{ x, y, z? }] driver first (z: the rider's height, else SEAT_Z); doors: [{ id, x, y,
 //          side (-1 left, 1 right, 0 the back), seat }] where a body stands to get in; lights: { head: [[x, y, z]],
 //          tail, siren } (where the lights shine from); hook: [x, y] (a tow truck's), hitch: [x, y] (where a towed car is
@@ -16,7 +16,7 @@
 import { declare, get } from '../../core/registry.js';
 import { shape } from '../../core/schema.js';
 
-export const CLASSES = ['car', 'truck', 'tow', 'bike', 'boat', 'heli', 'rail'];
+export const CLASSES = ['car', 'truck', 'tow', 'bike', 'boat', 'heli', 'rail', 'plane'];
 /** the part roles the renderer knows */
 export const ROLES = ['body', 'cabin', 'glass', 'wheel', 'light', 'tail', 'siren', 'bumper', 'trim', 'rotor'];
 declare('vehicleModels', shape({
@@ -54,7 +54,7 @@ export function checkModel(m) {
   for (const s of m.seats) if (Math.abs(s.x) > L || Math.abs(s.y) > W) out.push('a seat outside the body ' + JSON.stringify(s));
   for (const s of m.seats) if (s.z !== undefined && !(s.z >= 0 && s.z <= m.height)) out.push('a seat\'s rider height outside the body ' + JSON.stringify(s));
   for (const d of m.doors) if (!(d.seat >= 0 && d.seat < Math.max(1, m.seats.length))) out.push('door ' + d.id + ' names no seat');
-  if (m.class !== 'heli' && m.class !== 'rail' && m.class !== 'boat' && !m.wheels.length) out.push('no wheels');
+  if (m.class !== 'heli' && m.class !== 'plane' && m.class !== 'rail' && m.class !== 'boat' && !m.wheels.length) out.push('no wheels');
   return out;
 }
 
@@ -162,6 +162,24 @@ export function heliParts(o = {}) {
     P([-1.5, -1.5, height * .8, 1.5, 1.5, height], DARK, 'cabin'), P([-L * .9, -L * .9 * .04, height + .5, L * .9, L * .9 * .04, height + 1.2], '#3a3a44', 'rotor'),
     P([L * .5, -2, 4, L * .58, 2, 7], '#fff4c8', 'light'), P([-L * .2, -1, height * .8, -L * .1, 1, height * .84], '#ff3a2a', 'tail')];
   return { parts, wheels: [], seats: [{ x: L * .35, y: -4 }, { x: L * .35, y: 4 }], doors: [], lights: { head: [[L * .55, 0, 5]], tail: [], siren: [[0, 0, height]] } };
+}
+/** a plane (EXPANSION.md X2): a fuselage, its wings (two, a biplane's, with struts between: o.biplane), a tailplane and
+ *  fin, the propeller's disc at the nose, and its gear: wheels, or a seaplane's floats (o.floats); o.high: its one wing
+ *  over the cabin. length nose to tail, width the wingspan */
+export function planeParts(o = {}) {
+  const { length = 44, width = 56, height = 16, biplane = false, floats = false, high = false } = o, L = length / 2, S = width / 2, paint = o.color || '#e8c040', wing = o.wing || paint;
+  const g = floats ? 7 : 5, fz0 = g, fz1 = g + height * .55, fw = Math.max(3, length * .09);   // (the fuselage's floor and top; its half width)
+  const parts = [P([-L * .75, -fw * .7, fz0 + 1, L * .55, fw * .7, fz1], paint), P([L * .55, -fw, fz0, L * .85, fw, fz1 - 1], paint),   // (the body, the cowling)
+    P([L * .05, -fw * .75, fz1 - .5, L * .35, fw * .75, fz1 + height * .2], GLASS, 'glass'),   // (the cockpit)
+    high ? P([L * .05, -S, fz1, L * .4, S, fz1 + 1.5], wing, 'trim') : P([L * .05, -S, fz0 + 2, L * .4, S, fz0 + 3.5], wing, 'trim'),   // (the lower wing, or the only one: on top with high)
+    P([-L * .98, -S * .38, fz1 - 2, -L * .72, S * .38, fz1 - .5], wing, 'trim'), P([-L, -1, fz1 - 1, -L * .78, 1, fz1 + height * .45], paint, 'trim'),   // (the tailplane, the fin)
+    P([L * .85, -fw * 1.4, fz0 - 1, L * .88, fw * 1.4, fz1 + 1], '#4a4a52', 'trim'),   // (the propeller: its blur, a disc at the nose)
+    P([L * .86, -1, fz0 + 2, L * .9, 1, fz0 + 4], HEAD, 'light'), P([-L * .82, -1, fz1 + height * .3, -L * .78, 1, fz1 + height * .36], '#ff3a2a', 'tail')];
+  if (biplane) parts.push(P([L * .1, -S * .92, fz1 + 3, L * .45, S * .92, fz1 + 4.5], wing, 'trim'), P([L * .2, -S * .6, fz0 + 3.5, L * .25, -S * .6 + 1, fz1 + 3], DARK, 'trim'), P([L * .2, S * .6 - 1, fz0 + 3.5, L * .25, S * .6, fz1 + 3], DARK, 'trim'));
+  if (floats) parts.push(P([-L * .35, -S * .35 - 2, 0, L * .7, -S * .35 + 2, 3.5], '#e8e8ec', 'trim'), P([-L * .35, S * .35 - 2, 0, L * .7, S * .35 + 2, 3.5], '#e8e8ec', 'trim'));
+  else parts.push(P([L * .3, -fw - 3, 0, L * .4, -fw - 1, g], WHEEL, 'wheel'), P([L * .3, fw + 1, 0, L * .4, fw + 3, g], WHEEL, 'wheel'), P([-L * .82, -1, 0, -L * .76, 1, g * .6], WHEEL, 'wheel'));
+  return { parts, wheels: [], seats: [{ x: L * .2, y: 0 }, { x: -L * .1, y: 0 }], doors: [{ id: 'l', x: L * .1, y: -fw - 8, side: -1, seat: 0 }, { id: 'r', x: L * .1, y: fw + 8, side: 1, seat: 1 }],
+    lights: { head: [[L * .9, 0, fz0 + 3]], tail: [[-L * .8, 0, fz1 + height * .33]], siren: [] } };
 }
 /** a car of the L: a long box with a row of windows and its bogies */
 export function trainParts(o = {}) {

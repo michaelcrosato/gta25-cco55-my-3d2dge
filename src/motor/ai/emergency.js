@@ -16,6 +16,7 @@ import { RNG } from '../core/rng.js';
 import { BUS } from '../core/bus.js';
 import { makeIntent, clearIntent } from '../sim/intent.js';
 import { boardingFor, exitFor } from '../actors/boarding.js';
+import { aloft } from '../sim/vehicle/defs.js';
 
 knob('Services', 'reviveChance', 'Paramedics revive', .6, 0, 1, .05, 'The chance the Medic\'s crew brings a dead non-story ped back');
 knob('Services', 'medicAfter', 'Medic called after', 6, 0, 60, 1, 'Seconds after a death before the Medic is sent');
@@ -174,7 +175,7 @@ export class Emergency {
   _detour(p, to) {
     const boxes = [];
     for (const v of this.fleet.near(p.x, p.y, 110)) {
-      if (!v.body || v.cls === 'heli' || Math.abs(v.z - p.z) > 12) continue;
+      if (!v.body || aloft(v) || Math.abs(v.z - p.z) > 12) continue;
       const c = Math.cos(v.heading), s = Math.sin(v.heading);
       boxes.push({ v, c, s, L: v.hl + 9, W: v.hw + 9, loc: q => [(q[0] - v.x) * c + (q[1] - v.y) * s, -(q[0] - v.x) * s + (q[1] - v.y) * c] });
     }

@@ -27,7 +27,7 @@
 // views the director's.
 import { E, def, get, all, expose, BUS, RNG, TUNE, knob, FloorChunks, WorldClock, Weather, Drawbridge, Transit, Crossings, Arcade, skyAt, indoorSky, InteriorRun, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
-  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, standable, boxDistance, stationLabel, modelOf, SpeedZoom, CityLife, AutoPlayer, roadsOf,
+  Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, standable, boxDistance, stationLabel, modelOf, SpeedZoom, CityLife, AutoPlayer, roadsOf, flyer, aloft,
   Radar, drawWanted, hudLayout, drawSubtitle, setting, toggled, flashScale, resetActorIds, DIFFICULTY, Onboarding, Radio, AudioDirector, SfxMap, Rumble, PhotoMode, Overlays, devScreen, WEATHERS } from '../../motor/index.js';
 import { VIGNETTE_PROPS } from '../characters/vignette-props.js';
 import { Career } from './career.js';
@@ -240,7 +240,7 @@ export const PLAY = {
     // (the career's snapshot, its district the new one), the view, the stars, and what they drive (its definition,
     // paint, mods, damage, radio and speed), set down at the far end of the same bridge. A job holds the bridge
     function crossAt(p, v) {
-      if (leaving || !crossings || demo) return;
+      if (leaving || !crossings || demo || (v && aloft(v))) return;   // (on the bridge: a helicopter or a plane in the air crosses nothing, and turns at the world's edge)
       const c = crossings.at(v ? v.x : p.x, v ? v.y : p.y); if (!c) return;
       if (career.R.active) { if (!toast) toast = { text: REFUSED.mission, t: 2 }; return; }
       leaving = { crossing: c.id, to: c.to };
@@ -471,7 +471,7 @@ export const PLAY = {
         if (!inside) {   // (indoors the city stands still: its clock, its weather, its bridges)
           const h0 = clock.hour; clock.update(dt); const hours = ((clock.hour - h0) + 24) % 24;
           weather.update(dt, hours);
-          for (const b of bridges) b.update(dt, hours, br => crew.order.some(id => br.contains(crew.member(id).ped.x, crew.member(id).ped.y)) || fleet.vehicles.some(v => v.cls !== 'boat' && v.cls !== 'heli' && br.contains(v.x, v.y)) || combat.bodies.some(q => br.contains(q.x, q.y)));   // (it waits while anyone, or any vehicle, is on it)
+          for (const b of bridges) b.update(dt, hours, br => crew.order.some(id => br.contains(crew.member(id).ped.x, crew.member(id).ped.y)) || fleet.vehicles.some(v => v.cls !== 'boat' && !aloft(v) && br.contains(v.x, v.y)) || combat.bodies.some(q => br.contains(q.x, q.y)));   // (it waits while anyone, or any vehicle, is on it)
         }
         // the switch camera: TOP, held where the crew says, until control passes
         const wasSwitching = crew.switching, cam = crew.update(dt);
@@ -518,7 +518,7 @@ export const PLAY = {
           else if (stairs) { const to = stairs.to, st = stairs; through(() => { p.place(to[0], to[1], to[2]); game.cam.snap = true; BUS.emit('stairs', { station: st.station.name, up: st.up }); }); I = clearIntent(I); }
           else if (lcar) { rails.board(p, lcar.train, lcar.car); BUS.emit('boardL', { station: lcar.train.station }); I = clearIntent(I); }
           else if (career.prompt && !seated) { career.prompt.act(); I = clearIntent(I); }   // (a shop's door, a property, the safehouse)
-          else if (seated && seated.cls === 'heli' && !seated.body.landed) toast = { text: 'SET DOWN FIRST', t: 1.5 };   // (a helicopter is left on the ground: L1 / Shift lets it down)
+          else if (seated && flyer(seated) && !seated.body.landed) toast = { text: 'SET DOWN FIRST', t: 1.5 };   // (a helicopter is left on the ground: L1 / Shift lets it down)
           else if (seated) p.leave(exitFor(p, seated, (x, y) => standable(city, x, y, seated.z) && !fleet.near(x, y, 2).some(o => o !== seated && boxDistance(o, x, y) < 4)));   // (on the car's own level: a car on the deck lets out on the deck)
           else if (!inside) { const plan = boardTarget(p); if (plan) p.board(plan); }
         }
@@ -600,7 +600,7 @@ export const PLAY = {
             stage.actor(x, y, 0, (g, sx, sy, v) => c.rig.draw(g, sx, sy, v), { shadow: 4, crowd: true, key: c.rig, pose: dt => c.rig.update(dt, { x, y, z: 0, vx, vy: 0, vz: 0, facing: vx >= 0 ? 0 : Math.PI, air: false }) });
           }
           // the cars only top up the real ones round the focus to the gate's 20 (M4's fleet is real; M5 brings the traffic)
-          const real = fleet.near(p.x, p.y, 240).filter(v => v.cls !== 'heli').length;
+          const real = fleet.near(p.x, p.y, 240).filter(v => !aloft(v)).length;
           for (const c of crowd.cars.slice(real)) { const x = p.x + c.ox, y = p.y + c.oy; stage.shape(x, y, 0, (g, P) => drawBoxModel(g, P, c.model, x, y, 0, c.h, { lit: true }), { kept: { key: c, r: 34, h: 24 }, kind: 'car', reach: [34, 0, 32] }); }   // (drawn as the cars they stand in for are: hidden by MODE 7's walls, faded into its haze)
         }
         // the crew where they stand (the possessed one seen through walls), a vignette's prop beside its protagonist

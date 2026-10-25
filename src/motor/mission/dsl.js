@@ -10,7 +10,7 @@ import { shape } from '../core/schema.js';
 
 /** the bot hints an objective can carry, and the fields each needs ([x, y] points; tags name mission actors) */
 export const HINTS = {
-  goto: ['at'],                // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); inVehicle (in one, never left); interact (△ there); hover (a helicopter held over it, not landed);
+  goto: ['at'],                // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); inVehicle (in one, never left); interact (△ there); hover (a helicopter held over it, not landed); land (a plane set down on the strip that ends there: its heading, radians);
                                // spray: [x, y] (within reach, aimed there, the fire button held: a fire hose's, a gun's); reach
   enterVehicle: ['vehicle'],   // vehicle: a tag
   kill: ['targets'],           // targets: a tag; vehicle (a tag: rammed from that vehicle, never left for the job on foot)

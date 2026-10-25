@@ -1701,3 +1701,33 @@ and where it landed.
     the road graph); two events no longer pick a spot on the cell past a lane's end in the sea.
   - **PLAN.md 15.9's** "the District 2 stub loads" is now "Ironside loads": it is District 2.
 - **Answered:** no. **Landed in:** X1.
+
+## D39 · 2026-10-26 · X2: planes
+- **Principle:** EXPANSION.md X2 (the plane class, the Duster and the Gull, the AutoPlayer flying them) and section 6's
+  controls (a plane on the helicopter's buttons); GOAL.md's rules (a deterministic, view-independent simulation).
+- **Calls:**
+  - **A plane is a class of its own** (`sim/vehicle/plane.js`, `class: 'plane'`): on its gear it rolls as a slow car
+    (the throttle, the brake, a taxi's steering, never backwards) and past its rotation speed R1 lifts it off; in the
+    air the stick banks it and the bank turns it (the tighter the slower), the throttle sets its speed, a climb costs
+    speed and a dive gives it, and R1 / L1 climb and descend with the height held between (as the helicopter has it,
+    for the 10-foot pad). Under its stall speed its wings let go until it is 15% past it again: its nose drops and it
+    falls. It sets down level, slow and gently on what it can land on (a landplane the ground, a seaplane the water);
+    anything else, a wall flown into among it, is a crash, and a landplane on the water goes under.
+  - **It meets things with its fuselage** (the handling's width, 14 for the Duster): its wings pass over a lamp or a
+    car, and its doors are reachable (a wingspan's box had put them inside it, and the bot could never board).
+  - **It never leaves its district:** within 240 of the world's edge, flying out, it banks round hard toward the middle
+    whatever the stick says; an aircraft in the air crosses no bridge (a crossing is for what is on the bridge).
+  - **The bot flies it** (`AutoPlayer._plane`): off the ground along the run it faces if clear for its roll, else the
+    clearest of the compass's eight nearest the goal's way, turned onto it at a taxi; in the air at a cruising height
+    clear of what stands below and ahead, banked toward the goal; a `goto` hint's `land` (the strip's heading) brings
+    it down: an approach point 700 back along the strip at 150 (swung wide to come round onto the line), the glide in
+    lined up and slow to touch down 300 short of the strip's end, and stopped; off the line, too fast near the ground or
+    not down 60 short of the end, round again, and never a stall.
+  - **The Duster** stands on Ironside Airstrip's apron (a fleet `pads` entry, kept as the SkyCam is); the runway is a
+    lot that gets no clutter (laid as a yard, it had been strewn with the builder's crates, which held the plane on its
+    stand). **The Gull** is built and flown on the open sea (its moorings come with Glass Heights, X5).
+  - **The checks:** the handling suite's plane checks (its takeoff, its climb, its top speed, its height held, a banked
+    turn, a stall, a gentle landing); the planes' sim test; the gym's `plane` fixture (the Duster off the strip, over
+    Union Hall and down again) on seeds 1-3 and through a pad. A helicopter still counts as aloft wherever it stands,
+    as the slice has it, so Lowtown plays as before.
+- **Answered:** no. **Landed in:** X2.

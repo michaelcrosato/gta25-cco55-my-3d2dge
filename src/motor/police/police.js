@@ -33,6 +33,7 @@ import { signalAt } from '../nav/signals.js';
 import { Wanted } from './wanted.js';
 import { PursuitDriver } from './pursuit.js';
 import { CopBrain, doorOf } from './cop.js';
+import { aloft } from '../sim/vehicle/defs.js';
 
 declare('policeTiers', shape({
   cruisers: { type: 'number', def: 1, min: 0 }, swat: { type: 'number', def: 0, min: 0 }, feds: { type: 'number', def: 0, min: 0 },
@@ -376,7 +377,7 @@ export class Police {
     this.spikes = this.spikes.filter(s => !s.gone);
     // a tyre over a strip goes flat
     for (const s of this.spikes) for (const v of this.fleet.near(s.x, s.y, s.half + 40)) {
-      if (!v.body || v.cls === 'heli' || v.cls === 'boat' || v.owner === 'police' || s.hit.has(v) || Math.abs(v.z - s.z) > 6) continue;   // (the police know where their strips are)
+      if (!v.body || aloft(v) || v.cls === 'boat' || v.owner === 'police' || s.hit.has(v) || Math.abs(v.z - s.z) > 6) continue;   // (the police know where their strips are)
       if (segBox(v, s.a, s.b)) { s.hit.add(v); if (v.flatten()) BUS.emit('spiked', { vehicle: v.id }); }
     }
   }

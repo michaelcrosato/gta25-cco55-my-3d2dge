@@ -249,7 +249,7 @@ export class Gangs {
   _pickCar(p, hood, rng) {
     for (const g of all('gangs')) {
       if (!g.turf.includes(hood) || rng.next() >= TUNE.gangCars) continue;
-      const defs = g.vehicles.filter(id => { const d = get('vehicles', id); return d && classOf(d) !== 'boat' && classOf(d) !== 'heli' && classOf(d) !== 'rail'; }); if (!defs.length) return null;
+      const defs = g.vehicles.filter(id => { const d = get('vehicles', id); return d && classOf(d) !== 'boat' && classOf(d) !== 'heli' && classOf(d) !== 'plane' && classOf(d) !== 'rail'; }); if (!defs.length) return null;
       const keep = this._turfKeep(g); if (keep(p.lane) < 1) return null;   // (one put down heading out of the turf: an ordinary car)
       return { def: defs[Math.floor(rng.next() * defs.length)], arch: g.peds.grunt, gang: g.id, color: g.colors[0], keep };
     }

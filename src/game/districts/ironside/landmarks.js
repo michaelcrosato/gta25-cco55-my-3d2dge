@@ -43,5 +43,6 @@ L('power-station', 'Ironside Power Station', [{ rect: [98, 12, 111, 24], kind: '
     { kind: 'tank', at: [101.5, 21.5], z: 120, roof: true }, { kind: 'tank', at: [107.5, 21.5], z: 120, roof: true }]);
 L('substation', 'Substation 9', [{ rect: [71, 35, 87, 49], kind: 'yard', surface: 'yard' }, { rect: [74, 37, 84, 45], kind: 'building', storeys: 2, look: metal('#8a8c86', '#4a4c48', { windows: { lit: .3 } }), sign: { text: 'SUBSTATION 9', color: '#ffd23a' } }],
   [{ id: 'substation', kind: 'landmark', at: [79, 50], label: 'Substation 9' }]);
-L('airstrip', 'Ironside Airstrip', [{ rect: [71, 85, 112, 95], kind: 'yard', surface: 'road' }, { rect: [104, 86, 111, 91], kind: 'building', storeys: 2, look: metal('#7a8a8a', '#4a5458', { windows: { lit: .25 } }), sign: { text: 'AIRSTRIP', color: '#7af0ff' } }],
+// (the runway a lot of its own kind, 'construction', paved: a yard's would be strewn with crates, a plaza's lit on a grid)
+L('airstrip', 'Ironside Airstrip', [{ rect: [71, 85, 112, 95], kind: 'construction', surface: 'road' }, { rect: [104, 86, 111, 91], kind: 'building', storeys: 2, look: metal('#7a8a8a', '#4a5458', { windows: { lit: .25 } }), sign: { text: 'AIRSTRIP', color: '#7af0ff' } }],
   [{ id: 'airstrip', kind: 'landmark', at: [90, 97], label: 'Ironside Airstrip' }]);

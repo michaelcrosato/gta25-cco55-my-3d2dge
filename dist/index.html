@@ -11962,6 +11962,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     PALETTE: () => PALETTE,
     PART_ROLES: () => ROLES,
     PICKUP_KINDS: () => PICKUP_KINDS,
+    PLANE_HANDLING: () => PLANE_HANDLING,
     PROJECTILES: () => PROJECTILES,
     PROMPTS: () => PROMPTS,
     PROP_MODELS: () => PROP_MODELS,
@@ -11972,6 +11973,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     Pen: () => Pen,
     PhotoMode: () => PhotoMode,
     Pickups: () => Pickups,
+    PlaneBody: () => PlaneBody,
     Police: () => Police,
     PursuitDriver: () => PursuitDriver,
     REBIND: () => REBIND,
@@ -12035,6 +12037,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     ZONES: () => ZONES,
     actionLabel: () => actionLabel,
     all: () => all,
+    aloft: () => aloft,
     amberLeft: () => amberLeft,
     amountOf: () => amountOf,
     assist: () => assist,
@@ -12102,6 +12105,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     expose: () => expose,
     flashScale: () => flashScale,
     flickLock: () => flickLock,
+    flyer: () => flyer,
     footWidth: () => footWidth,
     get: () => get,
     glyphSet: () => glyphSet,
@@ -12152,6 +12156,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     pickLock: () => pickLock,
     pickPed: () => pickPed,
     pickable: () => pickable,
+    planeParts: () => planeParts,
     pointOf: () => pointOf,
     promptWidth: () => promptWidth,
     readLinks: () => readLinks,
@@ -16163,7 +16168,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
 
   // src/motor/sim/vehicle/model.js
-  var CLASSES = ["car", "truck", "tow", "bike", "boat", "heli", "rail"];
+  var CLASSES = ["car", "truck", "tow", "bike", "boat", "heli", "rail", "plane"];
   var ROLES = ["body", "cabin", "glass", "wheel", "light", "tail", "siren", "bumper", "trim", "rotor"];
   declare("vehicleModels", shape({
     name: { type: "string", req: true },
@@ -16223,7 +16228,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     for (const s of m.seats) if (Math.abs(s.x) > L23 || Math.abs(s.y) > W26) out.push("a seat outside the body " + JSON.stringify(s));
     for (const s of m.seats) if (s.z !== void 0 && !(s.z >= 0 && s.z <= m.height)) out.push("a seat's rider height outside the body " + JSON.stringify(s));
     for (const d of m.doors) if (!(d.seat >= 0 && d.seat < Math.max(1, m.seats.length))) out.push("door " + d.id + " names no seat");
-    if (m.class !== "heli" && m.class !== "rail" && m.class !== "boat" && !m.wheels.length) out.push("no wheels");
+    if (m.class !== "heli" && m.class !== "plane" && m.class !== "rail" && m.class !== "boat" && !m.wheels.length) out.push("no wheels");
     return out;
   }
   var P = (box2, color, role = "body") => ({ box: box2, color, role });
@@ -16382,6 +16387,36 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       P([-L23 * 0.2, -1, height * 0.8, -L23 * 0.1, 1, height * 0.84], "#ff3a2a", "tail")
     ];
     return { parts: parts3, wheels: [], seats: [{ x: L23 * 0.35, y: -4 }, { x: L23 * 0.35, y: 4 }], doors: [], lights: { head: [[L23 * 0.55, 0, 5]], tail: [], siren: [[0, 0, height]] } };
+  }
+  function planeParts(o = {}) {
+    const { length = 44, width = 56, height = 16, biplane = false, floats = false, high = false } = o, L23 = length / 2, S10 = width / 2, paint2 = o.color || "#e8c040", wing = o.wing || paint2;
+    const g = floats ? 7 : 5, fz0 = g, fz1 = g + height * 0.55, fw = Math.max(3, length * 0.09);
+    const parts3 = [
+      P([-L23 * 0.75, -fw * 0.7, fz0 + 1, L23 * 0.55, fw * 0.7, fz1], paint2),
+      P([L23 * 0.55, -fw, fz0, L23 * 0.85, fw, fz1 - 1], paint2),
+      // (the body, the cowling)
+      P([L23 * 0.05, -fw * 0.75, fz1 - 0.5, L23 * 0.35, fw * 0.75, fz1 + height * 0.2], GLASS, "glass"),
+      // (the cockpit)
+      high ? P([L23 * 0.05, -S10, fz1, L23 * 0.4, S10, fz1 + 1.5], wing, "trim") : P([L23 * 0.05, -S10, fz0 + 2, L23 * 0.4, S10, fz0 + 3.5], wing, "trim"),
+      // (the lower wing, or the only one: on top with high)
+      P([-L23 * 0.98, -S10 * 0.38, fz1 - 2, -L23 * 0.72, S10 * 0.38, fz1 - 0.5], wing, "trim"),
+      P([-L23, -1, fz1 - 1, -L23 * 0.78, 1, fz1 + height * 0.45], paint2, "trim"),
+      // (the tailplane, the fin)
+      P([L23 * 0.85, -fw * 1.4, fz0 - 1, L23 * 0.88, fw * 1.4, fz1 + 1], "#4a4a52", "trim"),
+      // (the propeller: its blur, a disc at the nose)
+      P([L23 * 0.86, -1, fz0 + 2, L23 * 0.9, 1, fz0 + 4], HEAD, "light"),
+      P([-L23 * 0.82, -1, fz1 + height * 0.3, -L23 * 0.78, 1, fz1 + height * 0.36], "#ff3a2a", "tail")
+    ];
+    if (biplane) parts3.push(P([L23 * 0.1, -S10 * 0.92, fz1 + 3, L23 * 0.45, S10 * 0.92, fz1 + 4.5], wing, "trim"), P([L23 * 0.2, -S10 * 0.6, fz0 + 3.5, L23 * 0.25, -S10 * 0.6 + 1, fz1 + 3], DARK, "trim"), P([L23 * 0.2, S10 * 0.6 - 1, fz0 + 3.5, L23 * 0.25, S10 * 0.6, fz1 + 3], DARK, "trim"));
+    if (floats) parts3.push(P([-L23 * 0.35, -S10 * 0.35 - 2, 0, L23 * 0.7, -S10 * 0.35 + 2, 3.5], "#e8e8ec", "trim"), P([-L23 * 0.35, S10 * 0.35 - 2, 0, L23 * 0.7, S10 * 0.35 + 2, 3.5], "#e8e8ec", "trim"));
+    else parts3.push(P([L23 * 0.3, -fw - 3, 0, L23 * 0.4, -fw - 1, g], WHEEL, "wheel"), P([L23 * 0.3, fw + 1, 0, L23 * 0.4, fw + 3, g], WHEEL, "wheel"), P([-L23 * 0.82, -1, 0, -L23 * 0.76, 1, g * 0.6], WHEEL, "wheel"));
+    return {
+      parts: parts3,
+      wheels: [],
+      seats: [{ x: L23 * 0.2, y: 0 }, { x: -L23 * 0.1, y: 0 }],
+      doors: [{ id: "l", x: L23 * 0.1, y: -fw - 8, side: -1, seat: 0 }, { id: "r", x: L23 * 0.1, y: fw + 8, side: 1, seat: 1 }],
+      lights: { head: [[L23 * 0.9, 0, fz0 + 3]], tail: [[-L23 * 0.8, 0, fz1 + height * 0.33]], siren: [] }
+    };
   }
   function trainParts(o = {}) {
     const { length = 96, width = 24, height = 30 } = o, L23 = length / 2, W26 = width / 2, paint2 = o.color || "#9aa2aa";
@@ -16643,6 +16678,190 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
   };
 
+  // src/motor/sim/vehicle/plane.js
+  var PLANE_HANDLING = {
+    length: 44,
+    width: 56,
+    height: 16,
+    mass: 900,
+    top: 230,
+    accel: 70,
+    brake: 120,
+    stall: 70,
+    vr: 85,
+    climb: 70,
+    bankMax: 0.7,
+    rollRate: 1.6,
+    turnG: 360,
+    taxiTurn: 1.4,
+    taxiTop: 60,
+    landSpeed: 125,
+    landSink: 75,
+    ceiling: 320,
+    cruiseZ: 200,
+    water: false
+  };
+  var EDGE = 240;
+  var PlaneBody = class extends VehicleBody {
+    constructor(spec = {}, x = 0, y = 0, heading = 0) {
+      super(Object.assign({}, PLANE_HANDLING, spec), x, y, heading);
+      this.landed = true;
+      this.airborne = false;
+      this.bank = 0;
+      this.pitch = 0;
+      this.stalled = false;
+      this.prop = 0;
+      this.rpm = 0;
+      this.tiltF = 0;
+      this.tiltS = 0;
+    }
+    get vx() {
+      return this.u * Math.cos(this.heading);
+    }
+    get vy() {
+      return this.u * Math.sin(this.heading);
+    }
+    get speed() {
+      return Math.abs(this.u);
+    }
+    setVelocity(vx, vy) {
+      this.u = vx * Math.cos(this.heading) + vy * Math.sin(this.heading);
+      this.v = 0;
+    }
+    /** what it would stand on at (x, y): a roof, a deck, the street; over water, 0 for a seaplane and null for the rest */
+    ground(world2, x = this.x, y = this.y) {
+      let g = 0;
+      if (world2.map) g = Math.max(g, world2.map.heightAt(x, y) || 0);
+      if (world2.ground) g = Math.max(g, world2.ground(x, y, this.z + 8) || 0);
+      if (g < 1 && world2.water && world2.water(Math.floor(x / 16), Math.floor(y / 16))) return this.h.water ? 0 : null;
+      return g;
+    }
+    /** is it on the water (a seaplane afloat, or a landplane gone in)? */
+    wet(world2) {
+      return !!world2.water && this.z < 2 && world2.water(Math.floor(this.x / 16), Math.floor(this.y / 16));
+    }
+    step(dt, ctl = {}, world2 = {}) {
+      const pilot = !!ctl.pilot;
+      this.felt.hit = 0;
+      this.felt.land = 0;
+      if (this.falling) {
+        const g = this.ground(world2) ?? 0;
+        if (this.z > g) {
+          this.vz -= 500 * dt;
+          this.z = Math.max(g, this.z + this.vz * dt);
+          this.x += this.vx * dt;
+          this.y += this.vy * dt;
+          this.u *= 0.98;
+          if (this.z <= g) {
+            this.felt.land = -this.vz;
+            this.landed = true;
+            this.airborne = false;
+          }
+        } else {
+          this.vz = 0;
+          this.u = 0;
+        }
+        return;
+      }
+      const thr = pilot ? E.clamp(ctl.throttle || 0, 0, 1) : 0, brk = pilot ? E.clamp(ctl.brake || 0, 0, 1) : 1, steer = pilot ? E.clamp(ctl.steer || 0, -1, 1) : 0, climb = pilot ? E.clamp(ctl.climb || 0, -1, 1) : 0;
+      this.rpm += ((pilot ? 0.3 + 0.7 * thr : 0) - this.rpm) * Math.min(1, 2 * dt);
+      this.prop += dt * 40 * this.rpm;
+      if (this.landed) this._roll(dt, thr, brk, steer, climb, world2);
+      else this._fly(dt, thr, brk, steer, climb, world2);
+      this.ctl.throttle = thr;
+      this.ctl.brake = brk;
+      this.ctl.steer = steer;
+      this.ctl.handbrake = false;
+    }
+    // on its gear: pulled by the throttle, held by the brake and the ground's drag, its nose steered at a taxi (less as it
+    // gathers speed); never backwards (a plane is pushed back, not driven). Past vr the climb lifts it off
+    _roll(dt, thr, brk, steer, climb, world2) {
+      const h = this.h, g = this.ground(world2), stuck = g !== null && h.water && !this.wet(world2);
+      let u = this.u + thr * h.accel * (stuck ? 0.1 : 1) * dt;
+      const drag = (brk * h.brake + 14 + 6e-4 * u * u) * (stuck ? 4 : 1) * dt;
+      u = u > 0 ? Math.max(0, u - drag) : 0;
+      this.w = steer * h.taxiTurn * E.clamp(u / 30, 0, 1) * (u > h.taxiTop ? h.taxiTop / u : 1);
+      this.heading += this.w * dt;
+      this.u = u;
+      this.v = 0;
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      this.z = g ?? 0;
+      this.vz = 0;
+      if (world2.map) this._collideMap(world2.map, world2);
+      this.bank *= 0.8;
+      this.tiltS = this.bank;
+      this.tiltF = 0;
+      this.pitch = 0;
+      if (this.u >= h.vr && climb > 0 && !stuck) {
+        this.landed = false;
+        this.airborne = true;
+        this.vz = h.climb * 0.5;
+      }
+    }
+    // in the air: banked by the stick, turned by the bank, the speed the throttle's less what a climb costs, the climb the
+    // shoulders' (held level between) while the wings bite; a stall drops the nose. What stands below ends the flight
+    _fly(dt, thr, brk, steer, climb, world2) {
+      const h = this.h, rr2 = h.rollRate * dt;
+      const M2 = world2.map, Wd = M2 ? M2.w * M2.T : 1e9, Hd = M2 ? M2.h * M2.T : 1e9, out = M2 && (this.x < EDGE && this.vx < 0 || this.x > Wd - EDGE && this.vx > 0 || this.y < EDGE && this.vy < 0 || this.y > Hd - EDGE && this.vy > 0);
+      if (out) {
+        const a = Math.atan2(Hd / 2 - this.y, Wd / 2 - this.x) - this.heading;
+        steer = Math.sign(Math.atan2(Math.sin(a), Math.cos(a))) || 1;
+      }
+      this.bank += E.clamp(steer * h.bankMax - this.bank, -rr2, rr2);
+      this.w = h.turnG * Math.tan(this.bank) / Math.max(this.u, h.stall);
+      this.heading += this.w * dt;
+      if (this.stalled ? this.u > h.stall * 1.15 : this.u < h.stall) this.stalled = !this.stalled;
+      this.u += ((h.top * (0.3 + 0.7 * thr) * (1 - 0.45 * brk) - this.u) * 0.6 - (this.stalled ? 0 : this.vz * 0.35)) * dt;
+      if (this.stalled) {
+        this.vz += (-220 - this.vz) * 2 * dt;
+        this.u += 25 * dt;
+        this.bank *= Math.max(0, 1 - dt);
+      } else {
+        const lift = E.clamp((this.u - h.stall) / (h.stall * 0.5), 0, 1);
+        this.vz += (climb * h.climb * lift - this.vz) * 4 * dt;
+      }
+      const nx = this.x + this.vx * dt, ny = this.y + this.vy * dt, nz = Math.min(h.ceiling, this.z + this.vz * dt), g = this.ground(world2, nx, ny);
+      if (g !== null && g > nz + 2 && g > this.z) {
+        this.felt.hit = this.u * h.mass * 0.6;
+        this.felt.hitX = nx;
+        this.felt.hitY = ny;
+        this.u *= 0.2;
+        this.vz = Math.min(this.vz, 0);
+        return;
+      }
+      this.x = M2 ? E.clamp(nx, 8, Wd - 8) : nx;
+      this.y = M2 ? E.clamp(ny, 8, Hd - 8) : ny;
+      this.z = nz;
+      this.v = 0;
+      this.pitch = Math.atan2(this.vz, Math.max(1, this.u));
+      this.tiltF = -this.pitch;
+      this.tiltS = this.bank;
+      const floor = g ?? (world2.water ? 0 : null);
+      if (floor !== null && this.z <= floor) {
+        const can = g !== null, gentle = -this.vz <= h.landSink && this.u <= h.landSpeed && Math.abs(this.bank) < 0.35;
+        this.z = floor;
+        this.landed = true;
+        this.airborne = false;
+        this.felt.land = -this.vz;
+        if (!can || !gentle) {
+          this.felt.hit = (this.u * 0.5 + Math.max(0, -this.vz - h.landSink) * 3) * h.mass * 0.5;
+          this.felt.hitX = this.x;
+          this.felt.hitY = this.y;
+          this.felt.land = Math.max(this.felt.land, 400);
+          this.u *= 0.3;
+        }
+        this.vz = 0;
+        this.bank = 0;
+        this.pitch = 0;
+        this.tiltF = 0;
+        this.tiltS = 0;
+      }
+    }
+    launch() {
+    }
+  };
+
   // src/motor/sim/vehicle/defs.js
   var ROLES2 = ["civilian", "police", "medic", "fire", "gang", "service", "special"];
   declare("vehicles", shape({
@@ -16685,12 +16904,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   function makeBody(id, x, y, heading = 0) {
     const d = vehicleDef(id), m = vehicleModel(d.model), cls = classOf(d);
     const spec = Object.assign({ length: m.length, width: m.width, height: m.height }, d.handling);
-    const B2 = cls === "boat" ? BoatBody : cls === "heli" ? HeliBody : VehicleBody;
+    const B2 = cls === "boat" ? BoatBody : cls === "heli" ? HeliBody : cls === "plane" ? PlaneBody : VehicleBody;
     const b = new B2(spec, x, y, heading);
     b.def = d;
     b.cls = cls;
     return b;
   }
+  var flyer = (v) => v.cls === "heli" || v.cls === "plane";
+  var aloft = (v) => v.cls === "heli" || v.cls === "plane" && !!v.body && !v.body.landed;
 
   // src/motor/sim/vehicle/rail.js
   knob("Vehicles", "trainTop", "L top speed", 210, 60, 400, 5, "The L's cruising speed between stations (u/s)");
@@ -17028,6 +17249,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const d = vehicleDef(id), cls = classOf(d), s = d.spec || {};
     if (cls === "boat") return boat(id, s);
     if (cls === "heli") return heli(id, s);
+    if (cls === "plane") return plane(id, s);
     if (cls === "rail") return rail(d, s);
     const to = s.t100 ? 100 : 200, from = s.brake100 ? 100 : 200;
     const m = { cls, to, from };
@@ -17147,6 +17369,63 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     m.climb = rate;
     return m;
   }
+  function plane(id, s) {
+    const m = { cls: "plane" }, sea = !!vehicleDef(id).handling.water, world2 = sea ? { water: () => true } : {};
+    const aloft2 = (z, u) => {
+      const b = makeBody(id, 0, 0, 0);
+      b.landed = false;
+      b.airborne = true;
+      b.z = z;
+      b.u = u;
+      return b;
+    };
+    {
+      const b = makeBody(id, 0, 0, 0);
+      let off2 = null;
+      run(b, 30, { pilot: true, throttle: 1, climb: 1 }, world2, (c, t) => {
+        if (off2 === null && !c.landed) off2 = { t, x: c.x };
+        return !off2 || t < off2.t + 4;
+      });
+      m.liftoff = off2;
+      m.climb = b.vz;
+    }
+    {
+      const b = aloft2(200, 150);
+      run(b, 40, { pilot: true, throttle: 1 }, world2);
+      m.top = b.u;
+      m.holdZ = b.z;
+    }
+    {
+      const b = aloft2(200, 150);
+      let yaw = 0;
+      run(b, 4, { pilot: true, throttle: 0.8, steer: 1 }, world2, (c) => {
+        yaw = Math.max(yaw, Math.abs(c.w));
+      });
+      m.yaw = yaw;
+    }
+    {
+      const b = aloft2(250, 120);
+      let stalled = false, drop2 = 0;
+      run(b, 12, { pilot: true, throttle: 0, climb: 1 }, world2, (c) => {
+        if (c.stalled) stalled = true;
+        drop2 = Math.min(drop2, c.vz);
+      });
+      m.stalls = stalled;
+      m.drop = drop2;
+    }
+    {
+      const b = aloft2(30, Math.min(100, b0(id).h.landSpeed * 0.8));
+      let hit = 0;
+      run(b, 10, { pilot: true, throttle: 0.25, climb: -0.5 }, world2, (c) => {
+        hit = Math.max(hit, c.felt.hit);
+        return !c.landed;
+      });
+      m.landed = b.landed;
+      m.landHit = hit;
+    }
+    return m;
+  }
+  var b0 = (id) => makeBody(id, 0, 0, 0);
   function rail(d, s) {
     const line = new RailLine({ points: [[0, 0], [3e3, 0], [3e3, 60], [0, 60]], z: 0, stations: [{ name: "A", at: [900, 0] }, { name: "B", at: [2100, 0] }] });
     const tr = new Train(line, { ...d.handling, top: s.top, dwell: s.dwell, s: 400 }), m = { cls: "rail", stops: [], vmax: 0 };
@@ -17181,6 +17460,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       ck("never past its top", m.vmax <= m.top * 1.02, m.vmax, "<= " + m.top);
       ck("flies near its top", s.top ? m.vmax >= s.top * 0.9 && Math.abs(m.top - s.top) <= s.top * 0.05 : true, m.vmax, ">= 90% of " + s.top);
       ck("climbs", s.climb ? m.climb >= s.climb * 0.9 : m.climb > 30, m.climb, ">= 90% of " + (s.climb || 30));
+      return out;
+    }
+    if (m.cls === "plane") {
+      ck("lifts off past its rotation speed", m.liftoff && m.liftoff.t < 10, m.liftoff ? m.liftoff.t : null, "< 10 s, R1 held");
+      ck("climbs", m.climb >= (s.climb || 40) * 0.8, m.climb, ">= 80% of " + (s.climb || 40));
+      ck("flies near its top", s.top && Math.abs(m.top - s.top) <= s.top * 0.05, m.top, s.top + " ±5%");
+      ck("holds its height level", Math.abs(m.holdZ - 200) < 10, m.holdZ, "200 ±10");
+      ck("banked, it turns", m.yaw > 0.4, m.yaw, "> 0.4 rad/s");
+      ck("stalls when slow", m.stalls && m.drop < -100, m.drop, "stalled, falling > 100 u/s");
+      ck("sets down gently", m.landed && m.landHit === 0, m.landHit, "landed, no hit");
       return out;
     }
     if (m.cls === "rail") {
@@ -18118,7 +18407,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   // src/motor/mission/dsl.js
   var HINTS = {
     goto: ["at"],
-    // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); inVehicle (in one, never left); interact (△ there); hover (a helicopter held over it, not landed);
+    // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); inVehicle (in one, never left); interact (△ there); hover (a helicopter held over it, not landed); land (a plane set down on the strip that ends there: its heading, radians);
     // spray: [x, y] (within reach, aimed there, the fire button held: a fire hose's, a gun's); reach
     enterVehicle: ["vehicle"],
     // vehicle: a tag
@@ -19207,7 +19496,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (o.kind === "explosion" && this.body && o.knock) {
         const dir = o.dir || [0, 0], m = o.knock * 0.45;
         this.body.setVelocity(this.body.vx + dir[0] * m, this.body.vy + dir[1] * m);
-        if (o.knock > 120 && this.cls !== "boat" && this.cls !== "heli") this.body.launch(o.knock * 0.5, (dir[0] * -Math.sin(this.heading) + dir[1] * Math.cos(this.heading)) * (o.knock > 200 ? 9 : 3));
+        if (o.knock > 120 && this.cls !== "boat" && !flyer(this)) this.body.launch(o.knock * 0.5, (dir[0] * -Math.sin(this.heading) + dir[1] * Math.cos(this.heading)) * (o.knock > 200 ? 9 : 3));
       }
       this.lastBy = o.by ?? this.lastBy;
       return { health: took, armor: 0, killed: false };
@@ -19219,7 +19508,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const D = this.damage, wreck = D.wrecked, live = !wreck && !this.sunk;
       let ctl;
       if (this.ai && live) ctl = this.ai(dt, this, w9) || {};
-      else if (I && live && this.driver && this.cls === "heli") {
+      else if (I && live && this.driver && flyer(this)) {
         ctl = { pilot: true, throttle: I.throttle, brake: I.brake, steer: I.steer, climb: (I.down.handbrake ? 1 : 0) - (I.down.nitro ? 1 : 0) };
         if (I.tap.radioNext || I.tap.radioPrev) this.radio = nextStation(this.radio, I.tap.radioNext ? 1 : -1);
       } else if (I && live && this.driver) {
@@ -19252,7 +19541,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (b.speed > 20) ctl = { ...ctl, steer: E.clamp((ctl.steer || 0) + Math.sin(this.flatT * 7) * 0.14 * this.flats, -1, 1) };
       }
       this.ctlNow = ctl;
-      if (this.cls !== "boat" && this.cls !== "heli" && w9.water && b.z < 4 && w9.water(Math.floor(b.x / 16), Math.floor(b.y / 16))) {
+      if (this.cls !== "boat" && this.cls !== "heli" && !(this.cls === "plane" && b.h.water) && w9.water && b.z < 4 && w9.water(Math.floor(b.x / 16), Math.floor(b.y / 16))) {
         this.sinking += dt;
         b.u *= Math.exp(-3 * dt);
         b.v *= Math.exp(-3 * dt);
@@ -19290,7 +19579,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     /** its tyres burst (a spike strip): a land vehicle with wheels only */
     flatten(k = 1) {
-      if (!this.body || this.cls === "heli" || this.cls === "boat" || this.cls === "rail") return false;
+      if (!this.body || flyer(this) || this.cls === "boat" || this.cls === "rail") return false;
       this.flats = Math.min(1, this.flats + k);
       this.asleep = false;
       return true;
@@ -19594,7 +19883,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
         v.update(dt, I, W26);
         if (I && v.driver && !v.wrecked) this._tools(dt, v, I);
-        if (v.cls === "heli" && v.wrecked) v.body.falling = true;
+        if (flyer(v) && v.wrecked) v.body.falling = true;
         const b = v.body;
         if (b && !v.driver && !v.ai && !v.towing && !v.towedBy && !v.damage.burning && !v.sinking && v.chainT < 0 && b.speed < 0.5 && Math.abs(b.w) < 0.01 && !b.airborne && !b.lifted && Object.values(v.doors).every((d) => d === 0)) {
           v._still = (v._still || 0) + dt;
@@ -19612,9 +19901,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       this._regrid();
       for (const a of this.vehicles) {
-        if (a.asleep || !a.body || a.cls === "heli" && !a.body.landed || a.kinematic) continue;
+        if (a.asleep || !a.body || flyer(a) && !a.body.landed || a.kinematic) continue;
         for (const b of this.around(a.x, a.y, a.hl + 8)) {
-          if (b === a || !b.body || b.cls === "heli" && !b.body.landed || !b.asleep && !b.kinematic && b._i < a._i) continue;
+          if (b === a || !b.body || flyer(b) && !b.body.landed || !b.asleep && !b.kinematic && b._i < a._i) continue;
           if (a.cls === "boat" !== (b.cls === "boat")) continue;
           if (a.towing && a.towing.car === b || b.towing && b.towing.car === a) continue;
           const imp = collideCars(a.body, b.body);
@@ -19735,7 +20024,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _peds(dt, peds) {
       let p = null, m = null;
       const meet = (v) => {
-        if (!v.body || v.cls === "heli" || v.cls === "boat" || v.sunk || p.boarding && p.boarding.v === v) return;
+        if (!v.body || aloft(v) || v.cls === "boat" || v.sunk || p.boarding && p.boarding.v === v) return;
         const b = v.body, reach = v.hl + 12;
         if (Math.abs(m.x - b.x) > reach || Math.abs(m.y - b.y) > reach || m.z > b.z + v.height || m.z + 30 < b.z) return;
         const hit = circleObb(v, m.x, m.y, p.r || 6);
@@ -20944,7 +21233,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     if (fleet) {
       const mx = (p.x + tgt.x) / 2, my = (p.y + tgt.y) / 2, r7 = Math.hypot(tgt.x - p.x, tgt.y - p.y) / 2 + 30, own = tgt.seat ? tgt.seat.vehicle : tgt.body ? tgt : null, mine = p.seat ? p.seat.vehicle : null;
-      for (const v of fleet.near(mx, my, r7)) if (v !== own && v !== mine && v.body && v.cls !== "heli" && v.z < (p.z || 0) + 18 && crosses(v, p, tgt)) return "car";
+      for (const v of fleet.near(mx, my, r7)) if (v !== own && v !== mine && v.body && !aloft(v) && v.z < (p.z || 0) + 18 && crosses(v, p, tgt)) return "car";
     }
     return true;
   }
@@ -21813,7 +22102,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       for (const o of w9.fleet.around(mid[0], mid[1], S10[S10.length - 1].d / 2 + 60)) {
         const R5 = o.hl + hw5 + 4;
         if (o.x < x0 - R5 || o.x > x1 + R5 || o.y < y0 - R5 || o.y > y1 + R5) continue;
-        if (o === v || !o.body || o.cls === "heli" || this.pass && o === this.pass.obstacle || o.towedBy === v || v.towedBy === o) continue;
+        if (o === v || !o.body || aloft(o) || this.pass && o === this.pass.obstacle || o.towedBy === v || v.towedBy === o) continue;
         if (o.asleep && this._laneClear(o)) continue;
         for (let qi = 0; qi < S10.length; qi++) {
           const q = S10[qi], far = Math.max(Math.abs(o.x - q.p[0]), Math.abs(o.y - q.p[1])) - R5;
@@ -21913,7 +22202,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (!w9.fleet) return false;
       const L23 = this.g.lanes[c.to], need = (L23.clearS || 0) + this.v.hl * 2 + 16, fx7 = L23.a[0] + L23.dir[0] * need / 2, fy = L23.a[1] + L23.dir[1] * need / 2;
       for (const o of w9.fleet.around(fx7, fy, need / 2 + 56)) {
-        if (o === this.v || !o.body || o.cls === "heli" || Math.abs(o.z - L23.a[2]) > 12) continue;
+        if (o === this.v || !o.body || aloft(o) || Math.abs(o.z - L23.a[2]) > 12) continue;
         if (!o.driver && !o.brain && !o.ai) continue;
         const dx = o.x - L23.a[0], dy = o.y - L23.a[1], along2 = dx * L23.dir[0] + dy * L23.dir[1], off2 = Math.abs(-dx * L23.dir[1] + dy * L23.dir[0]);
         if (along2 > -o.hl && along2 - o.hl < need && off2 < o.hw + 8 && o.speed < 30) return true;
@@ -22084,7 +22373,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           }
           if (!ok) break;
           for (const u of w9.fleet.around(px, py, v.hl + 40)) {
-            if (u === v || u === o || !u.body || u.cls === "heli" || Math.abs(u.z - a.p[2]) > 12) continue;
+            if (u === v || u === o || !u.body || aloft(u) || Math.abs(u.z - a.p[2]) > 12) continue;
             if (boxDistance(u, px, py) < v.hw + 4 + (u.speed > 5 ? 20 : 0)) {
               ok = false;
               break;
@@ -22129,7 +22418,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             break;
           }
           for (const u of w9.fleet.around(px, py, v.hl + 40)) {
-            if (u === v || !u.body || u.cls === "heli" || Math.abs(u.z - a.p[2]) > 12) continue;
+            if (u === v || !u.body || aloft(u) || Math.abs(u.z - a.p[2]) > 12) continue;
             if (boxDistance(u, px, py) < v.hw + 3) {
               ok = false;
               break;
@@ -22152,7 +22441,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (!a || !w9.fleet) return true;
       const c = Math.cos(v.heading), s = Math.sin(v.heading);
       for (const u of w9.fleet.around(v.x, v.y, v.hl + 90)) {
-        if (u === v || !u.body || u.cls === "heli" || u.speed < 3 || Math.abs(u.z - v.z) > 12) continue;
+        if (u === v || !u.body || aloft(u) || u.speed < 3 || Math.abs(u.z - v.z) > 12) continue;
         const al = (u.x - v.x) * c + (u.y - v.y) * s, lat = (u.x - a.p[0]) * -a.t[1] + (u.y - a.p[1]) * a.t[0];
         if (al > -(v.hl + 80) && al < v.hl + 12 && Math.abs(lat) < u.hw + v.hw + 2) return false;
       }
@@ -22186,7 +22475,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (W26.water && W26.water(cx5, cy)) return false;
       if (W26.ground && Math.abs(W26.ground(tx, ty, b.z + 6) - b.z) > 14) return false;
       for (const o of w9.fleet.around(x, y, v.hl + d)) {
-        if (o === v || !o.body || o.cls === "heli" || Math.abs(o.z - b.z) > 12) continue;
+        if (o === v || !o.body || aloft(o) || Math.abs(o.z - b.z) > 12) continue;
         for (let k = v.hl; k <= v.hl + d; k += 6) if (boxDistance(o, b.x - c * k, b.y - s * k) < v.hw + 2) return false;
       }
       return true;
@@ -23434,7 +23723,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
   };
   function boardingFor(ped, v, seat4 = 0) {
-    if (!v.body || v.wrecked || v.sunk || v.cls === "heli" && !v.body.landed || v.cls === "rail" || v.towedBy || !level(ped, v)) return null;
+    if (!v.body || v.wrecked || v.sunk || flyer(v) && !v.body.landed || v.cls === "rail" || v.towedBy || !level(ped, v)) return null;
     if (v.speed > TUNE.boardSpeed) return null;
     const doors2 = v.model.doors;
     if (!doors2.length) return null;
@@ -23459,7 +23748,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var level = (a, b, tol = 12) => Math.abs((a.z || 0) - (b.z || 0)) < tol;
   function exitFor(ped, v, ok = null) {
     const seat4 = v.seats.indexOf(ped);
-    if (seat4 < 0 || v.cls === "heli" && !v.body.landed) return null;
+    if (seat4 < 0 || flyer(v) && !v.body.landed) return null;
     const own = v.model.doors.filter((d) => d.seat === seat4), rest = v.model.doors.filter((d) => d.seat !== seat4);
     let door2 = null;
     for (const d of [...own, ...rest]) {
@@ -23470,7 +23759,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
     }
     if (!door2) {
-      if (v.cls === "boat" || v.cls === "heli") return null;
+      if (v.cls === "boat" || flyer(v)) return null;
       door2 = own[0] || v.model.doors[0] || { id: "x", x: 0, y: -v.hw - 6, side: -1, seat: seat4 };
     }
     const s = v.model.seats[Math.min(seat4, v.model.seats.length - 1)] || { x: 0, y: 0 }, at = W(v, door2.x, door2.y), kind = v.speed > TUNE.bailSpeed && v.cls !== "boat" ? "bailOut" : "exitCar";
@@ -29223,6 +29512,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (v.cls === "heli") {
         b.landed = true;
         b.wx = b.wy = 0;
+      } else if (v.cls === "plane") {
+        b.landed = true;
+        b.bank = 0;
       }
       v.abandonT = v.leftT = void 0;
       v.asleep = false;
@@ -29635,7 +29927,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (!e || !w9.fleet) return true;
       const A = this.S.nodes[e.a], B2 = this.S.nodes[e.b], mx = (A.x + B2.x) / 2, my = (A.y + B2.y) / 2;
       for (const v of w9.fleet.around(mx, my, e.len / 2 + 90)) {
-        if (!v.body || v.wrecked || v.cls === "heli") continue;
+        if (!v.body || v.wrecked || aloft(v)) continue;
         const dx = mx - v.x, dy = my - v.y, d = Math.hypot(dx, dy);
         let near3 = Infinity;
         if (d < v.hl + e.len / 2 + 50) for (const k of CROSS_K) near3 = Math.min(near3, boxDistance(v, A.x + (B2.x - A.x) * k, A.y + (B2.y - A.y) * k));
@@ -30911,7 +31203,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _detour(p, to) {
       const boxes = [];
       for (const v of this.fleet.near(p.x, p.y, 110)) {
-        if (!v.body || v.cls === "heli" || Math.abs(v.z - p.z) > 12) continue;
+        if (!v.body || aloft(v) || Math.abs(v.z - p.z) > 12) continue;
         const c = Math.cos(v.heading), s = Math.sin(v.heading);
         boxes.push({ v, c, s, L: v.hl + 9, W: v.hw + 9, loc: (q) => [(q[0] - v.x) * c + (q[1] - v.y) * s, -(q[0] - v.x) * s + (q[1] - v.y) * c] });
       }
@@ -31078,7 +31370,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var SHUN = 60;
   var occupied = (v) => v.seats.some((q) => q && !q.dead);
   var OFF_LIMITS = /* @__PURE__ */ new Set(["police", "medic", "fire", "service"]);
-  var pickable = (v) => !v.wrecked && !v.locked && v.cls !== "heli" && v.cls !== "boat" && v.cls !== "rail" && v.owner !== "service" && !OFF_LIMITS.has(v.def.role);
+  var pickable = (v) => !v.wrecked && !v.locked && !flyer(v) && v.cls !== "boat" && v.cls !== "rail" && v.owner !== "service" && !OFF_LIMITS.has(v.def.role);
   function segBox2(x0, y0, x1, y1, bx, by2, hx, hy) {
     let t0 = 0, t1 = 1;
     const dx = x1 - x0, dy = y1 - y0;
@@ -31140,7 +31432,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  goal that moved (what it learned on the way kept: the car it is taking, the cars it gave up on, the lanes it keeps
      *  off, how long it has been stuck) */
     goto(x, y, o = {}) {
-      this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || "player", radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null, hover: !!o.hover };
+      this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || "player", radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null, hover: !!o.hover, land: o.land ?? null };
       this.state = "idle";
       this.path = null;
       this._dropBrain();
@@ -31213,6 +31505,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return this._board(dt, p, true);
       }
       if (v && v.cls === "heli") return this._fly(dt, p, v, g, d);
+      if (v && v.cls === "plane") return this._plane(dt, p, v, g, d);
       if (v) return g.foot ? this._exit(v) : this._drive(dt, p, v, w9);
       if (d < Math.max(TUNE.autoArrive, g.radius ? g.radius * 0.6 : 0)) {
         this.state = "arrived";
@@ -31837,6 +32130,127 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       return I;
     }
+    // a plane (X2): off the ground along a clear run (turned at a taxi onto the longest clear one, toward the goal); in the
+    // air at a cruising height clear of what stands below and ahead, banked toward the goal; over it, there (held circling
+    // with stay). goal.land (the strip's heading, radians): down on the strip ending at the goal: a point 700 back along it
+    // at 150, then the glide in (lined up, slow, a gentle sink) to touch down 300 short of the goal, down and stopped;
+    // lined up wrong, too fast near the ground or not down 60 short of the goal, round again (a circuit: the approach
+    // point once more), never a stall
+    _plane(dt, p, v, g, d) {
+      const I = clearIntent(this.I), b = v.body, h = b.h, W26 = this.fleet.world;
+      this.state = "fly";
+      this._dropBrain();
+      const near3 = Math.max(TUNE.autoArrive * 2, g.radius || 0), ang = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+      const steerTo = (x, y, k = 2) => {
+        const a = ang(Math.atan2(y - v.y, x - v.x) - v.heading);
+        I.steer = Math.max(-1, Math.min(1, a * k));
+        return a;
+      };
+      const gnd = (x, y) => b.ground(W26, x, y);
+      if (b.landed) {
+        if (g.air) {
+          g.air = false;
+          if (g.land !== null && g.land !== void 0) g.down = true;
+        }
+        if (g.down) {
+          I.brake = 1;
+          if (v.speed < 4) {
+            g.down = false;
+            g.done = true;
+          }
+          return I;
+        }
+        if (g.done || d < near3 && v.speed < 8) {
+          if (g.foot || !g.stay) return this._exit(v);
+          this.state = "arrived";
+          return I;
+        }
+        const clear = (hd2, len) => {
+          for (let s2 = 24; s2 <= len; s2 += 16) {
+            const x = v.x + Math.cos(hd2) * s2, y = v.y + Math.sin(hd2) * s2, gr = gnd(x, y);
+            if (gr === null || gr > 3 || h.water && W26.water && !W26.water(Math.floor(x / 16), Math.floor(y / 16))) return s2;
+          }
+          return len;
+        };
+        const need = h.vr * h.vr / (2 * h.accel) * 1.6 + 40, toward2 = Math.atan2(g.y - v.y, g.x - v.x);
+        if (g.run === void 0) {
+          if (clear(v.heading, need) >= need) g.run = v.heading;
+          else {
+            let best = null;
+            for (const hd2 of [toward2, ...Array.from({ length: 8 }, (_, k) => k * Math.PI / 4)]) {
+              const len = clear(hd2, need);
+              if (len < need) continue;
+              const sc = -Math.abs(ang(hd2 - toward2));
+              if (!best || sc > best.sc) best = { hd: hd2, sc };
+            }
+            g.run = best ? best.hd : v.heading;
+          }
+        }
+        const da = ang(g.run - v.heading);
+        if (Math.abs(da) > 0.08) {
+          I.throttle = v.speed < 18 ? 0.5 : 0;
+          I.steer = Math.sign(da);
+          if (v.speed > 25) I.brake = 1;
+          return I;
+        }
+        I.throttle = 1;
+        I.steer = Math.max(-1, Math.min(1, da * 3));
+        if (b.u >= h.vr) I.down.handbrake = true;
+        return I;
+      }
+      g.air = true;
+      g.run = void 0;
+      const look3 = (s2, z) => {
+        const gr = gnd(v.x + Math.cos(v.heading) * s2, v.y + Math.sin(v.heading) * s2);
+        return gr !== null && gr + 30 > z;
+      };
+      const fly = (alt, thr = 0.85) => {
+        if (look3(120, v.z) || look3(260, v.z) || v.z < alt - 8) I.down.handbrake = true;
+        else if (v.z > alt + 15) I.down.nitro = true;
+        I.throttle = b.stalled || b.u < h.stall * 1.3 ? 1 : thr;
+      };
+      const cruise = Math.max(h.cruiseZ || 200, (gnd(g.x, g.y) ?? 0) + 70);
+      if (g.land === null || g.land === void 0) {
+        if (d < near3) {
+          this.state = "arrived";
+          if (g.stay) I.steer = 0.6;
+          else steerTo(g.x, g.y);
+        } else steerTo(g.x, g.y);
+        fly(cruise);
+        return I;
+      }
+      const hd = g.land, cx5 = Math.cos(hd), cy = Math.sin(hd), along2 = (v.x - g.x) * cx5 + (v.y - g.y) * cy, cross2 = -(v.x - g.x) * cy + (v.y - g.y) * cx5;
+      if (g.leg !== "final") {
+        const A = [g.x - cx5 * 700, g.y - cy * 700], dA = Math.hypot(v.x - A[0], v.y - A[1]), lined = Math.abs(ang(hd - v.heading)) < 0.5;
+        if (dA < 160 && lined && Math.abs(cross2) < 60) {
+          g.leg = "final";
+          return I;
+        }
+        if (dA < 200) g.wide = true;
+        else if (dA > 500) g.wide = false;
+        const C14 = this.city, X2 = C14.w * C14.T, Y3 = C14.h * C14.T, keep = (q) => [Math.max(280, Math.min(X2 - 280, q[0])), Math.max(280, Math.min(Y3 - 280, q[1]))];
+        const B2 = keep(g.wide ? [A[0] - cx5 * 300, A[1] - cy * 300] : A);
+        steerTo(B2[0], B2[1]);
+        fly(150, 0.6);
+        if (g.wide && Math.hypot(v.x - B2[0], v.y - B2[1]) < 120) g.wide = false;
+        return I;
+      }
+      const ha = ang(hd - v.heading), ground = gnd(v.x, v.y) ?? 0, gz = ground + Math.max(0, Math.min(150, (-300 - along2) / 400 * 150));
+      I.steer = Math.max(-1, Math.min(1, ha * 2.2 - cross2 * 0.012));
+      if (v.z > gz + 6) I.down.nitro = true;
+      else if (v.z < gz - 6) I.down.handbrake = true;
+      I.throttle = b.u > h.landSpeed * 0.8 ? 0 : b.u < h.stall * 1.3 ? 0.7 : 0.2;
+      if (b.u > h.landSpeed * 0.9) I.brake = 0.6;
+      if (b.stalled) {
+        I.throttle = 1;
+        I.down.nitro = false;
+      }
+      if (Math.abs(cross2) > 90 || Math.abs(ha) > 0.7 || along2 > -60 || v.z - ground < 25 && b.u > h.landSpeed * 0.97) {
+        g.leg = null;
+        g.rounds = (g.rounds || 0) + 1;
+      }
+      return I;
+    }
     _fwd(v) {
       const b = v.body;
       return b ? b.vx * Math.cos(b.heading) + b.vy * Math.sin(b.heading) > 0 : true;
@@ -32136,7 +32550,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (fp.d(a.p[0], a.p[1]) < TUNE.fpSpawnIn) return false;
         const e = b.path[a.j];
         if (!e || e.k !== "lane" || a.s < v.hl + 8 || a.s > e.len - v.hl - 8) continue;
-        if (w9.fleet.near(a.p[0], a.p[1], 90).some((o) => o !== v && o.body && o.cls !== "heli" && Math.abs(o.z - a.p[2]) < 12 && Math.hypot(o.x - a.p[0], o.y - a.p[1]) < o.hl + v.hl + 12)) continue;
+        if (w9.fleet.near(a.p[0], a.p[1], 90).some((o) => o !== v && o.body && !aloft(o) && Math.abs(o.z - a.p[2]) < 12 && Math.hypot(o.x - a.p[0], o.y - a.p[1]) < o.hl + v.hl + 12)) continue;
         b._release();
         b._advance(d, 0, 0);
         b._grow();
@@ -32859,7 +33273,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       for (const s of this.spikes) if ((standDown || behind3(s.x, s.y) || this.t - s.t > 120) && this.fp.d(s.x, s.y) > TUNE.fpFull + 120) s.gone = true;
       this.spikes = this.spikes.filter((s) => !s.gone);
       for (const s of this.spikes) for (const v of this.fleet.near(s.x, s.y, s.half + 40)) {
-        if (!v.body || v.cls === "heli" || v.cls === "boat" || v.owner === "police" || s.hit.has(v) || Math.abs(v.z - s.z) > 6) continue;
+        if (!v.body || aloft(v) || v.cls === "boat" || v.owner === "police" || s.hit.has(v) || Math.abs(v.z - s.z) > 6) continue;
         if (segBox3(v, s.a, s.b)) {
           s.hit.add(v);
           if (v.flatten()) BUS.emit("spiked", { vehicle: v.id });
@@ -33239,7 +33653,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (at) {
         if (at.station.name === h.to) return I;
         if (T21.trainAt(p)) return press();
-        const [a0, b0, a1, b1] = at.side.cells, Tc = T21.city.T, inner = at.side.side < 0 ? ((st) => st.axis === "y" ? (a1 + 1) * Tc - 6 : (b1 + 1) * Tc - 6)(at.station) : ((st) => st.axis === "y" ? a0 * Tc + 6 : b0 * Tc + 6)(at.station);
+        const [a0, b02, a1, b1] = at.side.cells, Tc = T21.city.T, inner = at.side.side < 0 ? ((st) => st.axis === "y" ? (a1 + 1) * Tc - 6 : (b1 + 1) * Tc - 6)(at.station) : ((st) => st.axis === "y" ? a0 * Tc + 6 : b02 * Tc + 6)(at.station);
         const goal = at.station.axis === "y" ? [inner, at.side.platform[1]] : [at.side.platform[0], inner], dx = goal[0] - p.x, dy = goal[1] - p.y, d = Math.hypot(dx, dy);
         if (d > 4) {
           I.move[0] = dx / d;
@@ -33447,7 +33861,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
         return I;
       }
-      return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat, hover: !!h.hover }, w9);
+      return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat, hover: !!h.hover, land: h.land ?? null }, w9);
     }
     _deliver(dt, p, R5, h, w9) {
       const what = R5.actors.tagged(h.what).find(alive2), v = p.seat && p.seat.vehicle;
@@ -34438,7 +34852,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (!g.turf.includes(hood2) || rng.next() >= TUNE.gangCars) continue;
         const defs = g.vehicles.filter((id) => {
           const d = get("vehicles", id);
-          return d && classOf(d) !== "boat" && classOf(d) !== "heli" && classOf(d) !== "rail";
+          return d && classOf(d) !== "boat" && classOf(d) !== "heli" && classOf(d) !== "plane" && classOf(d) !== "rail";
         });
         if (!defs.length) return null;
         const keep = this._turfKeep(g);
@@ -36360,8 +36774,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       for (const st of this.stations) {
         if (Math.abs((p.z || 0) - st.z) > 10) continue;
         for (const s of st.sides) {
-          const [a0, b0, a1, b1] = s.cells;
-          if (cx5 >= a0 && cx5 <= a1 && cy >= b0 && cy <= b1) return { station: st, side: s };
+          const [a0, b02, a1, b1] = s.cells;
+          if (cx5 >= a0 && cx5 <= a1 && cy >= b02 && cy <= b1) return { station: st, side: s };
         }
       }
       return null;
@@ -36426,7 +36840,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           best = s;
         }
       }
-      const T21 = this.city.T, [a0, b0, a1, b1] = best.cells, x = st.axis === "y" ? best.platform[0] : Math.min((a1 + 0.5) * T21, Math.max((a0 + 0.5) * T21, c.x)), y = st.axis === "y" ? Math.min((b1 + 0.5) * T21, Math.max((b0 + 0.5) * T21, c.y)) : best.platform[1];
+      const T21 = this.city.T, [a0, b02, a1, b1] = best.cells, x = st.axis === "y" ? best.platform[0] : Math.min((a1 + 0.5) * T21, Math.max((a0 + 0.5) * T21, c.x)), y = st.axis === "y" ? Math.min((b1 + 0.5) * T21, Math.max((b02 + 0.5) * T21, c.y)) : best.platform[1];
       p.onTrain = null;
       this.riders.delete(p);
       p.place(x, y, st.z);
@@ -37815,7 +38229,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       L23.wheelie += (pop - L23.wheelie) * (1 - Math.exp(-dt * (pop ? 4 : 7)));
       L23.roll = L23.lean;
       L23.pitch = -L23.wheelie;
-    } else if (v.cls === "heli") {
+    } else if (flyer(v)) {
       L23.roll = b.tiltS || 0;
       L23.pitch = b.tiltF || 0;
     } else if (v.cls === "boat") {
@@ -37863,13 +38277,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       dents: v.damage.dents,
       extra
     };
-    const plain = !v.damage.smoking && siren === void 0 && !b.airborne && v.cls !== "heli" && v.cls !== "boat" && !v.sinking, still = plain && b.speed < 0.5;
+    const plain = !v.damage.smoking && siren === void 0 && !b.airborne && !flyer(v) && v.cls !== "boat" && !v.sinking, still = plain && b.speed < 0.5;
     const d7 = stage.mode7, moving = plain && !still && (!stage.depth || d7) && v.cls !== "bike";
     const sig = still ? `${b.heading.toFixed(3)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}|${doorSig}|${v.color}|${b.steerAngle.toFixed(2)}` : moving ? `m${Math.round(b.heading / HEADING_STEP)}|${Math.round(look3.roll / 0.03)}|${Math.round(look3.pitch / 0.02)}|${Math.round(b.steerAngle / 0.1)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}${v.lights.reverse ? 1 : 0}|${doorSig}|${v.color}|${wreck ? 1 : 0}${d7 ? "|" + Math.round(Math.atan2(d7.lateral(b.x, b.y), d7.depth(b.x, b.y)) / HEADING_STEP) : ""}` : "";
     const draw = (g, P21) => drawBoxModel(g, P21, v.model, b.x, b.y, z, b.heading, opts);
     const reach = [v.hl + 6, z, z + v.height + 8];
     stage.shape(b.x, b.y, z, draw, still || moving ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig }, kind: "car", reach } : { kind: "car", reach });
-    if (v.cls === "heli") drawHeliExtras(stage, v, o);
+    if (v.cls === "heli" || v.cls === "plane" && !v.body.landed) drawHeliExtras(stage, v, o);
     if (o.night && !wreck) drawNightLights(stage, v, z);
     if (siren !== void 0) {
       for (const [lx, ly, lz] of v.model.lights.siren) {
@@ -40988,6 +41402,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       { def: "pumper", near: "power-station" },
       { def: "vandal", near: "substation" }
     ],
+    pads: [{ def: "duster", at: [101, 92], heading: "W" }],
+    // (the Duster on the airstrip's apron by the hangar, its nose down the runway)
     air: [{ def: "eye", alt: 150, patrol: [[64, 56], [92, 30], [32, 30], [32, 80], [92, 80]] }],
     traffic: { hoods: { foundry: 0.85, scrapyard: 0.7, voltage: 0.75 }, roles: ["civilian"], classes: ["car", "truck", "bike"] },
     crowd: {
@@ -41087,7 +41503,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   L7(
     "airstrip",
     "Ironside Airstrip",
-    [{ rect: [71, 85, 112, 95], kind: "yard", surface: "road" }, { rect: [104, 86, 111, 91], kind: "building", storeys: 2, look: metal("#7a8a8a", "#4a5458", { windows: { lit: 0.25 } }), sign: { text: "AIRSTRIP", color: "#7af0ff" } }],
+    [{ rect: [71, 85, 112, 95], kind: "construction", surface: "road" }, { rect: [104, 86, 111, 91], kind: "building", storeys: 2, look: metal("#7a8a8a", "#4a5458", { windows: { lit: 0.25 } }), sign: { text: "AIRSTRIP", color: "#7af0ff" } }],
     [{ id: "airstrip", kind: "landmark", at: [90, 97], label: "Ironside Airstrip" }]
   );
 
@@ -46031,13 +46447,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const { game: game2, views, human, links: links2, stage, bindings: B2 } = app2;
       let map, floor, city, combat, fleet, fx7, shown, sel, bench, trains, night3, sheet;
       function park2(defs) {
-        const out = [], land = defs.filter((d) => !["boat", "heli", "rail"].includes(classOf(d))).sort((a, b) => (classOf(a) === "truck" || classOf(a) === "tow") - (classOf(b) === "truck" || classOf(b) === "tow"));
+        const sea = (d) => classOf(d) === "boat" || classOf(d) === "plane" && !!(d.handling || {}).water;
+        const out = [], land = defs.filter((d) => !["boat", "heli", "rail"].includes(classOf(d)) && !sea(d)).sort((a, b) => (classOf(a) === "truck" || classOf(a) === "tow") - (classOf(b) === "truck" || classOf(b) === "tow"));
         const one = defs.length === 1;
         land.forEach((d, i) => {
           const c = i % 6, r7 = Math.floor(i / 6);
           out.push({ d, at: one ? map.center : [(4 + c * 6 + 3) * T13, (5 + r7 * 9 + 2.5) * T13 + (classOf(d) === "truck" || classOf(d) === "tow" ? 8 : 0)], heading: -Math.PI / 2 });
         });
-        defs.filter((d) => classOf(d) === "boat").forEach((d, i) => out.push({ d, at: [map.boatSpot[0] - i * 40, map.boatSpot[1]], heading: Math.PI }));
+        defs.filter(sea).forEach((d, i) => out.push({ d, at: [map.boatSpot[0] - i * 40, map.boatSpot[1]], heading: Math.PI }));
         defs.filter((d) => classOf(d) === "heli").forEach((d, i) => out.push({ d, at: one ? map.center : [map.heliPad[0] - i * 80, map.heliPad[1]], heading: -Math.PI / 2, z: 30 }));
         defs.filter((d) => classOf(d) === "rail").forEach((d) => out.push({ d, at: [(map.track[0][0] + map.track[1][0]) / 2, map.track[0][1]], heading: 0 }));
         return out;
@@ -47643,7 +48060,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         transit2 = { t: 0, go: go2, done: false };
       };
       function crossAt(p, v) {
-        if (leaving || !crossings || demo) return;
+        if (leaving || !crossings || demo || v && aloft(v)) return;
         const c = crossings.at(v ? v.x : p.x, v ? v.y : p.y);
         if (!c) return;
         if (career.R.active) {
@@ -48195,7 +48612,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             clock8.update(dt);
             const hours = (clock8.hour - h0 + 24) % 24;
             weather.update(dt, hours);
-            for (const b of bridges) b.update(dt, hours, (br) => crew.order.some((id) => br.contains(crew.member(id).ped.x, crew.member(id).ped.y)) || fleet.vehicles.some((v2) => v2.cls !== "boat" && v2.cls !== "heli" && br.contains(v2.x, v2.y)) || combat.bodies.some((q2) => br.contains(q2.x, q2.y)));
+            for (const b of bridges) b.update(dt, hours, (br) => crew.order.some((id) => br.contains(crew.member(id).ped.x, crew.member(id).ped.y)) || fleet.vehicles.some((v2) => v2.cls !== "boat" && !aloft(v2) && br.contains(v2.x, v2.y)) || combat.bodies.some((q2) => br.contains(q2.x, q2.y)));
           }
           const wasSwitching = crew.switching, cam = crew.update(dt);
           if (cam) {
@@ -48284,7 +48701,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             } else if (career.prompt && !seated) {
               career.prompt.act();
               I = clearIntent(I);
-            } else if (seated && seated.cls === "heli" && !seated.body.landed) toast = { text: "SET DOWN FIRST", t: 1.5 };
+            } else if (seated && flyer(seated) && !seated.body.landed) toast = { text: "SET DOWN FIRST", t: 1.5 };
             else if (seated) p.leave(exitFor(p, seated, (x, y) => standable(city, x, y, seated.z) && !fleet.near(x, y, 2).some((o) => o !== seated && boxDistance(o, x, y) < 4)));
             else if (!inside) {
               const plan2 = boardTarget(p);
@@ -48437,7 +48854,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
                 const x = p.x + c.ox + Math.sin(t * 0.4 + c.ph) * 40, y = p.y + c.oy, vx = Math.cos(t * 0.4 + c.ph) * 16;
                 stage.actor(x, y, 0, (g, sx, sy, v) => c.rig.draw(g, sx, sy, v), { shadow: 4, crowd: true, key: c.rig, pose: (dt) => c.rig.update(dt, { x, y, z: 0, vx, vy: 0, vz: 0, facing: vx >= 0 ? 0 : Math.PI, air: false }) });
               }
-              const real = fleet.near(p.x, p.y, 240).filter((v) => v.cls !== "heli").length;
+              const real = fleet.near(p.x, p.y, 240).filter((v) => !aloft(v)).length;
               for (const c of crowd.cars.slice(real)) {
                 const x = p.x + c.ox, y = p.y + c.oy;
                 stage.shape(x, y, 0, (g, P21) => drawBoxModel(g, P21, c.model, x, y, 0, c.h, { lit: true }), { kept: { key: c, r: 34, h: 24 }, kind: "car", reach: [34, 0, 32] });
@@ -50923,6 +51340,35 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     about: "The MPD patrol car: heavier than a Cortez and faster, with a bar on the nose for pushing you off the road."
   });
 
+  // src/game/vehicles/duster.js
+  var YELLOW = "#e8c040";
+  var RED4 = "#c8423a";
+  def("vehicleModels", "duster", {
+    name: "Duster",
+    class: "plane",
+    length: 44,
+    width: 56,
+    height: 16,
+    ...planeParts({ length: 44, width: 56, height: 16, biplane: true, color: YELLOW, wing: "#f0d860" }),
+    about: "A crop-dusting biplane: a yellow fuselage, two wings braced with struts, a tail wheel."
+  });
+  def("vehicles", "duster", {
+    name: "Duster",
+    model: "duster",
+    class: "plane",
+    role: "civilian",
+    seats: 2,
+    radio: "surf",
+    health: 120,
+    horn: "none",
+    palette: [YELLOW, RED4],
+    handling: { width: 14, mass: 900, top: 230, accel: 70, brake: 120, stall: 70, vr: 85, climb: 70, bankMax: 0.7, rollRate: 1.6, turnG: 360, taxiTurn: 1.4, taxiTop: 60, landSpeed: 125, landSink: 75, ceiling: 320, cruiseZ: 200 },
+    spec: { top: 230, stall: 70, vr: 85, climb: 70 },
+    price: 0,
+    tags: ["plane", "slow"],
+    about: "The crop duster on Ironside Airstrip's apron: the one plane a player flies off a runway."
+  });
+
   // src/game/vehicles/eye.js
   var L14 = 60;
   var W17 = 16;
@@ -51028,6 +51474,35 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     about: "The MPD Eye: AI only. It patrols over Lowtown, and at three stars it follows the chase with its searchlight."
   });
 
+  // src/game/vehicles/gull.js
+  var WHITE3 = "#eceef2";
+  var NAVY2 = "#1e2a5c";
+  def("vehicleModels", "gull", {
+    name: "Gull",
+    class: "plane",
+    length: 50,
+    width: 64,
+    height: 18,
+    ...planeParts({ length: 50, width: 64, height: 18, floats: true, high: true, color: WHITE3, wing: NAVY2 }),
+    about: "A high-winged seaplane on two floats: white, a navy wing."
+  });
+  def("vehicles", "gull", {
+    name: "Gull",
+    model: "gull",
+    class: "plane",
+    role: "special",
+    seats: 2,
+    radio: "velvet",
+    health: 140,
+    horn: "none",
+    palette: [WHITE3, NAVY2],
+    handling: { width: 16, mass: 1300, top: 260, accel: 62, brake: 80, stall: 80, vr: 95, climb: 65, bankMax: 0.6, rollRate: 1.3, turnG: 340, taxiTurn: 1.1, taxiTop: 50, landSpeed: 140, landSink: 70, ceiling: 320, cruiseZ: 200, water: true },
+    spec: { top: 260, stall: 80, vr: 95, climb: 65 },
+    price: 0,
+    tags: ["plane", "seaplane"],
+    about: "The Yacht Club's seaplane: off and onto the water only."
+  });
+
   // src/game/vehicles/hauler.js
   var L15 = 74;
   var W18 = 30;
@@ -51051,7 +51526,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var WHEEL2 = "#1a1a20";
   var GLASS6 = "#3a4a5a";
   var DARK4 = "#2a2a30";
-  var RED4 = "#cc2a2a";
+  var RED5 = "#cc2a2a";
   var BLUE = "#2a5ac8";
   var P13 = (box2, color, role = "body", paint2 = false) => paint2 ? { box: box2, color, role, paint: paint2 } : { box: box2, color, role };
   var both = (x0, y0, z05, x1, y1, z1, color, role, paint2) => [P13([x0, -y1, z05, x1, -y0, z1], color, role, paint2), P13([x0, y0, z05, x1, y1, z1], color, role, paint2)];
@@ -51119,17 +51594,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     kits: {
       // the Medic: a red cross on each side and on the roof, a red stripe along the box and round the back, light bars
       medic: { parts: [
-        ...both(-17.5, hw2, 20.2, -6.5, hw2 + 0.3, 23.8, RED4, "trim"),
-        ...both(-13.8, hw2, 16.5, -10.2, hw2 + 0.3, 27.5, RED4, "trim"),
-        ...both(-hl2 + 0.7, hw2, S0, XB - 0.7, hw2 + 0.3, S12, RED4, "glass"),
-        P13([-hl2 - 0.3, -14.6, S0, -hl2, 14.6, S12], RED4, "glass"),
-        P13([-23, -3.6, H9, -1, 3.6, H9 + 0.7], RED4, "cabin"),
-        P13([-15.6, -11, H9, -8.4, 11, H9 + 0.7], RED4, "cabin"),
+        ...both(-17.5, hw2, 20.2, -6.5, hw2 + 0.3, 23.8, RED5, "trim"),
+        ...both(-13.8, hw2, 16.5, -10.2, hw2 + 0.3, 27.5, RED5, "trim"),
+        ...both(-hl2 + 0.7, hw2, S0, XB - 0.7, hw2 + 0.3, S12, RED5, "glass"),
+        P13([-hl2 - 0.3, -14.6, S0, -hl2, 14.6, S12], RED5, "glass"),
+        P13([-23, -3.6, H9, -1, 3.6, H9 + 0.7], RED5, "cabin"),
+        P13([-15.6, -11, H9, -8.4, 11, H9 + 0.7], RED5, "cabin"),
         P13([25.5, -11.5, ZC, 31, 11.5, ZC + 0.7], DARK4, "cabin"),
-        P13([25.8, -11, ZC + 0.7, 30.7, 0, ZC + 2.8], RED4, "siren"),
+        P13([25.8, -11, ZC + 0.7, 30.7, 0, ZC + 2.8], RED5, "siren"),
         P13([25.8, 0, ZC + 0.7, 30.7, 11, ZC + 2.8], BLUE, "siren"),
         P13([-hl2 + 0.3, -9, H9, -hl2 + 3, 9, H9 + 0.6], DARK4, "cabin"),
-        P13([-hl2 + 0.5, -8.5, H9 + 0.6, -hl2 + 2.8, 0, H9 + 2.2], RED4, "siren"),
+        P13([-hl2 + 0.5, -8.5, H9 + 0.6, -hl2 + 2.8, 0, H9 + 2.2], RED5, "siren"),
         P13([-hl2 + 0.5, 0, H9 + 0.6, -hl2 + 2.8, 8.5, H9 + 2.2], BLUE, "siren")
       ], lights: { siren: [[28.2, 0, ZC + 2.8], [-hl2 + 1.6, 0, H9 + 2.2]] } },
       // the MPD Rhino: a ram on the front, armour skirts and plates down the sides, small barred windows, a light bar
@@ -51145,7 +51620,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           ...[1.3, 2.7, 4.1].flatMap((dx) => both(x + dx, hw2 + 0.25, 28.6, x + dx + 0.55, hw2 + 0.5, 32.2, "#9aa0aa", "glass"))
         ]),
         P13([8.8, -11, H9, 12.6, 11, H9 + 0.6], DARK4, "cabin"),
-        P13([9, -10.5, H9 + 0.6, 12.4, 0, H9 + 2.6], RED4, "siren"),
+        P13([9, -10.5, H9 + 0.6, 12.4, 0, H9 + 2.6], RED5, "siren"),
         P13([9, 0, H9 + 0.6, 12.4, 10.5, H9 + 2.6], BLUE, "siren"),
         P13([-24, -7, H9, -8, 7, H9 + 0.5], "#e8e8ec", "cabin")
       ], lights: { siren: [[10.7, 0, H9 + 2.6]] } },
@@ -51451,8 +51926,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var hl3 = L17 / 2;
   var hw3 = W20 / 2;
   var P15 = (box2, color, role = "body") => ({ box: box2, color, role });
-  var RED5 = "#ce2029";
-  var WHITE3 = "#ececf0";
+  var RED6 = "#ce2029";
+  var WHITE4 = "#ececf0";
   var GLASS8 = "#2e3a4a";
   var ALU = "#b4b8c2";
   var CHROME6 = "#d0d4dc";
@@ -51481,9 +51956,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   for (const s of [-1, 1]) {
     const [ya, yb] = flank(s, 0, 0.4);
     for (const [x0, x1, z05, z1] of [[-43, -31, 9, band2], [-30, -16.5, 12, band2], [-15.5, -1.5, 12, band2], [-0.5, 7, 9, band2], [8, 15, 9, 20]]) lockers.push(P15([x0, ya, z05, x1, yb, z1], ALU, "glass"));
-    stripe.push(P15([cab0, ya, 13, hl3, yb, 14.5], WHITE3, "glass"));
+    stripe.push(P15([cab0, ya, 13, hl3, yb, 14.5], WHITE4, "glass"));
   }
-  stripe.push(P15([hl3, -hw3, 13, hl3 + 0.4, hw3, 14.5], WHITE3, "glass"));
+  stripe.push(P15([hl3, -hw3, 13, hl3 + 0.4, hw3, 14.5], WHITE4, "glass"));
   var rungs = [];
   for (let x = -40; x <= -5; x += 3.5) rungs.push(P15([x - 0.5, -3.6, top + 1.4, x + 0.5, 3.6, top + 2.4], "#a8acb4", "cabin"));
   def("vehicleModels", "pumper", {
@@ -51496,11 +51971,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       ...tyres4,
       ...hubs2,
       P15([hl3 - 0.5, -hw3 + 1, 4, hl3 + 2, hw3 - 1, 8.5], CHROME6, "bumper"),
-      P15([cab0, -hw3, low, hl3, hw3, sill], RED5),
+      P15([cab0, -hw3, low, hl3, hw3, sill], RED6),
       // the cab, up to its window sill
       P15([-hl3 - 2, -hw3 + 1, 4, -hl3 + 0.5, hw3 - 1, 6.5], "#5a5a62", "bumper"),
       // the rear step
-      P15([-hl3, -hw3, low, pump1, hw3, band2], RED5),
+      P15([-hl3, -hw3, low, pump1, hw3, band2], RED6),
       // the pump body, up to its top band
       ...lockers,
       ...stripe,
@@ -51508,9 +51983,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       // the rear locker
       P15([cab0 + 1.5, -hw3 + 1.5, sill, hl3 - 0.5, hw3 - 1.5, roof], GLASS8, "glass"),
       // the cab's windows all round
-      { ...P15([-hl3, -hw3, band2, pump1, hw3, top], RED5, "cabin"), paint: true },
+      { ...P15([-hl3, -hw3, band2, pump1, hw3, top], RED6, "cabin"), paint: true },
       // the pump body's top band and lid
-      P15([cab0 + 1, -hw3 + 1, roof, hl3 - 0.5, hw3 - 1, roof + 2], WHITE3, "cabin"),
+      P15([cab0 + 1, -hw3 + 1, roof, hl3 - 0.5, hw3 - 1, roof + 2], WHITE4, "cabin"),
       // the cab's roof
       P15([-43.5, -13, top, -25, 13, top + 0.8], "#2a2c34", "cabin"),
       // the hose bed
@@ -51693,14 +52168,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   });
 
   // src/game/vehicles/skycam.js
-  var NAVY2 = "#1e2a5c";
-  var WHITE4 = "#e8eaee";
+  var NAVY3 = "#1e2a5c";
+  var WHITE5 = "#e8eaee";
   var CREAM = "#ece6d6";
   var ORANGE2 = "#ff7a1e";
   var DARK8 = "#3a3c44";
   var eye = get("vehicleModels", "eye");
   var parts = eye.parts.filter((p) => p.role !== "siren").map((p) => {
-    const color = p.color === NAVY2 ? CREAM : p.color === WHITE4 && p.role !== "rotor" ? ORANGE2 : p.role === "light" ? DARK8 : p.color;
+    const color = p.color === NAVY3 ? CREAM : p.color === WHITE5 && p.role !== "rotor" ? ORANGE2 : p.role === "light" ? DARK8 : p.color;
     return { ...p, color, role: p.role === "light" ? "trim" : p.role };
   });
   var w7 = eye.width / 2;
@@ -51845,7 +52320,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var TYRE6 = "#1c1c20";
   var SIGN = "#f0a83a";
   var SILVER2 = "#8496b4";
-  var RED6 = "#c8323a";
+  var RED7 = "#c8323a";
   var P18 = (box2, color, role = "body", more) => more ? { box: box2, color, role, ...more } : { box: box2, color, role };
   var pair8 = (x0, a, z1, x1, b, z2, color, role, more) => [P18([x0, -b, z1, x1, -a, z2], color, role, more), P18([x0, a, z1, x1, b, z2], color, role, more)];
   var WINDOWS = [[-38.6, -31.4], [-30, -22.8], [-10.8, -4.4], [-3.2, 3.2], [4.4, 10.8], [22.8, 30], [31.4, 38.6]];
@@ -51915,7 +52390,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     radio: "off",
     health: 9999,
     horn: "none",
-    palette: [SILVER2, RED6],
+    palette: [SILVER2, RED7],
     handling: { cars: 2, carLength: 84, gap: 6, accel: 70, brake: 90, width: 20, height: 30 },
     spec: { top: 210, dwell: 5 },
     price: 0,
@@ -52094,7 +52569,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   });
 
   // content:content
-  var CONTENT_FILES = ["activities/arcade-chrome-raiders.js", "activities/job-firefighter.js", "activities/job-lcourier.js", "activities/job-moto-courier.js", "activities/job-paramedic.js", "activities/job-skycam.js", "activities/job-tow.js", "activities/job-vigilante.js", "activities/mayhem.js", "activities/race-harbor-hustle.js", "activities/race-loop-sprint.js", "arcade/chrome-raiders.js", "characters/crew.js", "characters/vignette-props.js", "collectibles/moto-tokens.js", "crimes.js", "districts/hello/map.js", "districts/ironside/district.js", "districts/ironside/fleet.js", "districts/ironside/landmarks.js", "districts/ironside/styles.js", "districts/lowtown/district.js", "districts/lowtown/fleet.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/garage.js", "districts/proving/pad.js", "districts/proving/range.js", "districts/proving/scale-city.js", "districts/proving/town.js", "districts/proving/track.js", "economy.js", "events/gang-shootout.js", "events/police-chase.js", "events/purse-snatcher.js", "events/stalled-car.js", "gangs.js", "interiors/bank.js", "interiors/club-chrome.js", "missions/g1-lawn-order.js", "missions/g2-bingo-night.js", "missions/g3-gutter-ball.js", "missions/h1-getaway.js", "missions/h2-blueprints.js", "missions/h3-big-drill.js", "missions/h4-big-withdrawal.js", "missions/p0-prologue.js", "missions/r1-rat-run.js", "missions/r2-below-deck.js", "missions/r3-crane-game.js", "missions/s1-holy-rollers.js", "missions/s2-confession-booth.js", "missions/s3-drag-mass.js", "peds/cast.js", "peds/civilians.js", "peds/gangs.js", "police.js", "proving/bench.js", "proving/city-zones.js", "proving/garage-zone.js", "proving/lab-zones.js", "proving/occluder-zone.js", "proving/pad-zone.js", "proving/range-zone.js", "proving/ui-zone.js", "radio/stations.js", "reels/heist-tease.js", "reels/hot-pursuit.js", "reels/joyride.js", "reels/switch.js", "reels/turf-war.js", "save.js", "scenes/attract.js", "scenes/career.js", "scenes/lowtown.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "stunts/jumps.js", "tune.js", "ui/attract-cards.js", "ui/credits.js", "ui/guide.js", "ui/pause.js", "ui/tips.js", "vehicles/bilgerat.js", "vehicles/brute.js", "vehicles/cortez.js", "vehicles/cruiser.js", "vehicles/eye.js", "vehicles/hauler.js", "vehicles/hookline.js", "vehicles/pumper.js", "vehicles/saint.js", "vehicles/skycam.js", "vehicles/sparrow.js", "vehicles/the-l.js", "vehicles/vandal.js", "vehicles/zephyr.js", "weapons/arsenal.js"];
+  var CONTENT_FILES = ["activities/arcade-chrome-raiders.js", "activities/job-firefighter.js", "activities/job-lcourier.js", "activities/job-moto-courier.js", "activities/job-paramedic.js", "activities/job-skycam.js", "activities/job-tow.js", "activities/job-vigilante.js", "activities/mayhem.js", "activities/race-harbor-hustle.js", "activities/race-loop-sprint.js", "arcade/chrome-raiders.js", "characters/crew.js", "characters/vignette-props.js", "collectibles/moto-tokens.js", "crimes.js", "districts/hello/map.js", "districts/ironside/district.js", "districts/ironside/fleet.js", "districts/ironside/landmarks.js", "districts/ironside/styles.js", "districts/lowtown/district.js", "districts/lowtown/fleet.js", "districts/lowtown/landmarks.js", "districts/lowtown/styles.js", "districts/proving/garage.js", "districts/proving/pad.js", "districts/proving/range.js", "districts/proving/scale-city.js", "districts/proving/town.js", "districts/proving/track.js", "economy.js", "events/gang-shootout.js", "events/police-chase.js", "events/purse-snatcher.js", "events/stalled-car.js", "gangs.js", "interiors/bank.js", "interiors/club-chrome.js", "missions/g1-lawn-order.js", "missions/g2-bingo-night.js", "missions/g3-gutter-ball.js", "missions/h1-getaway.js", "missions/h2-blueprints.js", "missions/h3-big-drill.js", "missions/h4-big-withdrawal.js", "missions/p0-prologue.js", "missions/r1-rat-run.js", "missions/r2-below-deck.js", "missions/r3-crane-game.js", "missions/s1-holy-rollers.js", "missions/s2-confession-booth.js", "missions/s3-drag-mass.js", "peds/cast.js", "peds/civilians.js", "peds/gangs.js", "police.js", "proving/bench.js", "proving/city-zones.js", "proving/garage-zone.js", "proving/lab-zones.js", "proving/occluder-zone.js", "proving/pad-zone.js", "proving/range-zone.js", "proving/ui-zone.js", "radio/stations.js", "reels/heist-tease.js", "reels/hot-pursuit.js", "reels/joyride.js", "reels/switch.js", "reels/turf-war.js", "save.js", "scenes/attract.js", "scenes/career.js", "scenes/lowtown.js", "scenes/play.js", "scenes/proving.js", "scenes/title.js", "stunts/jumps.js", "tune.js", "ui/attract-cards.js", "ui/credits.js", "ui/guide.js", "ui/pause.js", "ui/tips.js", "vehicles/bilgerat.js", "vehicles/brute.js", "vehicles/cortez.js", "vehicles/cruiser.js", "vehicles/duster.js", "vehicles/eye.js", "vehicles/gull.js", "vehicles/hauler.js", "vehicles/hookline.js", "vehicles/pumper.js", "vehicles/saint.js", "vehicles/skycam.js", "vehicles/sparrow.js", "vehicles/the-l.js", "vehicles/vandal.js", "vehicles/zephyr.js", "weapons/arsenal.js"];
 
   // src/main.js
   var links = readLinks();

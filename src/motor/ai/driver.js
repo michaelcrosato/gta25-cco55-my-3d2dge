@@ -36,6 +36,7 @@ import { TURN_SPEED, TURN_R } from '../nav/roadgraph.js';
 import { lightFor, amberLeft } from '../nav/signals.js';
 import { boxDistance } from '../actors/fleet.js';
 import { sq } from '../core/dmath.js';
+import { aloft } from '../sim/vehicle/defs.js';
 
 knob('Traffic', 'idmGap', 'Following time gap', 1.2, .5, 3, .05, 'Seconds a calm driver keeps behind the car ahead (IDM T)');
 knob('Traffic', 'idmMin', 'Standstill gap', 5, 1, 30, 1, 'Units between bumpers a queue stops at (IDM s0)');
@@ -193,7 +194,7 @@ export class DriverBrain {
     for (const o of w.fleet.around(mid[0], mid[1], S[S.length - 1].d / 2 + 60)) {
       const R = o.hl + hw + 4;
       if (o.x < x0 - R || o.x > x1 + R || o.y < y0 - R || o.y > y1 + R) continue;   // (nowhere near the path's box)
-      if (o === v || !o.body || o.cls === 'heli' || (this.pass && o === this.pass.obstacle) || o.towedBy === v || v.towedBy === o) continue;
+      if (o === v || !o.body || aloft(o) || (this.pass && o === this.pass.obstacle) || o.towedBy === v || v.towedBy === o) continue;
       if (o.asleep && this._laneClear(o)) continue;   // (parked at a curb, clear of every lane)
       for (let qi = 0; qi < S.length; qi++) {
         const q = S[qi], far = Math.max(Math.abs(o.x - q.p[0]), Math.abs(o.y - q.p[1])) - R;
@@ -257,7 +258,7 @@ export class DriverBrain {
   _exitFull(w, c) {
     if (!w.fleet) return false; const L = this.g.lanes[c.to], need = (L.clearS || 0) + this.v.hl * 2 + 16, fx = L.a[0] + L.dir[0] * need / 2, fy = L.a[1] + L.dir[1] * need / 2;
     for (const o of w.fleet.around(fx, fy, need / 2 + 56)) {
-      if (o === this.v || !o.body || o.cls === 'heli' || Math.abs(o.z - L.a[2]) > 12) continue;
+      if (o === this.v || !o.body || aloft(o) || Math.abs(o.z - L.a[2]) > 12) continue;
       if (!o.driver && !o.brain && !o.ai) continue;   // (a car nobody drives will never move on: gone round, as in the lane, not waited for at the line)
       const dx = o.x - L.a[0], dy = o.y - L.a[1], along = dx * L.dir[0] + dy * L.dir[1], off = Math.abs(-dx * L.dir[1] + dy * L.dir[0]);
       if (along > -o.hl && along - o.hl < need && off < o.hw + 8 && o.speed < 30) return true;
@@ -365,7 +366,7 @@ export class DriverBrain {
         const k = E.clamp(d / 24, 0, 1) * E.clamp((end - d) / 24, 0, 1), px = a.p[0] - a.t[1] * off * k, py = a.p[1] + a.t[0] * off * k;
         if (!this._clearSpot(w, px, py, a.p[2], Math.atan2(a.t[1], a.t[0]), map)) { ok = false; break; }
         if (!ok) break;
-        for (const u of w.fleet.around(px, py, v.hl + 40)) { if (u === v || u === o || !u.body || u.cls === 'heli' || Math.abs(u.z - a.p[2]) > 12) continue; if (boxDistance(u, px, py) < v.hw + 4 + (u.speed > 5 ? 20 : 0)) { ok = false; break; } }
+        for (const u of w.fleet.around(px, py, v.hl + 40)) { if (u === v || u === o || !u.body || aloft(u) || Math.abs(u.z - a.p[2]) > 12) continue; if (boxDistance(u, px, py) < v.hw + 4 + (u.speed > 5 ? 20 : 0)) { ok = false; break; } }
         if (ok && w.pedsNear) for (const p of w.pedsNear(px, py, v.hl + 10)) if (!p.dead && !p.seat && Math.hypot(p.x - px, p.y - py) < v.hw + 6) { ok = false; break; }
       }
       if (ok) return { off, obstacle: o, d: 0, end };
@@ -386,7 +387,7 @@ export class DriverBrain {
         const k = E.clamp(d / OVER_RAMP, 0, 1), px = a.p[0] - a.t[1] * off * k, py = a.p[1] + a.t[0] * off * k, h = Math.atan2(a.t[1], a.t[0]);
         if (a.p[2] < 30 && C && C.surfaceAtPoint) for (const r of [-v.hw, 0, v.hw]) if (!DRIVE.has(C.surfaceAtPoint(px - a.t[1] * r, py + a.t[0] * r))) { ok = false; break; }
         if (!ok || !this._clearSpot(w, px, py, a.p[2], h, map)) { ok = false; break; }
-        for (const u of w.fleet.around(px, py, v.hl + 40)) { if (u === v || !u.body || u.cls === 'heli' || Math.abs(u.z - a.p[2]) > 12) continue; if (boxDistance(u, px, py) < v.hw + 3) { ok = false; break; } }
+        for (const u of w.fleet.around(px, py, v.hl + 40)) { if (u === v || !u.body || aloft(u) || Math.abs(u.z - a.p[2]) > 12) continue; if (boxDistance(u, px, py) < v.hw + 3) { ok = false; break; } }
         if (ok && w.pedsNear) for (const p of w.pedsNear(px, py, v.hw + 8)) if (!p.dead && !p.seat && Math.hypot(p.x - px, p.y - py) < v.hw + 5) { ok = false; break; }
       }
       if (ok) return off;
@@ -398,7 +399,7 @@ export class DriverBrain {
     const v = this.v, a = this.ahead(0); if (!a || !w.fleet) return true;
     const c = Math.cos(v.heading), s = Math.sin(v.heading);
     for (const u of w.fleet.around(v.x, v.y, v.hl + 90)) {
-      if (u === v || !u.body || u.cls === 'heli' || u.speed < 3 || Math.abs(u.z - v.z) > 12) continue;
+      if (u === v || !u.body || aloft(u) || u.speed < 3 || Math.abs(u.z - v.z) > 12) continue;
       const al = (u.x - v.x) * c + (u.y - v.y) * s, lat = (u.x - a.p[0]) * -a.t[1] + (u.y - a.p[1]) * a.t[0];
       if (al > -(v.hl + 80) && al < v.hl + 12 && Math.abs(lat) < u.hw + v.hw + 2) return false;
     }
@@ -432,7 +433,7 @@ export class DriverBrain {
     if (W.water && W.water(cx, cy)) return false;
     if (W.ground && Math.abs(W.ground(tx, ty, b.z + 6) - b.z) > 14) return false;
     for (const o of w.fleet.around(x, y, v.hl + d)) {
-      if (o === v || !o.body || o.cls === 'heli' || Math.abs(o.z - b.z) > 12) continue;
+      if (o === v || !o.body || aloft(o) || Math.abs(o.z - b.z) > 12) continue;
       for (let k = v.hl; k <= v.hl + d; k += 6) if (boxDistance(o, b.x - c * k, b.y - s * k) < v.hw + 2) return false;
     }
     return true;
