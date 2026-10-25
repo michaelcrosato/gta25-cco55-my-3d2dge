@@ -30,7 +30,7 @@ export const REBIND = [
   ['vehicle', 'IN A VEHICLE', [['DRIVING', ['left', 'right', 'throttle', 'brake', 'handbrake', 'nitro']], ['DOING', ['fire', 'horn', 'interact', 'radioPrev', 'radioNext', 'ability']],
     ['CAMERA AND MENUS', ['view', 'turnLeft', 'turnRight', 'phone', 'switch', 'map']], ['MORE', ['photo', 'pause']]]],
   ['photo', 'PHOTO MODE', [['FRAMING', ['up', 'down', 'left', 'right', 'zoomIn', 'zoomOut']], ['THE SHOT', ['view', 'look', 'snap', 'back']]]],
-  ['arcade', 'AT A CABINET', [['PLAYING', ['up', 'down', 'left', 'right', 'fire', 'roll']], ['MORE', ['interact', 'pause']]]],
+  ['arcade', 'ARCADE', [['PLAYING', ['up', 'down', 'left', 'right', 'fire', 'roll']], ['MORE', ['interact', 'pause']]]],
 ];
 const LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt|KeyP$)/;   // (the bindings' own rule: the menus and the browser keep them)
 const PADLIKE = /^(Pad|LS|RS)/, KEYS = /^(Key[A-Z]|Digit\d|Numpad\d|Arrow(Up|Down|Left|Right)|Space|Shift(Left|Right)|Tab|Backspace|Backquote|Minus|Equal|Bracket(Left|Right)|Backslash|Semicolon|Quote|Comma|Period|Slash|CapsLock|Mouse[0-4])$/;
@@ -109,11 +109,20 @@ export function rebindScreen(app, ctx) {
 /** the controls in glyphs: a tab a context, its actions in two columns */
 export function layoutScreen(app) {
   const tabs = new Tabs({ tabs: REBIND.map(([id, label]) => ({ id, label })) }), B = app.bindings;
-  const scr = { id: 'layout', title: 'BUTTON LAYOUT', w: 400, tabs, bodyH: 6 * 14 + 8,
+  // (as tall as the screen allows, up to rows 14 apart, two columns; where that leaves rows nearer than 11, as many as
+  // fit and the rest on a page more, △ to turn: the glyphs had stood on one another, twelve to a column in 86, on foot)
+  let page = 0, pages = 1, ctx0 = null;
+  const scr = { id: 'layout', title: 'BUTTON LAYOUT', w: 400, tabs, bodyH: P => Math.max(60, Math.min(12 * 14 + 8, P.safe[3] - P.safe[1] - 30 - 22 - 26 - 8 - (P.legendExtra || 0))),
+    get legend() { return pages > 1 ? `{menu:secondary} MORE ${page + 1}/${pages}   {menu:back} BACK` : '{menu:back} BACK'; },
+    update(nav) { if (nav.secondary && pages > 1) { page = (page + 1) % pages; return 'move'; } return null; },
     body(P, x, y, w) {
-      const ctx = tabs.current.id, acts = REBIND.find(r => r[0] === ctx)[2].flatMap(g => g[1]).filter(a => B.map[ctx] && B.map[ctx][a]), per = Math.ceil(acts.length / 2), colW = Math.floor(w / 2);
-      acts.forEach((a, i) => { const cx = x + 8 + Math.floor(i / per) * colW, cy = y + 4 + (i % per) * Math.min(14, Math.floor(86 / per)); P.prompt(`{${ctx}:${a}} ${actionLabel(a, ctx)}`, cx, cy, { color: UI.ink }); });
-      return this.bodyH;
+      const ctx = tabs.current.id, acts = REBIND.find(r => r[0] === ctx)[2].flatMap(g => g[1]).filter(a => B.map[ctx] && B.map[ctx][a]), h = scr.bodyH(P);
+      if (ctx !== ctx0) { ctx0 = ctx; page = 0; }
+      const fit = Math.max(1, Math.floor((h - 8) / 11)), cap = fit * 2;
+      pages = Math.ceil(acts.length / cap); page = Math.min(page, pages - 1);
+      const shown = pages > 1 ? acts.slice(page * cap, (page + 1) * cap) : acts, per = pages > 1 ? fit : Math.ceil(acts.length / 2), step = Math.min(14, Math.floor((h - 8) / per)), colW = Math.floor(w / 2);
+      shown.forEach((a, i) => { const cx = x + 8 + Math.floor(i / per) * colW, cy = y + 4 + (i % per) * step; P.prompt(`{${ctx}:${a}} ${actionLabel(a, ctx)}`, cx, cy, { color: UI.ink }); });
+      return h;
     } };
   return scr;
 }

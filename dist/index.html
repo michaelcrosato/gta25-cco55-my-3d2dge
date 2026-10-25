@@ -26936,7 +26936,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     /** the labels in a row centred on cx at y, the bumpers' glyphs either side */
     draw(P21, cx5, y) {
-      const gap = 14, ws = this.tabs.map((t) => P21.width(t.label)), total = ws.reduce((a, b) => a + b, 0) + gap * (this.tabs.length - 1);
+      const ws = this.tabs.map((t) => P21.width(t.label)), sum = ws.reduce((a, b) => a + b, 0), n = Math.max(1, this.tabs.length - 1);
+      const room = P21.safe ? P21.safe[2] - P21.safe[0] - 2 * (P21.promptWidth ? P21.promptWidth("{menu:tabPrev}") + 10 : 30) : Infinity, gap = Math.max(8, Math.min(14, Math.floor((room - sum) / n))), total = sum + gap * (this.tabs.length - 1);
       let x = Math.round(cx5 - total / 2);
       this.boxes = [];
       P21.prompt("{menu:tabPrev}", x - 8, y, { align: "right" });
@@ -27276,7 +27277,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       ["MORE", ["photo", "pause"]]
     ]],
     ["photo", "PHOTO MODE", [["FRAMING", ["up", "down", "left", "right", "zoomIn", "zoomOut"]], ["THE SHOT", ["view", "look", "snap", "back"]]]],
-    ["arcade", "AT A CABINET", [["PLAYING", ["up", "down", "left", "right", "fire", "roll"]], ["MORE", ["interact", "pause"]]]]
+    ["arcade", "ARCADE", [["PLAYING", ["up", "down", "left", "right", "fire", "roll"]], ["MORE", ["interact", "pause"]]]]
   ];
   var LOCKED2 = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt|KeyP$)/;
   var PADLIKE = /^(Pad|LS|RS)/;
@@ -27409,19 +27410,38 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
   function layoutScreen(app2) {
     const tabs = new Tabs({ tabs: REBIND.map(([id, label2]) => ({ id, label: label2 })) }), B2 = app2.bindings;
+    let page = 0, pages = 1, ctx0 = null;
     const scr = {
       id: "layout",
       title: "BUTTON LAYOUT",
       w: 400,
       tabs,
-      bodyH: 6 * 14 + 8,
+      bodyH: (P21) => Math.max(60, Math.min(12 * 14 + 8, P21.safe[3] - P21.safe[1] - 30 - 22 - 26 - 8 - (P21.legendExtra || 0))),
+      get legend() {
+        return pages > 1 ? `{menu:secondary} MORE ${page + 1}/${pages}   {menu:back} BACK` : "{menu:back} BACK";
+      },
+      update(nav) {
+        if (nav.secondary && pages > 1) {
+          page = (page + 1) % pages;
+          return "move";
+        }
+        return null;
+      },
       body(P21, x, y, w9) {
-        const ctx = tabs.current.id, acts = REBIND.find((r7) => r7[0] === ctx)[2].flatMap((g) => g[1]).filter((a) => B2.map[ctx] && B2.map[ctx][a]), per = Math.ceil(acts.length / 2), colW = Math.floor(w9 / 2);
-        acts.forEach((a, i) => {
-          const cx5 = x + 8 + Math.floor(i / per) * colW, cy = y + 4 + i % per * Math.min(14, Math.floor(86 / per));
+        const ctx = tabs.current.id, acts = REBIND.find((r7) => r7[0] === ctx)[2].flatMap((g) => g[1]).filter((a) => B2.map[ctx] && B2.map[ctx][a]), h = scr.bodyH(P21);
+        if (ctx !== ctx0) {
+          ctx0 = ctx;
+          page = 0;
+        }
+        const fit = Math.max(1, Math.floor((h - 8) / 11)), cap = fit * 2;
+        pages = Math.ceil(acts.length / cap);
+        page = Math.min(page, pages - 1);
+        const shown = pages > 1 ? acts.slice(page * cap, (page + 1) * cap) : acts, per = pages > 1 ? fit : Math.ceil(acts.length / 2), step2 = Math.min(14, Math.floor((h - 8) / per)), colW = Math.floor(w9 / 2);
+        shown.forEach((a, i) => {
+          const cx5 = x + 8 + Math.floor(i / per) * colW, cy = y + 4 + i % per * step2;
           P21.prompt(`{${ctx}:${a}} ${actionLabel(a, ctx)}`, cx5, cy, { color: UI.ink });
         });
-        return this.bodyH;
+        return h;
       }
     };
     return scr;

@@ -180,7 +180,10 @@ export class Tabs {
   }
   /** the labels in a row centred on cx at y, the bumpers' glyphs either side */
   draw(P, cx, y) {
-    const gap = 14, ws = this.tabs.map(t => P.width(t.label)), total = ws.reduce((a, b) => a + b, 0) + gap * (this.tabs.length - 1);
+    // (the gap closes up, down to 8, where the strip and its L1 / R1 either side would leave the safe area: four tabs at
+    // the HUD's biggest size, 320 x 180)
+    const ws = this.tabs.map(t => P.width(t.label)), sum = ws.reduce((a, b) => a + b, 0), n = Math.max(1, this.tabs.length - 1);
+    const room = P.safe ? P.safe[2] - P.safe[0] - 2 * (P.promptWidth ? P.promptWidth('{menu:tabPrev}') + 10 : 30) : Infinity, gap = Math.max(8, Math.min(14, Math.floor((room - sum) / n))), total = sum + gap * (this.tabs.length - 1);
     let x = Math.round(cx - total / 2); this.boxes = [];
     P.prompt('{menu:tabPrev}', x - 8, y, { align: 'right' });
     this.tabs.forEach((t, i) => {
