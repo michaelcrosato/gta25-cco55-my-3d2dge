@@ -36,7 +36,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | M12 Proving Ground, docs | done | photo mode, the dev menu, overlays and tuning pages, the Proving Ground's zones with their self-tests (`13af740`); the 15 content recipes and their tests, District 2, songs and signs as content (`d5fd83a`, D26) · 312 unit + sim tests, 15 recipe tests, 12 self-tests · `docs/media/m12/` (21 shots) |
 | M13 Polish + release | done | the rumble profiles, TUNING.md generated, draw-side profiling, the look notes (part 1, `ad788f4`, D28); the respray's bay, the sodium streetlamps (part 2, `839a4c5`); the perf pass's levers, the gate read against M2's build (part 3, `f7847f0`); FAN-OUT B's 47 findings fixed, performance out of the Definition of Done, bots that may play god (part 4, `7b1980f`, D29); the bot after FAN-OUT B, busier roofs and Neon Mile's neon (part 5, `9843969`), the shots matrix with its verdicts, the campaign's stalls fixed to its 100% (part 5, `6efaf9c` to `5c7c2ef`, D30); what test:full and the audit found on the way: the gang shoot-out's tip, the page from a static server, the 10-foot UI at HUD Huge (`293a2b9` to `154eb02`); test:full on `154eb02`, every step, and the Definition of Done item by item · 343 unit + sim tests, 78 review tests (`tests/review/`), 15 recipes · `docs/media/shots/` (12 ISO shots, 4 contact sheets, the bank in each view) |
 | L1 Determinism across runtimes | done | MOTOR's deterministic Math (`src/motor/core/dmath.js`, V8 12.4's fdlibm and `hypot` in plain arithmetic, bit for bit Node 22's own) installed by the prelude before the engine; a car's drawn explosion no longer stops the clock; `tests/e2e/cross-runtime.mjs` in the gate (D33) · test:full passed every step on `81a34ee` (100 min 36 s, the campaign at 100%), the gym 13/13 both ways · see the acceptance log |
-| L2 The known limits | in progress | the glows' halos cut by the walls in front, riders at their saddles, the bot's cover on the lanes under the decks, the last stretch's unstick, the pocket's restart, the gym in test:full; three stars, a passer-by and a long truck's corners kept (D34) · see the acceptance log |
+| L2 The known limits | done | the glows' halos cut by the walls in front, riders at their saddles, the bot's cover on the lanes under the decks, the last stretch's unstick, the pocket's restart, a tow truck lined up in the road, the campaign's jobs from the middle of town, the gym in test:full; three stars, a passer-by and a long truck's corners kept (D34) · closed on b7b7556: test:full passed, alone, in 107 min 43 s · see the acceptance log |
 
 ## Acceptance log
 
@@ -1365,7 +1365,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     100%), and the bot gym passed 13 of 13 fixtures with the bot (kill after two wrecks) and 13 of 13 through the pad
     (none retried). CI's `npm test` is green on the same commit, in the Chromium 141 that Playwright 1.56.1 installs
     there.
-- **L2 · the known limits (D34), in progress:**
+- **L2 · the known limits (D34), done:**
   - **Night glows:** a glow's halo is clipped along the tops of the walls in front of it, column by column
     (`Stage._frontTop`). The unit test walks a lamp back from a block (hidden, cut, whole), checks the columns and
     holds `_hidden` (a wet street's reflection asks it) to the same answer. In the night ISO at the bank a light just
@@ -1386,3 +1386,16 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     silver in 419 s.
   - **The pocket:** the 20 s restart (a unit test); no run has met the pocket since L1.
   - **The pad:** the gym through the pad passed 13 of 13 with none retried on the L1 commit.
+  - **The tow (the first closing run):** test:full on `3fe54b8` failed one step, the gym's `tow` on seed 3 (900 s:
+    the Hookline staged on the car's axis up a one-way street, turned wide, backed while still rolling forward, then
+    wedged across the street at the corner). The truck now lines up on the lane beside the car's end, facing the way
+    it must stand (D34). The gym's `tow`, seeds 1-5: 92, 93, 124 and 105 s on 1, 2, 3 and 5; seed 4's truck, parked by
+    a junction facing the map's edge, still never leaves its spot (it never had: the long truck's tight corner). The
+    whole gym on that code: 45 of 45 on seeds 1-3 (the kept limit `evade3` 2 of 3) and 15 of 15 through the pad.
+  - **The campaign (the second closing run):** test:full on `b7df89d` passed every step but the campaign, at 96%:
+    the moto courier's level 3 failed three times at its first drop, its Sparrow taken where the last item had left
+    the player, in a far corner at rush hour. The campaign now takes a job's vehicle from the middle of town, as a
+    player setting out on a job would; the whole campaign on that code reached 100% after 2.87 h of game.
+  - **Closed on `b7b7556`:** `npm run test:full` passed every step, alone, in 107 min 43 s (the gym on seeds 1-3
+    and through a pad among them, every mission and activity through the bot on seeds 1-3 and a pad, the campaign at
+    100%). CI's `npm test` is green on the same head.

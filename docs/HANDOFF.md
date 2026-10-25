@@ -56,7 +56,7 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
   `pow`, and with its own version of any other Math function that a probe finds differing between Node and Chromium.
   Reach the engine's `E.Mover` through a GTM-PATCH (PLAN.md 12). Add a test that one seed's run hashes the same
   headless and in the page. Once this holds, the page's bot plays the same game as the headless run.
-- [ ] **L2 · The known limits** (below). Fix each one where it lives, with a test, or keep it with a DECISIONS entry
+- [x] **L2 · The known limits** (below; done, D34). Fix each one where it lives, with a test, or keep it with a DECISIONS entry
   that says why:
   - the night glows that show over the roofs in front of them;
   - bike riders at a fixed height instead of their own bike's;
@@ -190,7 +190,8 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
   - fight back a passer-by who hits it: content sends them running instead (`m.shoo`); it walks on regardless (the
     gym's `passerby`);
   - turn a long truck at every tight corner quickly: a failing turn is kept off its next route, but on some seeds it
-    costs minutes (the gym's `haul`: 35-102 s on seeds 1-3 and 5, 769 s on seed 4).
+    costs minutes (the gym's `haul`: 35-102 s on seeds 1-3 and 5, 769 s on seed 4), and a tow truck parked tight by a
+    junction facing the map's edge never gets out (the gym's `tow` on seed 4; seeds 1-3 and 5 pass in 92-124 s).
 - **Performance:** out of the Definition of Done since D29 (the owner's call: FPS targets and optimization come later,
   and L3 is that later). D20 has the budgets and where the frame goes; `node tools/perf.mjs --dist <old build>`
   measures interleaved with an older build. The machine's speed varies more than the budgets' margins.

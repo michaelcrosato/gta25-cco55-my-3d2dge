@@ -1447,4 +1447,9 @@ and where it landed.
     gym's `tow`: seeds 1-5 pass but seed 4 (92, 93, 124 and 105 s); on seed 4 the Hookline, parked at a kerb by a
     junction facing the map's edge with cars at both its ends, never gets out of its spot (as on the L1 commit),
     which is the long truck's tight corner above.
+  - **The campaign sets out on a job from the middle of town.** Its next closing run passed every step but the
+    campaign, at 96%: the moto courier's level 3 failed three times at its first drop, its Sparrow the one nearest
+    where the last item had left the player, in a far corner at rush hour. The campaign now takes a job's vehicle
+    nearest the middle of town (`tools/bot-campaign.mjs`), as a player setting out on a job would; the whole campaign
+    reached 100% after 2.87 h of game.
 - **Answered:** no. **Landed in:** after M13 (L2).
