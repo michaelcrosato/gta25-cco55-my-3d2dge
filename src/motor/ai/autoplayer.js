@@ -65,7 +65,7 @@ export class AutoPlayer {
     // the career's mission bot's) got out of the car at its first box once three were behind it anywhere, gave up a car
     // at a glance once 20 s of walks to doors were, and after its first hop anywhere never walked straight again, each
     // walk begun from a node farther off)
-    if (!o.keep) { this.car = o.car || null; this.tried.clear(); this.prog = null; this.avoid = null; this.esc = null; this.wedge = null; this.round = null; this.boxed = this.boxT = this.exitHeld = 0; this._jam = null; this._boardT = 0; this.skip = 0; }
+    if (!o.keep) { this.car = o.car || null; this.tried.clear(); this.prog = null; this.avoid = null; this.esc = null; this.wedge = null; this.round = null; this.boxed = this.boxT = this.exitHeld = 0; this.shoveNext = false; this._jam = null; this._boardT = 0; this.skip = 0; }
     return this;
   }
   /** get into this vehicle (out of another first) */
@@ -251,12 +251,14 @@ export class AutoPlayer {
     // stopped at a red, taken for a box, was swung round and the fresh route from the swerve went round the block)
     const L = b.leader, LB = L && L.v && (L.v.brain || L.v.drivenBy), waits = !!LB && !LB.parked && ['signal', 'queue', 'yield'].includes(LB.cause), held = (L && L.gap < 14 && L.speed < 2 && !waits) || b.cause === 'ped';
     this.boxT = held && v.speed < 3 && !b.pass && b.cause !== 'signal' && b.cause !== 'arrived' ? (this.boxT || 0) + dt : 0;
-    // (a car on the hook: never round, backing folds the rig and a slant can't take the two past; a car nobody drives in
-    // the way is pushed on, as the brain's gridlock shove does, sooner, and anything else waited out (a long jam is a
-    // stall's). A turf war's wreck at a junction's mouth, a burnt-out one at the kerb beside it: each round dropped the
-    // brain before its shove came, and the tow stood there, rocking, to the clock's end)
-    if (this.boxT > 5 && v.towing) { this.boxT = 0; if (L && !L.v.brain && !L.v.driver && L.v.owner !== 'mission') b.blocked = Math.max(b.blocked, TUNE.gridlock * 4 + .01); }
-    if (this.boxT > (b.cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
+    // (a car nobody drives in the way: pushed on, as the brain's gridlock shove does, sooner, every other time it boxes
+    // us in (a round the times between); a car on the hook never rounds, backing folds the rig and a slant can't take
+    // the two past: it pushes, and waits out anything else (a long jam is a stall's). Each round had dropped the brain
+    // before its shove came: a tow stood at a turf war's wreck, rocking, to the clock's end, and a Medic behind an
+    // ambulance its crew had left in the lane rocked there through four retries)
+    const dead = !!L && !!L.v && !L.v.brain && !L.v.driver && L.v.owner !== 'mission';
+    if (this.boxT > 5 && (v.towing || (dead && this.shoveNext))) { this.boxT = 0; this.shoveNext = false; if (dead) b.blocked = Math.max(b.blocked, TUNE.gridlock * 4 + .01); }
+    if (this.boxT > (b.cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.shoveNext = dead; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
     const Bs = this.fleet && this.fleet.bridges, closed = Bs && Bs.length ? id => Bs.some(q => q.id === id && q.closed) : null;   // (a drawbridge's gates shut: stopped short as traffic is; unwatched, a job's truck had met a rising leaf at full tilt and flown past its turn)
     const I = b.update(dt, { fleet: this.fleet, t: w.t || this.t, pedsNear: w.pedsNear || null, wet: w.wet || 0, sirens: null, closed });
     return I;

@@ -31139,6 +31139,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.wedge = null;
         this.round = null;
         this.boxed = this.boxT = this.exitHeld = 0;
+        this.shoveNext = false;
         this._jam = null;
         this._boardT = 0;
         this.skip = 0;
@@ -31528,12 +31529,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       const L22 = b.leader, LB = L22 && L22.v && (L22.v.brain || L22.v.drivenBy), waits = !!LB && !LB.parked && ["signal", "queue", "yield"].includes(LB.cause), held = L22 && L22.gap < 14 && L22.speed < 2 && !waits || b.cause === "ped";
       this.boxT = held && v.speed < 3 && !b.pass && b.cause !== "signal" && b.cause !== "arrived" ? (this.boxT || 0) + dt : 0;
-      if (this.boxT > 5 && v.towing) {
+      const dead3 = !!L22 && !!L22.v && !L22.v.brain && !L22.v.driver && L22.v.owner !== "mission";
+      if (this.boxT > 5 && (v.towing || dead3 && this.shoveNext)) {
         this.boxT = 0;
-        if (L22 && !L22.v.brain && !L22.v.driver && L22.v.owner !== "mission") b.blocked = Math.max(b.blocked, TUNE.gridlock * 4 + 0.01);
+        this.shoveNext = false;
+        if (dead3) b.blocked = Math.max(b.blocked, TUNE.gridlock * 4 + 0.01);
       }
       if (this.boxT > (b.cause === "ped" ? 8 : 5)) {
         this.boxT = 0;
+        this.shoveNext = dead3;
         this.boxed = (this.boxed || 0) + 1;
         if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) {
           this.boxed = 0;
