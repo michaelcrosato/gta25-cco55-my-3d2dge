@@ -1601,7 +1601,10 @@ and where it landed.
     found no Medic left to start the Paramedic's in). Loop Avenue's east end, run out to the bay with nothing between
     the road and the water, has a sea wall across it (the Causeway's place): a Medic driven on past the end of the
     road had gone into the harbour, and the one lent where it went in after it; a Paramedic's retry with no Medic to
-    drive is lent one at Lowtown General's bay.
+    drive is lent one at Lowtown General's bay. The bot's helicopter, pushing on and going nowhere for a second, climbs
+    48 before going on (a tower's corner under a skid, the point its look ahead sampled clear beyond it, had held the
+    SkyCam against the tower's side till the story was lost: building heights aren't cell-aligned, so no fixed set of
+    sample points is sure).
   - **The recipes.** The new kinds each have one in docs/CONTENT-GUIDE.md: a helicopter a player flies, an L line's
     stations, an interior's patrons and spots, an arcade kit, an arcade high score, and a station's genre of its own
     (`def('genres')`, the station recipe's fixture now bringing one).

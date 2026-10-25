@@ -31761,12 +31761,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return I;
       }
       const W26 = this.fleet.world, ah = b.pad ? b.pad(W26, v.x + Math.cos(v.heading) * 90, v.y + Math.sin(v.heading) * 90) : null;
-      if (ah !== null && ah + 24 > v.z) {
+      if (ah !== null && ah + 24 > v.z || this.flyUp && v.z < this.flyUp) {
         I.down.handbrake = true;
         I.steer = Math.max(-1, Math.min(1, da * 2.5));
         if (u > 10) I.brake = 1;
         return I;
       }
+      this.flyUp = 0;
       if (v.z < cruise - 10) I.down.handbrake = true;
       else if (v.z > cruise + 40 && d > 300) I.down.nitro = true;
       I.steer = Math.max(-1, Math.min(1, da * 2.5));
@@ -31777,6 +31778,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       if (u < want) I.throttle = Math.min(1, (want - u) / 40 + 0.3);
       else if (u > want + 15) I.brake = 1;
+      this.flyStall = I.throttle > 0.3 && v.speed < 6 ? (this.flyStall || 0) + dt : 0;
+      if (this.flyStall > 1) {
+        this.flyStall = 0;
+        this.flyUp = v.z + 48;
+      }
       return I;
     }
     _fwd(v) {

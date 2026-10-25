@@ -389,12 +389,17 @@ export class AutoPlayer {
     }
     // (what stands ahead taller than it flies, a tower on the way: up over it first, held where it is)
     const W = this.fleet.world, ah = b.pad ? b.pad(W, v.x + Math.cos(v.heading) * 90, v.y + Math.sin(v.heading) * 90) : null;
-    if (ah !== null && ah + 24 > v.z) { I.down.handbrake = true; I.steer = Math.max(-1, Math.min(1, da * 2.5)); if (u > 10) I.brake = 1; return I; }
+    if ((ah !== null && ah + 24 > v.z) || (this.flyUp && v.z < this.flyUp)) { I.down.handbrake = true; I.steer = Math.max(-1, Math.min(1, da * 2.5)); if (u > 10) I.brake = 1; return I; }
+    this.flyUp = 0;
     if (v.z < cruise - 10) I.down.handbrake = true; else if (v.z > cruise + 40 && d > 300) I.down.nitro = true;
     I.steer = Math.max(-1, Math.min(1, da * 2.5));
     const want = Math.min(b.h.top, 20 + d * .9);
     if (Math.abs(da) > .9 || v.z < 60) { if (u > 20) I.brake = 1; return I; }   // (turned, or still climbing: hanging there)
     if (u < want) I.throttle = Math.min(1, (want - u) / 40 + .3); else if (u > want + 15) I.brake = 1;
+    // (pushing on and going nowhere a second, against what the look ahead missed: up 48 before on again. A tower's
+    // corner under a skid, the point 90 on clear beyond it, had held a SkyCam against its side till the story was lost)
+    this.flyStall = I.throttle > .3 && v.speed < 6 ? (this.flyStall || 0) + dt : 0;
+    if (this.flyStall > 1) { this.flyStall = 0; this.flyUp = v.z + 48; }
     return I;
   }
   _fwd(v) { const b = v.body; return b ? b.vx * Math.cos(b.heading) + b.vy * Math.sin(b.heading) > 0 : true; }
