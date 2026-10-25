@@ -141,3 +141,24 @@ test('TOP-DOWN: a thing standing on a roof is drawn after the roof (keyed just n
   assert.ok(near(S.items[1].k, Math.hypot(120 - S.top.x, 120 - S.top.y), 1e-9), 'one in the street: its own distance');
   assert.ok(S.items[2].k > spanK, 'one at the building\'s foot (inside its footprint, below the roof): not lifted over it');
 });
+test('a textured face stops at yMax (what nearer walls hide), and a face many tiles long may be cut finer (extra)', () => {
+  const v = new Side7View({}); v.follow(1 / 60, 500, 500); v.frame(fakeR);
+  const ys = [], g = new Proxy({ canvas: { width: 482, height: 272 } }, { get: (o, k) => k in o ? o[k] : k === 'moveTo' || k === 'lineTo' ? (x, y) => ys.push(y) : () => {}, set: (o, k, val) => { o[k] = val; return true; } });
+  const cv = E.mkCanvas(64, 96), face = (s, t) => v._q(300 + 16 * s, 40, 96 * (1 - t)), [, top] = face(0, 0), [, foot] = face(0, 1);   // (far enough that its foot is on the canvas)
+  const whole = texturedFace(g, face, cv, 0, 0, 16, 96, '#888'); assert.ok(whole >= 1 && Math.max(...ys) > foot - 1, 'whole: down to its foot');
+  ys.length = 0; const cut = (top + foot) / 2; texturedFace(g, face, cv, 0, 0, 16, 96, '#888', null, cut);
+  assert.ok(ys.length && Math.max(...ys) <= cut + 1e-6, `cut at ${cut.toFixed(1)}: nothing below it (lowest ${Math.max(...ys).toFixed(1)})`);
+  assert.equal(texturedFace(g, face, cv, 0, 0, 16, 96, '#888', null, top - 1), 0, 'wholly under nearer walls: nothing');
+  const long = (s, t) => v._q(14 + 6 * 16 * s, 40, 96 * (1 - t));
+  assert.ok(texturedFace(g, long, cv, 0, 0, 96, 96, '#888', null, Infinity, 3) > texturedFace(g, long, cv, 0, 0, 96, 96, '#888'), 'extra splits allowed: more quads');
+});
+test('MODE 7\'s cull: an item wholly under a nearer face\'s top is left out; one that shows above it stops at that top (clipY)', async () => {
+  const { Stage } = await import('../../src/motor/render/stage.js');
+  const wall = { k: 100, occ: [0, 120, 300, 120] }, hidden = { k: 200, m: 190, box: [50, 90, 130] }, shown = { k: 210, m: 200, box: [60, 80, 40] }, clear = { k: 220, m: 210, box: [350, 400, 40] };
+  const S = { items: [clear, shown, hidden, wall], side7: { stats: {} } };   // (far to near, as the frame sorts them)
+  Stage.prototype._cull7.call(S, 480);
+  assert.equal(hidden.culled, true, 'under the wall\'s top in every column it spans');
+  assert.ok(!shown.culled && Math.abs(shown.clipY - 120) < 1e-6, `drawn, down to the wall's top (clipY ${shown.clipY})`);
+  assert.ok(!clear.culled && clear.clipY === undefined, 'beside the wall: whole');
+  assert.equal(S.side7.stats.culled, 1);
+});

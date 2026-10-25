@@ -13114,10 +13114,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   // src/motor/render/depth/quads.js
   var MAX_LEVEL = 3;
   var TOL = 2;
-  function texturedFace(g, P21, cv, u0, v0, tw, th, color, fog = null) {
-    return part(g, P21, cv, u0, v0, tw, th, color, fog, 0, 0, 1, 0, 1);
+  function texturedFace(g, P21, cv, u0, v0, tw, th, color, fog = null, yMax = Infinity, extra = 0) {
+    return part(g, P21, cv, u0, v0, tw, th, color, fog, -extra, 0, 1, 0, 1, yMax);
   }
-  function part(g, P21, cv, u0, v0, tw, th, color, fog, level2, s0, s1, t0, t1) {
+  function part(g, P21, cv, u0, v0, tw, th, color, fog, level2, s0, s1, t0, t1, yMax) {
     const a = P21(s0, t0), b = P21(s1, t0), c = P21(s1, t1), d = P21(s0, t1);
     if (!a || !b || !c || !d) return 0;
     if (cv && level2 < MAX_LEVEL) {
@@ -13127,15 +13127,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         const eC = Math.hypot(c[0] - (b[0] + d[0] - a[0]), c[1] - (b[1] + d[1] - a[1]));
         if (Math.max(eS, eT, eC) > TOL) {
           const splitS = eS > eT || eS === eT && Math.hypot(b[0] - a[0], b[1] - a[1]) >= Math.hypot(d[0] - a[0], d[1] - a[1]);
-          return splitS ? part(g, P21, cv, u0, v0, tw, th, color, fog, level2 + 1, s0, sm, t0, t1) + part(g, P21, cv, u0, v0, tw, th, color, fog, level2 + 1, sm, s1, t0, t1) : part(g, P21, cv, u0, v0, tw, th, color, fog, level2 + 1, s0, s1, t0, tm) + part(g, P21, cv, u0, v0, tw, th, color, fog, level2 + 1, s0, s1, tm, t1);
+          return splitS ? part(g, P21, cv, u0, v0, tw, th, color, fog, level2 + 1, s0, sm, t0, t1, yMax) + part(g, P21, cv, u0, v0, tw, th, color, fog, level2 + 1, sm, s1, t0, t1, yMax) : part(g, P21, cv, u0, v0, tw, th, color, fog, level2 + 1, s0, s1, t0, tm, yMax) + part(g, P21, cv, u0, v0, tw, th, color, fog, level2 + 1, s0, s1, tm, t1, yMax);
         }
       }
     }
-    const cv0 = g.canvas, W26 = cv0 && cv0.width, H18 = cv0 && cv0.height;
+    const cv0 = g.canvas, W26 = cv0 && cv0.width, H18 = cv0 && cv0.height, Y1 = Math.min(H18 + 1, yMax);
+    if (Math.min(a[1], b[1], c[1], d[1]) >= Y1) return 0;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.beginPath();
-    if (W26 > 0 && H18 > 0 && (Math.min(a[0], b[0], c[0], d[0]) < -1 || Math.max(a[0], b[0], c[0], d[0]) > W26 + 1 || Math.min(a[1], b[1], c[1], d[1]) < -1 || Math.max(a[1], b[1], c[1], d[1]) > H18 + 1)) {
-      const q = clipRect([a, b, c, d], -1, -1, W26 + 1, H18 + 1);
+    if (W26 > 0 && H18 > 0 && (Math.min(a[0], b[0], c[0], d[0]) < -1 || Math.max(a[0], b[0], c[0], d[0]) > W26 + 1 || Math.min(a[1], b[1], c[1], d[1]) < -1 || Math.max(a[1], b[1], c[1], d[1]) > Y1)) {
+      const q = clipRect([a, b, c, d], -1, -1, W26 + 1, Y1);
       if (q.length < 3) return 0;
       g.moveTo(q[0][0], q[0][1]);
       for (let i = 1; i < q.length; i++) g.lineTo(q[i][0], q[i][1]);
@@ -13436,18 +13437,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.stats.rows = rows;
     }
     /** a face in rail space: P(s, t) over the face from D0..D1 and L0..L1 (one of the pairs equal), z from top to foot */
-    _face(g, D0, D1, L0, L110, h, cv, u0, color) {
+    _face(g, D0, D1, L0, L110, h, cv, u0, color, yMax = Infinity) {
       const fog = this.fogAt(Math.min(D0, D1)), [fr, fg, fb] = this.fogRGB;
       if (fog >= 0.97) return;
-      this.stats.quads += texturedFace(g, (s, t) => this._q(D0 + (D1 - D0) * s, L0 + (L110 - L0) * s, h * (1 - t)), fog < 0.85 ? cv : null, u0, 0, Math.abs(D1 - D0) + Math.abs(L110 - L0), h, color, fog > 0.02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
+      this.stats.quads += texturedFace(g, (s, t) => this._q(D0 + (D1 - D0) * s, L0 + (L110 - L0) * s, h * (1 - t)), fog < 0.85 ? cv : null, u0, 0, Math.abs(D1 - D0) + Math.abs(L110 - L0), h, color, fog > 0.02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null, yMax);
     }
     /** a front face (depth D, across L0..L1): square on to the level camera, so an upright rectangle on screen with its
      *  texture at one scale, drawn as plain scaled blits (a period of the texture each; an affine pattern costs several
      *  times as much a pixel in a software canvas), its visible part only */
-    _front(g, D, L0, L110, h, cv, u0, color) {
+    _front(g, D, L0, L110, h, cv, u0, color, yMax = Infinity) {
       const fog = this.fogAt(D);
       if (fog >= 0.97) return;
-      const P21 = this.P, k = P21.F / D, x0 = P21.cx + L0 * k, y0 = P21.hy - (h - this.h) * k, X0 = Math.max(0, x0), X1 = Math.min(P21.W, P21.cx + L110 * k), Y0 = Math.max(0, y0), Y1 = Math.min(P21.H, P21.hy + this.h * k);
+      const P21 = this.P, k = P21.F / D, x0 = P21.cx + L0 * k, y0 = P21.hy - (h - this.h) * k, X0 = Math.max(0, x0), X1 = Math.min(P21.W, P21.cx + L110 * k), Y0 = Math.max(0, y0), Y1 = Math.min(P21.H, P21.hy + this.h * k, Math.ceil(yMax));
       if (X1 <= X0 || Y1 <= Y0) return;
       g.setTransform(1, 0, 0, 1, 0, 0);
       if (cv && fog < 0.85) {
@@ -13506,19 +13507,22 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             if (d12 <= d02) continue;
             if (d02 > this.farClip) break;
             const u0 = mod(cAlong + b, PER) + (d02 - b);
-            items.push(this._box(d02, side, d12, side, h, { k: d12, m: d02, kind: "side", fn: (g) => this._face(g, d02, d12, side, side, h, cv, u0, col) }));
+            const it = { k: d12, m: d02, kind: "side", fn: (g) => this._face(g, d02, d12, side, side, h, cv, u0, col, it.clipY) };
+            items.push(this._box(d02, side, d12, side, h, it));
           }
         }
         if (Dn >= NEAR_D) {
           const sh = shadeOf(-a.f[0], -a.f[1]), cv = faceTexture(s.id, s.t, h, sh, v, night3), col = faceColor(s.t, sh), u0 = mod(cAcross + La, PER);
-          items.push(this._box(Dn, La, Dn, Lb, h, { k: Dn, m: Dn, kind: "front", fn: (g) => this._front(g, Dn, La, Lb, h, cv, u0, col) }));
+          const it = { k: Dn, m: Dn, kind: "front", fn: (g) => this._front(g, Dn, La, Lb, h, cv, u0, col, it.clipY) };
+          items.push(this._box(Dn, La, Dn, Lb, h, it));
         }
         if (this.h > h + 1) {
           const d02 = Math.max(NEAR_D, Dn), cs = [this._q(Df, La, h), this._q(Df, Lb, h), this._q(d02, La, h), this._q(d02, Lb, h)];
-          items.push({ k: d02, m: d02, kind: "top", box: cs.every(Boolean) ? [Math.min(...cs.map((c) => c[0])), Math.max(...cs.map((c) => c[0])), Math.min(...cs.map((c) => c[1]))] : null, fn: (g) => {
+          const it = { k: d02, m: d02, kind: "top", box: cs.every(Boolean) ? [Math.min(...cs.map((c) => c[0])), Math.max(...cs.map((c) => c[0])), Math.min(...cs.map((c) => c[1]))] : null, fn: (g) => {
             const fog = this.fogAt(d02), [fr, fg, fb] = this.fogRGB;
-            this.stats.quads += texturedFace(g, (u, t) => this._q(Df + (d02 - Df) * t, La + (Lb - La) * u, h), null, 0, 0, 1, 1, s.t.top, fog > 0.02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
-          } });
+            this.stats.quads += texturedFace(g, (u, t) => this._q(Df + (d02 - Df) * t, La + (Lb - La) * u, h), null, 0, 0, 1, 1, s.t.top, fog > 0.02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null, it.clipY);
+          } };
+          items.push(it);
         }
       }
     }
@@ -13975,6 +13979,143 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
   };
 
+  // src/motor/render/pixel-ctx.js
+  var CTX_METHODS = [
+    "arc",
+    "arcTo",
+    "beginPath",
+    "bezierCurveTo",
+    "clearRect",
+    "clip",
+    "closePath",
+    "createImageData",
+    "createLinearGradient",
+    "createPattern",
+    "createRadialGradient",
+    "drawImage",
+    "ellipse",
+    "fill",
+    "fillText",
+    "getImageData",
+    "getLineDash",
+    "getTransform",
+    "isPointInPath",
+    "isPointInStroke",
+    "lineTo",
+    "measureText",
+    "moveTo",
+    "putImageData",
+    "quadraticCurveTo",
+    "rect",
+    "reset",
+    "resetTransform",
+    "restore",
+    "rotate",
+    "roundRect",
+    "save",
+    "scale",
+    "setLineDash",
+    "setTransform",
+    "stroke",
+    "strokeRect",
+    "strokeText",
+    "transform",
+    "translate"
+  ];
+  var PixelCtx = class {
+    constructor() {
+      this.canvas = { width: 0, height: 0 };
+      this.images = /* @__PURE__ */ new Map();
+      this.colors = /* @__PURE__ */ new Map();
+      this.bailed = false;
+      this.px = null;
+      this.image = null;
+      this._fill = 4278190080;
+      this._fs = "#000000";
+      this._c = null;
+      for (const m of CTX_METHODS) this[m] = () => {
+        this.bailed = true;
+        return null;
+      };
+    }
+    /** a clear w x h picture to draw into (its array kept for that size; not reset(): a canvas's own, a bail here) */
+    begin(w8, h) {
+      const key = w8 * 65536 + h;
+      let im = this.images.get(key);
+      if (!im) {
+        im = { image: new ImageData(w8, h) };
+        im.px = new Uint32Array(im.image.data.buffer);
+        this.images.set(key, im);
+      }
+      this.image = im.image;
+      this.px = im.px;
+      this.px.fill(0);
+      this.canvas.width = w8;
+      this.canvas.height = h;
+      this.bailed = false;
+      this._fill = 4278190080;
+      this._fs = "#000000";
+      this._c = null;
+      this.box = [w8, h, 0, 0];
+    }
+    get fillStyle() {
+      return this._fs;
+    }
+    set fillStyle(v) {
+      let c = this.colors.get(v);
+      if (c === void 0) {
+        c = typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? (4278190080 | parseInt(v.slice(5, 7), 16) << 16 | parseInt(v.slice(3, 5), 16) << 8 | parseInt(v.slice(1, 3), 16)) >>> 0 : null;
+        if (this.colors.size < 4096) this.colors.set(v, c);
+      }
+      if (c === null) {
+        this.bailed = true;
+        return;
+      }
+      this._fill = c;
+      this._fs = v;
+    }
+    get globalAlpha() {
+      return 1;
+    }
+    set globalAlpha(v) {
+      if (v !== 1) this.bailed = true;
+    }
+    get globalCompositeOperation() {
+      return "source-over";
+    }
+    set globalCompositeOperation(v) {
+      if (v !== "source-over") this.bailed = true;
+    }
+    get imageSmoothingEnabled() {
+      return false;
+    }
+    set imageSmoothingEnabled(v) {
+    }
+    fillRect(x, y, w8, h) {
+      if (this.bailed) return;
+      if (w8 < 0) {
+        x += w8;
+        w8 = -w8;
+      }
+      if (h < 0) {
+        y += h;
+        h = -h;
+      }
+      if (x !== (x | 0) || y !== (y | 0) || w8 !== (w8 | 0) || h !== (h | 0)) {
+        this.bailed = true;
+        return;
+      }
+      const W26 = this.canvas.width, H18 = this.canvas.height, x0 = Math.max(0, x), y0 = Math.max(0, y), x1 = Math.min(W26, x + w8), y1 = Math.min(H18, y + h);
+      if (x1 <= x0 || y1 <= y0) return;
+      const px = this.px, c = this._fill, b = this.box;
+      for (let r7 = y0; r7 < y1; r7++) px.fill(c, r7 * W26 + x0, r7 * W26 + x1);
+      if (x0 < b[0]) b[0] = x0;
+      if (y0 < b[1]) b[1] = y0;
+      if (x1 > b[2]) b[2] = x1;
+      if (y1 > b[3]) b[3] = y1;
+    }
+  };
+
   // src/motor/render/stage.js
   knob("Graphics", "crowdEvery", "Crowd animation rate", 4, 1, 8, 1, "A crowd body (o.key) is drawn every n frames (4: 15 a second, like classic townsfolk) and its image reused in between, at the place it is now (the player never); away from the player one and a half times n, small on screen twice n");
   knob("Camera", "autoRail", "Auto-rail", 1, 0, 1, 1, "MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0)");
@@ -13986,6 +14127,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var FAR_BODY = 160;
   var KEPT_MAX = 60;
   var BODY_KEPT_MAX = 160;
+  var HAZE_GONE = 0.85;
+  var HAZY = /* @__PURE__ */ new Set(["car", "prop3d", "pillar", "deck", "rail"]);
   var PREBAKE_AHEAD = 0.3;
   var TURN = { time: 0.3, most: 0.45, bakeMs: 9, holdMs: 14, step: 3 };
   var ZOOM = { time: 0.25, most: 0.35, bakeMs: 9 };
@@ -14689,10 +14832,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (s && s.h <= z + 2) k = Math.min(k, this._spanKey(x, y, k));
       }
       if (d === this.side7 && !o.xray && this._hidesFocus(d, x, y, z, k)) o = { ...o, alpha: Math.min(o.alpha ?? 1, 0.45) };
+      const hz = this._haze(k);
+      if (hz >= HAZE_GONE) return;
       const q = d === this.side7 && z >= 0 && d.proj(x, y, z);
-      this.items.push({ k, actor: true, m: k - 16, box: q ? [q[0] - 16 * q[2], q[0] + 16 * q[2], q[1] - 56 * q[2]] : null, fn: (g) => {
+      const it = { k, actor: true, m: k - 16, box: q ? [q[0] - 16 * q[2], q[0] + 16 * q[2], q[1] - 56 * q[2]] : null, fn: (g) => {
         const p = d.proj(x, y, z);
         if (!p) return;
+        const al = (o.alpha ?? 1) * (1 - hz);
+        if (al < 1) g.globalAlpha = al;
         if (o.shadow) {
           const s = d.proj(x, y, 0);
           if (s) {
@@ -14702,15 +14849,22 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             g.fill();
           }
         }
-        if (o.alpha !== void 0) g.globalAlpha = o.alpha;
         const sx = Math.round(p[0]), sy = Math.round(p[1]);
-        if (o.crowd && o.key && TUNE.crowdEvery > 1 && 52 * p[2] + 12 <= BODY_KEPT_MAX) this._keptDraw(g, d.view(p[2]), d.heading, o.key, sx, sy, p[2], draw, o.pose, this._far(x, y));
+        const kd = d === this.side7 ? Math.min(p[2], (BODY_KEPT_MAX - 12) / 52) : p[2];
+        if (o.crowd && o.key && TUNE.crowdEvery > 1 && 52 * kd + 12 <= BODY_KEPT_MAX) this._keptDraw(g, d.view(kd), d.heading, o.key, sx, sy, kd, draw, o.pose, this._far(x, y), it.clipY, p[2] / kd);
         else {
           if (o.pose) o.pose(1 / 60);
           draw(g, sx, sy, d.view(p[2]), p[2]);
         }
         g.globalAlpha = 1;
-      } });
+      } };
+      this.items.push(it);
+    }
+    // MODE 7's haze at depth k (0 elsewhere): the walls' fog (Side7View.fogAt), which bodies, cars and props fade into
+    // too, and past HAZE_GONE are not drawn (crisp in the fog, the far ones had cost a tenth of the frame)
+    _haze(k) {
+      const d = this.depth;
+      return d === this.side7 ? d.fogAt(k) : 0;
     }
     // MODE 7: does a body at (x, y, z), k along the rail, stand nearer the lens than the player and over them on screen?
     // (about a body's box each: half a body's width either side, its height up)
@@ -14735,7 +14889,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // a crowd body: drawn into its own image every few frames (or when its size or the view changed), and that image put
     // where it stands in between (each actor's frames are staggered by its key's own phase, so the work spreads evenly)
-    _keptDraw(g, view, heading, key, sx, sy, k, draw, pose, far = false) {
+    _keptDraw(g, view, heading, key, sx, sy, k, draw, pose, far = false, yMax = Infinity, up = 1) {
       let K2 = this._kept.get(key);
       const every = k < SMALL ? TUNE.crowdEvery * 2 : far ? Math.round(TUNE.crowdEvery * 1.5) : TUNE.crowdEvery;
       if (!K2 || this.frameNo - K2.n >= every || Math.abs(K2.k - k) > K2.k * 0.12 || K2.view.id !== view.id || K2.heading !== heading) {
@@ -14744,23 +14898,35 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           pose(K2 && K2.t !== void 0 ? Math.min(0.5, now - K2.t) : 1 / 60);
           if (K2) K2.t = now;
         }
-        const w8 = Math.ceil(30 * k) + 12, h = Math.ceil(52 * k) + 12, foot = Math.ceil(8 * k) + 6;
-        const cw = Math.ceil(w8 * 1.25 / 16) * 16, ch = Math.ceil(h * 1.25 / 16) * 16;
+        const w8 = Math.ceil(30 * k) + 12, h2 = Math.ceil(52 * k) + 12, foot = Math.ceil(8 * k) + 6;
+        const cw = Math.ceil(w8 * 1.25 / 16) * 16, ch = Math.ceil(h2 * 1.25 / 16) * 16;
         if (!K2) {
           K2 = { cv: E.mkCanvas(cw, ch) };
           this._kept.set(key, K2);
-        } else if (K2.cv.width < w8 || K2.cv.height < h || K2.cv.width > w8 * 2) {
+        } else if (K2.cv.width < w8 || K2.cv.height < h2 || K2.cv.width > w8 * 2) {
           K2.cv.width = cw;
           K2.cv.height = ch;
         }
         const kg = K2.g || (K2.g = K2.cv.getContext("2d"));
-        kg.setTransform(1, 0, 0, 1, 0, 0);
-        kg.clearRect(0, 0, K2.cv.width, K2.cv.height);
-        kg.imageSmoothingEnabled = false;
         K2.ax = Math.floor(K2.cv.width / 2);
         K2.ay = K2.cv.height - foot;
-        draw(kg, K2.ax, K2.ay, view, k);
-        kg._c = null;
+        const P21 = this._pxc || (this._pxc = typeof ImageData !== "undefined" && this.pixelBodies !== false ? new PixelCtx() : null);
+        if (P21) {
+          P21.begin(K2.cv.width, K2.cv.height);
+          draw(P21, K2.ax, K2.ay, view, k);
+        }
+        if (P21 && !P21.bailed) {
+          const b = P21.box;
+          K2.bb = b[2] > b[0] ? [b[0], b[1], b[2] - b[0], b[3] - b[1]] : [0, 0, 0, 0];
+          if (K2.bb[2]) kg.putImageData(P21.image, 0, 0, ...K2.bb);
+        } else {
+          K2.bb = null;
+          kg.setTransform(1, 0, 0, 1, 0, 0);
+          kg.clearRect(0, 0, K2.cv.width, K2.cv.height);
+          kg.imageSmoothingEnabled = false;
+          draw(kg, K2.ax, K2.ay, view, k);
+          kg._c = null;
+        }
         if (K2.n === void 0) {
           K2.phase = (this._keptN = (this._keptN || 0) + 1) % TUNE.crowdEvery;
           K2.t = this.game.real;
@@ -14768,7 +14934,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         Object.assign(K2, { n: this.frameNo - (K2.fresh ? 0 : K2.phase), k, view, heading });
         K2.fresh = true;
       }
-      g.drawImage(K2.cv, sx - K2.ax, sy - K2.ay);
+      const bb = K2.bb || [0, 0, K2.cv.width, K2.cv.height];
+      if (up > 1.001) {
+        if (!bb[2]) return;
+        const sm = g.imageSmoothingEnabled;
+        g.imageSmoothingEnabled = true;
+        g.drawImage(K2.cv, bb[0], bb[1], bb[2], bb[3], sx + (bb[0] - K2.ax) * up, sy + (bb[1] - K2.ay) * up, bb[2] * up, bb[3] * up);
+        g.imageSmoothingEnabled = sm;
+        return;
+      }
+      const dx = sx - K2.ax + bb[0], dy = sy - K2.ay + bb[1], h = Math.min(bb[3], Math.ceil(yMax) - dy);
+      if (bb[2] > 0 && h > 0) g.drawImage(K2.cv, bb[0], bb[1], bb[2], h, dx, dy, bb[2], h);
     }
     /** a shape drawn through a projector: draw(g, P) with P.proj(x, y, z) -> [sx, sy, k] (vehicles, props, markers).
      *  o: the engine queue's options in ISO ({ emissive, bias, hides, footprint }); wall: [x, y], a point of the wall it
@@ -14795,8 +14971,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         const s = this.spans.at(x, y);
         if (s && s.h <= z + 2) k = Math.min(k, this._spanKey(x, y, k));
       }
-      const it = { k, kind: o && o.kind || "shape", fn: kept2 && !big ? (g) => this._keptShape(g, d, d.view(1), x, y, z, draw, kept2) : (g) => draw(g, d) };
+      const kind = o && o.kind || "shape", hz = HAZY.has(kind) ? this._haze(k) : 0;
+      if (hz >= HAZE_GONE) return;
+      const f = kept2 && !big ? (g) => this._keptShape(g, d, d.view(1), x, y, z, draw, kept2, it.clipY) : (g) => draw(g, d);
+      const it = { k, kind, fn: hz > 0.02 ? (g) => {
+        g.globalAlpha = 1 - hz;
+        f(g);
+        g.globalAlpha = 1;
+      } : f };
       if (d === this.side7 && o && o.reach) this._reachBox(d, it, x, y, o.reach);
+      else if (d === this.side7 && o && o.extent) this._extentBox(d, it, o.extent);
       this.items.push(it);
     }
     // MODE 7: a shape's box on screen and its nearest depth, from its reach (r round (x, y), from z0 up to z1), for _cull7
@@ -14811,6 +14995,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       it.box = [x0, x1, top2];
       it.m = d.depth(x, y) - r7 * Math.SQRT2;
+    }
+    // MODE 7: a shape's box on screen and its nearest depth from the box it fills ([x0, y0, x1, y1, z0, z1]), for _cull7
+    _extentBox(d, it, [X0, Y0, X1, Y1, z05, z1]) {
+      let x0 = 1e9, x1 = -1e9, top2 = 1e9, m = 1e9;
+      for (let i = 0; i < 8; i++) {
+        const x = i & 1 ? X1 : X0, y = i & 2 ? Y1 : Y0, p = d.proj(x, y, i & 4 ? z1 : z05);
+        if (!p || z05 < 0) return;
+        x0 = Math.min(x0, p[0]);
+        x1 = Math.max(x1, p[0]);
+        top2 = Math.min(top2, p[1]);
+        m = Math.min(m, d.depth(x, y));
+      }
+      it.box = [x0, x1, top2];
+      it.m = m;
     }
     // MODE 7's occlusion: the camera is level and every wall stands on the floor, so a wall face wholly nearer than a
     // thing hides it over the face's columns from the face's top down (the thing's foot, farther off, is always higher on
@@ -14836,20 +15034,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
         const b = it.box, c0 = Math.max(0, Math.floor(b[0])), c1 = Math.min(W26 - 1, Math.ceil(b[1]));
         if (c1 < c0) continue;
-        let hid = true;
-        for (let c = c0; c <= c1; c++) if (cov[c] > b[2]) {
-          hid = false;
-          break;
-        }
-        if (hid) {
+        let low2 = -1e9;
+        for (let c = c0; c <= c1; c++) if (cov[c] > low2) low2 = cov[c];
+        if (low2 <= b[2]) {
           it.culled = true;
           culled++;
-        }
+        } else it.clipY = low2 < 1e8 ? low2 : void 0;
       }
       this.side7.stats.culled = culled;
     }
     // a kept shape: its image, redrawn when the view, its size on screen (depth views) or the frame's skew changed
-    _keptShape(g, P21, view, x, y, z, draw, kp) {
+    _keptShape(g, P21, view, x, y, z, draw, kp, yMax = Infinity) {
       const q = P21.proj(x, y, z);
       if (!q) return;
       const k = q[2], key = kp.key;
@@ -14866,14 +15061,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             by1 = Math.max(by1, p[1]);
           }
         }
-        const ax = Math.ceil(q[0] - bx0) + 6, ay = Math.ceil(q[1] - by0) + 6, w8 = Math.ceil((ax + bx1 - q[0] + 6) / 16) * 16, h = Math.ceil((ay + by1 - q[1] + 6) / 16) * 16;
+        const ax = Math.ceil(q[0] - bx0) + 6, ay = Math.ceil(q[1] - by0) + 6, w8 = Math.ceil((ax + bx1 - q[0] + 6) / 16) * 16, h2 = Math.ceil((ay + by1 - q[1] + 6) / 16) * 16;
         if (!K2) {
-          K2 = { cv: E.mkCanvas(w8, h) };
+          K2 = { cv: E.mkCanvas(w8, h2) };
           this._kept.set(key, K2);
         }
-        if (K2.cv.width < w8 || K2.cv.height < h || K2.cv.width > w8 * 2 || K2.cv.height > h * 2) {
+        if (K2.cv.width < w8 || K2.cv.height < h2 || K2.cv.width > w8 * 2 || K2.cv.height > h2 * 2) {
           K2.cv.width = w8;
-          K2.cv.height = h;
+          K2.cv.height = h2;
         }
         const kg = K2.g || (K2.g = K2.cv.getContext("2d"));
         kg.setTransform(1, 0, 0, 1, 0, 0);
@@ -14887,7 +15082,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         kg._c = null;
         Object.assign(K2, { tag, k, n: this.frameNo, ax, ay });
       }
-      g.drawImage(K2.cv, Math.round(q[0] - K2.ax), Math.round(q[1] - K2.ay));
+      const dx = Math.round(q[0] - K2.ax), dy = Math.round(q[1] - K2.ay), h = Math.min(K2.cv.height, Math.ceil(yMax) - dy);
+      if (h >= K2.cv.height) g.drawImage(K2.cv, dx, dy);
+      else if (h > 0) g.drawImage(K2.cv, 0, 0, K2.cv.width, h, dx, dy, K2.cv.width, h);
     }
     /** one of the engine's props (E.PROPS: 'streetlamp', 'palm', 'trashcan'...): r.prop's billboard in ISO (o: its options:
      *  size, light, lightRadius...), the same sprite scaled to its distance in TOP and SIDE7 */
@@ -14901,13 +15098,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (!p) return;
       const spr = p.frames[0];
       if (o.light && p.light) this.lamps.push([x, y, z, o.lightRadius || 70]);
+      const hz = this._haze(d.depth(x, y));
+      if (hz >= HAZE_GONE) return;
       const q = d === this.side7 && z >= 0 && d.proj(x, y, z), qs = q && q[2] / Math.SQRT2, box2 = q && !(p.glowAt && o.light && o.halo !== false) ? [q[0] - spr.w * qs / 2 - 1, q[0] + spr.w * qs / 2 + 1, q[1] - spr.h * qs - 1] : null;
       this.items.push({ k: d.depth(x, y), m: d.depth(x, y) - 4, box: box2, kind: "prop", fn: (g) => {
         const q2 = d.proj(x, y, z);
         if (!q2) return;
         const s = q2[2] / Math.SQRT2, w8 = spr.w * s, h = spr.h * s;
         if (h < 1) return;
+        if (hz > 0.02) g.globalAlpha = 1 - hz;
         g.drawImage(spr.cv, Math.round(q2[0] - w8 / 2), Math.round(q2[1] - h), Math.max(1, Math.round(w8)), Math.max(1, Math.round(h)));
+        g.globalAlpha = 1;
         if (p.glowAt && o.light && o.halo !== false) {
           const gx2 = q2[0] - w8 / 2 + w8 * p.glowAt[0], gy = q2[1] - h + h * p.glowAt[1], R3 = Math.max(2, w8 * 0.9);
           g.globalAlpha = 0.25;
@@ -21875,7 +22076,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var SHARED2 = /* @__PURE__ */ new Map();
   var MODELS = /* @__PURE__ */ new WeakMap();
   var OPEN2 = /* @__PURE__ */ new WeakMap();
+  var DECKS = /* @__PURE__ */ new WeakMap();
   var modelN = 0;
+  var deckN = (d) => {
+    let n = DECKS.get(d);
+    if (n === void 0) DECKS.set(d, n = DECKS.n = (DECKS.n || 0) + 1);
+    return n;
+  };
   var shared = (k) => {
     let o = SHARED2.get(k);
     if (!o) SHARED2.set(k, o = {});
@@ -22032,18 +22239,25 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** queue what stands within radius (world units) of (fx, fy) */
     queue(stage, fx7, fy, radius = 640, night3 = true, player = null) {
       const ci = Math.floor(fx7 / CH), cj = Math.floor(fy / CH), n = Math.ceil(radius / CH);
+      const wd = stage.depth === stage.side7 && stage.side7.P ? stage.side7.wedge(CH) : null, I0 = wd ? Math.max(ci - n, wd[0]) : ci - n, J0 = wd ? Math.max(cj - n, wd[1]) : cj - n, I1 = wd ? Math.min(ci + n, wd[2]) : ci + n, J1 = wd ? Math.min(cj + n, wd[3]) : cj + n;
       const under = player && this.city.deckAt(player[0], player[1], 1e9);
       const fade = under && under.z > (player[2] || 0) + 24 ? player : null;
       const cut7 = stage.depth === stage.side7 && player ? stage.side7 : null, pz = player ? player[2] || 0 : 0, fd = cut7 ? cut7.depth(player[0], player[1]) : 0, fl = cut7 ? cut7.lateral(player[0], player[1]) : 0;
-      for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) {
+      const rows = stage.depth === stage.side7 ? this._rows || (this._rows = /* @__PURE__ */ new Map()) : null;
+      if (rows) rows.clear();
+      for (let j = J0; j <= J1; j++) for (let i = I0; i <= I1; i++) {
         const k = j * 64 + i;
         for (const p of this.props.get(k) || []) if (stage.onScreen(p.x, p.y, p.z || 0, (p.z || 0) + (p.top || 60), 24) && !(p.roof && cut7 && this._cut7(cut7, p.lot, fd, fl))) this._prop(stage, p, night3);
         for (const dc of this.deckCells.get(k) || []) {
           const c = dc.c, z = Math.max(c.z0, c.z1), x = (c.cx + 0.5) * T3, y = (c.cy + 0.5) * T3;
           if (cut7 && z > pz + 24 && cut7.depth(x, y) < fd - 8) continue;
-          if (stage.onScreen(x, y, z - dc.d.thickness, z + 8, 12)) this._deck(stage, dc, fade);
+          if (stage.onScreen(x, y, z - dc.d.thickness, z + 8, 12)) {
+            if (rows) this._row7(rows, stage.side7, dc, fade);
+            else this._deck(stage, dc, fade);
+          }
         }
       }
+      if (rows) this._runs7(stage, rows);
       for (const b of this.bridges) {
         const T21 = this.city.T, [x0, y0, x1, y1] = b.rect, mx = (x0 + x1 + 1) / 2 * T21, my = (y0 + y1 + 1) / 2 * T21;
         if (Math.abs(mx - fx7) > radius + 160 || Math.abs(my - fy) > radius + 160) continue;
@@ -22119,18 +22333,55 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const m = p.kind === "container" ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind];
       if (m) stage.shape(p.x, p.y, p.z || 0, (g, P21) => drawBoxModel(g, P21, m, p.x, p.y, p.z || 0, p.facing || 0), { kind: "prop3d", kept: keptProp(stage, m, p.facing), reach: reachOf(m, p.z || 0) });
     }
+    // MODE 7: a deck cell into its row across the rail (cells side by side at one depth, at one height and slope, the
+    // slope along the rail; its railings queued with its run, each on its own)
+    _row7(rows, D, dc, fade) {
+      const { d, c } = dc, ns = D.heading === 0 || D.heading === 180, x = (c.cx + 0.5) * T3, y = (c.cy + 0.5) * T3;
+      const near3 = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72, flat = c.z0 === c.z1, along2 = c.axis === (ns ? "y" : "x");
+      const key = flat || along2 ? deckN(d) + "|" + (ns ? c.cy : c.cx) + "|" + c.z0 + "|" + c.z1 + "|" + (flat ? "" : c.axis) + "|" + (near3 ? 1 : 0) : dc;
+      let r7 = rows.get(key);
+      if (!r7) rows.set(key, r7 = { d, map: dc.map, near: near3, ns, cells: [] });
+      r7.cells.push(c);
+    }
+    // MODE 7: each row's runs of side-by-side cells queued as one slab each (a draw item a cell had been a fifth of the
+    // frame's items: their tops one textured face each), with each cell's railings as before
+    _runs7(stage, rows) {
+      const D = stage.side7;
+      for (const r7 of rows.values()) {
+        const { d, map, near: near3, ns } = r7, a = near3 ? 0.3 : 1, cells = r7.cells.sort((p, q) => ns ? p.cx - q.cx : p.cy - q.cy);
+        for (let i = 0; i < cells.length; ) {
+          let j = i + 1;
+          while (j < cells.length && (ns ? cells[j].cx - cells[j - 1].cx : cells[j].cy - cells[j - 1].cy) === 1) j++;
+          const run3 = cells.slice(i, j), c0 = run3[0], c1 = run3[run3.length - 1];
+          i = j;
+          const X0 = c0.cx * T3, Y0 = c0.cy * T3, X1 = (c1.cx + 1) * T3, Y1 = (c1.cy + 1) * T3, x = (X0 + X1) / 2, y = (Y0 + Y1) / 2, z = Math.max(c0.z0, c0.z1);
+          const q = D.proj(x, y, z), small = !!(q && q[2] * T3 < DECK_SMALL), zl = Math.min(c0.z0, c0.z1) - d.thickness;
+          stage.shape(x, y, z, (g, P21) => drawDeckRun(g, P21, d, run3, map, a, small), { hides: true, kind: "deck", extent: [X0, Y0, X1, Y1, zl, z + 8] });
+          if (d.railing !== false && !small) for (const c of run3) this._rails(stage, d, c, map, a, z, zl, null, OPEN2.get(c) ?? this._open(c, map));
+        }
+      }
+    }
+    _open(c, map) {
+      let open = OPEN2.get(c);
+      if (open === void 0) OPEN2.set(c, open = EDGES.reduce((b, e, i) => b | (map.has(c.cx + e[0] + "," + (c.cy + e[1])) ? 0 : 1 << i), 0));
+      return open;
+    }
+    // a cell's railings along its open edges, each sorting on its own just outside its edge
+    _rails(stage, d, c, map, a, z, zl, v, open) {
+      const x = (c.cx + 0.5) * T3, y = (c.cy + 0.5) * T3, dz2 = z - zl + 1;
+      EDGES.forEach((e, i) => {
+        if (open & 1 << i) stage.shape(x + e[0] * T3 * 1.1, y + e[1] * T3 * 1.1, z, (g, P21) => drawDeckRail(g, P21, d, c, e, a), { hides: true, kind: "rail", reach: [T3 * 0.7, zl, z + 8], kept: v && { key: shared("rail:" + v + ":" + i), r: T3, h: 9, d: dz2 } });
+      });
+    }
     _deck(stage, { d, c, map }, fade) {
       const x = (c.cx + 0.5) * T3, y = (c.cy + 0.5) * T3, z = Math.max(c.z0, c.z1);
       const near3 = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72, a = near3 ? 0.3 : 1;
       const D = stage.depth, q = D && D.proj(x, y, z), small = !!(q && q[2] * T3 < DECK_SMALL);
-      let open = OPEN2.get(c);
-      if (open === void 0) OPEN2.set(c, open = EDGES.reduce((b, e, i) => b | (map.has(c.cx + e[0] + "," + (c.cy + e[1])) ? 0 : 1 << i), 0));
+      const open = this._open(c, map);
       const zl = Math.min(c.z0, c.z1) - d.thickness;
       const v = D ? null : `${d.kind}:${d.thickness}:${c.z1 - c.z0}:${c.axis}:${c.cx & 3}:${c.cy & 3}:${a}`, dz2 = z - zl + 1;
       stage.shape(x, y, z, (g, P21) => drawDeckCell(g, P21, d, c, map, a, small), { hides: true, kind: "deck", reach: [T3 / 2, zl, z + 8], kept: v && { key: shared("deck:" + v + ":" + open), r: T3 * 0.75, h: 2, d: dz2 } });
-      if (d.railing !== false && !small) EDGES.forEach((e, i) => {
-        if (open & 1 << i) stage.shape(x + e[0] * T3 * 1.1, y + e[1] * T3 * 1.1, z, (g, P21) => drawDeckRail(g, P21, d, c, e, a), { hides: true, kind: "rail", reach: [T3 * 0.7, zl, z + 8], kept: v && { key: shared("rail:" + v + ":" + i), r: T3, h: 9, d: dz2 } });
-      });
+      if (d.railing !== false && !small) this._rails(stage, d, c, map, a, z, zl, v, open);
     }
   };
   var WALL_IN = { s: [0, -10], n: [0, 10], e: [-10, 0], w: [10, 0] };
@@ -22304,6 +22555,39 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     if (corners.every(Boolean) && cross(corners) < 0) {
       if (small) quad(g, corners, "#3a3a42");
       else texturedFace(g, top2, deckTexture(d.kind), c.cx * T3 % 64, c.cy * T3 % 64, T3, T3, "#3a3a42");
+    }
+    g.globalAlpha = 1;
+    g._c = null;
+  }
+  function drawDeckRun(g, P21, d, run3, map, alpha = 1, small = false) {
+    if (run3.length === 1) {
+      drawDeckCell(g, P21, d, run3[0], map, alpha, small);
+      return;
+    }
+    const c = run3[0], e = run3[run3.length - 1], X0 = c.cx * T3, Y0 = c.cy * T3, X1 = (e.cx + 1) * T3, Y1 = (e.cy + 1) * T3, th = d.thickness;
+    const zAt = (x, y) => c.z0 + (c.z1 - c.z0) * (c.axis === "x" ? (x - X0) / T3 : (y - Y0) / T3);
+    if (alpha < 1) g.globalAlpha = alpha;
+    const u = small ? null : [P21.proj(X0, Y0, zAt(X0, Y0) - th), P21.proj(X1, Y0, zAt(X1, Y0) - th), P21.proj(X1, Y1, zAt(X1, Y1) - th), P21.proj(X0, Y1, zAt(X0, Y1) - th)];
+    if (u && u.every(Boolean) && cross(u) < 0) quad(g, u, "#2a2a32");
+    for (const k of run3) {
+      const x0 = k.cx * T3, y0 = k.cy * T3;
+      for (const [dx, dy, ea, eb] of EDGES) {
+        if (map.has(k.cx + dx + "," + (k.cy + dy))) continue;
+        const A = [x0 + ea[0] * T3, y0 + ea[1] * T3], B2 = [x0 + eb[0] * T3, y0 + eb[1] * T3], za = zAt(...A), zb5 = zAt(...B2), f = [P21.proj(A[0], A[1], za - th), P21.proj(B2[0], B2[1], zb5 - th), P21.proj(B2[0], B2[1], zb5), P21.proj(A[0], A[1], za)];
+        if (!f.every(Boolean) || cross(f) >= 0) continue;
+        quad(g, f, dy > 0 || dx > 0 ? "#5a5a64" : "#6e6e78");
+      }
+    }
+    const top2 = (s, t) => {
+      const x = X0 + s * (X1 - X0), y = Y0 + t * (Y1 - Y0);
+      return P21.proj(x, y, zAt(x, y));
+    };
+    const corners = [top2(0, 0), top2(0, 1), top2(1, 1), top2(1, 0)];
+    let more = 0;
+    while (1 << more < run3.length) more++;
+    if (corners.every(Boolean) && cross(corners) < 0) {
+      if (small) quad(g, corners, "#3a3a42");
+      else texturedFace(g, top2, deckTexture(d.kind), X0 % 64, Y0 % 64, X1 - X0, Y1 - Y0, "#3a3a42", null, Infinity, more);
     }
     g.globalAlpha = 1;
     g._c = null;
@@ -45917,7 +46201,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
               const real = fleet.near(p.x, p.y, 240).filter((v) => v.cls !== "heli").length;
               for (const c of crowd.cars.slice(real)) {
                 const x = p.x + c.ox, y = p.y + c.oy;
-                stage.shape(x, y, 0, (g, P21) => drawBoxModel(g, P21, c.model, x, y, 0, c.h, { lit: true }), { kept: { key: c, r: 34, h: 24 } });
+                stage.shape(x, y, 0, (g, P21) => drawBoxModel(g, P21, c.model, x, y, 0, c.h, { lit: true }), { kept: { key: c, r: 34, h: 24 }, kind: "car", reach: [34, 0, 32] });
               }
             }
             for (const id of crew.order) {

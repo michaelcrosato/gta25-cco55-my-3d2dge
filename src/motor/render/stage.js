@@ -24,6 +24,7 @@ import { BACKDROPS } from './sky.js';
 import { WeatherFX } from './weather-fx.js';
 import { CrossFade } from './crossfade.js';
 import { TUNE, knob } from '../core/tune.js';
+import { PixelCtx } from './pixel-ctx.js';
 
 knob('Graphics', 'crowdEvery', 'Crowd animation rate', 4, 1, 8, 1, 'A crowd body (o.key) is drawn every n frames (4: 15 a second, like classic townsfolk) and its image reused in between, at the place it is now (the player never); away from the player one and a half times n, small on screen twice n');
 knob('Camera', 'autoRail', 'Auto-rail', 1, 0, 1, 1, 'MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0)');
@@ -35,6 +36,8 @@ const SMALL = .7;   // a crowd body drawn smaller than this (its view's scale): 
 const FAR_BODY = 160;   // (world units, |dx| + |dy| from the focus: a crowd body farther off redraws two thirds as often)
 const KEPT_MAX = 60;   // a kept shape whose reach is more pixels than this on screen (near a depth view's camera) is drawn, not kept
 const BODY_KEPT_MAX = 160;   // and a crowd body whose image would be taller than this (MODE 7's lens, Sharp MODE 7's buffer): drawn
+const HAZE_GONE = .85;   // MODE 7: where the walls go flat into the fog, bodies, cars and props are not drawn
+const HAZY = new Set(['car', 'prop3d', 'pillar', 'deck', 'rail']);   // (the shapes that fade into it: not a sign, a glow or a marker)
 const PREBAKE_AHEAD = .3;   // (ISO: s ahead of the camera the walls are baked before they show)
 // an ISO quarter turn: its length, the longest it waits for walls to bake, the bake budget a frame while it turns and
 // while it waits at the new yaw, its yaw steps (degrees)
@@ -412,16 +415,25 @@ export class Stage {
     let k = d.depth(x, y);
     if (d === this.top && z > 2 && this.spans) { const s = this.spans.at(x, y); if (s && s.h <= z + 2) k = Math.min(k, this._spanKey(x, y, k)); }   // (TOP-DOWN: a body up on a roof drawn just after the roof it stands on, not under it)
     if (d === this.side7 && !o.xray && this._hidesFocus(d, x, y, z, k)) o = { ...o, alpha: Math.min(o.alpha ?? 1, .45) };   // (between MODE 7's lens and the player, over them on screen: see-through, never a wall of body)
+    const hz = this._haze(k); if (hz >= HAZE_GONE) return;   // (MODE 7: into the haze as the walls go)
     const q = d === this.side7 && z >= 0 && d.proj(x, y, z);   // (MODE 7: a body's box on screen, for the walls to hide it: its rig's reach)
-    this.items.push({ k, actor: true, m: k - 16, box: q ? [q[0] - 16 * q[2], q[0] + 16 * q[2], q[1] - 56 * q[2]] : null, fn: g => {
+    const it = { k, actor: true, m: k - 16, box: q ? [q[0] - 16 * q[2], q[0] + 16 * q[2], q[1] - 56 * q[2]] : null, fn: g => {
       const p = d.proj(x, y, z); if (!p) return;
+      const al = (o.alpha ?? 1) * (1 - hz); if (al < 1) g.globalAlpha = al;
       if (o.shadow) { const s = d.proj(x, y, 0); if (s) { g.fillStyle = 'rgba(5,3,12,.45)'; g.beginPath(); g.ellipse(s[0], s[1], o.shadow * s[2] * 1.1, Math.max(1, o.shadow * s[2] * (d === this.top ? 1.1 : .45)), 0, 0, Math.PI * 2); g.fill(); } }
-      if (o.alpha !== undefined) g.globalAlpha = o.alpha;
       const sx = Math.round(p[0]), sy = Math.round(p[1]);
-      if (o.crowd && o.key && TUNE.crowdEvery > 1 && 52 * p[2] + 12 <= BODY_KEPT_MAX) this._keptDraw(g, d.view(p[2]), d.heading, o.key, sx, sy, p[2], draw, o.pose, this._far(x, y)); else { if (o.pose) o.pose(1 / 60); draw(g, sx, sy, d.view(p[2]), p[2]); }
+      // (a crowd body right by MODE 7's lens, too big to keep at its size, is kept at the largest that is and enlarged
+      // smoothly where it stands: soft as a thing too near a lens is, where drawn whole every frame it had cost a
+      // twentieth of the frame)
+      const kd = d === this.side7 ? Math.min(p[2], (BODY_KEPT_MAX - 12) / 52) : p[2];
+      if (o.crowd && o.key && TUNE.crowdEvery > 1 && 52 * kd + 12 <= BODY_KEPT_MAX) this._keptDraw(g, d.view(kd), d.heading, o.key, sx, sy, kd, draw, o.pose, this._far(x, y), it.clipY, p[2] / kd); else { if (o.pose) o.pose(1 / 60); draw(g, sx, sy, d.view(p[2]), p[2]); }
       g.globalAlpha = 1;
-    } });
+    } };
+    this.items.push(it);
   }
+  // MODE 7's haze at depth k (0 elsewhere): the walls' fog (Side7View.fogAt), which bodies, cars and props fade into
+  // too, and past HAZE_GONE are not drawn (crisp in the fog, the far ones had cost a tenth of the frame)
+  _haze(k) { const d = this.depth; return d === this.side7 ? d.fogAt(k) : 0; }
   // MODE 7: does a body at (x, y, z), k along the rail, stand nearer the lens than the player and over them on screen?
   // (about a body's box each: half a body's width either side, its height up)
   _hidesFocus(d, x, y, z, k) {
@@ -437,7 +449,7 @@ export class Stage {
   _far(x, y) { const f = this.focus; return !!f && Math.abs(x - f[0]) + Math.abs(y - f[1]) > FAR_BODY; }
   // a crowd body: drawn into its own image every few frames (or when its size or the view changed), and that image put
   // where it stands in between (each actor's frames are staggered by its key's own phase, so the work spreads evenly)
-  _keptDraw(g, view, heading, key, sx, sy, k, draw, pose, far = false) {
+  _keptDraw(g, view, heading, key, sx, sy, k, draw, pose, far = false, yMax = Infinity, up = 1) {
     let K = this._kept.get(key);
     // (small on screen, far off or seen from high up: its frames half as often; away from the player, two thirds as often)
     const every = k < SMALL ? TUNE.crowdEvery * 2 : far ? Math.round(TUNE.crowdEvery * 1.5) : TUNE.crowdEvery;
@@ -448,12 +460,24 @@ export class Stage {
       const cw = Math.ceil(w * 1.25 / 16) * 16, ch = Math.ceil(h * 1.25 / 16) * 16;
       if (!K) { K = { cv: E.mkCanvas(cw, ch) }; this._kept.set(key, K); }
       else if (K.cv.width < w || K.cv.height < h || K.cv.width > w * 2) { K.cv.width = cw; K.cv.height = ch; }
-      const kg = K.g || (K.g = K.cv.getContext('2d')); kg.setTransform(1, 0, 0, 1, 0, 0); kg.clearRect(0, 0, K.cv.width, K.cv.height); kg.imageSmoothingEnabled = false;
-      K.ax = Math.floor(K.cv.width / 2); K.ay = K.cv.height - foot; draw(kg, K.ax, K.ay, view, k); kg._c = null;
+      const kg = K.g || (K.g = K.cv.getContext('2d')); K.ax = Math.floor(K.cv.width / 2); K.ay = K.cv.height - foot;
+      // (into a pixel array, put with one call: a body is opaque whole-pixel rectangles, a hundred-odd a redraw; whatever
+      // else a draw asks for, the canvas draws it instead)
+      const P = this._pxc || (this._pxc = typeof ImageData !== 'undefined' && this.pixelBodies !== false ? new PixelCtx() : null);
+      if (P) { P.begin(K.cv.width, K.cv.height); draw(P, K.ax, K.ay, view, k); }
+      if (P && !P.bailed) { const b = P.box; K.bb = b[2] > b[0] ? [b[0], b[1], b[2] - b[0], b[3] - b[1]] : [0, 0, 0, 0]; if (K.bb[2]) kg.putImageData(P.image, 0, 0, ...K.bb); }   // (only what the body covers: put, and put on the frame)
+      else { K.bb = null; kg.setTransform(1, 0, 0, 1, 0, 0); kg.clearRect(0, 0, K.cv.width, K.cv.height); kg.imageSmoothingEnabled = false; draw(kg, K.ax, K.ay, view, k); kg._c = null; }
       if (K.n === undefined) { K.phase = (this._keptN = (this._keptN || 0) + 1) % TUNE.crowdEvery; K.t = this.game.real; }   // (staggered: a part of a crowd redraws each frame)
       Object.assign(K, { n: this.frameNo - (K.fresh ? 0 : K.phase), k, view, heading }); K.fresh = true;
     }
-    g.drawImage(K.cv, sx - K.ax, sy - K.ay);
+    // (put down to the row where nearer walls are known to hide it, MODE 7's _cull7: yMax; up: enlarged, smoothly)
+    const bb = K.bb || [0, 0, K.cv.width, K.cv.height];
+    if (up > 1.001) {
+      if (!bb[2]) return; const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = true;
+      g.drawImage(K.cv, bb[0], bb[1], bb[2], bb[3], sx + (bb[0] - K.ax) * up, sy + (bb[1] - K.ay) * up, bb[2] * up, bb[3] * up); g.imageSmoothingEnabled = sm; return;
+    }
+    const dx = sx - K.ax + bb[0], dy = sy - K.ay + bb[1], h = Math.min(bb[3], Math.ceil(yMax) - dy);
+    if (bb[2] > 0 && h > 0) g.drawImage(K.cv, bb[0], bb[1], bb[2], h, dx, dy, bb[2], h);
   }
   /** a shape drawn through a projector: draw(g, P) with P.proj(x, y, z) -> [sx, sy, k] (vehicles, props, markers).
    *  o: the engine queue's options in ISO ({ emissive, bias, hides, footprint }); wall: [x, y], a point of the wall it
@@ -474,8 +498,11 @@ export class Stage {
     let k = d.depth(x, y) - (o && o.bias || 0);
     if (d === this.top && o && o.wall) k = Math.min(k, this._spanKey(o.wall[0], o.wall[1], k));   // (TOP-DOWN: a sign drawn after the building it hangs on)
     else if (d === this.top && z > 2 && this.spans) { const s = this.spans.at(x, y); if (s && s.h <= z + 2) k = Math.min(k, this._spanKey(x, y, k)); }   // (and a thing on a roof after the roof: under it, every roof's clutter was hidden)
-    const it = { k, kind: (o && o.kind) || 'shape', fn: kept && !big ? g => this._keptShape(g, d, d.view(1), x, y, z, draw, kept) : g => draw(g, d) };
+    const kind = (o && o.kind) || 'shape', hz = HAZY.has(kind) ? this._haze(k) : 0; if (hz >= HAZE_GONE) return;   // (MODE 7: a car or a prop into the haze as the walls go)
+    const f = kept && !big ? g => this._keptShape(g, d, d.view(1), x, y, z, draw, kept, it.clipY) : g => draw(g, d);
+    const it = { k, kind, fn: hz > .02 ? g => { g.globalAlpha = 1 - hz; f(g); g.globalAlpha = 1; } : f };
     if (d === this.side7 && o && o.reach) this._reachBox(d, it, x, y, o.reach);   // (o.reach: [r, z0, z1], what the walls may hide)
+    else if (d === this.side7 && o && o.extent) this._extentBox(d, it, o.extent);   // (o.extent: [x0, y0, x1, y1, z0, z1], a box it fills: a run of deck cells)
     this.items.push(it);
   }
   // MODE 7: a shape's box on screen and its nearest depth, from its reach (r round (x, y), from z0 up to z1), for _cull7
@@ -483,6 +510,12 @@ export class Stage {
     let x0 = 1e9, x1 = -1e9, top = 1e9;
     for (let i = 0; i < 8; i++) { const p = d.proj(x + (i & 1 ? r : -r), y + (i & 2 ? r : -r), i & 4 ? z1 : z0); if (!p || z0 < 0) return; x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); top = Math.min(top, p[1]); }
     it.box = [x0, x1, top]; it.m = d.depth(x, y) - r * Math.SQRT2;
+  }
+  // MODE 7: a shape's box on screen and its nearest depth from the box it fills ([x0, y0, x1, y1, z0, z1]), for _cull7
+  _extentBox(d, it, [X0, Y0, X1, Y1, z0, z1]) {
+    let x0 = 1e9, x1 = -1e9, top = 1e9, m = 1e9;
+    for (let i = 0; i < 8; i++) { const x = i & 1 ? X1 : X0, y = i & 2 ? Y1 : Y0, p = d.proj(x, y, i & 4 ? z1 : z0); if (!p || z0 < 0) return; x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); top = Math.min(top, p[1]); m = Math.min(m, d.depth(x, y)); }
+    it.box = [x0, x1, top]; it.m = m;
   }
   // MODE 7's occlusion: the camera is level and every wall stands on the floor, so a wall face wholly nearer than a
   // thing hides it over the face's columns from the face's top down (the thing's foot, farther off, is always higher on
@@ -503,13 +536,13 @@ export class Stage {
         for (let c = Math.max(0, Math.ceil(xa)), c1 = Math.min(W, Math.floor(xb)); c < c1; c++) { const t = Math.max(ya + (c - xa) * sl, ya + (c + 1 - xa) * sl); if (t < cov[c]) cov[c] = t; }
       }
       const b = it.box, c0 = Math.max(0, Math.floor(b[0])), c1 = Math.min(W - 1, Math.ceil(b[1])); if (c1 < c0) continue;
-      let hid = true; for (let c = c0; c <= c1; c++) if (cov[c] > b[2]) { hid = false; break; }
-      if (hid) { it.culled = true; culled++; }
+      let low = -1e9; for (let c = c0; c <= c1; c++) if (cov[c] > low) low = cov[c];   // (the lowest top of the nearer faces over its columns: below it, they hide all of it)
+      if (low <= b[2]) { it.culled = true; culled++; } else it.clipY = low < 1e8 ? low : undefined;   // (and what it draws stops there: a wall face, a body's or a car's image)
     }
     this.side7.stats.culled = culled;
   }
   // a kept shape: its image, redrawn when the view, its size on screen (depth views) or the frame's skew changed
-  _keptShape(g, P, view, x, y, z, draw, kp) {
+  _keptShape(g, P, view, x, y, z, draw, kp, yMax = Infinity) {
     const q = P.proj(x, y, z); if (!q) return;
     const k = q[2], key = kp.key; let K = this._kept.get(key);
     const tag = view.id + ':' + (view.yawDeg | 0) + ':' + (this.depth ? this.depth.heading : 0) + ':' + (this.depth ? 0 : view.scale) + ':' + (kp.sig || '');   // (sig: the shape's own state: a parked car's dents, lights, doors)
@@ -525,7 +558,8 @@ export class Stage {
       const sx = q[0], sy = q[1], LP = { proj: (a, b, c = 0) => { const p = P.proj(a, b, c); return p && [p[0] - sx + ax, p[1] - sy + ay, p[2]]; }, depth3: P.depth3 ? (a, b, c) => P.depth3(a, b, c) : undefined };
       draw(kg, LP); kg._c = null; Object.assign(K, { tag, k, n: this.frameNo, ax, ay });
     }
-    g.drawImage(K.cv, Math.round(q[0] - K.ax), Math.round(q[1] - K.ay));
+    const dx = Math.round(q[0] - K.ax), dy = Math.round(q[1] - K.ay), h = Math.min(K.cv.height, Math.ceil(yMax) - dy);   // (down to where nearer walls hide it, as a body)
+    if (h >= K.cv.height) g.drawImage(K.cv, dx, dy); else if (h > 0) g.drawImage(K.cv, 0, 0, K.cv.width, h, dx, dy, K.cv.width, h);
   }
   /** one of the engine's props (E.PROPS: 'streetlamp', 'palm', 'trashcan'...): r.prop's billboard in ISO (o: its options:
    *  size, light, lightRadius...), the same sprite scaled to its distance in TOP and SIDE7 */
@@ -535,11 +569,14 @@ export class Stage {
     const p = E.prop(name, o.size ? { size: o.size } : undefined); if (!p) return;
     const spr = p.frames[0];
     if (o.light && p.light) this.lamps.push([x, y, z, o.lightRadius || 70]);
+    const hz = this._haze(d.depth(x, y)); if (hz >= HAZE_GONE) return;   // (MODE 7: into the haze as the walls go; its light still falls)
     const q = d === this.side7 && z >= 0 && d.proj(x, y, z), qs = q && q[2] / Math.SQRT2, box = q && !(p.glowAt && o.light && o.halo !== false) ? [q[0] - spr.w * qs / 2 - 1, q[0] + spr.w * qs / 2 + 1, q[1] - spr.h * qs - 1] : null;   // (MODE 7: its sprite's box, for the walls to hide it; a halo reaches wider)
     this.items.push({ k: d.depth(x, y), m: d.depth(x, y) - 4, box, kind: 'prop', fn: g => {
       const q = d.proj(x, y, z); if (!q) return;
       const s = q[2] / Math.SQRT2, w = spr.w * s, h = spr.h * s; if (h < 1) return;   // (sprites are drawn for ISO's sqrt 2 pixels a unit)
+      if (hz > .02) g.globalAlpha = 1 - hz;
       g.drawImage(spr.cv, Math.round(q[0] - w / 2), Math.round(q[1] - h), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+      g.globalAlpha = 1;
       if (p.glowAt && o.light && o.halo !== false) { const gx = q[0] - w / 2 + w * p.glowAt[0], gy = q[1] - h + h * p.glowAt[1], R = Math.max(2, w * .9); g.globalAlpha = .25; g.fillStyle = p.glowAt[2]; g.beginPath(); g.arc(gx, gy, R, 0, 6.3); g.fill(); g.globalAlpha = 1; }
     } });
   }

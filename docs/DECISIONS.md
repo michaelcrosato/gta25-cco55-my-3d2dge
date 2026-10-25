@@ -1453,3 +1453,60 @@ and where it landed.
     nearest the middle of town (`tools/bot-campaign.mjs`), as a player setting out on a job would; the whole campaign
     reached 100% after 2.87 h of game.
 - **Answered:** no. **Landed in:** after M13 (L2).
+
+## D35 · 2026-10-25 · L3: every view inside its budget, the look kept, and the perf gate back in test:full
+- **Principle:** HANDOFF's L3 (the budgets met without cutting the look, a quality setting for slower machines, the perf
+  step back in test:full with an entry that supersedes D29's first call); D10's budgets read as D20 says (each view
+  against M2's build, measured in turn); PLAN.md 7.11 (budgets come from measurement) and 12 (extend before patching).
+- **Where it stood:** on L2's head the gate read ISO 10.43 ms (budget 10.4), TOP-DOWN 9.39 (12.7) and MODE 7 13.51
+  (12.7); L2's closing commit had read 10.60, 9.07 and 13.77.
+- **How the frame was read:** a frame's main-thread time is its JS and the raster of what it queued, paid when the
+  buffer is presented (`_present`'s drawImage was 3.5 of MODE 7's 9.3 ms). So each part was weighed by leaving it out
+  of every other frame in one page (the two halves see the same streets; the harness's own noise is about 2%), and
+  each change by builds measured in turn on fresh pages, the mean of four rounds. MODE 7: bodies about a quarter of
+  the frame, cars a ninth, the light pass a tenth, decks 8%, the floor 5%; ISO: the engine's light field a quarter,
+  the city's shapes a fifth (cars 8%), the crowd 16%, the walls 13%.
+- **Calls:**
+  - **A crowd body's redraw is drawn into a pixel array** (`render/pixel-ctx.js`): what a rig draws is opaque
+    whole-pixel rectangles in `#rrggbb`, a hundred-odd a redraw, so they are written straight into a Uint32Array and
+    put into the body's kept image with one putImageData, and only the box they cover is put and drawn on the frame.
+    Anything else a draw asks for (a path, an image, a transform, alpha, another colour form, a fractional edge) bails
+    to the canvas. The same pixels: every redraw in 8 s of each gate (2,438 in ISO, 1,404 in MODE 7) compared equal.
+    ISO about 3.5%, MODE 7 about 2%.
+  - **MODE 7 draws nothing nearer walls hide:** `_cull7` already knew where the faces wholly nearer than an item top
+    out over its columns; an item that shows above them now stops at the lowest of those tops (`clipY`): a wall face's
+    fill (`texturedFace`'s yMax), a body's or a car's image. The same pixels; about 1%.
+  - **MODE 7's decks a row at a time:** a deck's cells side by side across the rail at one height (the slope along
+    the rail) are one slab, its underside and its textured top one face each (`drawDeckRun`, the face split up to
+    log2 of its length more times), each cell's open edges and railings as before: 191 draw items a frame became 28.
+    About 2%.
+  - **MODE 7 gathers the city from its lens's wedge,** not the square round the focus (`Side7View.wedge`): what lies
+    outside it is off the screen. About 1.3%.
+  - **Bodies, cars, props and decks fade into MODE 7's haze as the walls do** (`Stage._haze`, `HAZE_GONE`, `HAZY`):
+    they had been drawn crisp to the far clip while the buildings round them faded into the fog, and those past 450
+    along the rail were a tenth of the frame. They now take the walls' fog as transparency, and past 85% (where a wall
+    goes flat into the fog) they are not drawn; a lamp's light, a glow, a sign and a marker still show through it. This
+    changes the look in the distance, toward the fog the scene already had; `HAZE_GONE = 1` and no fade put it back (one
+    constant, for the owner, L8). About 3%. (The gate's stand-in cars, which make up the 20 cars in view, are drawn as
+    the cars they stand in for: hidden by the walls, faded by the haze.)
+  - **A crowd body right by MODE 7's lens is kept at the largest size a body is kept at and enlarged smoothly** where it
+    stands: too big to keep, it had been drawn whole every frame (about five a frame in the gate, at four or five times
+    a body's size, a twentieth of the frame); now it is soft, as a thing too near a lens is. About 3.5%.
+  - **Kept from part 1 (`b7df89d`):** the depth views' light map scaled up only over the box its holes cover, and the
+    Graphics setting (Settings, Display): Full, the default and the whole look, or Fast for a slower machine (the light
+    maps at a third and a sixth, the crowd animated two thirds as often, half the rain).
+  - **Tried and not taken** (each measured, none kept): kept shapes redrawn by their skew instead of every 8 frames
+    (+2%), drawn directly (+7%); kept bodies drawn at a capped scale and enlarged (+1.6%), kept up to 400 px (noise,
+    and the review's 256 px bound); each pool's warmth straight onto the frame (+3%); the present's black fill skipped
+    (none); the engine's light field walked in row spans, composited over lit boxes, or with a tighter cell loop (0 to
+    +3.5%: its boxes cover the frame); a row's roof-only wall blocks as one image (+2.3%); a headlight's beam from a
+    sprite (noise); the browser's own Math in the drawing (none); a wall's side slices joined where nothing between
+    overlaps them (they seldom are: most lie in the fog, where joining would band it); props kept one image each in
+    the depth views (+1%); a body drawn this frame through a scratch pixel array (+1.9%); the light maps scaled without
+    smoothing (-3%, but MODE 7's light would turn blocky where ISO's is smooth: not taken). Left in ISO: the player's
+    own composite (outline, rim) and x-ray, 1.55 ms of its frame, are the engine's.
+- **The gate:** the "perf gates" step is back in test:full (superseding D29's first call), first, while the machine is
+  quiet, as the median of five rounds: one round's readings vary about ±1.5%, five rounds' medians far less (ISO read
+  10.08-10.25 over six runs on these builds). The reading of record (five rounds, alone): ISO 10.25 ms (budget 10.4),
+  TOP-DOWN 9.05 (12.7), MODE 7 12.13 (12.7); the update 0.81-0.97 ms a step (1.5).
+- **Answered:** no. **Landed in:** after M13 (L3).

@@ -503,7 +503,7 @@ export const PLAY = {
           }
           // the cars only top up the real ones round the focus to the gate's 20 (M4's fleet is real; M5 brings the traffic)
           const real = fleet.near(p.x, p.y, 240).filter(v => v.cls !== 'heli').length;
-          for (const c of crowd.cars.slice(real)) { const x = p.x + c.ox, y = p.y + c.oy; stage.shape(x, y, 0, (g, P) => drawBoxModel(g, P, c.model, x, y, 0, c.h, { lit: true }), { kept: { key: c, r: 34, h: 24 } }); }
+          for (const c of crowd.cars.slice(real)) { const x = p.x + c.ox, y = p.y + c.oy; stage.shape(x, y, 0, (g, P) => drawBoxModel(g, P, c.model, x, y, 0, c.h, { lit: true }), { kept: { key: c, r: 34, h: 24 }, kind: 'car', reach: [34, 0, 32] }); }   // (drawn as the cars they stand in for are: hidden by MODE 7's walls, faded into its haze)
         }
         // the crew where they stand (the possessed one seen through walls), a vignette's prop beside its protagonist
         for (const id of crew.order) {

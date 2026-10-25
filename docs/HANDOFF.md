@@ -192,9 +192,11 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
   - turn a long truck at every tight corner quickly: a failing turn is kept off its next route, but on some seeds it
     costs minutes (the gym's `haul`: 35-102 s on seeds 1-3 and 5, 769 s on seed 4), and a tow truck parked tight by a
     junction facing the map's edge never gets out (the gym's `tow` on seed 4; seeds 1-3 and 5 pass in 92-124 s).
-- **Performance:** out of the Definition of Done since D29 (the owner's call: FPS targets and optimization come later,
-  and L3 is that later). D20 has the budgets and where the frame goes; `node tools/perf.mjs --dist <old build>`
-  measures interleaved with an older build. The machine's speed varies more than the budgets' margins.
+- **Performance:** back in the Definition of Done and in test:full since D35 (L3; D29 had left it for later): the
+  "perf gates" step reads each view against M2's build, the median of five rounds. D10 and D20 have the budgets, D35
+  where the frame goes and what each change saved; `node tools/perf.mjs --dist <old build>` measures interleaved with
+  an older build. One round's readings vary about ±1.5%, and MODE 7's margin is about 2%: weigh a change to its frame
+  by builds measured in turn, not by one reading.
 
 ## Continuing the run: the /goal prompt
 

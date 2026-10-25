@@ -181,17 +181,17 @@ export class Side7View {
     this.stats.rows = rows;
   }
   /** a face in rail space: P(s, t) over the face from D0..D1 and L0..L1 (one of the pairs equal), z from top to foot */
-  _face(g, D0, D1, L0, L1, h, cv, u0, color) {
+  _face(g, D0, D1, L0, L1, h, cv, u0, color, yMax = Infinity) {
     const fog = this.fogAt(Math.min(D0, D1)), [fr, fg, fb] = this.fogRGB;
     if (fog >= .97) return;
-    this.stats.quads += texturedFace(g, (s, t) => this._q(D0 + (D1 - D0) * s, L0 + (L1 - L0) * s, h * (1 - t)), fog < .85 ? cv : null, u0, 0, Math.abs(D1 - D0) + Math.abs(L1 - L0), h, color, fog > .02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
+    this.stats.quads += texturedFace(g, (s, t) => this._q(D0 + (D1 - D0) * s, L0 + (L1 - L0) * s, h * (1 - t)), fog < .85 ? cv : null, u0, 0, Math.abs(D1 - D0) + Math.abs(L1 - L0), h, color, fog > .02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null, yMax);
   }
   /** a front face (depth D, across L0..L1): square on to the level camera, so an upright rectangle on screen with its
    *  texture at one scale, drawn as plain scaled blits (a period of the texture each; an affine pattern costs several
    *  times as much a pixel in a software canvas), its visible part only */
-  _front(g, D, L0, L1, h, cv, u0, color) {
+  _front(g, D, L0, L1, h, cv, u0, color, yMax = Infinity) {
     const fog = this.fogAt(D); if (fog >= .97) return;
-    const P = this.P, k = P.F / D, x0 = P.cx + L0 * k, y0 = P.hy - (h - this.h) * k, X0 = Math.max(0, x0), X1 = Math.min(P.W, P.cx + L1 * k), Y0 = Math.max(0, y0), Y1 = Math.min(P.H, P.hy + this.h * k);
+    const P = this.P, k = P.F / D, x0 = P.cx + L0 * k, y0 = P.hy - (h - this.h) * k, X0 = Math.max(0, x0), X1 = Math.min(P.W, P.cx + L1 * k), Y0 = Math.max(0, y0), Y1 = Math.min(P.H, P.hy + this.h * k, Math.ceil(yMax));
     if (X1 <= X0 || Y1 <= Y0) return;
     g.setTransform(1, 0, 0, 1, 0, 0);
     if (cv && fog < .85) {
@@ -232,19 +232,20 @@ export class Side7View {
         for (let b = Dn; b < Df; b += T) {   // tile edges along the rail
           const d0 = Math.max(b, NEAR_D), d1 = Math.min(Df, b + T); if (d1 <= d0) continue; if (d0 > this.farClip) break;
           const u0 = mod(cAlong + b, PER) + (d0 - b);   // the texture's phase: windows stay on their tiles
-          items.push(this._box(d0, side, d1, side, h, { k: d1, m: d0, kind: 'side', fn: g => this._face(g, d0, d1, side, side, h, cv, u0, col) }));
+          const it = { k: d1, m: d0, kind: 'side', fn: g => this._face(g, d0, d1, side, side, h, cv, u0, col, it.clipY) }; items.push(this._box(d0, side, d1, side, h, it));
         }
       }
       if (Dn >= NEAR_D) {   // the front face, toward the camera
         const sh = shadeOf(-a.f[0], -a.f[1]), cv = faceTexture(s.id, s.t, h, sh, v, night), col = faceColor(s.t, sh), u0 = mod(cAcross + La, PER);
-        items.push(this._box(Dn, La, Dn, Lb, h, { k: Dn, m: Dn, kind: 'front', fn: g => this._front(g, Dn, La, Lb, h, cv, u0, col) }));
+        const it = { k: Dn, m: Dn, kind: 'front', fn: g => this._front(g, Dn, La, Lb, h, cv, u0, col, it.clipY) }; items.push(this._box(Dn, La, Dn, Lb, h, it));
       }
       if (this.h > h + 1) {   // the top, seen from above
         const d0 = Math.max(NEAR_D, Dn), cs = [this._q(Df, La, h), this._q(Df, Lb, h), this._q(d0, La, h), this._q(d0, Lb, h)];
-        items.push({ k: d0, m: d0, kind: 'top', box: cs.every(Boolean) ? [Math.min(...cs.map(c => c[0])), Math.max(...cs.map(c => c[0])), Math.min(...cs.map(c => c[1]))] : null, fn: g => {
+        const it = { k: d0, m: d0, kind: 'top', box: cs.every(Boolean) ? [Math.min(...cs.map(c => c[0])), Math.max(...cs.map(c => c[0])), Math.min(...cs.map(c => c[1]))] : null, fn: g => {
           const fog = this.fogAt(d0), [fr, fg, fb] = this.fogRGB;
-          this.stats.quads += texturedFace(g, (u, t) => this._q(Df + (d0 - Df) * t, La + (Lb - La) * u, h), null, 0, 0, 1, 1, s.t.top, fog > .02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
-        } });
+          this.stats.quads += texturedFace(g, (u, t) => this._q(Df + (d0 - Df) * t, La + (Lb - La) * u, h), null, 0, 0, 1, 1, s.t.top, fog > .02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null, it.clipY);
+        } };
+        items.push(it);
       }
     }
   }

@@ -29,6 +29,7 @@ const STEPS = [
   ['engine check (bank)', 'node', ['vendor/my-3d2dge/tools/check.mjs', 'dist/index.html#interior/bank', '--seconds', '3', '--out', 'check-output/bank']],
 ];
 const FULL = [   // heavy suites join here milestone by milestone (PLAN.md 6.3)
+  ['perf gates', 'node', ['tools/perf.mjs', '--gate', '--rounds', '5']],   // (D10's budgets, each view read against M2's build as D20 says, the median of five rounds: D35; first, on a quiet machine)
   ['city soak (10 min)', 'node', ['tests/full/city-soak.mjs', '--secs', '600']],
   ['audio soak (10 min)', 'node', ['tests/e2e/audio.mjs', '--secs', '600']],
   ['attract soak (30 min x the shipped page and seeds 1-3)', 'node', ['--expose-gc', 'tools/attract-soak.mjs']],   // (PLAN.md 8.20: headless)
