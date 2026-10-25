@@ -207,7 +207,10 @@ export class Gangs {
   _warsStep() {
     for (const w of this.wars) {
       const sides = w.gangs.map(g => this.fighters.filter(f => f.war === w && f.gang === g && !f.ped.dead));
-      if (sides.some(s => !s.length) || this.t - w.t > TUNE.turfWarTime) {
+      // (over when a side is gone, when it has gone on long enough, or when the focus has left it behind, its middle out
+      // past the crowd's ring: its fighters walk off and the crowd takes them as it takes anyone that far. One out there
+      // went on unseen, three of its fighters stood in a junction, and the traffic waited on them)
+      if (sides.some(s => !s.length) || this.t - w.t > TUNE.turfWarTime || this.fp.d(w.x, w.y) > TUNE.crowdOut) {
         w.over = true; this.lastWar.set(w.key, this.t + WAR_AGAIN);
         for (const f of this.fighters) if (f.war === w) { f.war = null; f.done = !f.ped.dead; }
         BUS.emit('turfWarEnd', { gangs: w.gangs, x: Math.round(w.x), y: Math.round(w.y), dead: w.dead });

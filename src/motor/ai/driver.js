@@ -277,7 +277,9 @@ export class DriverBrain {
         const lane = G.lanes[c.from], stopPos = Math.min(lane.stopS, c.fromS - 2);   // (d: from our centre to where this connector leaves its lane)
         const lineD = d - (c.fromS - stopPos) - v.hl, approach = sp * sp / (2 * b * .6) + 45;
         if (this.held && this.held.conn === c) {
-          if (lineD > 1 && c.signals === 'signal' && !this.siren) {   // (not through yet: a light that changed is obeyed)
+          // (not through yet: a light that changed is obeyed; so it is by one standing at the line with its nose over it,
+          // short of the box: held up there by something in the box, it had gone on its old green once that cleared)
+          if ((lineD > 1 || (j === this.i + 1 && sp < 3)) && c.signals === 'signal' && !this.siren) {
             const light = lightFor(c, G, t);
             if (light === 'red' || (light === 'amber' && lineD > sp * sp / (2 * b) + 2)) { this._release(); this.cause = 'signal'; return Math.max(0, lineD); }
           }

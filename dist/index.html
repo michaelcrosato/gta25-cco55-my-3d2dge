@@ -21931,7 +21931,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           const lane2 = G2.lanes[c.from], stopPos = Math.min(lane2.stopS, c.fromS - 2);
           const lineD = d - (c.fromS - stopPos) - v.hl, approach = sp * sp / (2 * b * 0.6) + 45;
           if (this.held && this.held.conn === c) {
-            if (lineD > 1 && c.signals === "signal" && !this.siren) {
+            if ((lineD > 1 || j === this.i + 1 && sp < 3) && c.signals === "signal" && !this.siren) {
               const light2 = lightFor(c, G2, t);
               if (light2 === "red" || light2 === "amber" && lineD > sp * sp / (2 * b) + 2) {
                 this._release();
@@ -34325,7 +34325,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _warsStep() {
       for (const w9 of this.wars) {
         const sides = w9.gangs.map((g) => this.fighters.filter((f) => f.war === w9 && f.gang === g && !f.ped.dead));
-        if (sides.some((s) => !s.length) || this.t - w9.t > TUNE.turfWarTime) {
+        if (sides.some((s) => !s.length) || this.t - w9.t > TUNE.turfWarTime || this.fp.d(w9.x, w9.y) > TUNE.crowdOut) {
           w9.over = true;
           this.lastWar.set(w9.key, this.t + WAR_AGAIN);
           for (const f of this.fighters) if (f.war === w9) {
