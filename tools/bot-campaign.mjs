@@ -159,8 +159,10 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   // (a job's car: the fastest kind it allows first, as a player picks a Cruiser over a Fed Sedan to chase Zephyrs)
   const topOf = k => { const d = M.get('vehicles', k); return (d && d.handling && d.handling.top) || 0; };
   const job = (a, level) => play('job', `${a.id} L${level}`, () => {
-    const kinds = [].concat(a.start.vehicle).sort((p, q) => topOf(q) - topOf(p));
-    const { v, ok: aboard } = takeCar(...kinds.map(k => () => carNear(P().x, P().y, k, 1e9))); if (!v) { why = 'no ' + [].concat(a.start.vehicle).join('/') + ' about'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
+    const kinds = [].concat(a.start.vehicle).sort((p, q) => topOf(q) - topOf(p)), mid = [city.w * city.T / 2, city.h * city.T / 2];
+    // (the one nearest the middle of town, as a player sets out on a job: one taken where the last item had left the
+    // player, in a far corner at rush hour, had made the courier's tightest clock impossible from its first drop)
+    const { v, ok: aboard } = takeCar(...kinds.map(k => () => carNear(mid[0], mid[1], k, 1e9))); if (!v) { why = 'no ' + [].concat(a.start.vehicle).join('/') + ' about'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
     if (!cool()) { why = 'wanted after taking the ' + v.def.id; return false; }   // (a police car broken into is a crime a cop may see, and a job never starts while wanted: the stars lost in it first, as a player would)
     if (C().card) C().close();   // (a drive-in shop's card, opened by stopping at its door: the phone waits for no card)
     C().phone(); const it = C().card && C().card.items.find(q => q.label === a.title.toUpperCase());
