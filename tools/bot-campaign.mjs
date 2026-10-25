@@ -83,9 +83,10 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     const kinds = need ? [].concat(need) : null, rank = v => kinds ? kinds.findIndex(n => fits(n, v)) : 0;
     let best = null, bs = -Infinity;   // (a far one still counts: the only Pumper may be across town)
     for (const v of gtm.fleet.vehicles) {
-      if (v.wrecked || (v.locked && !need) || v.cls === 'rail' || v.cls === 'boat' || (v.cls === 'heli' && !(need && v.body.landed))) continue;   // (the player's own counts: the Pumper the last call was answered in; a helicopter only when a job asks for one, on the ground)
+      const mine = !!v.driver && v.driver === P();
+      if (v.wrecked || (v.locked && !need) || v.cls === 'rail' || v.cls === 'boat' || (v.cls === 'heli' && !(need && (v.body.landed || mine)))) continue;   // (the player's own counts: the Pumper the last call was answered in; a helicopter only when a job asks for one, on the ground or the one the player flies: the SkyCam the last level ended in, still up)
       if (need ? !fits(need, v) : !M.pickable(v) || v.cls !== 'car') continue;
-      const driven = !!(v.driver && v.driver !== P()); if (driven !== jack || shunned(v.id) || (v.z || 0) > 10) continue;   // (at street level: one parked up on the Loop is walked to from under it)
+      const driven = !!(v.driver && v.driver !== P()); if (driven !== jack || shunned(v.id) || ((v.z || 0) > 10 && !mine)) continue;   // (at street level: one parked up on the Loop is walked to from under it)
       if (jack && !(v.speed < 2 && v.brain && v.brain.cause === 'signal' && !v.duty && !v.gang && v.owner !== 'mission')) continue;   // (never a unit on a call, a gang's or a job's)
       const d = Math.hypot(v.x - x, v.y - y); if (d > r) continue; const s = top(v) - d * .2 - rank(v) * 400 - way(v, to) * 8; if (s > bs) { bs = s; best = v; }
     }
@@ -252,7 +253,8 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     const c = M.completion(S()), G = gtm.life && gtm.life.gangs; say(`completion ${c.pct.toFixed(1)}%  $${gtm.crew.fund}${G ? '  respect ' + ['saints', 'rats', 'gnomes'].map(k => k + ' ' + Math.round(G.get(k))).join(', ') : ''}`); if (c.tenths >= 1000) break;
     const m = C().available().find(q => again('m:' + q.id)); if (m) { mission(m); continue; }
     const A2 = S().activities, todo = M.all('activities').filter(a => a.kind !== 'event' && (A2[a.id] || 0) < (a.kind === 'job' ? a.levels || 1 : 1));
-    const a = todo.find(q => again(`a:${q.id}:${(A2[q.id] || 0) + 1}`));
+    const key = q => `a:${q.id}:${(A2[q.id] || 0) + 1}`, n = q => tried.get(key(q)) || 0;
+    const a = [...todo].sort((x, y) => n(x) - n(y)).find(q => again(key(q)));   // (one that failed waits behind the rest, as TRIES says: tried back to back, a job had met the same jam on the Harborfront's streets three times over)
     if (a) { if (a.kind === 'job' && a.start.vehicle) job(a, (A2[a.id] || 0) + 1); else activity(a); continue; }   // (a job started on foot, at its marker: L Courier's at Palm station, as an activity's start)
     const tok = M.Collectibles.spots().find(s => !S().collectibles.includes(s.id) && again('t:' + s.id)); if (tok) { token(tok); continue; }
     const st = M.all('stunts').find(s => !S().stunts.includes(s.id) && again('s:' + s.id)); if (st) { stunt(st); continue; }

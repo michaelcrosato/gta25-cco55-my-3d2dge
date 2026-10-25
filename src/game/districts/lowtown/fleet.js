@@ -19,7 +19,7 @@ def('fleets', 'lowtown', {
     { def: 'retiree', near: 'palm-park' }, { def: 'cortez', near: 'safehouse' }, { def: 'hauler', near: 'kwik-lux-harbor' },
   ],
   water: [{ def: 'bilgerat', at: [143.5, 115.4], heading: 'E' }],   // (in the slip, alongside the south pier, bow out to sea)
-  pads: [{ def: 'skycam', at: [116, 18], heading: 'E' }],   // (Channel 6's, on Marquee Plaza by the Hotel Marquee)
+  pads: [{ def: 'skycam', at: [116, 23], heading: 'E' }],   // (Channel 6's, on Marquee Plaza by the Hotel Marquee, south of the fountain: set on it, the fountain's rim held it up out of a ped's reach)
   rail: [{ deck: 'L', def: 'thel', trains: 2, gauge: 10 }],
   air: [{ def: 'eye', alt: 150, patrol: [[93, 70], [128, 30], [32, 30], [32, 118], [128, 118]] }],
   // the traffic round the focus (PLAN.md 8.9): Neon Mile's streets busiest, the harbour's quietest

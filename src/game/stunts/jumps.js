@@ -38,6 +38,6 @@ def('landmarks', 'stunt-ramps', {
 
 def('stunts', 'loop-gap', { name: 'The Loop Gap', takeoff: [224, 1456], r: 44, minDist: 55, minAir: .38, reward: 750, approach: [456, 1456, 64] });
 def('stunts', 'container-ramp', { name: 'The Container Stack', takeoff: [1760, 1488], r: 40, minDist: 45, minAir: .3, reward: 500, approach: [1760, 1650] });
-def('stunts', 'garage-roof', { name: 'The Car Park Roof', takeoff: [224, 1528], r: 40, minDist: 50, minAir: .35, reward: 500, approach: [510, 1528] });
+def('stunts', 'garage-roof', { name: 'The Car Park Roof', takeoff: [224, 1528], r: 40, minDist: 50, minAir: .35, reward: 500, approach: [456, 1528] });   // (the run-up from the site's frontage, off Chapel Street: from the street a car parked at its kerb had stood across it)
 def('stunts', 'canal', { name: 'Back Across the Canal', takeoff: [2056, 2198], r: 150, minDist: 50, minAir: .4, reward: 1000, approach: [2056, 2330] });
 def('stunts', 'drawbridge', { name: 'The Drawbridge', takeoff: [2036, 2040], r: 48, minDist: 100, minAir: .4, reward: 1000, approach: [2036, 1700] });

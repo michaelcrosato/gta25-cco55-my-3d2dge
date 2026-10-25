@@ -40966,8 +40966,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     ],
     water: [{ def: "bilgerat", at: [143.5, 115.4], heading: "E" }],
     // (in the slip, alongside the south pier, bow out to sea)
-    pads: [{ def: "skycam", at: [116, 18], heading: "E" }],
-    // (Channel 6's, on Marquee Plaza by the Hotel Marquee)
+    pads: [{ def: "skycam", at: [116, 23], heading: "E" }],
+    // (Channel 6's, on Marquee Plaza by the Hotel Marquee, south of the fountain: set on it, the fountain's rim held it up out of a ped's reach)
     rail: [{ deck: "L", def: "thel", trains: 2, gauge: 10 }],
     air: [{ def: "eye", alt: 150, patrol: [[93, 70], [128, 30], [32, 30], [32, 118], [128, 118]] }],
     // the traffic round the focus (PLAN.md 8.9): Neon Mile's streets busiest, the harbour's quietest
@@ -50045,7 +50045,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   });
   def("stunts", "loop-gap", { name: "The Loop Gap", takeoff: [224, 1456], r: 44, minDist: 55, minAir: 0.38, reward: 750, approach: [456, 1456, 64] });
   def("stunts", "container-ramp", { name: "The Container Stack", takeoff: [1760, 1488], r: 40, minDist: 45, minAir: 0.3, reward: 500, approach: [1760, 1650] });
-  def("stunts", "garage-roof", { name: "The Car Park Roof", takeoff: [224, 1528], r: 40, minDist: 50, minAir: 0.35, reward: 500, approach: [510, 1528] });
+  def("stunts", "garage-roof", { name: "The Car Park Roof", takeoff: [224, 1528], r: 40, minDist: 50, minAir: 0.35, reward: 500, approach: [456, 1528] });
   def("stunts", "canal", { name: "Back Across the Canal", takeoff: [2056, 2198], r: 150, minDist: 50, minAir: 0.4, reward: 1e3, approach: [2056, 2330] });
   def("stunts", "drawbridge", { name: "The Drawbridge", takeoff: [2036, 2040], r: 48, minDist: 100, minAir: 0.4, reward: 1e3, approach: [2036, 1700] });
 

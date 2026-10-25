@@ -1586,6 +1586,16 @@ and where it landed.
     places the truck could not reach; staging again whenever the car had been nudged, which sent the truck off on
     fresh routes for a car's length; and a towing rig kept off the decks, where Lowtown's one-way streets leave no way
     to the impound without the Loop's ramp, which a rig climbs at 60-100 u/s straight on.)
+  - **Found by the campaign** (its runs set out the way a player does, so it met what the deep links had not): the
+    SkyCam's pad had been laid on Marquee Plaza's fountain, its skids up on the rim and its doors over the basin, out
+    of a ped's reach; it stands south of the fountain now. The campaign counts the helicopter the player flies as the
+    next level's (only a landed one had counted, and the last level ends in the air). The Car Park Roof's run-up starts
+    in the building site's frontage, off Chapel Street (a car parked at the kerb had stood across a run-up from the
+    street: the stunt had passed in earlier campaigns only on the cars and the parking it happened to meet). And an
+    activity that fails waits behind the rest before it is tried again, as the campaign's TRIES always said (it had
+    been tried back to back: the Paramedic's first level met the same jam on Harborfront's streets three times over;
+    an ambulance's siren run on a call, to part it, was tried and not taken: the traffic pulling over held it up as
+    often as it let it by).
   - **The recipes.** The new kinds each have one in docs/CONTENT-GUIDE.md: a helicopter a player flies, an L line's
     stations, an interior's patrons and spots, an arcade kit, an arcade high score, and a station's genre of its own
     (`def('genres')`, the station recipe's fixture now bringing one).
