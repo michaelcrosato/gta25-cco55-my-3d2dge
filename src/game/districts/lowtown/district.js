@@ -41,6 +41,9 @@ def('districts', 'lowtown', {
     // the embankments round the north and west edges, and the west end of Loop Avenue: the closed bridge
     { rect: [0, 0, 159, 1], type: { h: 32, top: '#5a6a4a', side: '#7a7468', face: 'stone', roof: 'grass' } },
     { rect: [0, 2, 1, 151], type: { h: 32, top: '#5a6a4a', side: '#7a7468', face: 'stone', roof: 'grass' } },
+    // the sea wall across Loop Avenue's east end, where it stops at the bay (the Causeway's place, EXPANSION.md): a road
+    // run out into the water had taken a job's Medic, driven on past its end, with it
+    { rect: [154, 73, 154, 85], type: { h: 12, top: '#a8a49a', side: '#7a7468', face: 'stone', roof: 'slab' } },
   ],
   props: { lampEvery: 6, clutter: .3 },
   // the closed bridge's notice on the embankment at Loop Avenue's west end (PLAN.md 9.1: the hook for District 2)

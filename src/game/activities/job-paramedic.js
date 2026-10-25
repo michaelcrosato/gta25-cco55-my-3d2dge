@@ -42,15 +42,18 @@ function freeLane(m, p) {
   return m.lane(p);
 }
 // the Medic: the one the player drives (the phone's start: on the job's list as 'ride', so a hint can name it), else the
-// hospital's own on the nearest lane (one still about and near: back in it), the player at the wheel
+// hospital's own on the nearest lane (one still about and near: back in it), the player at the wheel; on a retry with
+// none left to drive, a fresh one from Lowtown General's bay (the last one off a quay into the harbour, one lent where
+// it went in had driven on into the water after it)
 function ride(m) {
+  const retry = m.retries !== (m.data.tried ?? 0); if (retry) m.data.tried = m.retries;
   if (inMedic(m)) {
     const b = m.one('ride'); if (b === m.vehicle) return b;
     if (b) m.remove(b);
     return m.adopt(m.vehicle, 'ride');
   }
   let b = m.one('ride');
-  if (!b || m.dist(b) > 240) { if (b) m.remove(b); const q = freeLane(m, [m.player.x, m.player.y]); b = m.ensure.vehicle('ride', 'medic', q, { heading: q.heading }); }
+  if (!b || m.dist(b) > 240) { if (b) m.remove(b); const q = freeLane(m, retry ? spot(m, HOSPITAL) : [m.player.x, m.player.y]); b = m.ensure.vehicle('ride', 'medic', q, { heading: q.heading }); }
   m.place('player', { in: b });
   return b;
 }

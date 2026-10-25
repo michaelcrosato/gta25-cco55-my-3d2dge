@@ -46,6 +46,9 @@ export class Fleet {
     this.city = o.city || null; this.map = o.map || (this.city && this.city.map) || null; this.combat = o.combat || null;
     this.bridges = o.bridges || []; this.game = o.game || null;
     this.vehicles = []; this.trains = []; this.lines = []; this.tows = [];
+    /** keepers: the landmarks' own vehicles (a spot's, a pad's: { def, home, color, kit, locked, v }), which the tow
+     *  replaces at home once theirs is gone (traffic.js): a job's Medic or SkyCam is never lost for good */
+    this.keepers = [];
     this.skids = []; this.fx = []; this.slicks = []; this.mines = []; this.broken = []; this.jets = [];
     this.t = 0; this._n = 0; this._seen = new Set(); this.grid = new Map(); this.awake = 0; this._stamp = 0;
     // street furniture an earlier scene knocked over comes back (the city outlives scenes)
@@ -81,6 +84,8 @@ export class Fleet {
   add(v) { this.vehicles.push(v); if (this.combat && !this.combat.boxes.includes(v)) this.combat.boxes.push(v); return v; }
   /** a new vehicle of a definition at (x, y) facing heading; o: Vehicle's options */
   spawn(defId, x, y, heading = 0, o = {}) { return this.add(new Vehicle(defId, { x, y, heading, ...o })); }
+  /** a landmark's own vehicle, spawned at its home and kept (replaced there once it is gone: traffic.js) */
+  keep(defId, x, y, heading = 0, o = {}) { const v = this.spawn(defId, x, y, heading, { ...o, home: true }); this.keepers.push({ def: defId, home: { x, y, heading }, color: o.color, kit: o.kit, locked: o.locked, v }); return v; }
   remove(v) {
     const i = this.vehicles.indexOf(v); if (i >= 0) this.vehicles.splice(i, 1);
     v.asleep = false;   // (out of the sleepers' grid at once)

@@ -1595,7 +1595,13 @@ and where it landed.
     activity that fails waits behind the rest before it is tried again, as the campaign's TRIES always said (it had
     been tried back to back: the Paramedic's first level met the same jam on Harborfront's streets three times over;
     an ambulance's siren run on a call, to part it, was tried and not taken: the traffic pulling over held it up as
-    often as it let it by).
+    often as it let it by). The landmarks' own vehicles (a spot's, a pad's: the Medic at Lowtown General, the SkyCam,
+    the precinct's cruisers, the Hookline) are kept: once one is wrecked, sunk or towed off, the tow puts a fresh one
+    at its home, out of sight (`fleet.keep`; a wrecked SkyCam had taken its job with it for good, and the campaign had
+    found no Medic left to start the Paramedic's in). Loop Avenue's east end, run out to the bay with nothing between
+    the road and the water, has a sea wall across it (the Causeway's place): a Medic driven on past the end of the
+    road had gone into the harbour, and the one lent where it went in after it; a Paramedic's retry with no Medic to
+    drive is lent one at Lowtown General's bay.
   - **The recipes.** The new kinds each have one in docs/CONTENT-GUIDE.md: a helicopter a player flies, an L line's
     stations, an interior's patrons and spots, an arcade kit, an arcade high score, and a station's genre of its own
     (`def('genres')`, the station recipe's fixture now bringing one).

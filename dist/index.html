@@ -19334,6 +19334,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.trains = [];
       this.lines = [];
       this.tows = [];
+      this.keepers = [];
       this.skids = [];
       this.fx = [];
       this.slicks = [];
@@ -19409,6 +19410,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** a new vehicle of a definition at (x, y) facing heading; o: Vehicle's options */
     spawn(defId, x, y, heading = 0, o = {}) {
       return this.add(new Vehicle(defId, { x, y, heading, ...o }));
+    }
+    /** a landmark's own vehicle, spawned at its home and kept (replaced there once it is gone: traffic.js) */
+    keep(defId, x, y, heading = 0, o = {}) {
+      const v = this.spawn(defId, x, y, heading, { ...o, home: true });
+      this.keepers.push({ def: defId, home: { x, y, heading }, color: o.color, kit: o.kit, locked: o.locked, v });
+      return v;
     }
     remove(v) {
       const i = this.vehicles.indexOf(v);
@@ -23240,7 +23247,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         const k = j & 1 ? (j + 1) / 2 : -j / 2, L22 = hl5 * 2 + 10, x = base3.x - Math.cos(base3.heading) * L22 * k, y = base3.y - Math.sin(base3.heading) * L22 * k;
         if (!fits2(x, y, base3.heading, hl5, hw5, ht)) continue;
         i++;
-        fleet.spawn(sp.def, x, y, base3.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked, home: true });
+        fleet.keep(sp.def, x, y, base3.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked });
         taken4.push({ x, y, h: base3.heading, hl: hl5, hw: hw5 });
         out.spots++;
       }
@@ -23273,7 +23280,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     for (const w9 of spec.pads) {
       if (!get("vehicles", w9.def)) continue;
-      fleet.spawn(w9.def, (w9.at[0] + 0.5) * T21, (w9.at[1] + 0.5) * T21, typeof w9.heading === "string" ? HEADINGS[w9.heading] : w9.heading || 0, { color: w9.color, home: true });
+      fleet.keep(w9.def, (w9.at[0] + 0.5) * T21, (w9.at[1] + 0.5) * T21, typeof w9.heading === "string" ? HEADINGS[w9.heading] : w9.heading || 0, { color: w9.color });
       out.pads++;
     }
     for (const R5 of spec.rail) {
@@ -28946,6 +28953,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             this.fleet.remove(v);
             this.towed++;
           }
+        }
+        for (const K2 of this.fleet.keepers) {
+          const v = K2.v, here = !!v && this.fleet.vehicles.includes(v);
+          if (here && !v.wrecked && !v.sunk) continue;
+          if (here && (v.seats.some((p) => p && !p.dead) || fp.d(v.x, v.y) <= TUNE.fpSpawnIn)) continue;
+          if (fp.d(K2.home.x, K2.home.y) <= TUNE.fpSpawnIn || !this.fleet.near(K2.home.x, K2.home.y, 120).every((o) => o === v || Math.hypot(o.x - K2.home.x, o.y - K2.home.y) > o.hl + 40)) continue;
+          if (here) this.fleet.remove(v);
+          K2.v = this.fleet.spawn(K2.def, K2.home.x, K2.home.y, K2.home.heading, { color: K2.color, kit: K2.kit, locked: K2.locked, home: true });
+          this.replaced = (this.replaced || 0) + 1;
         }
       }
       const W26 = { fleet: this.fleet, t: ctx.t ?? this.t, pedsNear: ctx.pedsNear || null, wet: ctx.wet || 0, sirens: ctx.sirens || null, closed: ctx.closed || null };
@@ -39507,6 +39523,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return m.lane(p);
   }
   function ride3(m) {
+    const retry = m.retries !== (m.data.tried ?? 0);
+    if (retry) m.data.tried = m.retries;
     if (inMedic(m)) {
       const b2 = m.one("ride");
       if (b2 === m.vehicle) return b2;
@@ -39516,7 +39534,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     let b = m.one("ride");
     if (!b || m.dist(b) > 240) {
       if (b) m.remove(b);
-      const q = freeLane3(m, [m.player.x, m.player.y]);
+      const q = freeLane3(m, retry ? spot2(m, HOSPITAL) : [m.player.x, m.player.y]);
       b = m.ensure.vehicle("ride", "medic", q, { heading: q.heading });
     }
     m.place("player", { in: b });
@@ -40901,7 +40919,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     walls: [
       // the embankments round the north and west edges, and the west end of Loop Avenue: the closed bridge
       { rect: [0, 0, 159, 1], type: { h: 32, top: "#5a6a4a", side: "#7a7468", face: "stone", roof: "grass" } },
-      { rect: [0, 2, 1, 151], type: { h: 32, top: "#5a6a4a", side: "#7a7468", face: "stone", roof: "grass" } }
+      { rect: [0, 2, 1, 151], type: { h: 32, top: "#5a6a4a", side: "#7a7468", face: "stone", roof: "grass" } },
+      // the sea wall across Loop Avenue's east end, where it stops at the bay (the Causeway's place, EXPANSION.md): a road
+      // run out into the water had taken a job's Medic, driven on past its end, with it
+      { rect: [154, 73, 154, 85], type: { h: 12, top: "#a8a49a", side: "#7a7468", face: "stone", roof: "slab" } }
     ],
     props: { lampEvery: 6, clutter: 0.3 },
     // the closed bridge's notice on the embankment at Loop Avenue's west end (PLAN.md 9.1: the hook for District 2)

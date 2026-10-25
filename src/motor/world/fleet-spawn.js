@@ -103,7 +103,7 @@ export function spawnFleet(fleet, city, spec, seed = 1) {
       const k = j & 1 ? (j + 1) / 2 : -j / 2, L = hl * 2 + 10, x = base.x - Math.cos(base.heading) * L * k, y = base.y - Math.sin(base.heading) * L * k;
       if (!fits(x, y, base.heading, hl, hw, ht)) continue;
       i++;
-      fleet.spawn(sp.def, x, y, base.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked, home: true });
+      fleet.keep(sp.def, x, y, base.heading, { color: sp.color || d.palette[i % d.palette.length], kit: sp.kit, locked: sp.locked });
       taken.push({ x, y, h: base.heading, hl, hw }); out.spots++;
     }
   }
@@ -130,7 +130,7 @@ export function spawnFleet(fleet, city, spec, seed = 1) {
   // boats on the water
   for (const w of spec.water) { if (!get('vehicles', w.def)) continue; fleet.spawn(w.def, (w.at[0] + .5) * T, (w.at[1] + .5) * T, typeof w.heading === 'string' ? HEADINGS[w.heading] : w.heading || 0, { color: w.color }); out.boats++; }
   // helicopters on their pads, landed till flown (home: one left about is set back on its pad, out of sight)
-  for (const w of spec.pads) { if (!get('vehicles', w.def)) continue; fleet.spawn(w.def, (w.at[0] + .5) * T, (w.at[1] + .5) * T, typeof w.heading === 'string' ? HEADINGS[w.heading] : w.heading || 0, { color: w.color, home: true }); out.pads++; }
+  for (const w of spec.pads) { if (!get('vehicles', w.def)) continue; fleet.keep(w.def, (w.at[0] + .5) * T, (w.at[1] + .5) * T, typeof w.heading === 'string' ? HEADINGS[w.heading] : w.heading || 0, { color: w.color }); out.pads++; }
   // the L: a loop along its deck, a stop at every station on both tracks
   for (const R of spec.rail) {
     const deck = city.decks.find(d => d.id === R.deck), d = get('vehicles', R.def); if (!deck || !d || !deck.path || deck.path.length < 2) continue;

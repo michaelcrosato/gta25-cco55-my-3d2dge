@@ -104,6 +104,16 @@ export class Traffic {
         if (t0 === undefined || this.t - t0 <= TOW_AFTER || fp.d(v.x, v.y) <= TUNE.fpSpawnIn || v.owner === 'mission' || v.seats.some(p => p && !p.dead) || (v.damage && v.damage.burning)) continue;
         if (v.home && !v.wrecked && fp.d(v.home.x, v.home.y) > TUNE.fpSpawnIn && this._homeFree(v)) { this._home(v); this.homed++; } else { this.fleet.remove(v); this.towed++; }
       }
+      // a landmark's own vehicle gone (wrecked, sunk, towed off), nobody in it and nothing of it in sight: a fresh one
+      // at home, as the city's pad or bay is kept stocked (a wrecked SkyCam had taken its job with it for good)
+      for (const K of this.fleet.keepers) {
+        const v = K.v, here = !!v && this.fleet.vehicles.includes(v);
+        if (here && !v.wrecked && !v.sunk) continue;
+        if (here && (v.seats.some(p => p && !p.dead) || fp.d(v.x, v.y) <= TUNE.fpSpawnIn)) continue;
+        if (fp.d(K.home.x, K.home.y) <= TUNE.fpSpawnIn || !this.fleet.near(K.home.x, K.home.y, 120).every(o => o === v || Math.hypot(o.x - K.home.x, o.y - K.home.y) > o.hl + 40)) continue;
+        if (here) this.fleet.remove(v);
+        K.v = this.fleet.spawn(K.def, K.home.x, K.home.y, K.home.heading, { color: K.color, kit: K.kit, locked: K.locked, home: true }); this.replaced = (this.replaced || 0) + 1;
+      }
     }
     const W = { fleet: this.fleet, t: ctx.t ?? this.t, pedsNear: ctx.pedsNear || null, wet: ctx.wet || 0, sirens: ctx.sirens || null, closed: ctx.closed || null };   // (closed(bridgeId): a drawbridge's gates shut)
     for (const c of this.cars) {
