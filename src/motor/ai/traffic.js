@@ -40,7 +40,7 @@ knob('Traffic', 'panicRange', 'Panics within', 220, 0, 800, 10, 'A shot, blast o
 knob('Traffic', 'rammedOut', 'Gets out when rammed', .55, 0, 1, .05, 'The chance a driver the player rams hard gets out (angry or scared)');
 const LOD_IN = 20;   // hysteresis either side of fpFull (u)
 const WEDGED = 8;   // s a far car off its line may stand barely moving before it is put back on its path
-const SPAWN_EVERY = .25, SAMPLE = 40, FILL_IN = 100, SPAWN_SHORT = 40, TOW_AFTER = 10, PARK_BEHIND = 72, PASS_ROOM = 92;   // (FILL_IN: the nearest a car is put when the disc fills; SPAWN_SHORT: how far short of a stop line; TOW_AFTER: s an abandoned car stands before the tow; PARK_BEHIND: the room a unit standing at a call leaves behind it past its lane's clearS, a car's length and its gap; PASS_ROOM: past its front, short of the stop line, for a car to go round it, a car's length and the pass's margin)
+const SPAWN_EVERY = .25, SAMPLE = 40, FILL_IN = 100, SPAWN_SHORT = 40, TOW_AFTER = 10, SPAN_TOW = 60, PARK_BEHIND = 72, PASS_ROOM = 92;   // (FILL_IN: the nearest a car is put when the disc fills; SPAWN_SHORT: how far short of a stop line; TOW_AFTER: s an abandoned car stands before the tow; SPAN_TOW: before the tow takes one off a drawbridge's span in sight; PARK_BEHIND: the room a unit standing at a call leaves behind it past its lane's clearS, a car's length and its gap; PASS_ROOM: past its front, short of the stop line, for a car to go round it, a car's length and the pass's margin)
 
 export class Traffic {
   /** o: { city, fleet, graph, gps, junctions, footprint, spec (the fleets entry's traffic: { hoods: { id: factor },
@@ -99,9 +99,12 @@ export class Traffic {
     if (this._spawnT <= 0) { this._spawnT = SPAWN_EVERY; const want = this.target(ctx); for (let k = 0; k < 2 && this.cars.length < want; k++) this._spawn(ctx); }
     if ((this._towT -= dt) <= 0) {   // (the tow, out of sight)
       this._towT = 2;
+      // (in sight too, a car its driver left on a drawbridge's span a minute once the gate is shut for a lift: the
+      // bridge waits for its span to clear, and one left there had held it down for good, a stunt over it waiting)
+      const span = v => v.abandonT !== undefined && this.t - v.abandonT > SPAN_TOW && this.fleet.bridges.some(b => b.gate && b.phase === 'down' && b.contains(v.x, v.y));
       for (const v of [...this.fleet.vehicles]) {
         const t0 = v.abandonT ?? v.leftT;
-        if (t0 === undefined || this.t - t0 <= TOW_AFTER || fp.d(v.x, v.y) <= TUNE.fpSpawnIn || v.owner === 'mission' || v.seats.some(p => p && !p.dead) || (v.damage && v.damage.burning)) continue;
+        if (t0 === undefined || this.t - t0 <= TOW_AFTER || (fp.d(v.x, v.y) <= TUNE.fpSpawnIn && !span(v)) || v.owner === 'mission' || v.seats.some(p => p && !p.dead) || (v.damage && v.damage.burning)) continue;
         if (v.home && !v.wrecked && fp.d(v.home.x, v.home.y) > TUNE.fpSpawnIn && this._homeFree(v)) { this._home(v); this.homed++; } else { this.fleet.remove(v); this.towed++; }
       }
       // a landmark's own vehicle gone (wrecked, sunk, towed off), nobody in it and nothing of it in sight: a fresh one

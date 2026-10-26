@@ -28845,6 +28845,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var FILL_IN = 100;
   var SPAWN_SHORT = 40;
   var TOW_AFTER = 10;
+  var SPAN_TOW = 60;
   var PARK_BEHIND = 72;
   var PASS_ROOM = 92;
   var Traffic = class {
@@ -28973,9 +28974,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       if ((this._towT -= dt) <= 0) {
         this._towT = 2;
+        const span = (v) => v.abandonT !== void 0 && this.t - v.abandonT > SPAN_TOW && this.fleet.bridges.some((b) => b.gate && b.phase === "down" && b.contains(v.x, v.y));
         for (const v of [...this.fleet.vehicles]) {
           const t0 = v.abandonT ?? v.leftT;
-          if (t0 === void 0 || this.t - t0 <= TOW_AFTER || fp.d(v.x, v.y) <= TUNE.fpSpawnIn || v.owner === "mission" || v.seats.some((p) => p && !p.dead) || v.damage && v.damage.burning) continue;
+          if (t0 === void 0 || this.t - t0 <= TOW_AFTER || fp.d(v.x, v.y) <= TUNE.fpSpawnIn && !span(v) || v.owner === "mission" || v.seats.some((p) => p && !p.dead) || v.damage && v.damage.burning) continue;
           if (v.home && !v.wrecked && fp.d(v.home.x, v.home.y) > TUNE.fpSpawnIn && this._homeFree(v)) {
             this._home(v);
             this.homed++;
