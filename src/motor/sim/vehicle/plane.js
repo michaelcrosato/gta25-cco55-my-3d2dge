@@ -13,12 +13,12 @@ import { VehicleBody } from './body.js';
 export const PLANE_HANDLING = { length: 44, width: 56, height: 16, mass: 900, top: 230, accel: 70, brake: 120, stall: 70, vr: 85, climb: 70, bankMax: .7, rollRate: 1.6, turnG: 360,
   taxiTurn: 1.4, taxiTop: 60, landSpeed: 125, landSink: 75, ceiling: 320, cruiseZ: 200, water: false };
 
-const EDGE = 240;   // (how near the world's edge a plane is turned back)
+const EDGE = 240, EDGE_T = 1.5, EDGE_M = 24;   // (a plane turned back when it would fly within EDGE_M of the world's edge in EDGE_T s, till it flies out no more within EDGE of it)
 
 export class PlaneBody extends VehicleBody {
   constructor(spec = {}, x = 0, y = 0, heading = 0) {
     super(Object.assign({}, PLANE_HANDLING, spec), x, y, heading);
-    this.landed = true; this.airborne = false; this.bank = 0; this.pitch = 0; this.stalled = false; this.prop = 0; this.rpm = 0; this.tiltF = 0; this.tiltS = 0;
+    this.landed = true; this.airborne = false; this.edgeTurn = false; this.bank = 0; this.pitch = 0; this.stalled = false; this.prop = 0; this.rpm = 0; this.tiltF = 0; this.tiltS = 0;
   }
   get vx() { return this.u * Math.cos(this.heading); } get vy() { return this.u * Math.sin(this.heading); }
   get speed() { return Math.abs(this.u); }
@@ -62,9 +62,13 @@ export class PlaneBody extends VehicleBody {
   // shoulders' (held level between) while the wings bite; a stall drops the nose. What stands below ends the flight
   _fly(dt, thr, brk, steer, climb, world) {
     const h = this.h, rr = h.rollRate * dt;
-    // (the world's edge: within EDGE of it and flying out, it banks round hard toward the middle, whatever the stick
-    // says; it never leaves the map)
-    const M = world.map, Wd = M ? M.w * M.T : 1e9, Hd = M ? M.h * M.T : 1e9, out = M && ((this.x < EDGE && this.vx < 0) || (this.x > Wd - EDGE && this.vx > 0) || (this.y < EDGE && this.vy < 0) || (this.y > Hd - EDGE && this.vy > 0));
+    // (the world's edge: flying out past it within EDGE_T, it banks round hard toward the middle, whatever the stick
+    // says, till it no longer flies out within EDGE of it; it never leaves the map. Along the edge it flies on: a guard
+    // on any drift outward within EDGE had pushed the Gull off its line along Glass Heights' south shore, for good)
+    const M = world.map, Wd = M ? M.w * M.T : 1e9, Hd = M ? M.h * M.T : 1e9, px = this.x + this.vx * EDGE_T, py = this.y + this.vy * EDGE_T;
+    const near = M && ((this.x < EDGE && this.vx < 0) || (this.x > Wd - EDGE && this.vx > 0) || (this.y < EDGE && this.vy < 0) || (this.y > Hd - EDGE && this.vy > 0));
+    if (M && (px < EDGE_M || px > Wd - EDGE_M || py < EDGE_M || py > Hd - EDGE_M)) this.edgeTurn = true; else if (!near) this.edgeTurn = false;
+    const out = near && this.edgeTurn;
     if (out) { const a = Math.atan2(Hd / 2 - this.y, Wd / 2 - this.x) - this.heading; steer = Math.sign(Math.atan2(Math.sin(a), Math.cos(a))) || 1; }
     this.bank += E.clamp(steer * h.bankMax - this.bank, -rr, rr);
     this.w = h.turnG * Math.tan(this.bank) / Math.max(this.u, h.stall); this.heading += this.w * dt;

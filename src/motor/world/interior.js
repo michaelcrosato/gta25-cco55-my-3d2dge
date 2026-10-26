@@ -16,7 +16,7 @@
 // the view is never read.
 //   const R = new InteriorRun({ id, game, isPlayer, crime });  R.enter(ped, 'front')  R.update(dt, { player, wanted })
 //   R.takedownFor(player)  R.takedown(player, guard)  R.doorAt(player)  R.spotAt(player)  R.leave(ped)  R.lights(fn)  R.draw(stage)  R.hash()
-//   A mission's hold on it (m.inside.run): R.loopCameras(on)  R.pass(on)  R.watch() (what it may read: a copy)
+//   A mission's hold on it (m.inside.run): R.loopCameras(on)  R.pass(on)  R.open(mark)  R.raise(by, player)  R.watch() (what it may read: a copy)
 import { E } from '../engine.js';
 import { BUS } from '../core/bus.js';
 import { TUNE, knob } from '../core/tune.js';
@@ -84,7 +84,7 @@ export class InteriorRun {
     this.combat = new Combat({ game: o.game || null, city: this.city, rng: RNG.stream('interior:' + o.id + ':combat') });
     this.guards = this.spec.guards.map((g, i) => {
       const arch = get('peds', g.arch), [cx, cy] = g.route[0];
-      const ped = new Ped({ x: (cx + .5) * T, y: (cy + .5) * T, faction: arch.faction || 'security', look: pedLook(arch, this.rng), lazyRig: true, health: arch.health || 100, maxHealth: arch.health || 100, weapons: arch.weapons || ['fists'] });
+      const ped = new Ped({ x: (cx + .5) * T, y: (cy + .5) * T, faction: arch.faction || 'security', look: pedLook(arch, this.rng), lazyRig: true, health: arch.health || 100, maxHealth: arch.health || 100, weapons: g.weapons || arch.weapons || ['fists'] });   // (g.weapons: what this house arms its own with, its archetype's else)
       ped.archetype = arch.id; ped.guard = i; this.combat.add(ped);
       return new Guard(ped, { map: this.map, rng: this.rng, route: g.route.map(([x, y]) => [(x + .5) * T, (y + .5) * T]) });
     });
@@ -128,11 +128,11 @@ export class InteriorRun {
   /** a spot's cell's middle (world units), or null */
   spotCell(id) { const s = (this.spec.spots || []).find(q => q.id === id), m = s && this.city.marks[s.mark]; return m && m.length ? [(m[0][0] + .5) * T, (m[0][1] + .5) * T] : null; }
   /** what a guard or a camera minds about the player: past the counter (anywhere but the lobby and its doors), a gun
-   *  out, or wanted */
+   *  out, or wanted (a phone's camera is no gun: the public's own, X6's high roller photographing a casino's floor) */
   _minds(P, wanted) {
     const cx = Math.floor(P.x / T), cy = Math.floor(P.y / T), inLobby = this.publics.some(L => cx >= L[0] && cx <= L[2] && cy >= L[1] && cy <= L[3]);
-    const spec = P.inv && P.inv.spec(P.inv.current), gun = spec && spec.projectile !== 'melee' && P.inv.current !== 'fists';
-    return (!inLobby && !this.staff) || gun || P.aiming || wanted > 0 || !!this.alarm;
+    const spec = P.inv && P.inv.spec(P.inv.current), photo = !!spec && spec.projectile === 'photo', gun = spec && spec.projectile !== 'melee' && !photo && P.inv.current !== 'fists';
+    return (!inLobby && !this.staff) || gun || (P.aiming && !photo) || wanted > 0 || !!this.alarm;
   }
   /** one step: ctx { player (the possessed Ped), wanted (its stars) } */
   update(dt, ctx = {}) {
@@ -165,6 +165,9 @@ export class InteriorRun {
   /** a staff pass (a bribed janitor's word, a borrowed uniform): on, nobody minds the player past the counter; a gun
    *  out, a wanted face or the alarm still do */
   pass(on = true) { this.staff = !!on; }
+  /** the walls on a mark's cells opened for good (while the run lasts): a vault's door swung back once a job has
+   *  cracked it; the guards' flow fields find the way through */
+  open(mark) { for (const [x, y] of this.city.marks[mark] || []) this.map.set(x, y, 0); this.opened = [...(this.opened || []), mark]; }
   /** what a mission may read of it (a copy: nothing written back): t (s since it was built), alarm (what raised it, or
    *  null), looped, staff; each guard's { at (the corner of its round it walks to), x, y, cx, cy (in cells), facing,
    *  down (taken down or dead), state (its mind), sees }; each camera's { phase (0..1 through its sweep), period,
@@ -240,7 +243,7 @@ export class InteriorRun {
   }
   /** the interior's state: its alarm, its guards, its fights and where the player is in it */
   hash() {
-    let h = this.alarm ? 7 : 0; for (const g of this.guards) h = (h * 31 + Math.round(g.ped.x * 4) * 7 + Math.round(g.ped.y * 4) + (g.down ? 3 : 0)) >>> 0;
+    let h = (this.alarm ? 7 : 0) + (this.opened ? this.opened.length * 11 : 0); for (const g of this.guards) h = (h * 31 + Math.round(g.ped.x * 4) * 7 + Math.round(g.ped.y * 4) + (g.down ? 3 : 0)) >>> 0;
     for (const p of this.patrons) h = (h * 31 + (p.dead ? 5 : 0) + Math.round(p.x * 4)) >>> 0;
     const P = this.player;
     return [h, this.combat.hash(), this.downs, P ? Math.round(P.x * 8) : 0, P ? Math.round(P.y * 8) : 0, P ? Math.round((P.z || 0) * 8) : 0];

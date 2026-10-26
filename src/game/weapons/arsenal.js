@@ -1,4 +1,4 @@
-// Lowtown's 11 weapons (PLAN.md 9.7), and Ironside's two (EXPANSION.md 6, X3). Health is 100 and armour 100, so a pistol drops a ped in 6 hits and a shotgun
+// Lowtown's 11 weapons (PLAN.md 9.7), Ironside's two (EXPANSION.md 6, X3) and Glass Heights' one (X6). Health is 100 and armour 100, so a pistol drops a ped in 6 hits and a shotgun
 // blast at close range in one or two. Prices are Lead Farm's; unlocks are the missions that put them on its shelves.
 import { def } from '../../motor/index.js';
 
@@ -18,3 +18,6 @@ W('snap', { name: 'Snap', slot: 'special', projectile: 'photo', damage: 0, rate:
 // Zap-O-Matic's arc on a bigger coil: it jumps on from body to body, twice as far down the line)
 W('nailgun', { name: 'Nail Gun', slot: 'smg', projectile: 'bullet', damage: 8, rate: 12, mag: 40, reload: 1.8, spread: 7, range: 220, speed: 800, ammo: 160, model: 'nailgun', sound: 'smg', recoil: .1, rumble: .15, price: 1100, unlock: 'monks_holy_scrap' });
 W('teslacoil', { name: 'Tesla Coil', slot: 'heavy', projectile: 'zap', damage: 12, rate: 2, range: 240, chain: 6, stun: 2, ammo: 30, model: 'coil', sound: 'zap', rumble: .6, twoHanded: true, price: 6000, unlock: 'volts_short_circuit' });
+// Glass Heights': the Yacht Club's Flare Gun (a flare that sets what it hits burning, a body or a car, and a pool of
+// fire where it lands: the Molotov's, as a shot), one at a time
+W('flaregun', { name: 'Flare Gun', slot: 'special', projectile: 'flare', damage: 14, rate: .9, mag: 1, reload: 1.1, spread: 1.5, range: 380, speed: 520, burn: 5, ammo: 12, model: 'flaregun', sound: 'pistol', recoil: .5, rumble: .4, price: 1800, unlock: 'yacht_overboard' });

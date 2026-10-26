@@ -62,11 +62,16 @@ In a helicopter (Channel 6's SkyCam) the same buttons fly it: the stick yaws, R2
 Space climbs and L1 / Shift descends; it holds its height between. Let down slow over a street or a roof, it settles,
 and △ / E gets out only on the ground.
 
+In a boat (the Bilge Rat in Lowtown's harbour; the marina's Splashes and the Club's Regatta in Glass Heights) a car's
+controls drive it: R2 / W the throttle, L2 / S astern, the stick the helm; △ / E gets out only beside dry ground, a quay,
+a pier or the shore.
+
 In a plane (the Duster on Ironside Airstrip; the Gull, a seaplane, at the Yacht Club's pier in Glass Heights) R2 / W is the throttle and L2 / S the
 brake; on the ground the stick steers it at a taxi, and past its take-off speed R1 / Space lifts it off. In the air the
 stick banks it round, R1 climbs and L1 / Shift descends (it holds its height between), and too slow its wings let go:
 it drops its nose until it has the speed again. Set it down level, slow and gently on the ground (the Gull on the
-water); anything else is a crash. It turns back by itself at the world's edge, and △ / E gets out only on the ground.
+water); anything else is a crash. It turns back by itself when it would fly out past the world's edge (along the edge it
+flies on), and △ / E gets out only on the ground (the Gull afloat: alongside a pier or the shore).
 
 On foot at the L: △ / E at a station's stairs (the blue rings, at the sidewalk and up on the platform) climbs or goes
 down; on the platform, △ / E by a stopped train boards it, and at a later stop gets off.

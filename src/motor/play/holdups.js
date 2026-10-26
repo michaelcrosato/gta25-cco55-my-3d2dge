@@ -15,7 +15,7 @@ knob('Hold-ups', 'holdupTime', 'Aim for', 3, .5, 10, .1, 'Seconds a gun must be 
 knob('Hold-ups', 'holdupRange', 'Aim from within', 110, 20, 300, 5, 'How near the clerk the gun must be (u)');
 knob('Hold-ups', 'holdupCash', 'The till', 450, 0, 5000, 10, 'Cash a hold-up takes ($)');
 knob('Hold-ups', 'holdupRest', 'Shut for', 24, 1, 96, 1, 'Game hours a store stays shut to hold-ups after one');
-const NEAR = 360, GUNS = new Set(['bullet', 'pellets', 'rocket', 'stream', 'zap']);
+const NEAR = 360, GUNS = new Set(['bullet', 'pellets', 'rocket', 'stream', 'zap', 'flare']);
 
 export class Holdups {
   /** o: { city, combat, rng (a stream: the clerks' looks) } */

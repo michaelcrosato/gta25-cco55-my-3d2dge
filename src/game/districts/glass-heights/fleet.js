@@ -12,7 +12,11 @@ def('fleets', 'glass-heights', {
     { def: 'cruiser', near: 'precinct', n: 2 }, { def: 'medic', near: 'hospital' }, { def: 'zephyr', near: 'hotel-riviera' },
     { def: 'saint', near: 'st-chrome' }, { def: 'cortez', near: 'safehouse' }, { def: 'fedsedan', near: 'grand-palms' },
   ],
-  water: [{ def: 'gull', at: [111.5, 108.5], heading: 'E' }],   // (moored alongside the Club's pier's east side, its nose out to sea)
+  // (the Gull moored alongside the Club's pier's east side, its nose out to sea, a door on the pier and the passage
+  // along the shore past the pier's end clear of it: off the end, a Regatta had rammed it for good and nobody could
+  // board it; the Club's Regatta along the pier's west side; the marina's two Splashes for hire between its piers, X6)
+  water: [{ def: 'gull', at: [110.8, 106.6], heading: 'S' }, { def: 'regatta', at: [98.5, 106.5], heading: 'S' },
+    { def: 'splash', at: [78, 106.5], heading: 'S' }, { def: 'splash', at: [84, 106.5], heading: 'S' }],
   air: [{ def: 'eye', alt: 150, patrol: [[64, 56], [92, 30], [38, 30], [38, 80], [92, 80]] }],
   traffic: { hoods: { strip: 1.1, hill: .8, marina: .75 }, roles: ['civilian'], classes: ['car', 'truck', 'bike'] },
   crowd: {

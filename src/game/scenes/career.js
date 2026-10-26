@@ -408,13 +408,14 @@ export class Career {
   /** the HUD's part, on the UI layer: the objective, the timer, the race's checkpoint, the subtitles (Settings: on by
    *  default, the speaker's name in colour), the pops, a hold-up's bar, the prompt at a door (o.blocked: another's;
    *  o.objective false: the objective off, a cabinet's screen in front of the street; o.high: the objective at the top,
-   *  over the skyline: MODE 7 and the chase camera hold the player's vehicle where its band would be) */
+   *  over the skyline: MODE 7 and the chase camera hold the player's vehicle where its band would be; o.tip: the right edge
+   *  of a hint's box at the top left, the band below it) */
   hud(P, o = {}) {
     const R = this.R, t = this.W.game.real || 0, L = hudLayout(P), cx = P.W / 2, fw = footWidth(P);
     if (R.state === 'running' && R.objective && !this.card && !this.demo && o.objective !== false) {   // (on a band of its own: over a busy street it had blurred into the scene)
       // (a control named in it, '{interact} to hop on': drawn in the player's own glyphs)
       const tok = r => /\{[a-zA-Z]+(:[a-zA-Z]+)?\}/.test(r), wd = r => (tok(r) ? P.promptWidth(r) : P.width(r));
-      const rows = wrapLines(P, R.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map(wd)) + 14), y = o.high ? L.sy0 + 24 : L.sy1 - 78;
+      const rows = wrapLines(P, R.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map(wd)) + 14), y = o.high ? (o.tip && o.tip + 6 > cx - bw / 2 ? L.sy0 + 37 : L.sy0 + 24) : L.sy1 - 78;   // (o.tip: the right edge of the hint's box at the top left; at the top the band goes below it where they would meet)
       P.fill(cx - bw / 2, y - 3, bw, rows.length * 10 + 5, '#05030c', .6);
       rows.forEach((r, i) => (tok(r) ? P.prompt(r, cx, y + i * 10, { align: 'center', color: '#f0ecff' }) : P.text(r, cx, y + i * 10, '#f0ecff', { align: 'center' })));
     }

@@ -6,7 +6,7 @@ import { declare } from '../core/registry.js';
 import { shape } from '../core/schema.js';
 
 export const SLOTS = ['melee', 'pistol', 'smg', 'shotgun', 'heavy', 'thrown', 'special'];
-export const PROJECTILES = ['melee', 'bullet', 'pellets', 'rocket', 'molotov', 'grenade', 'stream', 'zap', 'photo'];
+export const PROJECTILES = ['melee', 'bullet', 'pellets', 'rocket', 'molotov', 'grenade', 'stream', 'zap', 'photo', 'flare'];
 declare('weapons', shape({
   name: { type: 'string', req: true }, slot: { type: 'string', req: true, oneOf: SLOTS }, projectile: { type: 'string', req: true, oneOf: PROJECTILES },
   damage: { type: 'number', def: 0, min: 0 }, rate: { type: 'number', def: 1, min: .05, max: 30 }, pellets: { type: 'number', def: 1, min: 1 },

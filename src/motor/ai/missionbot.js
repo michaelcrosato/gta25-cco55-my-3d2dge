@@ -31,6 +31,17 @@ const RETARGET = 1.2, CAR_NEAR = 220;
  *  backing off from one come close */
 const PLAYER_FIGHT = { range: .75, burst: 1.3, pause: .25, aimOff: .03, kite: .6 };
 const alive = a => a && !a.dead && !a.wrecked && !a.out;
+// a boat's boarding place (X6): the walkable cell nearest it (its quay, the pier it lies along), where a car can't take
+// one (a trip to the boat itself had driven round the map's edge for good: the water is on no route)
+function shoreBy(C, v) {
+  const T = C.T, cx = Math.floor(v.x / T), cy = Math.floor(v.y / T);
+  for (let r = 1; r <= 8; r++) {
+    let best = null, bd = 1e9;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !C.walkable(cx + dx, cy + dy)) continue; const x = (cx + dx + .5) * T, y = (cy + dy + .5) * T, d = Math.hypot(x - v.x, y - v.y); if (d < bd) { bd = d; best = [x, y]; } }
+    if (best) return best;
+  }
+  return [v.x, v.y];
+}
 const ptOf = a => (Array.isArray(a) ? a : [a.x, a.y]);
 
 // a cop on foot within r of the car, on its level (police: the Police), or undefined
@@ -202,11 +213,13 @@ export class MissionBot {
   // its level (up on a deck above it, under one below it) it is far, and the drive near it is to its level: S1's bot
   // got out on the Loop over Gutterball Lanes for the Gnomes' Brute below, and walked the deck for good
   _board(dt, p, v, w) {
-    const P = p.seat ? p.seat.vehicle : p, d = Math.hypot(v.x - P.x, v.y - P.y) + (Math.abs((P.z || 0) - (v.z || 0)) > 24 ? 700 : 0), A = this.auto;
+    const W = this.fleet && this.fleet.world, C = this.auto.city, afloat = v.cls === 'boat' || ((v.z || 0) < 4 && !!C && !!W && !!W.water && !!W.water(Math.floor(v.x / C.T), Math.floor(v.y / C.T)));   // (on the water, not up on a deck over it)
+    const at = afloat ? shoreBy(this.auto.city, v) : [v.x, v.y];   // (a boat, a seaplane at its moorings: from the quay, the pier)
+    const P = p.seat ? p.seat.vehicle : p, d = Math.hypot(at[0] - P.x, at[1] - P.y) + (Math.abs((P.z || 0) - (v.z || 0)) > 24 ? 700 : 0), A = this.auto;
     if (this.boardFor !== v) { this.boardFor = v; this.boardNear = d < (p.seat ? 110 : 450); }
     if (this.boardNear && d > 650) this.boardNear = false;
     else if (!this.boardNear && (d < (p.seat ? 110 : 260) || (A.goal && !A.goal.board && (A.state === 'arrived' || A.state === 'final')))) this.boardNear = true;
-    if (!this.boardNear) return this._go(dt, p, v.x, v.y, { stay: true, radius: 100, slack: 80, z: v.z || 0 }, w);
+    if (!this.boardNear) return this._go(dt, p, at[0], at[1], { stay: true, radius: 100, slack: 80, z: v.z || 0 }, w);
     if (!A.goal || A.goal.board !== v) A.board(v);
     return A.update(dt, p, w);
   }
@@ -387,8 +400,14 @@ export class MissionBot {
     if (!this.fighter || this.fighter.ped !== p || this._kit !== p.inv.list().join() || dry) { this.fighter = new Fighter(p, { walks: this.roads.walks, map: this.city.map, fleet: this.fleet, refill: false, noSelect: this.pad, profile: PLAYER_FIGHT, best: true, careful: true }); this._kit = p.inv.list().join(); }
     const F = this.fighter; F.pedsNear = w.pedsNear || null;   // (the player holds fire over bystanders)
     const I = clearIntent(F.I);
-    if (t.body) {   // a vehicle: right up to its side for a swing; a gun from where the fighter stands
+    if (t.body) {   // a vehicle: right up to its side for a swing; a gun from where the fighter stands, a flare from close by
       const melee = !F.gun || p.inv.spec(F.gun).projectile === 'melee';
+      // (a flare is slow and burns what it meets: from afar it had set the passers-by alight, and a tree by the car)
+      if (!melee && p.inv.spec(F.gun).projectile === 'flare') {   // (and never so near its fire takes the shooter)
+        const bd = boxDistance(t, p.x, p.y);
+        if (bd > 150) return this._go(dt, p, t.x, t.y, { foot: true, stay: true, radius: 120 }, w);
+        if (bd < 70) return this._away(t.x, t.y, p);
+      }
       if (melee) {
         const bd = boxDistance(t, p.x, p.y);
         if (bd > 40) { F.path = null; return this._go(dt, p, t.x, t.y, { foot: true, stay: true, radius: 8 }, w); }   // (a way off: the AutoPlayer's walk; the fighter's path re-plans to one node a post can block)
@@ -423,8 +442,22 @@ export class MissionBot {
     }
     // out of their sight in a car, a respray within reach (and the fee in hand): there, before they find it again
     if (v && w.respray && !W.seen && Math.hypot(w.respray[0] - v.x, w.respray[1] - v.y) < 1200) return this._go(dt, p, w.respray[0], w.respray[1], { stay: true, style, radius: 18, slack: 30, hold: !!job }, w);
-    if (!this.dest || Math.hypot(this.dest[0] - P.x, this.dest[1] - P.y) < 80) this.dest = this._far(P, w);
+    if (!this.dest || Math.hypot(this.dest[0] - P.x, this.dest[1] - P.y) < 80) this.dest = v && v.cls === 'boat' ? this._farWater(v, w) : this._far(P, w);
     return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style, slack: 80, hold: !!job }, w);
+  }
+  // on the water (X6): a point out on it far from the police's cars (none of them follows a boat), well away from the
+  // boat, a cell's breadth off the shore: the centre of a water cell every four, the best of them
+  _farWater(v, w) {
+    const C = this.city, T = C.T, W = this.fleet.world, wet = (cx, cy) => cx >= 0 && cy >= 0 && cx < C.w && cy < C.h && !!W.water(cx, cy);
+    const units = w.police && w.police.units ? w.police.units.filter(u => !u.gone && u.car && u.car.v).map(u => u.car.v) : [];
+    let best = null, bd = -1e9;
+    for (let cy = 1; cy < C.h - 1; cy += 2) for (let cx = 1; cx < C.w - 1; cx += 2) {
+      if (!wet(cx, cy) || !wet(cx - 1, cy) || !wet(cx + 1, cy) || !wet(cx, cy - 1) || !wet(cx, cy + 1)) continue;
+      const x = (cx + .5) * T, y = (cy + .5) * T, dp = Math.hypot(x - v.x, y - v.y); if (dp < 300 || dp > 2400) continue;
+      const du = units.length ? Math.min(...units.map(u => Math.hypot(u.x - x, u.y - y))) : dp;
+      if (du - dp * .2 > bd) { bd = du - dp * .2; best = [x, y]; }
+    }
+    return best || [v.x, v.y];
   }
   // a spot on a ground lane under a deck, out of the Eye's sight (null: none within 1200): points every 24 along the
   // lanes under the decks' high stretches, 48 in from either end of the stretch, worked out once (on a lane, so a route

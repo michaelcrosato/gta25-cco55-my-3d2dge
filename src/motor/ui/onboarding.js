@@ -24,6 +24,8 @@ export class Onboarding {
     if (this.now) { this.t += dt; if (this.t >= TUNE.tipTime) this.now = null; }
     if (!this.now && this.queue.length) { this.now = this.queue.shift(); this.t = 0; this._mark(this.now.id); }
   }
+  /** the width of the hint's box (0: none showing): what stands beside it at its height makes way */
+  width(P) { return this.now ? P.promptWidth(this.now.text) + 16 : 0; }
   /** the hint showing, in a box from (x, y) */
   draw(P, x, y) {
     const v = this.now; if (!v) return;

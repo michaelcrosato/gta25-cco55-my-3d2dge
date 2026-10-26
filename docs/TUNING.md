@@ -344,6 +344,8 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `price_nailgun` Nail Gun | 1100 | 0..50000 | Nail Gun ($) |
 | `price_ammo_nailgun` Nail Gun ammo | 138 | 0..50000 | Nail Gun ammo ($) |
 | `price_teslacoil` Tesla Coil | 6000 | 0..50000 | Tesla Coil ($) |
+| `price_flaregun` Flare Gun | 1800 | 0..50000 | Flare Gun ($) |
+| `price_ammo_flaregun` Flare Gun ammo | 225 | 0..50000 | Flare Gun ammo ($) |
 | `price_armor` Body armour | 400 | 0..50000 | Body armour ($) |
 | `price_mod_armor` Armour plating | 2500 | 0..50000 | Armour plating ($) |
 | `price_mod_nitro` Nitro | 1500 | 0..50000 | Nitro ($) |

@@ -41,6 +41,16 @@ export const FIX = {
       m.objective('Land on the airstrip', { hint: { kind: 'goto', at: strip, radius: 60, vehicle: 'plane', land: Math.PI } });
       yield m.waitUntil(mm => !!mm.vehicle && mm.vehicle.cls === 'plane' && mm.vehicle.body.landed && mm.vehicle.speed < 5 && !mm.vehicle.wrecked && Math.hypot(mm.vehicle.x - strip[0], mm.vehicle.y - strip[1]) < 240);
     } }] }),
+  // X6's: a boat boarded alongside the marina's north pier, out past the lighthouse to a point at sea, and in to the quay
+  boat: m => ({ stages: [{ id: 's', setup(m) { m.ensure.vehicle('boat', 'bilgerat', [144.5 * 16, 113.7 * 16], { heading: 0 }); m.place('player', [139.5 * 16, 111.5 * 16], { within: 60 }); },   // (the player on the quay: the sail measured, not a drive across Lowtown's jams)
+    *run(m) {
+      yield m.enter('boat'); const sea = [156.5 * 16, 144.5 * 16], quay = [139.5 * 16, 114.5 * 16];
+      const on = (mm, q, r) => !!mm.vehicle && mm.vehicle === mm.one('boat') && Math.hypot(mm.vehicle.x - q[0], mm.vehicle.y - q[1]) < r;
+      m.objective('Out to sea past the lighthouse', { hint: { kind: 'goto', at: sea, radius: 60, vehicle: 'boat' } });
+      yield m.waitUntil(mm => on(mm, sea, 90));
+      m.objective('Back in to the marina', { hint: { kind: 'goto', at: quay, radius: 60, vehicle: 'boat' } });
+      yield m.waitUntil(mm => on(mm, quay, 110) && mm.vehicle.speed < 20);
+    } }] }),
   arcade: m => ({ stages: [
     { id: 'in', setup() {}, *run(m) { const door = m.at('club-chrome-door'); m.objective('Into Club Chrome', { hint: { kind: 'goto', at: door, radius: 16, foot: true, interact: true } }); yield m.waitUntil(mm => !!mm.inside && mm.inside.id === 'club-chrome'); } },
     { id: 's', setup(m) { m.on('arcadeEnd', e => { m.data.best = Math.max(m.data.best || 0, e.score); }); }, *run(m) { const C = ([x, y]) => [x * 16 + 8, y * 16 + 8]; m.objective('3,000 on the cabinet', { hint: { kind: 'arcade', at: C([37, 5]), path: [[19, 21], [33, 18], [33, 9], [35, 9], [35, 7], [37, 7]].map(C), score: 3000 } }); yield m.waitUntil(mm => (mm.data.best || 0) >= 3000); } }] }),

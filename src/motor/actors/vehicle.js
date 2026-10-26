@@ -82,6 +82,8 @@ export class Vehicle {
   sit(ped, i) { this.seats[i] = ped; ped.seat = { body: this, vehicle: this, index: i }; if (i === 0) this.ai = null; this.asleep = false; }
   /** a ped gets up out of its seat */
   unseat(ped) { const i = this.seats.indexOf(ped); if (i >= 0) this.seats[i] = null; if (ped.seat && ped.seat.vehicle === this) ped.seat = null; return i; }
+  /** a flare in it (Combat, X6): it catches fire, whatever its health (a ped's is ignite) */
+  catchFire(by) { if (this.damage.wrecked) return; this.asleep = false; this.lastBy = by ?? this.lastBy; this.damage.ignite(); }
   /** Combat's hurt: bullets, blasts, melee, fire. Returns a report (zeros for a wreck: the bullet stopped) */
   hurt(o) {
     if (this.damage.wrecked) return { health: 0, armor: 0 };

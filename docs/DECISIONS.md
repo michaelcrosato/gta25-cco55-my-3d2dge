@@ -1864,3 +1864,56 @@ and where it landed.
     `heights-pd` and `heights-marina` (named as Lowtown's, they had taken those ones' places, the registry's warning
     the only sign); Glass Heights' test holds that nothing registers twice.
 - **Answered:** no. **Landed in:** X5.
+
+## D43 · 2026-10-26 · X6: boats, and Glass Heights' gangs and missions
+- **Principle:** EXPANSION.md 3, 4, 6 and 7, and X6's acceptance (X3's, and the bot gym's `boat` fixture on seeds 1-3
+  and through a pad); D21: after a MOTOR, bot or map change every merged mission is played again.
+- **Calls:**
+  - **The gangs** (the gang recipe): the Velvet Syndicate (plum and gold, a spade, damask; the Strip; the Velvet
+    Casino; the Velvet limo; the Buzzsaw and the Persuader) and the Yacht Club (navy and white, an anchor, **bands**,
+    not EXPANSION's stripes: the Saints' are diagonal stripes, and two of a kind didn't read apart on the radar;
+    Marina Heights; the Club's pier; the Regatta and the Zephyr; the Snub and the Flare Gun). The Saints hold Cathedral
+    Hill as well, St. Chrome's their HQ there. Rivals by district: the Saints and the Club, the Club and the Syndicate,
+    the Syndicate and the Saints.
+  - **The vehicles:** the Splash (a jet-ski, the marina's for hire), the Regatta (the Club's launch, the gang's), and
+    Moneybags (the Syndicate's floating casino, boarded at its stern); the Velvet limo and a white one for hire,
+    **76 long**, not a stretch's 92: at 92 and 84 it stuck across the Heights' junctions on its turns.
+  - **The Flare Gun** (the Yacht Club's, Lead Farm's once Overboard is done): one slow flare that sets what it hits
+    burning (a body, a vehicle: MOTOR's `catchFire`), and a small pool of fire where it lands (the Molotov's fire).
+  - **The Velvet Casino** (the interior recipe): the entrance hall and the floor public, the staff corridor, the cage
+    and the vault behind it (sealed but by its door), the roof and its fire escape (a second door, from the
+    casino-back); three hoods with a snub each (MOTOR: an interior's guard may name its own `weapons`, the house's,
+    not its archetype's street guns), four cameras, patrons. **The vault opens** once cracked (MOTOR: `R.open(mark)`
+    clears a mark's walls for the run; the guards' flow fields find the way in).
+  - **The missions** as EXPANSION.md 4, with these changes:
+    - **GH2 The Gull** sets the seaplane down on the sea off the south shore, west of the marina, in along the shore
+      over its low roofs, not by the Glass Tower's jetty: the bay under the hill's towers has no room for the circuit
+      (the Gull circled it, or flew into a tower on the way), and the jetty's water lay at the world's edge, inside the
+      planes' turn-back band.
+    - **GH3 House Edge:** Viv in by night on a staff pass (Dolores's, GV2's croupier: a guard minds staff nowhere),
+      the vault cracked and the take bagged (its dye pack: the alarm), out up to the roof and down the fire escape;
+      Gus rams the Syndicate's cage van, pulled up under the fire escape, till it is wrecked past driving, and drives
+      her to Marina Drive; Dex flies the take low over Bilge's boat off the south-east point and sets the Gull down off
+      the south shore again, dark. **The heat:** none while the house handles its own vault (a mob casino doesn't call
+      the police), three stars from the rams on Casino Row, **four once the Gull is up**: at four on the drive the
+      police had shot the Brute alight and Gus down on the walk. The night of the job the Heights' gangs keep the peace
+      (below) and a truce: the Club's flares in a turf war on Casino Row had set the cars round the Brute alight.
+    - **GY2 Flare Up:** the Saints' meet is on the Observatory's paved forecourt (on the park its trees took the
+      flares), its Saints flee-role behind their cars, the Splash moored at the walk below.
+    - **GS1, GY1:** the Zephyrs that chase the chrome Saint keep their distance (a chase's `keep`), firing from the
+      seat; the Commodore's flares go from the Regatta's other seat (a seated rider's `driveBy`).
+  - **The map:** the marina's piers stop four rows short of the map's edge, the Club's three (the Gull alongside its
+    east side, its door on the pier): to row 110 they had walled the marina's west off from the Club's east. The
+    Observatory's lot is a paved forecourt (GY2). Two payphones (the Syndicate's, the Club's), the casino's doors.
+  - **MOTOR:** a seated rider's drive-by (`driveBy`, with an aim profile), a chase that keeps its distance (`keep`),
+    a guard that minds only its own hurt, a phone's camera that is no gun indoors, the Flare Gun's projectile and its
+    bystander band (the player's fighter holds a flare over people within its spread or just past its target), the
+    boat on the AutoPlayer's sea course **round what lies moored** (the cells under a vehicle stopped on the water the
+    shore's: the Regatta had pushed at the Gull's tail for good, and burned), a plane's approach point inside the
+    world's edge and its circuit at the cruise's height till near it, **the planes' world-edge guard on a predicted
+    exit** (within 1.5 s of 24 off the edge it banks round, as before till it no longer flies out; along the edge it
+    flies on), a seaplane afloat boarded from the shore, and `m.peace()`: no turf war starts while a job runs (one
+    under way runs its course), lifted when it ends.
+  - **The bot gym's `boat` fixture** starts on the quay by the Bilge Rat (the sail measured, not a drive across
+    Lowtown's jams: from the safehouse, seed 2 had been busted in one).
+- **Answered:** no. **Landed in:** X6.

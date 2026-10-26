@@ -5,7 +5,7 @@ import { SaveStore } from '../motor/index.js';
 export const GAME_ID = 'GrandTheftMoto-5S', SCHEMA = 1;
 export const PROTAGONISTS = ['dex', 'viv', 'gus'];
 export const STATS = ['driving', 'shooting', 'stamina', 'stealth', 'strength'];
-const GANGS = ['saints', 'rats', 'gnomes', 'monks', 'volts'];   // (every district's: Ironside's two had lost their respect at each load, X4)
+const GANGS = ['saints', 'rats', 'gnomes', 'monks', 'volts', 'velvet', 'yacht'];   // (every district's: Ironside's two had lost their respect at each load, X4)
 
 const num = (v, d, lo = -Infinity, hi = Infinity) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
 const str = (v, d) => (typeof v === 'string' ? v : d);

@@ -26,3 +26,13 @@ G('volt-grunt', { name: 'Volt Boy', faction: 'volts', builds: ['heroic', 'chibi'
   palettes: { cloth: ['#26262c', '#ffd23a'], coat: ['#ffd23a', '#e8c020', '#f0d840'], pants: ['#26262c', '#3a3a40'] }, weapons: ['fists', 'zapomatic'], health: 100 });
 G('volt-enforcer', { name: 'Volt enforcer', faction: 'volts', builds: ['bulky'], outfits: ['coat'], sleeves: ['long'], hairs: ['short', 'bald'], hats: [{ style: 'helmet', color: '#ffd23a' }],
   palettes: { cloth: ['#26262c'], coat: ['#ffd23a'], pants: ['#1e1e24'] }, weapons: ['fists', 'zapomatic', 'teslacoil'], health: 140, armor: 30 });
+// Glass Heights' (EXPANSION.md 3, X6): the Velvet Syndicate in plum suits over gold shirts, gold chains at the belt; the
+// Yacht Club in navy blazers over white, white trousers, a captain's cap on some
+G('velvet-grunt', { name: 'Velvet hood', faction: 'velvet', builds: ['heroic', 'chibi'], outfits: ['coat'], sleeves: ['long'], hairs: ['short', 'ponytail', 'long'], hats: [null, null, { style: 'band', color: '#d8b04a' }],
+  palettes: { cloth: ['#d8b04a', '#1c1820', '#e8c860'], coat: ['#8a3a9a', '#6a2a7a', '#5a2a5e'], pants: ['#3a1a40', '#1c1820'], belt: ['#d8b04a'] }, weapons: ['fists', 'buzzsaw'], health: 100 });
+G('velvet-enforcer', { name: 'Velvet enforcer', faction: 'velvet', builds: ['bulky'], outfits: ['coat'], sleeves: ['long'], hairs: ['bald', 'short'], hats: [null],
+  palettes: { cloth: ['#1c1820'], coat: ['#5a2a5e', '#6a2a7a'], pants: ['#1c1820'], belt: ['#d8b04a'] }, weapons: ['fists', 'persuader'], health: 140, armor: 30 });
+G('yacht-grunt', { name: 'Yacht Club member', faction: 'yacht', builds: ['heroic', 'chibi'], outfits: ['coat', 'shirt'], sleeves: ['long', 'short'], hairs: ['short', 'ponytail', 'spiky'], hats: [null, { style: 'cap', color: '#f0f0f4' }],
+  palettes: { cloth: ['#f0f0f4', '#e8eef8', '#c8d8f0'], coat: ['#2a3a7a', '#1e2a5c'], pants: ['#f0eee6', '#e8e4d8'], belt: ['#8a5a32'] }, weapons: ['fists', 'snub38'], health: 100 });
+G('yacht-enforcer', { name: 'Club commodore', faction: 'yacht', builds: ['bulky'], outfits: ['coat'], sleeves: ['long'], hairs: ['short', 'bald'], hats: [{ style: 'cap', color: '#f0f0f4' }],
+  palettes: { cloth: ['#f0f0f4'], coat: ['#1e2a5c'], pants: ['#f0eee6'], belt: ['#d8b04a'] }, weapons: ['fists', 'snub38', 'flaregun'], health: 140, armor: 30 });

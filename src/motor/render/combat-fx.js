@@ -42,6 +42,14 @@ export class CombatFX {
       const u = Math.min(1, b.t / b.life);
       stage.glow(b.x, b.y, b.z, (g, sx, sy, k) => { const r = Math.max(1.5, (2 + u * 6) * k * .6); E.px.disc(g, sx, sy, r, u < .3 ? '#fff0a0' : u < .7 ? '#ffa030' : '#e0502a'); if (u < .5) E.px.disc(g, sx - r * .2, sy - r * .3, r * .5, '#fffbe0'); });
     }
+    // flares (the Flare Gun, X6): a white-hot ball in its red glow, lighting the street it crosses, smoke behind it
+    for (const b of C.shots.list) {
+      if (b.data.kind !== 'flare' || !near(b.x, b.y)) continue;
+      const f = 1 + Math.sin(now * 50) * .2;
+      stage.glow(b.x, b.y, b.z, (g, sx, sy, k) => { E.px.disc(g, sx, sy, Math.max(2, 3.4 * k * .6 * f), '#ff3a4a'); E.px.disc(g, sx, sy, Math.max(1, 1.6 * k * .6), '#fff2ec'); });
+      stage.light(b.x, b.y, b.z, 80, 1);
+      if (P && Math.random() < .6) P.smoke(b.x, b.y, b.z, 1, { size: 2.4 });
+    }
     // impacts: a white pop where a bullet met a wall
     for (const im of C.shots.impacts) if (im.t < .07 && near(im.x, im.y)) stage.glow(im.x, im.y, im.z, (g, sx, sy) => { E.px.rect(g, sx - 1, sy - 1, 3, 3, '#fff2c0'); });
     // casings: brass glints on the ground

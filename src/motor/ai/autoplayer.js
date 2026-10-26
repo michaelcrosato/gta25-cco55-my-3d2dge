@@ -36,6 +36,29 @@ function segBox(x0, y0, x1, y1, bx, by, hx, hy) {
   }
   return true;
 }
+// a course over water from cell (x0, y0) to the water cell nearest goal cell g (a pier's end, a quay: the water by it),
+// eight ways, a cell beside the shore dearer than open water: [[cx, cy]...], or [] with no way
+function seaPath(x0, y0, g, wet, W, H) {
+  const ring = (cx, cy, ok) => { for (let r = 0; r <= 10; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; if (ok(cx + dx, cy + dy)) return [cx + dx, cy + dy]; } return null; };
+  const s = ring(x0, y0, wet), e = ring(g[0], g[1], wet); if (!s || !e) return [];
+  const I = (x, y) => y * W + x, cost = new Float64Array(W * H).fill(Infinity), from = new Int32Array(W * H).fill(-1), open = [[0, s[0], s[1]]];
+  const shore = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !wet(x + dx, y + dy));
+  cost[I(s[0], s[1])] = 0;
+  while (open.length) {
+    let bi = 0; for (let k = 1; k < open.length; k++) if (open[k][0] < open[bi][0]) bi = k;
+    const [, x, y] = open[bi]; open[bi] = open[open.length - 1]; open.pop();
+    if (x === e[0] && y === e[1]) break;
+    const c = cost[I(x, y)];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const nx = x + dx, ny = y + dy; if (!wet(nx, ny) || (dx && dy && (!wet(x + dx, y) || !wet(x, y + dy)))) continue;
+      const nc = c + (dx && dy ? 1.414 : 1) + (shore(nx, ny) ? 3 : 0); if (nc >= cost[I(nx, ny)]) continue;
+      cost[I(nx, ny)] = nc; from[I(nx, ny)] = I(x, y); open.push([nc + Math.hypot(e[0] - nx, e[1] - ny), nx, ny]);
+    }
+  }
+  if (from[I(e[0], e[1])] < 0 && (e[0] !== s[0] || e[1] !== s[1])) return [];
+  const out = []; for (let k = I(e[0], e[1]); k >= 0; k = from[k]) out.push([k % W, Math.floor(k / W)]);
+  return out.reverse();
+}
 // (player and race drive as a player does: through the lights and the stop signs, first into a junction's box, round
 // what stands in the lane at once: the brain's siren mode, with no siren sounding; and round a queue that has not
 // moved for a few seconds: its squeeze. Calm keeps to the rules)
@@ -89,6 +112,7 @@ export class AutoPlayer {
     }
     if (v && v.cls === 'heli') return this._fly(dt, p, v, g, d);
     if (v && v.cls === 'plane') return this._plane(dt, p, v, g, d);
+    if (v && v.cls === 'boat') return this._boat(dt, p, v, g);
     if (v) return g.foot ? this._exit(v) : this._drive(dt, p, v, w);
     if (d < Math.max(TUNE.autoArrive, g.radius ? g.radius * .6 : 0)) { this.state = 'arrived'; return I; }
     // a long way on foot: a vehicle near enough to take?
@@ -195,6 +219,14 @@ export class AutoPlayer {
   // another vehicle in reach with a door nearer than d (the one the scene would board)
   _nearer(p, v, d) { for (const o of this.fleet.near(p.x, p.y, 80)) { if (o === v || !inReach(p, o)) continue; const q = boardingFor(p, o, 0); if (q && q.dist < d) return true; } return false; }
   // ---- at the wheel
+  // the route to the goal: along the lane it faces, after a U-turn, else from the nearest lane whichever way it runs;
+  // the way round a jammed exit (avoid) when that costs not much more
+  _plan(v, g) {
+    const plan = o => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
+    const av = this.avoid, tz = g.z || 0, toHeading = g.heading, base = plan({ z: v.z, tz, toHeading });
+    const alt = av && av.size ? plan({ z: v.z, tz, toHeading, avoid: L => av.has(L.id) }) : null;
+    return alt && (!base || alt.cost <= base.cost * 1.6 + 10) ? alt : base;
+  }
   _drive(dt, p, v, w) {
     const g = this.goal, level = g.z == null || Math.abs((v.z || 0) - g.z) < 24, d = Math.hypot(g.x - v.x, g.y - v.y) + (level ? 0 : 400); this._tries = 0; this._bfails = 0; this._boardT = 0;   // (a goal on a deck: not there from the road under it)
     if (v.driver !== p) { this.state = 'exit'; this.I.tap.interact = true; return this.I; }   // (a passenger seat: out)
@@ -209,13 +241,15 @@ export class AutoPlayer {
       // (no way there along the lane it faces, a one-way that leads off it: after a U-turn, else from the nearest lane
       // whichever way it runs; a car left with no route at all wanders the lanes, and that's how a short trip went round
       // the city)
-      const plan = o => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
-      const av = this.avoid, tz = g.z || 0, toHeading = g.heading, base = plan({ z: v.z, tz, toHeading });
-      const alt = av && av.size ? plan({ z: v.z, tz, toHeading, avoid: L => av.has(L.id) }) : null, r = alt && (!base || alt.cost <= base.cost * 1.6 + 10) ? alt : base;
-      if (r) this.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s });
-      this.state = 'drive';
+      const r = this._plan(v, g); if (r) this.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s });
+      this.state = 'drive'; this.offT = 0;
     }
     const b = this.brain;
+    // off its route a moment (a turn missed, a pass round a wreck onto the next lane): a fresh route from where it is,
+    // the brain kept (with the old route it wanders, and Communion's chrome Saint, past its turn, had gone round Glass
+    // Heights' ring of one-way streets for good)
+    const here = b.here; this.offT = here && here.k === 'lane' && b.route && b.goal && !b.route.includes(here.id) ? (this.offT || 0) + dt : 0;
+    if (this.offT > .6) { this.offT = 0; const r = this._plan(v, g); if (r) b.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); }
     // stalled (a jam, a gridlocked box): a fresh route from here; three times, out (at street level). An exit jammed
     // past the brain's wait: a fresh route that keeps off that lane
     const jam = b.cause === 'exit' && v.speed < 3; this.exitHeld = jam ? (this.exitHeld || 0) + dt : Math.max(0, (this.exitHeld || 0) - dt * .5);
@@ -387,6 +421,57 @@ export class AutoPlayer {
     if (v.speed < want) I.throttle = .7; else if (v.speed > want + 25) I.brake = .6;
     return I;
   }
+  // ---- on the water (a boat, EXPANSION.md X6): a course over the water's cells to the one nearest the goal (a pier's
+  // end, a mooring, a point out at sea), kept off the shore where it can be (a cell beside land costs more), sailed at
+  // the farthest of its corners in plain water ahead, at a speed it can turn at, slowing as it comes in. There it holds
+  // (stay: stopped, seated) or steps off (not stay: onto what it came in against). Stuck against a pier or the shore:
+  // astern a moment, the helm the other way, then on
+  _boat(dt, p, v, g) {
+    const I = clearIntent(this.I), C = this.city, T = C.T, W = this.fleet.world, b = v.body; this.state = 'sail'; this._dropBrain();
+    const sea = (cx, cy) => cx >= 0 && cy >= 0 && cx < C.w && cy < C.h && !!W.water(cx, cy), sx = Math.floor(v.x / T), sy = Math.floor(v.y / T);
+    // (what lies moored, stopped on the water, the cells under it, looked for every few seconds: sailed round as the
+    // shore is; the Regatta had pushed at the Gull's tail along the Club's pier for good, and burned)
+    if (!this.moored || this.t - this.moored.t > 5) {
+      const set = new Set();
+      for (const q of this.fleet.vehicles) {
+        if (q === v || q.wrecked || q.speed > 5 || !sea(Math.floor(q.x / T), Math.floor(q.y / T))) continue;
+        for (let u = -q.hl; u <= q.hl + .1; u += Math.max(4, q.hl / 3)) for (let s = -q.hw; s <= q.hw + .1; s += Math.max(4, q.hw)) { const [x, y] = q.toWorld(u, s); set.add(Math.floor(y / T) * C.w + Math.floor(x / T)); }
+      }
+      this.moored = { t: this.t, set };
+    }
+    const M = this.moored.set, wet = (cx, cy) => sea(cx, cy) && (!M.has(cy * C.w + cx) || (cx === sx && cy === sy));
+    const near = Math.max(TUNE.autoArrive * 2, g.radius || 0), d = Math.hypot(g.x - v.x, g.y - v.y);
+    if (d < near) { if (g.foot || !g.stay) return v.speed > 6 ? (I.brake = 1, I) : this._exit(v); this.state = 'arrived'; if (v.speed > 3) I.brake = 1; return I; }
+    // the course: planned again for a goal that moved a cell, and every few seconds (what drifted in the way)
+    const gc = [Math.floor(g.x / T), Math.floor(g.y / T)], key = gc[0] + ',' + gc[1];
+    if (!this.sea || this.sea.key !== key || this.t - this.sea.t > 5) this.sea = { key, t: this.t, path: seaPath(Math.floor(v.x / T), Math.floor(v.y / T), gc, wet, C.w, C.h).map(([cx, cy]) => [(cx + .5) * T, (cy + .5) * T]), i: 0 };
+    const S = this.sea, P = S.path;
+    while (S.i < P.length - 1 && Math.hypot(P[S.i][0] - v.x, P[S.i][1] - v.y) < T * 1.5) S.i++;
+    // (a goal ashore, a quay or a pier: there once at the water nearest it)
+    const end = P.length ? P[P.length - 1] : null;
+    if (end && !wet(gc[0], gc[1]) && S.i >= P.length - 1 && Math.hypot(end[0] - v.x, end[1] - v.y) < T * 1.6) { if (g.foot || !g.stay) return v.speed > 6 ? (I.brake = 1, I) : this._exit(v); this.state = 'arrived'; if (v.speed > 3) I.brake = 1; return I; }
+    // (aimed at the farthest corner ahead it can sail to in a straight line over water, a few cells' clearance of its beam)
+    const open = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(L / 8); for (let k = 1; k <= n; k++) { const x = x0 + (x1 - x0) * k / n, y = y0 + (y1 - y0) * k / n; if (!wet(Math.floor(x / T), Math.floor(y / T))) return false; } return true; };
+    let to = P.length ? P[Math.min(S.i, P.length - 1)] : [g.x, g.y];
+    for (let k = Math.min(P.length - 1, S.i + 12); k > S.i; k--) if (open(v.x, v.y, P[k][0], P[k][1])) { to = P[k]; break; }
+    if (S.i >= P.length - 1 && open(v.x, v.y, g.x, g.y)) to = [g.x, g.y];
+    const ang = a => Math.atan2(Math.sin(a), Math.cos(a)), a = ang(Math.atan2(to[1] - v.y, to[0] - v.x) - v.heading);
+    // (stuck against something: astern a moment with the helm reversed)
+    const moved = this.lastSea ? Math.hypot(v.x - this.lastSea[0], v.y - this.lastSea[1]) : 1; this.lastSea = [v.x, v.y];
+    this.seaStuck = moved < dt * 6 && !(this.astern > 0) ? (this.seaStuck || 0) + dt : 0;
+    if (this.seaStuck > 1.5) { this.seaStuck = 0; this.astern = 1.4; }
+    if (this.astern > 0) { this.astern -= dt; I.brake = 1; I.steer = -Math.sign(a || 1); return I; }
+    // (a sharp turn with no room ahead, the shore or the world's edge a length or two off its bow: backed round, the helm
+    // the other way, till it faces the course; it had driven on at the edge, no way on yet for its rudder to bite)
+    const room = k => wet(Math.floor((v.x + Math.cos(v.heading) * k) / T), Math.floor((v.y + Math.sin(v.heading) * k) / T)), L = b.h.length;
+    if (Math.abs(a) > .9 && !(room(L * .8) && room(L * 1.4))) {
+      if ((this.backT || 0) < 3 && room(-L * .9)) { this.backT = (this.backT || 0) + dt; I.brake = v.speed > 30 && b.u > 0 ? .8 : 1; I.steer = -Math.sign(a); return I; }   // (water astern, three seconds at most: else round ahead under full helm)
+    } else if (Math.abs(a) < .6) this.backT = 0;
+    I.steer = Math.max(-1, Math.min(1, a * 2.2));
+    const want = Math.min(b.h.top * (g.style === 'race' ? .95 : .8), Math.abs(a) > 1 ? 45 : Math.abs(a) > .5 ? 90 : 1e9, 30 + Math.max(0, d - near) * .8);   // (slow to turn, and slower as it comes in: a walking pace at the goal, stopped short of what lies past it)
+    if (v.speed < want) I.throttle = 1; else if (v.speed > want + 20) I.brake = .6;
+    return I;
+  }
   // ---- in the air (a helicopter: no lanes): lifted off, up to a cruising height clear of what stands below, turned to
   // the goal and flown at it straight, slowed as it nears; there (within its radius, slow), held where it is (o.hover),
   // else let down to land, and out of it if the rest is on foot. Its height kept clear of the roofs: the body never
@@ -475,20 +560,26 @@ export class AutoPlayer {
       if (d < near) { this.state = 'arrived'; if (g.stay) I.steer = .6; else steerTo(g.x, g.y); } else steerTo(g.x, g.y);
       fly(cruise); return I;
     }
-    // the landing: to the approach point, 700 back along the strip at 150; then the glide in
+    // the landing: to the approach point, up to 700 back along the strip (less where the world's edge is nearer: water
+    // runs along Glass Heights' edges, X6) at 150; then the glide in. The approach point itself is the one aimed at
+    // (kept inside the edge by its distance, never moved off the line: moved, it was never reached lined up, and the
+    // Gull circled the bay for good); the turn point out beyond it is kept a margin inside the edge
     const hd = g.land, cx = Math.cos(hd), cy = Math.sin(hd), along = (v.x - g.x) * cx + (v.y - g.y) * cy, cross = -(v.x - g.x) * cy + (v.y - g.y) * cx;
+    const C = this.city, X = C.w * C.T, Y = C.h * C.T, inside = (q, m) => q[0] >= m && q[0] <= X - m && q[1] >= m && q[1] <= Y - m;
+    if (!g.appr) { let L = 700; while (L > 440 && !inside([g.x - cx * L, g.y - cy * L], 40)) L -= 20; g.appr = L; }
+    const L = g.appr, AZ = 150 * Math.min(1, (L - 300) / 400);
     if (g.leg !== 'final') {   // (near the approach point but not lined up: on out 300 farther back first, to come round onto the line)
-      const A = [g.x - cx * 700, g.y - cy * 700], dA = Math.hypot(v.x - A[0], v.y - A[1]), lined = Math.abs(ang(hd - v.heading)) < .5;
+      const A = [g.x - cx * L, g.y - cy * L], dA = Math.hypot(v.x - A[0], v.y - A[1]), lined = Math.abs(ang(hd - v.heading)) < .5;
       if (dA < 160 && lined && Math.abs(cross) < 60) { g.leg = 'final'; return I; }
       if (dA < 200) g.wide = true; else if (dA > 500) g.wide = false;
-      const C = this.city, X = C.w * C.T, Y = C.h * C.T, keep = q => [Math.max(280, Math.min(X - 280, q[0])), Math.max(280, Math.min(Y - 280, q[1]))];   // (turn points kept inside the world's edge)
-      const B = keep(g.wide ? [A[0] - cx * 300, A[1] - cy * 300] : A); steerTo(B[0], B[1]); fly(150, .6);
+      const keep = q => [Math.max(100, Math.min(X - 100, q[0])), Math.max(100, Math.min(Y - 100, q[1]))];   // (the turn point kept inside the world's edge)
+      const B = g.wide ? keep([A[0] - cx * 300, A[1] - cy * 300]) : A; steerTo(B[0], B[1]); fly(dA > 450 && !g.wide ? cruise : 150, .6);   // (at the cruise's height till near it: at 150 the Gull had flown into a tower of Glass Heights' on the way)
       if (g.wide && Math.hypot(v.x - B[0], v.y - B[1]) < 120) g.wide = false;
       return I;
     }
-    // final: lined up (the line's error steered out), on the glide (150 at the approach point down to the ground 300
-    // short of the goal: the rest of the strip to stop in), slow and never stalled
-    const ha = ang(hd - v.heading), ground = gnd(v.x, v.y) ?? 0, gz = ground + Math.max(0, Math.min(150, (-300 - along) / 400 * 150));
+    // final: lined up (the line's error steered out), on the glide (150 at the approach point, less on a shorter one,
+    // down to the ground 300 short of the goal: the rest of the strip to stop in), slow and never stalled
+    const ha = ang(hd - v.heading), ground = gnd(v.x, v.y) ?? 0, gz = ground + Math.max(0, Math.min(AZ, (-300 - along) / (L - 300) * AZ));
     I.steer = Math.max(-1, Math.min(1, ha * 2.2 - cross * .012));
     if (v.z > gz + 6) I.down.nitro = true; else if (v.z < gz - 6) I.down.handbrake = true;
     I.throttle = b.u > h.landSpeed * .8 ? 0 : b.u < h.stall * 1.3 ? .7 : .2; if (b.u > h.landSpeed * .9) I.brake = .6;

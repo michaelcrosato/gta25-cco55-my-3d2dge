@@ -13,6 +13,7 @@ def('shops', 'lead-farm', { name: 'Lead Farm', poi: 'lead-farm', color: '#ffa23a
   gun('slugger'), gun('snub38'), ammo('snub38', 36), gun('buzzsaw'), ammo('buzzsaw', 90), gun('persuader'), ammo('persuader', 24),
   gun('partystarter'), gun('pineapple'), gun('hotmess'), gun('boomtube'), gun('zapomatic'),
   gun('nailgun'), ammo('nailgun', 120), gun('teslacoil'),   // (Ironside's, EXPANSION.md 6: on the shelves once the Monks' and the Volt Boys' jobs are done)
+  gun('flaregun'), ammo('flaregun', 12),   // (Glass Heights', X6: the Yacht Club's, once Overboard is done)
   { id: 'armor', name: 'Body armour', kind: 'armor', price: P('price_armor', 'Body armour', 400) },
 ] });
 // Boom Box Garage: drive in for the mods (and Lefty's bombs)

@@ -643,7 +643,8 @@ export const PLAY = {
         if (photo.active) { photo.legend(P); return; }   // (photo mode: the HUD off, the legend only, never in the picture)
         const p = hero(), pv = p.seat && p.seat.vehicle, hold = stage.top.hold, fx0 = hold ? hold.x : pv ? pv.x : p.x, fy0 = hold ? hold.y : pv ? pv.y : p.y;
         const L = hudLayout(P), ch = chOf(crew.active), t = game.real, cx = P.W / 2, vg = crew.vignette;
-        if (!demo && !cab) P.text((hoodName || 'LOWTOWN').toUpperCase() + '  •  ' + clock.label() + '  •  ' + (views.spec.label || views.active).toUpperCase(), L.sx0, L.sy0, '#ffe066');   // (the attract mode's bug stands there)
+        const where = (hoodName || 'LOWTOWN').toUpperCase() + '  •  ' + clock.label() + '  •  ' + (views.spec.label || views.active).toUpperCase();
+        if (!demo && !cab) P.text(where, L.sx0, L.sy0, '#ffe066');   // (the attract mode's bug stands there)
         if (!crew.switching && !down) tips.draw(P, L.sx0, L.sy0 + 12);
         if (!crew.switching && !cab) {   // (at the cabinet: its screen and the way back, the street's HUD off as a menu has it)
           drawPedHud(P, p, { color: ch.color, name: ch.short + '   $' + crew.fund });
@@ -652,7 +653,7 @@ export const PLAY = {
           drawWanted(P.g, L.stars[0], L.stars[1], wanted(), t);
           if (pv) drawVehicleHud(P, pv, { radio: stationLabel(pv.radio), speedo: setting(game, 'speedometer', false) });
         }
-        if (inside && inside.run.alarm && Math.floor(t * 2.5) % 2 === 0) P.text('ALARM', cx, L.sy0 + 4, '#ff3a30', { align: 'center', scale: 2 });
+        if (inside && inside.run.alarm && Math.floor(t * 2.5) % 2 === 0) P.text('ALARM', Math.round((L.sx0 + P.width(where) + L.sx1 - 86) / 2), L.sy0 + 4, '#ff3a30', { align: 'center', scale: 2 });   // (midway from the line's end to the weapon's box: centred on the screen, THE VELVET CASINO's line had run under it)
         const prompt = crew.switching || down ? null : door ? [`{onFoot:interact} ${inside ? 'LEAVE' : 'ENTER'}  ${(inside ? (door.id === 'sewer' ? 'BY THE SEWER' : 'TO THE STREET') : door.label || 'DOOR').toUpperCase()}`, inside ? '#7aff8a' : '#ffe066']
           : cab ? ['{arcade:interact} STEP AWAY', cab.arcade.kit.color] : spot ? [`{onFoot:interact} ${spot.verb || 'PLAY'}  ${spot.label}`, '#5af0ff']
           : stairs ? [`{onFoot:interact} ${stairs.up ? 'UP TO THE L' : 'DOWN TO THE STREET'}  ${stairs.station.name.toUpperCase()}`, '#7ab8ff']
@@ -660,7 +661,7 @@ export const PLAY = {
           : rails && rails.riding(p) ? (p.onTrain.train.state === 'stop' ? [`{onFoot:interact} GET OFF  ${p.onTrain.train.station.toUpperCase()}`, '#7ab8ff'] : ['ON THE L', '#7ab8ff'])
           : takedown ? ['{onFoot:attack} TAKEDOWN', '#ff8a5a'] : board ? [`{onFoot:interact} ${board.locked ? PROMPT.breakIn : PROMPT[board.kind]}  ${board.vehicle.def.name.toUpperCase()}`, '#ffe066'] : null;
         if (prompt && !demo) P.prompt(prompt[0], cx, L.sy1 - 10, { align: 'center', color: prompt[1] });   // (the attract mode's PRESS ANY BUTTON stands there)
-        career.hud(P, { blocked: !!prompt || crew.switching, objective: !cab, high: !!stage.mode7 });
+        career.hud(P, { blocked: !!prompt || crew.switching, objective: !cab, high: !!stage.mode7, tip: !crew.switching && !down && tips.width(P) ? L.sx0 + tips.width(P) : 0 });
         weaponWheel.draw(P); switchWheel.draw(P);
         if (vg && vg.line && vg.who === crew.active) subtitle(P, chOf(vg.who).short, chOf(vg.who).color, vg.line, L.sy1 - 46);
         else if (pv && pv.driver === p && pv.radio && pv.radio !== 'off' && radio && setting(game, 'djChatter', true) && !(career.R.lines || career.events.R.lines)) {   // (the radio's words: its DJ, its ads, its callers)

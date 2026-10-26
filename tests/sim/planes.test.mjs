@@ -57,6 +57,13 @@ test('boarded and left only on the ground; at the world\'s edge it banks round a
   for (let s = 0; s < 20 * 120; s++) { game.advance(1 / 120); maxX = Math.max(maxX, b.x); }
   gtm.pilot(null);
   assert.ok(maxX < gtm.city.w * T, `turned back short of the edge (${Math.round(maxX)} of ${gtm.city.w * T})`); assert.ok(b.x < maxX - 100, 'and flying back in');
+  // (along the edge, 40 off it and drifting out a little: flown on, not turned: a guard on any drift had pushed the
+  // Gull off its line along Glass Heights' south shore, X6)
+  const H = gtm.city.h * T; b.x = 100 * T; b.y = H - 40; b.z = 150; b.u = 180; b.heading = Math.PI - .02; b.bank = 0; b.edgeTurn = false;
+  gtm.pilot(fly(gtm, () => ({ throttle: .7 }))); let worst = 0;
+  for (let s = 0; s < 2 * 120; s++) { game.advance(1 / 120); worst = Math.max(worst, Math.abs(Math.atan2(Math.sin(b.heading - Math.PI), Math.cos(b.heading - Math.PI)))); }
+  gtm.pilot(null);
+  assert.ok(worst < .08 && b.y < H, `flown on along the edge (off its heading by ${worst.toFixed(3)} at most)`);
 });
 
 test('the Gull: off the water and onto it again; a landplane set down on the water goes under', async () => {

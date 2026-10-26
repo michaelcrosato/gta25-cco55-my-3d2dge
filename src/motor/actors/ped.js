@@ -168,8 +168,9 @@ export class Ped {
     this._pose(dt, s);
     return this._sync();
   }
-  // in a vehicle's seat (PLAN.md 8.12's drive-by): the body rides along; the pistol or SMG fires out of the window
-  // toward the aim stick, or at the nearest target off either side (30 to 150 degrees from the heading) when it rests
+  // in a vehicle's seat (PLAN.md 8.12's drive-by): the body rides along; the pistol, SMG or Flare Gun (X6) fires out of
+  // the window toward the aim stick, or at the nearest target off either side (30 to 150 degrees from the heading) when
+  // it rests
   /** this ped's factor on a vehicle's handling at its wheel (PLAN.md 8.11): its Driving stat, and OVERDRIVE while on */
   handling() { return this.stats.handling() * (this.ability ? this.ability.handling : 1); }
   // a protagonist at the wheel plays in character (PLAN.md 8.11): a second at speed (over half the top speed) and a near
@@ -194,7 +195,7 @@ export class Ped {
     if (this.faction === 'crew' && (this.seat.index || 0) === 0 && this.seat.vehicle) this._driving(dt, w);
     const at = b.seatAt ? b.seatAt(this.seat.index || 0) : [b.x, b.y];
     m.x = at[0]; m.y = at[1]; m.z = b.seatZ ? b.seatZ(this.seat.index || 0) : (b.z || 0) + 6; m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
-    const spec = this.inv.spec(), ok = !!spec && (spec.slot === 'pistol' || spec.slot === 'smg') && !(b.armed && this.seat.index === 0), trigger = !!(I.down.fire || I.down.attack);   // (the driver's ○ is the vehicle's own weapon when it has one)
+    const spec = this.inv.spec(), ok = !!spec && (spec.slot === 'pistol' || spec.slot === 'smg' || spec.projectile === 'flare') && !(b.armed && this.seat.index === 0), trigger = !!(I.down.fire || I.down.attack);   // (the driver's ○ is the vehicle's own weapon when it has one)
     this.aiming = ok && (trigger || !!I.aim);
     let dir = I.aim, held = false;
     if (!dir && this.aiming) {   // no stick: the auto-target off either side

@@ -23,7 +23,7 @@ const quiet = gtm => { const C = gtm.life.crowd; for (const m of [...C.members])
 test('respect: a member killed -5 with its gang and +1 with the gang whose rival it was; a gang car damaged -2 (once a while); a mission\'s ±; -100..100', async () => {
   const { game, gtm } = await at(120, 60), G = gtm.life.gangs, P = gtm.crew.ped, log = listen(gtm.BUS, ['respect']);
   quiet(gtm); game.advance(.5);
-  assert.deepEqual({ ...G.respect }, { saints: 0, rats: 0, gnomes: 0, monks: 0, volts: 0 }, 'all neutral at first');   // (Ironside's two as well: EXPANSION.md 3)
+  assert.deepEqual({ ...G.respect }, { saints: 0, rats: 0, gnomes: 0, monks: 0, volts: 0, velvet: 0, yacht: 0 }, 'all neutral at first');   // (Ironside's two and Glass Heights' two as well: EXPANSION.md 3)
   const s = member(gtm, 'saints'), r = member(gtm, 'rats');
   gtm.combat.hurt(s, { amount: 999, kind: 'bullet', by: P.id });
   assert.equal(G.get('saints'), -5, 'a Saint killed: -5 with the Saints'); assert.equal(G.get('gnomes'), 1, '+1 with the Gnomes (the Saints are their rival)'); assert.equal(G.get('rats'), 0);

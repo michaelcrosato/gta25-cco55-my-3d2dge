@@ -22,7 +22,7 @@ the rest with MOTOR's deterministic Math (D33), the same in Node and in every br
 | A helicopter a player flies (L4) | a vehicle as above with `class: 'heli'`, its model's `doors` (a door each side: it is boarded only landed) and `handling: { top, accel, climb, yawRate, hoverZ, ceiling, landSpeed, parked: true }` (parked: it starts landed), and its pad in the district's fleet, `pads: [{ def, at: [cx, cy], heading }]` (`src/game/vehicles/skycam.js`, Lowtown's Marquee Plaza). Flown: the stick yaws, R2 / L2 push on and back, R1 climbs, L1 descends; let down slow it settles, and only on the ground is it left. A job flies it with the bot through a `goto` hint with `hover: true` (held over a point) or a `follow` hint (held over a mover) | `node --test tests/sim/vehicles.test.mjs` (the flown helicopter); `GTM_VEHICLES=<id> node --test tests/unit/handling.test.mjs`; `node tools/bot.mjs --mission job_skycam --level <n>` |
 | A plane (X2) | a vehicle as above with `class: 'plane'`, its model from `planeParts({ length, width (the wingspan), height, biplane, floats, high, color, wing })` and `handling: { width (the fuselage's: what it meets things with), mass, top, accel, brake, stall, vr (its rotation speed), climb, bankMax, rollRate, turnG, taxiTurn, taxiTop, landSpeed, landSink, ceiling, cruiseZ, water (a seaplane) }`, `spec: { top, stall, vr, climb }`; it stands on a stand as a helicopter on its pad (`pads` in the district's fleet: `src/game/vehicles/duster.js`, Ironside's airstrip). A job flies it with the bot through a `goto` hint (over a point, `radius`; with `land: <the strip's heading>`, down on the strip that ends at `at`; with a height, `at: [x, y, z]`, through the point at it, and `speed` the pace it is flown at: Crop Duster's rings, X4); a mission marker's `hoop: { h }` hangs a ring in the air at its point's height, upright across the way `h` it is flown through | `GTM_VEHICLES=<id> node --test tests/unit/handling.test.mjs`; `node --test tests/sim/planes.test.mjs`; `node tools/botgym.mjs --only plane` |
 | A variant of a model | `def('vehicles', id, { model: <a model's id>, kit: <one of its kits, or none>, ... })` as above: the model's parts, its own handling, palette and spec | `node --test tests/recipes/variant.test.mjs`; the handling suite as above |
-| A weapon | `def('weapons', id, { name, slot (melee \| pistol \| smg \| shotgun \| heavy \| thrown \| special), projectile (melee \| bullet \| pellets \| rocket \| molotov \| grenade \| stream \| zap \| photo), damage, rate, pellets, mag, reload, spread, range, speed, splash, ammo, model, sound, recoil, rumble, price, unlock })` in a file under `src/game/weapons/`; on a shop's shelf: `get('shops', id).items.push({ id, name, kind: 'weapon', item: <the weapon>, amount, price })` (the file loads after `src/game/economy.js`, by path) | `node --test tests/recipes/weapon.test.mjs` (its DPS on the range bench, within 10% of its spec's); `node --test tests/sim/combat.test.mjs` |
+| A weapon | `def('weapons', id, { name, slot (melee \| pistol \| smg \| shotgun \| heavy \| thrown \| special), projectile (melee \| bullet \| pellets \| rocket \| molotov \| grenade \| stream \| zap \| photo \| flare), damage, rate, pellets, mag, reload, spread, range, speed, splash, burn, ammo, model, sound, recoil, rumble, price, unlock })` (a `flare` sets what it hits burning, `burn` s on a body, and leaves a small pool of fire where it lands: the Flare Gun) in a file under `src/game/weapons/`; on a shop's shelf: `get('shops', id).items.push({ id, name, kind: 'weapon', item: <the weapon>, amount, price })` (the file loads after `src/game/economy.js`, by path) | `node --test tests/recipes/weapon.test.mjs` (its DPS on the range bench, within 10% of its spec's); `node --test tests/sim/combat.test.mjs` |
 | A ped (a crowd archetype) | `def('peds', id, { name, kind (civilian \| gang \| service \| special \| cast), weight (0: never in the crowd, a mission's or a gang's), zones (neighbourhood ids), times, builds, outfits, sleeves, hairs, hats, palettes: { skin, hair, cloth, coat, pants, boot, belt }, traits, weapons })` in a file under `src/game/peds/` | `node --test tests/recipes/ped.test.mjs` |
 | An outfit | a look (`{ build, outfit, hair, sleeves, hat, colors: { skin, hair, cloth, coat, pants, boot, belt } }`) pushed onto each protagonist's `outfits`, its name onto `outfitNames` (the same index for all three), and a shop item `{ id, name, kind: 'outfit', item: <that index>, price }` pushed onto Threads' items, in a file under `src/game/outfits/` (it loads after the characters and the shops, by path) | `node --test tests/recipes/outfit.test.mjs` |
 | A gang | `def('gangs', id, { name, colors, icon (diamond \| triangle \| circle \| cross \| bolt), pattern (stripes \| dots \| checks \| rivets \| chevrons), turf: [neighbourhood ids], hq, phone (points of interest), rival, vehicles, weapons, peds: { grunt, enforcer }, thresholds: { hostile, friendly }, beats, chain })` (in a district other than Lowtown (X3): its neighbourhoods there in `turf`, `beats: [[x, y, <district>]]`, `hqs: { <district>: <its HQ's point there> }`, `rivals: { <district>: <its rival there> }`; one respect for both; a mission's giver there `{ phone: <gang>, at: <its payphone there> }`: the Gnomes' Union Hall in Ironside), its two archetypes (`def('peds', ..., { kind: 'gang', faction: <the gang>, weight: 0, ... })`) and its HQ (a landmark, below: a building and a `{ kind: 'gang', gang }` point of interest at its door), in one file under `src/game/gangs/` | `node --test tests/recipes/gang.test.mjs`; `node --test tests/sim/gangs.test.mjs` |
@@ -106,13 +106,15 @@ last): a save written while it runs passes the job first, so the slot holds it d
 
 **Spawning** (all of it the mission's: `owner: 'mission'`, released when it ends; a retry releases what the stage
 spawned and its setup makes it again): `m.spawn.vehicle(def, at, { tag, heading, color, locked, health, gang, driver,
-passengers, weapons, drive })` (a `drive` of `{ to } | { route, loop } | { race, laps } | { chase: 'player' | tag } |
-{ flee: 'player' }` and a `style` of `calm | fast | race | slow` puts a driver on the GPS; `m.drive(v, drive)` gives a
+passengers, weapons, drive })` (a `drive` of `{ to } | { route, loop } | { race, laps } | { chase: 'player' | tag, keep } |
+{ flee: 'player' }` (`keep` (u): a chase that comes up and holds off at that distance, never rams: GS1's Zephyrs) and a `style` of `calm | fast | race | slow` puts a driver on the GPS; `m.drive(v, drive)` gives a
 spawned driver new orders later, `null` parking it (X3's scab buses wait at their stops, then pull out); `siren: true`, a police car's
 lights and siren on, through the reds, the traffic pulling over; a point with no height is on the ground, and a
 `route`'s or a `race`'s point off the lanes, a sidewalk or a junction's middle, counts once the driver has stopped as
 near as the lanes go), `m.spawn.ped(arch, at, { tag,
-role, facing, weapons, health, armor, attack, alert, leash, route, follow, aimable })` (`aimable: false`: the lock-on
+role, facing, weapons, health, armor, attack, alert, leash, route, follow, aimable, driveBy, profile })` (`driveBy`: a
+seated ped's gun, a pistol, an SMG or the Flare Gun, out of the window at `'player'` or a tag's nearest in reach, in the
+bursts, pauses and aim of its `profile` `{ range, burst, pause, aimOff }`: GY1's Commodore; `aimable: false`: the lock-on
 passes it over, a victim standing nearer than her attacker; roles: `enemy` fights once alerted, `guard`
 watches a post or walks a round, `ally` follows and fights the alerted, `flee`, `idle`; an `enemy` or `guard` with a
 `leash` (u) gives up past that far from where it was put and walks back: a showroom's bouncers never chase a car
@@ -143,7 +145,8 @@ tag has seen the player, been hurt or been called, and is still in it: a stealth
 gang's members on the player's side till the job ends: strays on them rally no one and cost no respect; `m.truce(gang)`
 the same for a job fought against that gang's own; a mission with a `gang` has that gang's truce from its start, so a
 gang never shoots at the player doing its own job), `m.standDown(kind)` (the city's own 'fire', 'medic' or 'police'
-service takes no new calls till the job ends: a job that is the service, Firefighter's engine on call),
+service takes no new calls till the job ends: a job that is the service, Firefighter's engine on call), `m.peace()` (no
+turf war starts in the city till the job ends, one under way running its course: House Edge's night on the Strip),
 `m.clearTraffic(at, r)` (the city's traffic within r of a point taken off the road at once, never a unit on a call: a
 race's grid, cleared as its cars are put on it), `m.clearSpot(at, r)` (a car left standing within r of a point, nobody in
 it and not the job's, towed: a door the stage sends the player through, looked at again while they walk up), `m.shoo(ped)` (a passer-by, and its troupe, sent running from the
@@ -163,7 +166,9 @@ piece's view: presentation only; `heading`, MODE 7's rail held looking that way,
 `'west'`, till the next `m.view` or the job's end). A mission's seated ped (and the crew `m.spawn.vehicle` seats) rides in its seat wherever the vehicle goes;
 `m.inside.run.loopCameras(true)` puts an interior's CCTV on a loop (a crew's hacker); `m.inside.run.pass(true)` is a
 staff pass (a bribed janitor's mop: nobody minds the player past the counter, though a gun out, a wanted face or the
-alarm still count); `m.inside.run.watch()` is what a mission may read of a running interior, a copy: `{ t, alarm,
+alarm still count); `m.inside.run.open(mark)` clears the walls on a mark's cells for the run (a vault's door swung back
+once cracked: House Edge's); `m.inside.run.raise(by, player)` sets the alarm off (a dye pack in the take);
+`m.inside.run.watch()` is what a mission may read of a running interior, a copy: `{ t, alarm,
 looped, staff, guards: [{ at, x, y, cx, cy, facing, down, state, sees }], cameras: [{ phase, period, facing, state,
 sees }] }` (H2's radio man calls each moment from the guards' rounds and the CCTV's sweep).
 
@@ -288,7 +293,8 @@ builder (`buildInterior`) and run by MOTOR's `InteriorRun` while the player is i
 - **`doors`**: `{ id, from, at, mark }`: `from` the city's door point of interest it joins, `at` the cell inside where
   the player comes in, `mark` the cells where △ leaves by it. Out by the door you came in, you are back where you
   stood; out by another, at its own point of interest.
-- **`guards`**: `{ arch, route: [[x, y], ...] }` (a ped archetype; the cells of its round, walked by a flow field).
+- **`guards`**: `{ arch, route: [[x, y], ...], weapons }` (a ped archetype; the cells of its round, walked by a flow
+  field; `weapons`, the house's own, else the archetype's: the Velvet Casino's hoods carry a snub each).
 - **`cameras`**: `{ at, z, facing, sweep, period, range, fov }` (on a wall cell's side: radians, east 0, south pi/2).
 - **`lights`**: `{ at, radius, color }`; **`music`**: a station or cue id (M10).
 

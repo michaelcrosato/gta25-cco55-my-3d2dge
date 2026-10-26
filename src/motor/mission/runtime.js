@@ -183,6 +183,7 @@ export class MissionRuntime {
     if (this.wantedHeld) { const w = W.wanted ? W.wanted() : null; if (w) { w.floor(0); w.cap(5); } this.wantedHeld = false; }   // (a stage's cap or floor never outlives its job)
     if (this.blocksHeld) { const P = W.life && W.life.police; if (P) P.noBlocks = false; this.blocksHeld = false; }   // (nor its word on roadblocks)
     if (this.allyHeld) { const G = W.life && W.life.gangs; if (G) G.allies.clear(); this.allyHeld = false; }   // (nor its allies and truces)
+    if (this.peaceHeld) { const G = W.life && W.life.gangs; if (G) G.peace = false; this.peaceHeld = false; }   // (nor its peace)
     if (this.servicesHeld) { const S = W.life && W.life.services; if (S) S.held.clear(); this.servicesHeld = false; }   // (nor a service stood down)
     if (W.stage && W.stage.pointRail) W.stage.pointRail(null);   // (nor a set piece's rail)
     if (W.slowmo) W.slowmo(1);   // (nor its slow motion)
@@ -280,6 +281,10 @@ export class MissionContext {
    *  fought beside that gang (R3's Rats); truce: one fought against its own (G3's), the same thing */
   ally(gang) { const G = this.W.life && this.W.life.gangs; if (!G) return; if (gang) G.allies.add(gang); else G.allies.clear(); this.R.allyHeld = true; }
   truce(gang) { this.ally(gang); }
+  /** the city's gangs keep the peace while the run lasts: no turf war starts (one under way runs its course). A job
+   *  run through a district's turf with the police all over it: the Yacht Club's flares in a war on Casino Row had set
+   *  the cars by House Edge's getaway alight */
+  peace(on = true) { const G = this.W.life && this.W.life.gangs; if (!G) return; G.peace = !!on; this.R.peaceHeld = true; }
   /** the city's traffic within r of at taken off the road (a race's marshals clearing its grid: done as the player is
    *  put on it, so nothing is seen to go); how many went */
   clearTraffic(at, r) { const T = this.W.life && this.W.life.traffic, q = this.at(at); return T && q ? T.clear(q[0], q[1], r) : 0; }

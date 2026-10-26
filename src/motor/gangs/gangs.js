@@ -27,8 +27,8 @@ import { classOf } from '../sim/vehicle/defs.js';
 import { Fighter, sameLevel } from '../ai/fighter.js';
 
 declare('gangs', shape({
-  name: { type: 'string', req: true }, colors: { type: 'array', req: true }, icon: { type: 'string', def: 'circle', oneOf: ['diamond', 'triangle', 'circle', 'cross', 'bolt'] },
-  pattern: { type: 'string', def: 'stripes', oneOf: ['stripes', 'dots', 'checks', 'rivets', 'chevrons'] }, turf: { type: 'array', req: true }, hq: { type: 'string', def: '' }, phone: { type: 'string', def: '' },
+  name: { type: 'string', req: true }, colors: { type: 'array', req: true }, icon: { type: 'string', def: 'circle', oneOf: ['diamond', 'triangle', 'circle', 'cross', 'bolt', 'spade', 'anchor'] },
+  pattern: { type: 'string', def: 'stripes', oneOf: ['stripes', 'dots', 'checks', 'rivets', 'chevrons', 'damask', 'bands'] }, turf: { type: 'array', req: true }, hq: { type: 'string', def: '' }, phone: { type: 'string', def: '' },
   rival: { type: 'string', def: '' }, vehicles: { type: 'array', def: [] }, weapons: { type: 'array', def: [] }, peds: { type: 'object', req: true },
   thresholds: { type: 'object', def: { hostile: -20, friendly: 40 } }, chain: { type: 'array', def: [] },
   beats: { type: 'array', def: [] },   // ([x, y] tiles: where its patrols walk, by its borders; [x, y, district]: another district's than Lowtown, EXPANSION.md)
@@ -58,7 +58,7 @@ export class Gangs {
     this.groups = []; this.fighters = []; this.wars = []; this.lastWar = new Map(); this.carHits = new Map(); this.small = new Map();
     /** a mission's allies and truces (gang ids: m.ally, m.truce): while a gang is in it, the player's strays on its members
      *  and cars rally no one and cost no respect, and its members never go for the player on sight */
-    this.allies = new Set();
+    this.allies = new Set(); this.peace = false;   // (peace: no turf war starts, a job's hold on the city's gangs)
     this.t = 0; this._senseT = 0; this._keepT = 0; this.warCount = 0; this.player = null; this.idle = makeIntent();
     for (const g of all('gangs')) {   // (its hangout by the HQ, a patrol a beat: the district's own)
       const hq = this.city.poi(g.hqs[this.city.id] || g.hq), T = this.city.T;
@@ -199,6 +199,7 @@ export class Gangs {
   }
   // two rival gangs' members meet: a turf war, everyone of both sides near joining in
   _war(a, b, x, y) {
+    if (this.peace) return;
     const key = [a, b].sort().join(':');
     if (this.wars.some(w => w.key === key && Math.hypot(w.x - x, w.y - y) < WAR_R * 1.5) || (this.lastWar.get(key) ?? -1e9) > this.t) return;
     const w = { key, gangs: [a, b], x, y, t: this.t, dead: 0 };

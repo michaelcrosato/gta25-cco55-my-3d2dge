@@ -119,14 +119,16 @@ export class Fighter {
   }
   // one it spares within r of the target (a throw's splash, and its miss)
   _sparedNear(tgt, r) { const S = this._spared(tgt); return !!S && S.some(q => Math.hypot(q.x - tgt.x, q.y - tgt.y) - (q.body && q.hl !== undefined ? q.hl : 0) < r); }
-  // someone not in the fight between it and the target, near the line of fire
+  // someone not in the fight between it and the target, near the line of fire (a flare's: a wider band, and the pool it
+  // leaves round the target: X6's Flare Gun had set the passers-by alight, and their burning trails the player)
   _peopleIn(tgt) {
     const p = this.ped, N = this.pedsNear; if (!N) return false;
+    const s = this.gun && p.inv.spec(this.gun), flare = !!s && s.projectile === 'flare', band = flare ? 26 : 9, past = flare ? 30 : -6;
     const dx = tgt.x - p.x, dy = tgt.y - p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
-    for (const q of N((p.x + tgt.x) / 2, (p.y + tgt.y) / 2, d / 2 + 12)) {
+    for (const q of N((p.x + tgt.x) / 2, (p.y + tgt.y) / 2, d / 2 + 12 + (flare ? 30 : 0))) {
       if (q === p || q === tgt || q.dead || q.floored || q.seat || q.hostile) continue;
       const ox = q.x - p.x, oy = q.y - p.y, along = ox * ux + oy * uy;
-      if (along > 6 && along < d - 6 && Math.abs(oy * ux - ox * uy) < 9) return true;
+      if (along > 6 && along < d + past && Math.abs(oy * ux - ox * uy) < band) return true;
     }
     return false;
   }
