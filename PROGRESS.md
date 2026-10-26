@@ -43,6 +43,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | X1 Districts in play, Ironside's map | done | Ironside, District 2, grown from its stub (128 x 112: the Foundry, Scrapyard Flats, Voltage Row); the west bridge between it and Lowtown, closed until The Big Withdrawal is done; a crossing carries the vehicle, the crew, the time, the stars and the view, one map at a time across a fade; the career per district, `save.district` (D38) · the districts' sim tests in every view, Ironside's 10-minute soak, all merged content again (D21) · the look read (docs/media/x1) |
 | X2 Planes | done | a `plane` class (on its gear a slow car, in the air banked turns, a climb that costs speed, a stall, a landing level, slow and gentle); the Duster on Ironside Airstrip's apron and the Gull on the water; the bot flies them, off a clear run, to a point, down on a strip and taxiing (D39) · the planes' sim tests, the handling suite's plane checks, the gym's `plane` fixture on seeds 1-3 and through a pad, all merged content again (D21) · the look read (docs/media/x2) |
 | X3 Ironside's gangs and missions | done | the Rust Monks (the Scrap Cathedral, the Scrapper, the Nail Gun) and the Volt Boys (Substation 9, the Bucket, the Tesla Coil), the Gnomes' Ironside turf and HQ (a gang's HQ and rival per district); nine missions (Picket Line, Scab Labour, Holy Scrap, Sermon on the Mound, Live Wire, Short Circuit, and Blackout's Grid Map, The Lineman and finale) with the Power Station, an interior (D40) · each mission through the bot on seeds 1-3 and through a pad, the interior's validation and sim tests, the gangs', vehicles' and weapons' tests, all merged content again (D21) · the look read (docs/media/x3) |
+| X4 Ironside's side content | done | Crop Duster (a flown job, three levels: rings over the allotments), the Ironside Air Race (the Duster through twelve gates, against the board's three best times), MAYHEM: Nail the Scrappers, three stunts (the Flyover's End, the Slag Heap, the Crusher Yard), 15 Moto Tokens, two properties (Sudsy's Launderette, the Airstrip), the Ironside Kwik-Lux's hold-up and the attract reel CROP DUSTER (D41) · each through the bot on seeds 1-3 and a pad, Ironside's side-content sim test, the campaign through Lowtown and Ironside to 100%, all merged content again (D21) · the look read (docs/media/x4) |
 
 ## Acceptance log
 
@@ -1597,3 +1598,50 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     the Gnomes in pink at the Union Hall, the Volt Boys in hard hats by their Bucket at Substation 9; the Monks' hangout
     is put down across Crusher Lane from the Cathedral's door (the crowd puts no one down in its inner ring round the
     player), out of the ISO frame of a start at the door, as the gangs' test reads it from across the street.
+
+- **X4 · Ironside's side content (D41), done:**
+  - **What's in:** Crop Duster (the Duster from the phone's JOBS: rings hung low over the allotments' rows and round
+    the runway, flown through in order against the clock; 12, 16 and 24 rings, 30, 38 and 52 s), the Ironside Air Race
+    (taxied to the line on the runway, a countdown, twelve gates round the works; the board's three best times are the
+    racers: 21, 24 and 28 s), MAYHEM: Nail the Scrappers (the Nail Gun, ten of the Monks' Scrappers round their
+    cathedral, eight in 1:30), three stunt jumps (the Flyover's End, a spur off the Flyover's west side over the Monks'
+    yard; the Slag Heap, a kicker and a landing of dross on the slag tip; the Crusher Yard, a kicker beside Monk &
+    Sons' crusher), 15 Moto Tokens, two properties (Sudsy's Launderette under the crew's flat, $20,000; the Airstrip's
+    hangar, $40,000), the Ironside Kwik-Lux on Crusher Lane (its till for a hold-up), and the attract reel CROP DUSTER
+    (in Ironside: off the runway, low over the beans, slowly past the Power Station's stacks). The map's new lots: the
+    allotments and the slag tip (of the runway's kind: no trees, lamps or crates), the Kwik-Lux; no car parks at a
+    kicker's foot.
+  - **The tests:** `tests/sim/ironside-side.test.mjs` (the Kwik-Lux's hold-up: the till at the counter, two stars;
+    the two properties bought at their doors in Ironside and paying at midnight, neither door in Lowtown; the three
+    stunts on their ramps, each kicker's lip 32 up, the spur 64 up and no lane on it; the 15 tokens laid out in
+    Ironside alone, Lowtown its 25); the planes' sim tests (a plane flown into a wall drops); the districts' (Ironside
+    offers its own activities, none of Lowtown's).
+  - **The bot:** Crop Duster at each level on seeds 1-3, 9 of 9 (gold), and through a pad, 3 of 3; the Air Race on seeds
+    1-3, 3 of 3, and a pad, 1 of 1 (21.8 s each time: second on the board); MAYHEM on seeds 1-3, 3 of 3 (gold), and a
+    pad, 1 of 1; the reel to its end eleven times running in `#attract/crop_duster`, no cut.
+  - **The campaign,** a new game through Lowtown and over the west bridge once The Big Withdrawal opens it, through
+    Ironside, on `3499cb1`'s code: 100.0% in 4.94 h of game, 53 minutes (Missions 23/23, Jobs at level 3 8/8,
+    Street races 3/3, MAYHEM 4/4, the arcade's high score 1/1, Unique stunt jumps 8/8, Moto Tokens 40/40, Properties
+    4/4). Four took more than one try: Scab Labour and Holy Scrap passed at their second (Holy Scrap's Hookline put back
+    on its lane four times in the first), the Container Stack at its second (its run-up's line-up knocked aside) and the
+    Slag Heap at its third (a Cortez standing on its kicker).
+  - **D21, on `3499cb1`'s code:** the mission bot on seeds 1-3, 177 of 177, and through a pad, 59 of 59 (on `4db01cf`'s before
+    it, the same).
+  - **What the runs found,** each mended (D41): the save dropped the Rust Monks' and the Volt Boys' respect at every
+    load and crossing; Sermon on the Mound's Bucket, free to flee anywhere, had wedged itself at the world's edge while
+    the bot's Brute stood in the west bridge's jam (it runs rings round the crusher yard's block now, caught on its
+    tail), and the Brute had waited on hostile Volt Boys in the road; the Duster had circled the Air Race's start at a
+    taxi, and Blackout's had turned for the hangar into the strip's wall till the police shot it to a wreck; The
+    Lineman's yard and Scab Labour's Loop Avenue were cleared for their stages; the campaign had taken Sermon on the
+    Mound's offer at the Monks' payphone with every step on its way to the Flyover's End token; Crop Duster's Duster,
+    left on the runway under the first ring, had sat there arrived (a plane on the ground under a goal in the air takes
+    off for it now); and Sermon on the Mound's held-back heat had come down on the crew as four stars as it ended, Live
+    Wire then played with the police on it (it is cleared with the cap now).
+  - **The look,** read shot by shot on `4db01cf`'s page (`docs/media/x4`: Crop Duster's ring in the chase camera, the
+    Air Race's gate in MODE 7, the slag tip, the spur over the Scrap Cathedral, the crusher yard, the hangar with its
+    BUY prompt and the reel low over the beans; seven kept of thirteen). Three notes fixed: a car parked at the Slag
+    Heap's foot (no car parks at a kicker's foot now), the kickers were concrete on dirt (the Slag Heap's are dross now:
+    a deck's `surface`), and the reel's frame had caught the Duster low over the street, overlapping a truck in ISO
+    (the frame kept is over the beans). The hoops hang upright across the way they are flown, green for the field and
+    cyan for the race; in TOP-DOWN a gate reads as a flat ring. As the slice's, the HUD's lines sit over the world's
+    labels with no panel under them.
