@@ -1731,3 +1731,41 @@ and where it landed.
     Union Hall and down again) on seeds 1-3 and through a pad. A helicopter still counts as aloft wherever it stands,
     as the slice has it, so Lowtown plays as before.
 - **Answered:** no. **Landed in:** X2.
+
+## D40 · 2026-10-26 · X3: Ironside's gangs and missions
+- **Principle:** EXPANSION.md 3, 4 and X3's acceptance (each mission through the bot on seeds 1-3 and through a pad, the
+  interior validated and tested, the recipes, the HQs and the interior read in every view); D21 after the MOTOR and bot
+  changes it needed.
+- **Calls:**
+  - **A gang can be in more than one district.** Its spec takes a district's HQ (`hqs: { district: poi }`) and rival
+    (`rivals: { district: gang }`), and its beats name their district; `gangs.rival(id)` answers for the district in
+    play. The Lawn Gnomes hold the Foundry and Palm Terraces' turf, their Ironside HQ the Union Hall, their rival there
+    the Rust Monks (in Lowtown still the Saints). A mission giver in another district names its gang and its phone (`{
+    phone: gang, at: poi }`).
+  - **The Rust Monks** (✚, rivets; the Scrap Cathedral; the Scrapper, a crane truck; the Nail Gun, the Slugger) and
+    **the Volt Boys** (⚡, chevrons; Substation 9; the Bucket, a cherry picker; the Zap-O-Matic, the Tesla Coil), each
+    with its grunt and enforcer, its payphone, its turf (Scrapyard Flats; Voltage Row), its rival (the Volt Boys; the
+    Gnomes). The Nail Gun and the Tesla Coil are Lead Farm's once each gang's first job is done.
+  - **Nine missions:** Picket Line and Scab Labour (the Gnomes), Holy Scrap and Sermon on the Mound (the Monks), Live
+    Wire and Short Circuit (the Volt Boys), and Blackout's two setups (Grid Map, The Lineman) and its finale, from the
+    planning board once two of Ironside's gangs' first jobs are done. Blackout is played by all three: Gus cuts the line
+    from the Bucket, Viv shuts the turbines inside the Power Station, Dex flies the payroll out in the Duster.
+  - **The Ironside Power Station,** an interior (36 x 22): the lobby (the public's), the corridor with a wall down its
+    middle, the control room under its camera, the turbine hall and the switchyard; three guards, four cameras; the
+    plans on the control room's wall; the turbines' three valves are spots with a verb (SHUT), △ at one told on the BUS
+    (`spot`).
+  - **MOTOR's part:** a mission car's driver can be given orders (`m.drive(v, { to, style })`, a `slow` style: a bus on
+    its round); a mission car that stops driving drops its `drivenBy`; the bot's ram backs off steering away; a `chase`
+    names the car to chase in (`vehicle`); a `goto` takes waypoints (`path`, walked straight first: indoors no walk
+    graph runs) and, for a plane, `taxi` (along the ground to it, never off it).
+  - **Found by the bot** (each a fix in the mission, not a softer check): a sneak's path ran into a scrap pile in the
+    Cathedral's yard; the chase sent the bot on foot looking for a car of its own; the control room's camera gate
+    reckoned one walking speed and the bot walked faster into its cone (it reckons four now, 26-38 u/s); a retry still
+    inside the station kept the last try's alarm; leaving by the front door, the stage's end, had counted as leaving it;
+    the valves' and the door's hints stood a cell short of △'s reach; the way to the turbine hall runs through the lobby
+    (a path); the Duster was flown to the hangar instead of taxied; the Bucket, nose west in its yard, had a truck's
+    turn to make in four cells and sawed at the lamps till the police had it (nose to the road now).
+  - **The slice's checks, widened:** the mission lint knows Ironside's nine; respect starts at nothing for five gangs;
+    the Scrapper takes its model's class (tow); the weapon recipe's fixture is a Staple Gun (the Nail Gun is Ironside's
+    own).
+- **Answered:** no. **Landed in:** X3.

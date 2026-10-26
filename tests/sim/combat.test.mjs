@@ -22,7 +22,7 @@ function range(M) {
 test('the range bench: every weapon that deals damage a second deals its spec\'s DPS, within 10%', async () => {
   const { M } = await motor();
   const rows = M.all('weapons').filter(M.benchable).map(w => M.measureDps(w.id));
-  assert.equal(rows.length, 6, rows.map(r => r.weapon).join(', '));
+  assert.equal(rows.length, 7, rows.map(r => r.weapon).join(', '));   // (X3's Nail Gun the seventh)
   for (const r of rows) assert.ok(r.ratio >= .9 && r.ratio <= 1.1, `${r.weapon}: ${r.dps} DPS against ${r.spec} (${(r.ratio * 100).toFixed(0)}%)`);
 });
 

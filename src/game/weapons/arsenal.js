@@ -1,4 +1,4 @@
-// Lowtown's 11 weapons (PLAN.md 9.7). Health is 100 and armour 100, so a pistol drops a ped in 6 hits and a shotgun
+// Lowtown's 11 weapons (PLAN.md 9.7), and Ironside's two (EXPANSION.md 6, X3). Health is 100 and armour 100, so a pistol drops a ped in 6 hits and a shotgun
 // blast at close range in one or two. Prices are Lead Farm's; unlocks are the missions that put them on its shelves.
 import { def } from '../../motor/index.js';
 
@@ -14,3 +14,7 @@ W('partystarter', { name: 'Party Starter', slot: 'thrown', projectile: 'molotov'
 W('pineapple', { name: 'Pineapple', slot: 'thrown', projectile: 'grenade', damage: 110, rate: .8, range: 280, speed: 280, splash: 72, fuse: 2.5, ammo: 5, model: 'grenade', sound: 'boom', price: 300, unlock: 'gnomes_lawn_order' });
 W('zapomatic', { name: 'Zap-O-Matic', slot: 'special', projectile: 'zap', damage: 6, rate: 4, range: 180, chain: 3, stun: 1.2, ammo: 60, model: 'zapper', sound: 'zap', rumble: .4, price: 4000, unlock: 'saints_drag_mass' });
 W('snap', { name: 'Snap', slot: 'special', projectile: 'photo', damage: 0, rate: 1.5, range: 600, model: 'phone', sound: 'shutter', keep: true });
+// Ironside's: the Rust Monks' Nail Gun (a fast spray of nails, short of an SMG's reach) and the Volt Boys' Tesla Coil (the
+// Zap-O-Matic's arc on a bigger coil: it jumps on from body to body, twice as far down the line)
+W('nailgun', { name: 'Nail Gun', slot: 'smg', projectile: 'bullet', damage: 8, rate: 12, mag: 40, reload: 1.8, spread: 7, range: 220, speed: 800, ammo: 160, model: 'nailgun', sound: 'smg', recoil: .1, rumble: .15, price: 1100, unlock: 'monks_holy_scrap' });
+W('teslacoil', { name: 'Tesla Coil', slot: 'heavy', projectile: 'zap', damage: 12, rate: 2, range: 240, chain: 6, stun: 2, ammo: 30, model: 'coil', sound: 'zap', rumble: .6, twoHanded: true, price: 6000, unlock: 'volts_short_circuit' });

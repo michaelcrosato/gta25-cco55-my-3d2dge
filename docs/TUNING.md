@@ -341,6 +341,9 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `price_hotmess` Hot Mess | 3500 | 0..50000 | Hot Mess ($) |
 | `price_boomtube` Boom Tube | 5000 | 0..50000 | Boom Tube ($) |
 | `price_zapomatic` Zap-O-Matic | 4000 | 0..50000 | Zap-O-Matic ($) |
+| `price_nailgun` Nail Gun | 1100 | 0..50000 | Nail Gun ($) |
+| `price_ammo_nailgun` Nail Gun ammo | 138 | 0..50000 | Nail Gun ammo ($) |
+| `price_teslacoil` Tesla Coil | 6000 | 0..50000 | Tesla Coil ($) |
 | `price_armor` Body armour | 400 | 0..50000 | Body armour ($) |
 | `price_mod_armor` Armour plating | 2500 | 0..50000 | Armour plating ($) |
 | `price_mod_nitro` Nitro | 1500 | 0..50000 | Nitro ($) |

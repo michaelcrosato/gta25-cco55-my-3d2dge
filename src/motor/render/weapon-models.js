@@ -12,13 +12,15 @@ const M = {
   launcher: { parts: [[-6, 9, .6, 1.7, 1.7, 'olive'], [8.4, 9.6, .6, 2, 2, 'oliveDk'], [-6.4, -5.4, .6, 1.9, 1.9, 'oliveDk'], [.2, .9, -1.4, .6, .6, 'dark', 0, true]], muzzle: 9.8, grip: 4 },
   flamer: { parts: [[-1, 7, 0, 1.1, 1, 'red'], [7, 10, .2, .55, .45, 'metal'], [1, 4.5, -1.6, 1.4, 1.4, 'red'], [-1, -4, -.5, .5, .5, 'metal']], muzzle: 10.2, grip: 5 },
   zapper: { parts: [[0, 6, 0, 1.2, 1, 'teal'], [6, 7.6, 0, .85, .55, 'spark'], [-.3, .3, -1.4, .7, .6, 'dark', 0, true]], muzzle: 7.8 },
+  nailgun: { parts: [[-1.4, 5.2, .4, 1.3, 1.2, 'rust'], [5.2, 7, .4, .5, .45, 'metal'], [1.6, 3.2, -1.8, 1, 1, 'brass'], [-.4, .3, -1.6, .65, .6, 'dark', 0, true]], muzzle: 7.2 },
+  coil: { parts: [[-4, 4, .4, 1.5, 1.5, 'dark'], [4, 7.5, .6, 1.9, 1.9, 'brass'], [7.5, 9, .6, 1, 1, 'brass'], [9, 10, .6, .7, .7, 'spark'], [.4, 1, -1.4, .6, .6, 'dark', 0, true]], muzzle: 10.2, grip: 4.6 },
   phone: { parts: [[.2, 2.2, .4, .9, .9, 'dark'], [.9, 1.6, .9, .4, .4, 'screen']], muzzle: 2.4 },
   bat: { parts: [[-.6, 4, 0, .45, .5, 'woodDk'], [4, 12, 0, .55, 1.2, 'woodLt']], muzzle: 12 },
   molotov: { parts: [[-.5, 2.6, 0, 1, .95, 'glass'], [2.6, 3.5, 0, .45, .4, 'glass'], [3.5, 4.6, 0, .45, .3, 'rag']], muzzle: 4.6 },
   grenade: { parts: [[.3, 1.4, 0, 1.4, 1.4, 'olive'], [1.6, 2.1, .6, .4, .4, 'metal']], muzzle: 2 },
 };
 const COLORS = { metal: '#8a8e9a', dark: '#2e2c34', wood: '#8a5a32', woodDk: '#5a3a20', woodLt: '#c89a5a', olive: '#5a6a3a', oliveDk: '#3a4626', red: '#b8322a',
-  teal: '#2a8a9a', spark: '#9ff0ff', screen: '#bfe8ff', glass: '#4a8a4a', rag: '#e8dcc0' };
+  teal: '#2a8a9a', spark: '#9ff0ff', screen: '#bfe8ff', glass: '#4a8a4a', rag: '#e8dcc0', rust: '#a8542a', brass: '#c8a050' };
 const GLOW = new Set(['spark', 'screen']);
 export const WEAPON_MODELS = Object.keys(M);
 /** the model's numbers: { parts, muzzle (units along), grip (the foregrip, units along, two-handed only) } */

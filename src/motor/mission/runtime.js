@@ -297,6 +297,9 @@ export class MissionContext {
   /** the city's own service of a kind ('fire' | 'medic' | 'police') takes no new calls while the run lasts: a job that is
    *  that service (Firefighter: the player's the engine on call, and the city's own would come to the same fires) */
   standDown(kind) { const S = this.W.life && this.W.life.services; if (!S) return; S.held.add(kind); this.R.servicesHeld = true; }
+  /** a mission vehicle's driver given new orders: o as spawn.vehicle's drive ({ to, route, chase, flee, race, style,
+   *  siren, then }); null parks it (EXPANSION.md X3: a bus waits at its stop, then drives) */
+  drive(v, o) { this.R.actors.orders(v, o); }
   /** put a world vehicle on the job's list under a tag (a garaged car, one the player came in): the hints can name it;
    *  the world's again when the run ends, and a retry never releases it */
   adopt(v, tag) { if (!v) return null; const R = this.R; if (R.actors.entry(v)) return v; const was = v.owner; R.actors._add(v, 'vehicle', { tag, stage: -1 }); v.adopted = was || 'world'; return v; }
@@ -462,7 +465,7 @@ export class MissionContext {
       const list = m.tagged(tag); if (!list.length) return { value: true };
       const t = list.find(alive); if (!t) return { value: true };
       return m.dist(t) < (o.reach || 30) && (t.speed || 0) < 10 ? { value: true } : undefined;
-    }, { nav: m => m.one(tag), start: m => { m.objective(o.text || 'Stop them', { hint: { kind: 'kill', targets: tag } }); const t = m.one(tag); if (t) m.marker(t, { color: '#ff5a4a' }); } });
+    }, { nav: m => m.one(tag), start: m => { m.objective(o.text || 'Stop them', { hint: { kind: 'kill', targets: tag, vehicle: o.vehicle } }); const t = m.one(tag); if (t) m.marker(t, { color: '#ff5a4a' }); } });   // (o.vehicle: the tag of the car to chase in, the bot's to board first)
   }
   /** keep a tagged actor alive until o.until(m) holds: its death fails the stage */
   protect(tag, o = {}) {

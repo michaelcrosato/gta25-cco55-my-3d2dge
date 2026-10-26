@@ -30,6 +30,7 @@ export const EVENTS = {
   interior: 'id, door, enter',                  // in (enter: true) or out by a door (door: null: carried out, WRECKED)
   alarm: 'interior, by, x, y',                  // by: 'guard' | 'camera' | 'body'
   takedown: 'interior, guard, by',
+  spot: 'interior, spot, by',                   // △ at an interior's spot (EXPANSION.md X3: a valve; the arcade cabinet is the scene's own)
   // combat
   hit: 'target, by, damage, kind, x, y, z',     // kind: 'bullet' | 'melee' | 'vehicle' | 'explosion' | 'fire' | 'fall'
   kill: 'target, by, kind',

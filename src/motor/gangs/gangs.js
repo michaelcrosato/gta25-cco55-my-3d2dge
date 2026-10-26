@@ -1,7 +1,8 @@
 // Gangs and respect (PLAN.md 8.14): the city's gangs, what each thinks of the player, and what they do about it.
 //   - data: def('gangs', id, { name, colors, icon, pattern, turf (neighbourhood ids), hq and phone (points of
 //     interest), rival, vehicles, weapons, peds: { grunt, enforcer } (archetypes), thresholds: { hostile, friendly },
-//     chain (its missions) }) (content: src/game/gangs.js);
+//     chain (its missions), beats, and in a district other than Lowtown (EXPANSION.md) hqs and rivals by district })
+//     (content: src/game/gangs.js);
 //   - respect runs -100..100 a gang (the save's, kept here): a mission's ±, a member killed TUNE.respectKill (-5), a
 //     member of a gang's rival killed TUNE.respectRival (+1), one of a gang's cars damaged TUNE.respectCar (-2, once a
 //     car a while). At or below its hostile threshold a gang is hostile, at or above its friendly one friendly;
@@ -26,11 +27,13 @@ import { classOf } from '../sim/vehicle/defs.js';
 import { Fighter, sameLevel } from '../ai/fighter.js';
 
 declare('gangs', shape({
-  name: { type: 'string', req: true }, colors: { type: 'array', req: true }, icon: { type: 'string', def: 'circle', oneOf: ['diamond', 'triangle', 'circle'] },
-  pattern: { type: 'string', def: 'stripes', oneOf: ['stripes', 'dots', 'checks'] }, turf: { type: 'array', req: true }, hq: { type: 'string', def: '' }, phone: { type: 'string', def: '' },
+  name: { type: 'string', req: true }, colors: { type: 'array', req: true }, icon: { type: 'string', def: 'circle', oneOf: ['diamond', 'triangle', 'circle', 'cross', 'bolt'] },
+  pattern: { type: 'string', def: 'stripes', oneOf: ['stripes', 'dots', 'checks', 'rivets', 'chevrons'] }, turf: { type: 'array', req: true }, hq: { type: 'string', def: '' }, phone: { type: 'string', def: '' },
   rival: { type: 'string', def: '' }, vehicles: { type: 'array', def: [] }, weapons: { type: 'array', def: [] }, peds: { type: 'object', req: true },
   thresholds: { type: 'object', def: { hostile: -20, friendly: 40 } }, chain: { type: 'array', def: [] },
-  beats: { type: 'array', def: [] },   // ([x, y] tiles: where its patrols walk, by its borders)
+  beats: { type: 'array', def: [] },   // ([x, y] tiles: where its patrols walk, by its borders; [x, y, district]: another district's than Lowtown, EXPANSION.md)
+  hqs: { type: 'object', def: {} },   // (its HQ in another district: { district: poi }, the Gnomes' Union Hall in Ironside)
+  rivals: { type: 'object', def: {} },   // (its rival in another district: { district: gang }, the Gnomes' Rust Monks in Ironside)
 }));
 
 knob('Gangs', 'respectKill', 'Respect for a member killed', -5, -50, 0, 1, 'What killing one of a gang\'s members costs with that gang');
@@ -57,10 +60,10 @@ export class Gangs {
      *  and cars rally no one and cost no respect, and its members never go for the player on sight */
     this.allies = new Set();
     this.t = 0; this._senseT = 0; this._keepT = 0; this.warCount = 0; this.player = null; this.idle = makeIntent();
-    for (const g of all('gangs')) {   // (its hangout by the HQ, a patrol a beat)
-      const hq = this.city.poi(g.hq), T = this.city.T;
+    for (const g of all('gangs')) {   // (its hangout by the HQ, a patrol a beat: the district's own)
+      const hq = this.city.poi(g.hqs[this.city.id] || g.hq), T = this.city.T;
       if (hq) this.groups.push({ gang: g.id, kind: 'hangout', at: { x: hq.x, y: hq.y }, r: 70, n: () => TUNE.gangHangout, members: [] });
-      for (const [bx, by] of g.beats) this.groups.push({ gang: g.id, kind: 'patrol', at: { x: (bx + .5) * T, y: (by + .5) * T }, r: 220, n: () => TUNE.gangPatrol, members: [] });
+      for (const [bx, by, district = 'lowtown'] of g.beats) if (district === (this.city.id || 'lowtown')) this.groups.push({ gang: g.id, kind: 'patrol', at: { x: (bx + .5) * T, y: (by + .5) * T }, r: 220, n: () => TUNE.gangPatrol, members: [] });
     }
     const T = this.life.traffic; if (T) T.pick = (p, hood, rng) => this._pickCar(p, hood, rng);
     this._unsub = [
@@ -82,6 +85,8 @@ export class Gangs {
   }
   /** 'hostile' | 'neutral' | 'friendly' by its thresholds */
   stance(id) { const g = get('gangs', id); if (!g) return 'neutral'; const r = this.get(id), T = g.thresholds || {}; return r <= (T.hostile ?? -20) ? 'hostile' : r >= (T.friendly ?? 40) ? 'friendly' : 'neutral'; }
+  /** a gang's rival here (its district's own, else the one it has everywhere) */
+  rival(id) { const g = get('gangs', id); return g ? (g.rivals && g.rivals[this.city.id]) || g.rival : ''; }
   /** the gang whose turf holds a point (null: no one's) */
   turfAt(x, y) { const h = this.city.hoodAtPoint(x, y); if (!h) return null; for (const g of all('gangs')) if (g.turf.includes(h.id)) return g.id; return null; }
   // a killing: the player's of a gang's member costs that gang's respect and earns its rivals'
@@ -90,7 +95,7 @@ export class Gangs {
     const t = this.combat.bodies.find(b => b.id === e.target), gang = t ? t.gang : e.gang;   // (one at the wheel of the gang's car is no Combat body: the kill says whose)
     if (!gang || this.allies.has(gang)) return;
     this.add(gang, TUNE.respectKill, 'kill');
-    for (const g of all('gangs')) if (g.rival === gang) this.add(g.id, TUNE.respectRival, 'rival');
+    for (const g of all('gangs')) if (this.rival(g.id) === gang) this.add(g.id, TUNE.respectRival, 'rival');
   }
   // a hit: on one of a gang's cars by the player (respect), on a member (it and its mates go for whoever did it), on the
   // player (a friendly gang's members go for whoever did it)
@@ -160,7 +165,7 @@ export class Gangs {
       if (c.homing && !c.brain.route) c.homing = false;   // (its way home driven to the end: let it wander, sent again if still out)
       if (home && c.homing) { c.homing = false; c.brain.setRoute(null); }
       // (sent on a lane with room to stop: a new way taken at a light had run its red)
-      else if (!home && !c.homing && !c.brain.route && c.brain.here && c.brain.here.k === 'lane' && c.brain.here.len - c.brain.s > 60) { const hq = this.city.poi(g.hq), r = hq && gps.routeTo(c.v.x, c.v.y, c.v.heading, hq.x, hq.y, { z: c.v.z }); if (r) { c.homing = true; c.brain.setRoute(r.lanes, null); } }
+      else if (!home && !c.homing && !c.brain.route && c.brain.here && c.brain.here.k === 'lane' && c.brain.here.len - c.brain.s > 60) { const hq = this.city.poi(g.hqs[this.city.id] || g.hq), r = hq && gps.routeTo(c.v.x, c.v.y, c.v.heading, hq.x, hq.y, { z: c.v.z }); if (r) { c.homing = true; c.brain.setRoute(r.lanes, null); } }
     }
     const C = this.life.crowd; if (!C) return;
     for (const q of this.groups) {
@@ -178,7 +183,7 @@ export class Gangs {
     for (const m of members) {
       const p = m.ped, g = p.gang; if (p.seat) continue;
       if (P && !P.dead && !this.allies.has(g) && this.stance(g) === 'hostile' && this.turfAt(p.x, p.y) === g && sameLevel(p, P) && E.sees(p, P, { map, range: TUNE.gangSight, fov: 3.2, facing: p.mover.facing }).seen) { this._rally({ gang: g, x: p.x, y: p.y }, P); continue; }
-      const rival = get('gangs', g).rival; if (!rival) continue;
+      const rival = this.rival(g); if (!rival) continue;
       for (const o of members) {
         if (o.ped.gang !== rival || o.ped.seat || Math.abs(o.ped.x - p.x) > TUNE.gangSight || Math.abs(o.ped.y - p.y) > TUNE.gangSight) continue;
         if (E.sees(p, o.ped, { map, range: TUNE.gangSight * .8, fov: 3.2, facing: p.mover.facing }).seen) { this._war(g, rival, (p.x + o.ped.x) / 2, (p.y + o.ped.y) / 2); break; }

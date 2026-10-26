@@ -515,6 +515,7 @@ export const PLAY = {
         else if (!busy && !p.dead && I.tap.interact && !p.boarding) {   // △ / E: through a door; up or down a station's stairs; aboard the L; get in (the nearest door of a vehicle), or get out
           if (door) { const d = door; through(inside ? () => goOutside(d) : () => goInside(d)); I = clearIntent(I); }
           else if (spot && spot.id === 'arcade') { openCabinet(); I = clearIntent(I); }
+          else if (spot) { BUS.emit('spot', { interior: inside.id, spot: spot.id, by: p.id }); I = clearIntent(I); }   // (another spot: the job's to answer, a valve shut)
           else if (stairs) { const to = stairs.to, st = stairs; through(() => { p.place(to[0], to[1], to[2]); game.cam.snap = true; BUS.emit('stairs', { station: st.station.name, up: st.up }); }); I = clearIntent(I); }
           else if (lcar) { rails.board(p, lcar.train, lcar.car); BUS.emit('boardL', { station: lcar.train.station }); I = clearIntent(I); }
           else if (career.prompt && !seated) { career.prompt.act(); I = clearIntent(I); }   // (a shop's door, a property, the safehouse)
@@ -643,7 +644,7 @@ export const PLAY = {
         }
         if (inside && inside.run.alarm && Math.floor(t * 2.5) % 2 === 0) P.text('ALARM', cx, L.sy0 + 4, '#ff3a30', { align: 'center', scale: 2 });
         const prompt = crew.switching || down ? null : door ? [`{onFoot:interact} ${inside ? 'LEAVE' : 'ENTER'}  ${(inside ? (door.id === 'sewer' ? 'BY THE SEWER' : 'TO THE STREET') : door.label || 'DOOR').toUpperCase()}`, inside ? '#7aff8a' : '#ffe066']
-          : cab ? ['{arcade:interact} STEP AWAY', cab.arcade.kit.color] : spot ? [`{onFoot:interact} PLAY  ${spot.label}`, '#5af0ff']
+          : cab ? ['{arcade:interact} STEP AWAY', cab.arcade.kit.color] : spot ? [`{onFoot:interact} ${spot.verb || 'PLAY'}  ${spot.label}`, '#5af0ff']
           : stairs ? [`{onFoot:interact} ${stairs.up ? 'UP TO THE L' : 'DOWN TO THE STREET'}  ${stairs.station.name.toUpperCase()}`, '#7ab8ff']
           : lcar ? [`{onFoot:interact} BOARD THE L  ${lcar.train.station.toUpperCase()}`, '#7ab8ff']
           : rails && rails.riding(p) ? (p.onTrain.train.state === 'stop' ? [`{onFoot:interact} GET OFF  ${p.onTrain.train.station.toUpperCase()}`, '#7ab8ff'] : ['ON THE L', '#7ab8ff'])

@@ -29,15 +29,17 @@ test('each mission\'s every stage, and each activity at level 1, lands from its 
   assert.deepEqual([...gtm.BUS.errors], []);
 });
 
-// the slice's 14 missions (PLAN.md 9.4): the ids a mission has and may require, whether or not they are in this build
-// yet (the chains are written side by side: FAN-OUT A2)
+// the slice's 14 missions (PLAN.md 9.4) and the expansion's as each district lands (EXPANSION.md 4: Ironside's nine):
+// the ids a mission has and may require, whether or not they are in this build yet (the chains are written side by
+// side: FAN-OUT A2)
 const PLANNED = ['prologue', 'saints_holy_rollers', 'saints_confession_booth', 'saints_drag_mass', 'rats_rat_run', 'rats_below_deck', 'rats_crane_game',
-  'gnomes_lawn_order', 'gnomes_bingo_night', 'gnomes_gutter_ball', 'heist_getaway', 'heist_blueprints', 'heist_big_drill', 'heist_big_withdrawal'];
+  'gnomes_lawn_order', 'gnomes_bingo_night', 'gnomes_gutter_ball', 'heist_getaway', 'heist_blueprints', 'heist_big_drill', 'heist_big_withdrawal',
+  'gnomes_picket_line', 'gnomes_scab_labour', 'monks_holy_scrap', 'monks_sermon_mound', 'volts_live_wire', 'volts_short_circuit', 'heist_grid_map', 'heist_lineman', 'heist_blackout'];
 
 test('the mission lint: every stage a setup and a generator run, every mission a title and a giver, every fail reason a string', async () => {
   const { gtm } = await loadGame(), M = gtm.motor, bad = [];
   for (const m of M.all('missions')) {
-    if (!PLANNED.includes(m.id)) bad.push(m.id + ': not one of the slice\'s missions (PLAN.md 9.4)');
+    if (!PLANNED.includes(m.id)) bad.push(m.id + ': not one of the slice\'s missions or the expansion\'s (PLAN.md 9.4, EXPANSION.md 4)');
     if (!m.giver || !(m.giver.phone || m.giver.at || m.giver.intro)) bad.push(m.id + ': no giver');
     if (!m.rewards || typeof m.rewards.cash !== 'number') bad.push(m.id + ': no cash reward');
     for (const r of m.requires || []) if (!PLANNED.includes(r)) bad.push(m.id + ': requires an unknown ' + r);

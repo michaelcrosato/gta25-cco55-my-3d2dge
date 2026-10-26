@@ -91,8 +91,20 @@ def('vehicleModels', 'hauler', {
       ...both(-hl + .7, hw, S0, XB - .7, hw + .3, S0 + 1.8, '#c8a040', 'glass'),   // the bank's gold stripe
       P([-14, -5, H, -4, 5, H + 1.5], '#4a4f58', 'cabin'), P([-8.5, -1.5, H + 1.5, -6.5, 1.5, H + 2.2], DARK, 'cabin'),
     ] },
+    // the Bucket (EXPANSION.md 6, X3: the Volt Boys' cherry picker): black hazard bands down the lower box (the paint
+    // safety yellow between), a black stripe along the top, on the roof the lift's turntable at the back, its boom laid
+    // forward along the roof and over the cab, the bucket (a basket, open on top) at its tip over the windscreen, and an
+    // amber beacon each end
+    bucket: { parts: [
+      ...[-34, -26, -18, -10, -2, 6].flatMap(x => both(x, hw, ZB + .5, x + 4, hw + .3, ZC - 1, DARK, 'trim')),
+      ...both(-hl + .7, hw, S0, XB - .7, hw + .3, S1, DARK, 'glass'), P([-hl - .3, -14.6, S0, -hl, 14.6, S1], DARK, 'glass'),
+      P([-31, -7, H, -19, 7, H + 2.5], DARK, 'cabin'), P([-29, -5, H + 2.5, -21, 5, H + 5], '#8a8c92', 'cabin'),
+      P([-27, -2.4, H + 5, 21, 2.4, H + 8.2], '#e8e8ec', 'cabin'), P([19, -3, H + 1, 22, 3, H + 8.6], '#8a8c92', 'cabin'),
+      P([22, -6.5, H - 1.5, 33, 6.5, H + 6.5], '#ffd23a', 'cabin'), P([23, -5.5, H + 6, 32, 5.5, H + 6.6], '#3a3a40', 'cabin'),
+      P([26, -11.5, ZC, 30, -6, ZC + 2], '#e89a30', 'cabin'), P([-hl + .6, 7, H, -hl + 3, 11, H + 2], '#e89a30', 'cabin'),
+    ] },
   },
-  about: 'A box van: a cab up front, a tall box behind with two back doors; the chassis under the Medic, the Rhino and the Strongbox.',
+  about: 'A box van: a cab up front, a tall box behind with two back doors; the chassis under the Medic, the Rhino, the Strongbox and the Bucket.',
 });
 
 // one chassis, so they share a wheelbase and front-wheel drive with the weight over the back (the box, loaded); the
@@ -127,4 +139,14 @@ def('vehicles', 'strongbox', {
   handling: { ...VAN, mass: 4200, top: 176, accel: 43, grip: 272, drift: .42, steer: .62, steerRate: 1.2, cgHeight: .4, rolling: .006 },
   spec: { t100: 3.0, top: 170, brake100: 17 }, tags: ['van', 'armored', 'bank'],
   about: 'The bank\'s armoured car: the heaviest thing on four wheels in Lowtown, and the slowest.',
+});
+// The Bucket (EXPANSION.md 6, X3): the Volt Boys' cherry-picker van, the Hauler with the lift on its roof; the Hauler's
+// handling (the lift's weight is the box's load)
+def('vehicles', 'bucket', {
+  name: 'Bucket', model: 'hauler', kit: 'bucket', class: 'truck', role: 'gang', seats: 3, radio: 'wheelz', health: 170, horn: 'truck',
+  palette: ['#ffd23a', '#f0c020'],
+  handling: { ...VAN, mass: 2600, top: 201, accel: 54, grip: 306, drift: .48, steer: .62, steerRate: 2.4, cgHeight: .35, rolling: .008 },
+  spec: { t100: 2.2, top: 195, brake100: 15 },
+  tags: ['van', 'gang', 'lift'],
+  about: 'The Volt Boys\' cherry picker: safety yellow, hazard bands, a bucket on a boom over the cab. A Hauler underneath.',
 });

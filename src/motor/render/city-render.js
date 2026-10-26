@@ -39,6 +39,17 @@ export const PROP_MODELS = {
   scaffold: { parts: [box(-14, -4, 0, -12, 4, 44, '#8a8a92'), box(12, -4, 0, 14, 4, 44, '#8a8a92'), box(-14, -4, 20, 14, 4, 22, '#c8a03a', 'cabin'), box(-14, -4, 42, 14, 4, 44, '#c8a03a', 'cabin')] },
   crusher: { parts: [box(-20, -14, 0, 20, 14, 8, '#5a5a62'), box(-18, -12, 22, 18, 12, 30, '#c8a03a', 'cabin'), box(-20, -14, 8, -16, 14, 30, '#4a4a52'), box(16, -14, 8, 20, 14, 30, '#4a4a52')] },
   crane: { parts: [box(-6, -6, 0, 6, 6, 110, '#e0b020'), box(-6, -60, 104, 6, 30, 114, '#e0b020', 'cabin'), box(-8, 22, 96, 8, 32, 104, '#5a5a62', 'cabin')] },
+  // (EXPANSION.md X3: Voltage Row's) a power pylon, its four legs drawn in, narrower each stage up, cross-arms with
+  // their insulators across the line it carries (y); a transformer, finned, three bushings on its top
+  pylon: { parts: [
+    ...[[-9, -9], [7, -9], [-9, 7], [7, 7]].map(([x, y]) => box(x, y, 0, x + 2, y + 2, 34, '#8a8e96')),
+    ...[[-7, -7], [5, -7], [-7, 5], [5, 5]].map(([x, y]) => box(x, y, 34, x + 2, y + 2, 70, '#8a8e96')),
+    ...[[-5, -5], [3, -5], [-5, 3], [3, 3]].map(([x, y]) => box(x, y, 70, x + 2, y + 2, 112, '#8a8e96')),
+    box(-9, -9, 33, 9, 9, 35, '#6a6e76'), box(-7, -7, 69, 7, 7, 71, '#6a6e76'),
+    box(-2, -26, 86, 2, 26, 89, '#8a8e96', 'cabin'), box(-2, -18, 104, 2, 18, 107, '#8a8e96', 'cabin'), box(-4, -4, 112, 4, 4, 116, '#6a6e76', 'cabin'),
+    ...[-24, -12, 12, 24].map(y => box(-1, y - 1, 80, 1, y + 1, 86, '#c8c0a8', 'trim')), ...[-16, 16].map(y => box(-1, y - 1, 98, 1, y + 1, 104, '#c8c0a8', 'trim'))] },
+  transformer: { parts: [box(-9, -7, 0, 9, 7, 3, '#4a4e54'), box(-8, -6, 3, 8, 6, 18, '#7a8088'), ...[-6, -2, 2, 6].map(x => box(x - .8, -7, 4, x + .8, 7, 16, '#5a5e66', 'trim')),
+    box(-8.5, -6.5, 18, 8.5, 6.5, 19.5, '#5a5e66', 'cabin'), ...[-5, 0, 5].map(x => box(x - 1, -1, 19.5, x + 1, 1, 25, '#a85a3a', 'cabin'))] },
   // roofs: an AC unit, a water tank on legs, a vent
   ac: { parts: [box(-6, -5, 0, 6, 5, 7, '#8a8e94'), box(-4.5, -3.5, 7, 4.5, 3.5, 7.6, '#4a4e54', 'cabin')] },
   tank: { parts: [box(-6, -6, 0, -4.5, -4.5, 8, '#3a3028'), box(4.5, -6, 0, 6, -4.5, 8, '#3a3028'), box(-6, 4.5, 0, -4.5, 6, 8, '#3a3028'), box(4.5, 4.5, 0, 6, 6, 8, '#3a3028'),

@@ -33,7 +33,10 @@ function bake(C, turf) {
     const hoods = new Set(T.hoods); g.fillStyle = T.color;
     for (let cy = 0; cy < h; cy++) for (let cx = 0; cx < w; cx++) {
       const hd = C.hoodAt(cx, cy); if (!hd || !hoods.has(hd.id)) continue;
-      const on = T.pattern === 'dots' ? cx % 4 === 0 && cy % 4 === 0 : T.pattern === 'checks' ? (cx >> 1) % 3 === 0 && (cy >> 1) % 3 === 0 : (cx + cy) % 6 === 0;
+      const on = T.pattern === 'dots' ? cx % 4 === 0 && cy % 4 === 0 : T.pattern === 'checks' ? (cx >> 1) % 3 === 0 && (cy >> 1) % 3 === 0
+        : T.pattern === 'rivets' ? (cx % 6 === 0 || cx % 6 === 3) && cy % 6 === (cx % 6 === 0 ? 0 : 3)   // (the Rust Monks': rivets in a staggered grid)
+        : T.pattern === 'chevrons' ? (Math.abs((cx % 8) - 4) + cy) % 8 === 0   // (the Volt Boys': chevrons stacked up the map)
+        : (cx + cy) % 6 === 0;
       if (on) { g.globalAlpha = .45; g.fillRect(cx, cy, 1, 1); g.globalAlpha = 1; }
     }
   }
@@ -41,7 +44,7 @@ function bake(C, turf) {
 }
 
 export class Radar {
-  /** city: the CityMap; o: { turf: [{ hoods: [ids], color, pattern ('stripes' | 'dots' | 'checks') }], r (radius px) } */
+  /** city: the CityMap; o: { turf: [{ hoods: [ids], color, pattern ('stripes' | 'dots' | 'checks' | 'rivets' | 'chevrons') }], r (radius px) } */
   constructor(city, o = {}) { this.city = city; this.turf = o.turf || []; this.r = o.r || 44; this.img = null; }
   _bake() { this.img = cityImage(this.city, this.turf); }
   /** draw it centred at (cx, cy). o: { focus: [x, y], heading (radians: the vehicle's, or null: north-up), player
@@ -115,7 +118,7 @@ const CVD = { '#5af0ff': '#56b4e9', '#ffd23a': '#e69f00', '#ff8ac8': '#cc79a7', 
   '#ff5a5a': '#d55e00', '#ff3a3a': '#d55e00', '#5a9aff': '#0072b2', '#3a7aff': '#0072b2', '#7af0ff': '#56b4e9', '#ffa23a': '#e69f00', '#ff5a3a': '#d55e00', '#ff8af0': '#cc79a7' };
 /** a marker's colour as the player sees it */
 export const markerColor = c => (MARKERS.cvd && c && CVD[String(c).toLowerCase()]) || c;
-/** a blip by its shape (square, diamond, triangle, flag, dot...) in its colour, outlined: the radar's and the map's */
+/** a blip by its shape (square, diamond, triangle, circle, cross, bolt, flag, dot...) in its colour, outlined: the radar's and the map's */
 export function drawBlip(g, x, y, shape, c) { blip(g, x, y, shape, markerColor(c)); }
 function blip(g, x, y, shape, c) {
   const P = E.px, X = Math.round(x), Y = Math.round(y);
@@ -123,6 +126,8 @@ function blip(g, x, y, shape, c) {
   else if (shape === 'diamond') { P.poly(g, [[X, Y - 4], [X + 4, Y], [X, Y + 4], [X - 4, Y]], '#05030c'); P.poly(g, [[X, Y - 3], [X + 3, Y], [X, Y + 3], [X - 3, Y]], c); }
   else if (shape === 'triangle') { P.poly(g, [[X, Y - 4], [X + 4, Y + 3], [X - 4, Y + 3]], '#05030c'); P.poly(g, [[X, Y - 2], [X + 2, Y + 2], [X - 2, Y + 2]], c); }
   else if (shape === 'circle') { P.disc(g, X, Y, 4, '#05030c'); P.disc(g, X, Y, 3, c); }
+  else if (shape === 'cross') { P.rect(g, X - 2, Y - 4, 4, 9, '#05030c'); P.rect(g, X - 4, Y - 2, 9, 4, '#05030c'); P.rect(g, X - 1, Y - 3, 2, 7, c); P.rect(g, X - 3, Y - 1, 7, 2, c); }
+  else if (shape === 'bolt') { P.poly(g, [[X + 2, Y - 5], [X - 4, Y + 1], [X, Y + 1], [X - 2, Y + 5], [X + 4, Y - 1], [X, Y - 1]], '#05030c'); P.poly(g, [[X + 1, Y - 3], [X - 2, Y], [X + 1, Y], [X - 1, Y + 3], [X + 2, Y], [X - 1, Y]], c); }
   else if (shape === 'flag') { P.rect(g, X - 3, Y - 5, 2, 10, '#05030c'); P.poly(g, [[X - 1, Y - 5], [X + 5, Y - 2], [X - 1, Y + 1]], '#05030c'); P.poly(g, [[X - 1, Y - 4], [X + 3, Y - 2], [X - 1, Y]], c); P.rect(g, X - 2, Y - 4, 1, 8, c); }
   else { P.rect(g, X - 2, Y - 2, 4, 4, '#05030c'); P.rect(g, X - 1, Y - 1, 2, 2, c); }
 }

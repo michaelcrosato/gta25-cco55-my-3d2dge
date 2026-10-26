@@ -227,8 +227,15 @@ export class MissionBot {
       if (d < (h.reach || 110)) { const I = clearIntent(this.I), a = Math.atan2(sp[1] - P.y, sp[0] - P.x); I.aim = [Math.cos(a), Math.sin(a)]; I.aimPoint = [sp[0], sp[1], 0]; const ws = !p.seat && p.inv.spec(), auto = !ws || ws.rate >= 6; I.down.fire = true; I.down.attack = auto || (this.t * 4 | 0) % 2 === 0; I.tap.attack = !auto && I.down.attack; I.down.aim = !p.seat; if (p.seat && P.speed > 6) I.brake = 1; if (p.seat) { let da = a - P.heading; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) > .9 && P.speed < 20) { I.throttle = .3; I.steer = Math.sign(da); } } return I; }
       return this._go(dt, p, sp[0], sp[1], { stay: true, radius: (h.reach || 110) * 1.2, slack: 30 }, w);
     }
+    // (h.path: a way there by waypoints, walked straight first, as a stealth leg is: indoors no walk graph runs, and the
+    // straight line at a turbine's valve from the corridor had stood against the hall's wall for good)
+    if (h.path && !p.seat) {
+      const G = this._gp && this._gp.path === h.path ? this._gp : (this._gp = { path: h.path, i: 0 });
+      while (G.i < h.path.length && Math.hypot(h.path[G.i][0] - p.x, h.path[G.i][1] - p.y) < 10) G.i++;
+      if (G.i < h.path.length) { const q = h.path[G.i], I = clearIntent(this.I), dx = q[0] - p.x, dy = q[1] - p.y, l = Math.hypot(dx, dy) || 1; I.move[0] = dx / l; I.move[1] = dy / l; return I; }
+    }
     if (h.interact && !p.seat && Math.hypot(at[0] - p.x, at[1] - p.y) < Math.min(16, h.radius || 16)) { const I = clearIntent(this.I); const beat = this.t * 4 | 0; if (beat % 2 === 0) { I.down.interact = true; if (beat !== this._tapBeat) { this._tapBeat = beat; I.tap.interact = true; } } return I; }   // (there: △, a door's or a prompt's)
-    return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat, hover: !!h.hover, land: h.land ?? null }, w);   // (land: a plane set down on the strip ending there, its heading; to be got to in a vehicle: never out of it in a jam, backed and driven round again and again: H4's getaway failed on "Dex left the getaway car")
+    return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat, hover: !!h.hover, land: h.land ?? null, taxi: !!h.taxi }, w);   // (land: a plane set down on the strip ending there, its heading; to be got to in a vehicle: never out of it in a jam, backed and driven round again and again: H4's getaway failed on "Dex left the getaway car")
   }
   _deliver(dt, p, R, h, w) {
     const what = R.actors.tagged(h.what).find(alive), v = p.seat && p.seat.vehicle;
@@ -362,7 +369,7 @@ export class MissionBot {
   _ram(dt, p, v, t, d, w, hold = false) {
     if (d > 140) return this._go(dt, p, t.x, t.y, { stay: true, style: 'race', slack: 50, hold }, w);   // (hold: the hint's own vehicle, never given up in a jam)
     const I = clearIntent(this.I), S = this.ramS || (this.ramS = { back: 0, slow: 0, held: 0, round: 0, side: 1 }); let da = Math.atan2(t.y - v.y, t.x - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
-    if (S.back > 0) { S.back -= dt; I.brake = 1; return I; }
+    if (S.back > 0) { S.back -= dt; I.brake = 1; if (Math.abs(da) > .4) I.steer = da > 0 ? -1 : 1; return I; }   // (backing off, the nose swung toward it: from beside a broadside target, straight back and straight on had slid past it again and again)
     // held at a crawl short of it (a queue between: the car ahead, not the target): backed off, then past at a slant,
     // one side and the next time the other
     if (S.round > 0) { S.round -= dt; if (S.round > 1.4) { I.brake = .8; I.steer = -S.side * .6; } else { I.throttle = .75; I.steer = S.side * .7; } return I; }

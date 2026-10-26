@@ -18,7 +18,7 @@ import { E, mocap } from '../engine.js';
 import { drawWeaponInRig, weaponModel, muzzleLocal, gripLocal } from '../render/weapon-models.js';
 
 /** the engine's weapon kind behind each model */
-const HOLD = { pistol: 'gun', smg: 'gun', shotgun: 'gun', launcher: 'gun', flamer: 'gun', zapper: 'gun', phone: 'gun', bat: 'sword', molotov: null, grenade: null };
+const HOLD = { pistol: 'gun', smg: 'gun', shotgun: 'gun', launcher: 'gun', flamer: 'gun', zapper: 'gun', nailgun: 'gun', coil: 'gun', phone: 'gun', bat: 'sword', molotov: null, grenade: null };
 export const RIG_BUILDS = ['chibi', 'heroic', 'bulky'];
 
 export class PedRig {

@@ -61,7 +61,7 @@ export class AutoPlayer {
    *  goal that moved (what it learned on the way kept: the car it is taking, the cars it gave up on, the lanes it keeps
    *  off, how long it has been stuck) */
   goto(x, y, o = {}) {
-    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null, hover: !!o.hover, land: o.land ?? null }; this.state = 'idle'; this.path = null; this._dropBrain();   // (heading: the route's last lane one running that way; hover: a helicopter held over it, not landed)
+    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null, hover: !!o.hover, land: o.land ?? null, taxi: !!o.taxi }; this.state = 'idle'; this.path = null; this._dropBrain();   // (heading: the route's last lane one running that way; hover: a helicopter held over it, not landed)
     // (a new trip's counts start at nothing: they had run on from trip to trip, so a long-lived AutoPlayer (the campaign's,
     // the career's mission bot's) got out of the car at its first box once three were behind it anywhere, gave up a car
     // at a glance once 20 s of walks to doors were, and after its first hop anywhere never walked straight again, each
@@ -428,6 +428,10 @@ export class AutoPlayer {
       if (g.air) { g.air = false; if (g.land !== null && g.land !== undefined) g.down = true; }   // (touched down)
       if (g.down) { I.brake = 1; if (v.speed < 4) { g.down = false; g.done = true; } return I; }   // (down: stopped)
       if (g.done || (d < near && v.speed < 8)) { if (g.foot || !g.stay) return this._exit(v); this.state = 'arrived'; return I; }
+      if (g.taxi) {   // (taxi: along the ground to it, never off it: a hangar's door off the strip's end, flown to and circled for good)
+        const a = steerTo(g.x, g.y, 2.5); I.throttle = v.speed < (Math.abs(a) > .6 ? 14 : 36) ? .5 : 0;
+        if (v.speed > 44 || (d < near * 2 && v.speed > 16)) I.brake = 1; return I;
+      }
       // the run: the way it faces if clear for its roll, else the longest clear one of the compass's eight (and the
       // goal's way), the nearer the goal's the better
       const clear = (hd, len) => { for (let s2 = 24; s2 <= len; s2 += 16) { const x = v.x + Math.cos(hd) * s2, y = v.y + Math.sin(hd) * s2, gr = gnd(x, y); if (gr === null || gr > 3 || (h.water && W.water && !W.water(Math.floor(x / 16), Math.floor(y / 16)))) return s2; } return len; };

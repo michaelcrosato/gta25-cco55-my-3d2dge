@@ -34,7 +34,8 @@ import { exitFor, standable } from '../actors/boarding.js';
 
 const ALERT = 260, MATES = 200, GUARD_SIGHT = 220, ALLY_REACH = 220, FLEE_R = 160, REPLAN = 2, TAKEDOWN_R = 20;
 const NOAIM = { candidates: [], level: 'off' };
-const STYLES = { calm: { speed: 1, gap: 1, patience: 1, calm: true }, fast: { speed: 1.3, gap: .8, patience: .5, calm: true }, race: { speed: 1.55, gap: .6, patience: .2, calm: false } };
+const STYLES = { calm: { speed: 1, gap: 1, patience: 1, calm: true }, fast: { speed: 1.3, gap: .8, patience: .5, calm: true }, race: { speed: 1.55, gap: .6, patience: .2, calm: false },
+  slow: { speed: .5, gap: 1.2, patience: 1, calm: true } };   // (slow: a bus on its round, EXPANSION.md X3)
 
 /** a point: [x, y], { x, y }, or a point of interest's id in the city */
 export function pointOf(city, p) {
@@ -162,6 +163,8 @@ export class MissionActors {
     const inv = K.p.inv; inv.strip(); for (const id of K.kit.weapons) if (id !== 'fists') inv.give(id, 0, true);
     inv.ammo = { ...K.kit.ammo }; inv.mag = { ...K.kit.mag }; inv.select(inv.has(K.kit.current) ? K.kit.current : 'fists');
   }
+  /** a mission vehicle's driver given new orders (o: a drive, as vehicle()'s; null: parked): a bus off its stop */
+  orders(v, o) { const e = this.entry(v); if (!e || e.kind !== 'vehicle') return; e.drive = o ? { ...o, cp: 0, finishedAt: null, replan: 0 } : null; e.brainGoal = null; }
   /** the actors with a tag, oldest first */
   tagged(tag) { const out = []; for (const e of this.list) if (e.tag === tag) out.push(e.a); return out; }
   /** the entry of an actor */
