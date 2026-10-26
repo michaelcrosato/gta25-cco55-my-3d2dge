@@ -1,11 +1,14 @@
-// MAYHEM (PLAN.md 9.5): the three rampages. Each starts on foot at its skull marker in a gang's corner of town, hands
+// MAYHEM (PLAN.md 9.5; EXPANSION.md 5): the rampages, Lowtown's three and Ironside's. Each starts on foot at its skull
+// marker in a gang's corner of town, hands
 // over its weapon (the stage's alone: the player's own come back after) and counts against the clock:
 //   - Zap Rats: the Zap-O-Matic among the Harbor Rats on the Fish Market's quay and round it (its arc chains through a
 //     huddle; four zaps in a row kill). Any Rat zapped down counts, the city's own too;
 //   - Bat Saints: the Lowtown Slugger on the Chrome Saints' car meet round the fountain on Marquee Plaza: beaten to
 //     half, a car's tank catches (stand back: it goes up a few seconds later);
 //   - Boom Gangs: the Boom Tube on gang vehicles parked round the L depot, all three gangs'. Any gang vehicle blown
-//     up counts, the city's own too.
+//     up counts, the city's own too;
+//   - Nail the Scrappers (Ironside, X4): the Nail Gun on the Rust Monks' crane trucks parked round the Scrap
+//     Cathedral. Any Scrapper wrecked or set burning counts, the city's own too.
 // While a rampage runs the precinct turns a blind eye (no stars), and the gang it's against keeps its own out of it
 // (the city's members don't come running, and a stray costs no respect: the rampage's price is its own); however it
 // ends, both are lifted. Proves: MAYHEM's frame (a skull, a weapon, a count, a clock), kills counted by the BUS, a
@@ -26,12 +29,12 @@ function clearSpot(m, p) {
   }
   return p;
 }
-// a rampage: spec { title, at (its skull: a point of interest, or a point), brief, kit (the loadout), need, secs, label, tag (the
+// a rampage: spec { title, district (Lowtown's when unsaid), at (its skull: a point of interest, or a point), brief, kit (the loadout), need, secs, label, tag (the
 // targets the bot is pointed at), text, gangs (whose members keep out of it), spawn(m) (its targets, made once a try),
 // listen(m) (its BUS listeners), count(m) (how many so far), lines, done (the line once it's over), rewards }
 function rampage(id, S) {
   defActivity(id, {
-    title: S.title, kind: 'mayhem', start: { at: S.at, foot: true, radius: 20 }, brief: S.brief, rewards: S.rewards,
+    title: S.title, kind: 'mayhem', district: S.district || 'lowtown', start: { at: S.at, foot: true, radius: 20 }, brief: S.brief, rewards: S.rewards,
     bonus: [{ id: 'fast', text: `Done with ${S.spare} s to spare`, check: m => (m.data.left ?? 0) >= S.spare }],
     stages: [{
       id: 'rampage',
@@ -127,4 +130,27 @@ rampage('mayhem_boom_gangs', {
   },
   listen(m) { m.on('vehicleDestroyed', e => { if (e.by !== m.player.id) return; const v = m.byId(e.vehicle); if (v && v.gang && v.owner !== 'mission') m.data.city++; }); },
   count: m => m.tagged('gcar').filter(blown).length + (m.data.city || 0),
+});
+
+// ---- Nail the Scrappers (Ironside, EXPANSION.md 5, X4): the Rust Monks' Scrappers parked round the Scrap Cathedral's
+// block, in the lanes of Forge Street, Loop Avenue and Crusher Lane each its street's way (75 u and more apart), one
+// in the yard; the skull in the yard's west strip, a sidewalk from Forge Street's three and in nail range of the rest.
+// Nails at a truck: about two dozen wreck one (it burns first, and that counts)
+const SCRAPPERS = [
+  { at: [520, 1000], h: 90 }, { at: [520, 1080], h: 90 }, { at: [520, 1160], h: 90 },
+  { at: [600, 936], h: 0 }, { at: [700, 936], h: 0 }, { at: [800, 936], h: 0 },
+  { at: [600, 1288], h: 0 }, { at: [700, 1288], h: 0 }, { at: [800, 1288], h: 0 },
+];
+rampage('mayhem_nail_scrappers', {
+  title: 'MAYHEM: Nail the Scrappers', district: 'ironside', at: [640, 1112], brief: ['The Nail Gun. The Rust Monks\' Scrappers, round their cathedral.', 'Wreck 8 Scrappers in 1:30. About two dozen nails a truck.'],
+  kit: { weapons: ['nailgun'], ammo: { nailgun: 1200 }, select: 'nailgun' }, need: 8, secs: 90, spare: 30, label: 'SCRAPPERS', tag: 'scrapper',
+  text: 'MAYHEM: wreck 8 Scrappers with the Nail Gun (the city\'s count too)', lines: ['MAYHEM!', 'Eight Scrappers. One Nail Gun. Ninety seconds.'], done: 'MAYHEM over. The Monks are praying for you. Not nicely.',
+  rewards: { cash: 2500, respect: { monks: -10 } }, gangs: ['monks', 'gnomes', 'volts'],   // (all Ironside's out of it: the Gnomes' beat runs down Forge Street through the targets, and a stray nail had a Gnome beat the player down)
+  spawn(m) {
+    if (m.tagged('scrapper').length) return;
+    for (const c of SCRAPPERS) { const q = m.lane(c.at, c.h * Math.PI / 180); m.spawn.vehicle('scrapper', q, { tag: 'scrapper', heading: q.heading, gang: 'monks' }); }
+    m.spawn.vehicle('scrapper', [888, 1096], { tag: 'scrapper', heading: Math.PI / 2, gang: 'monks' });   // (in the yard's east strip)
+  },
+  listen(m) { m.on('vehicleDestroyed', e => { if (e.by !== m.player.id) return; const v = m.byId(e.vehicle); if (v && v.def.id === 'scrapper' && v.owner !== 'mission') m.data.city++; }); },
+  count: m => m.tagged('scrapper').filter(blown).length + (m.data.city || 0),
 });

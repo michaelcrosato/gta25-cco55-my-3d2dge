@@ -375,7 +375,11 @@ export class Career {
     if (this.events.R.actors && this.events.active) this.events.R.actors.draw(stage, fx, fy, reach);
     if (this.holdups) this.holdups.draw(stage, fx, fy, reach);
     const near = (x, y) => Math.abs(x - fx) < reach && Math.abs(y - fy) < reach;
-    for (const mk of this.R.markers) { if (mk.gone || !mk.ring) continue; const a = mk.actor, x = a ? a.x : mk.at[0], y = a ? a.y : mk.at[1]; if (near(x, y)) ring(x, y, mk.color, a ? Math.max(10, (a.hl || 8) + 4) : mk.r, t); }
+    for (const mk of this.R.markers) {
+      if (mk.gone) continue; const a = mk.actor, x = a ? a.x : mk.at[0], y = a ? a.y : mk.at[1]; if (!near(x, y)) continue;
+      if (mk.hoop && W.hoop) W.hoop(x, y, mk.at[2] || 0, mk.color, mk.r, mk.hoop.h || 0);   // (a ring in the air)
+      else if (mk.ring) ring(x, y, mk.color, a ? Math.max(10, (a.hl || 8) + 4) : mk.r, t);
+    }
     if (!this.R.active) {
       for (const m of this.available()) { const at = giverAt(W.city, m); if (near(at[0], at[1])) ring(at[0], at[1], (m.gang && get('gangs', m.gang) ? get('gangs', m.gang).colors[0] : '#ffe066'), 12, t); }
       for (const { at } of this.startable()) if (near(at[0], at[1])) ring(at[0], at[1], '#5af0ff', 22, t);

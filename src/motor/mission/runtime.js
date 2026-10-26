@@ -263,9 +263,10 @@ export class MissionContext {
     this.R.objective = { text, hint: o.hint || null, op: this.R._starting || null };   // (an op's own goes when it ends)
   }
   /** a marker at a point or on an actor (a ring on the floor, a blip on the radar): { remove() }. One made as an op
-   *  starts goes when the op ends */
+   *  starts goes when the op ends. o.hoop: { h } a hoop in the air at the point's height instead, upright across the
+   *  way h it is flown through (a Crop Duster's ring, an Air Race's gate: EXPANSION.md X4) */
   marker(at, o = {}) {
-    const mk = { at: isActor(at) ? null : this.at(at), actor: isActor(at) ? at : null, color: o.color || '#ffe066', r: o.r || 16, blip: o.blip !== false, ring: o.ring !== false, label: o.label || '', gone: false, op: this.R._starting || null, remove() { this.gone = true; } };
+    const mk = { at: isActor(at) ? null : this.at(at), actor: isActor(at) ? at : null, color: o.color || '#ffe066', r: o.r || 16, blip: o.blip !== false, ring: o.ring !== false, hoop: o.hoop || null, label: o.label || '', gone: false, op: this.R._starting || null, remove() { this.gone = true; } };
     this.R.markers.push(mk); return mk;
   }
   /** a GPS route shown to a point (the radar's line, M9): a marker there, routed */

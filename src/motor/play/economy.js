@@ -20,7 +20,7 @@ export const ITEM_KINDS = ['weapon', 'ammo', 'armor', 'health', 'snack', 'mod', 
 const itemsOk = (items, id) => (Array.isArray(items) ? items.flatMap((it, i) => (!it || typeof it.id !== 'string' ? [`item ${i} needs an id`] : !ITEM_KINDS.includes(it.kind) ? [`item "${it.id}": kind "${it.kind}" (${ITEM_KINDS.join(', ')})`] : typeof it.price !== 'number' && typeof it.price !== 'string' ? [`item "${it.id}" needs a price`] : [])) : [`shop ${id}: items should be an array`]);
 const shopShape = shape({ name: { type: 'string', req: true }, poi: { type: 'string', req: true }, items: { type: 'array', def: [] }, drive: { type: 'boolean', def: false }, holdup: { type: 'boolean', def: false }, color: { type: 'string', def: '#ffe066' } });
 declare('shops', (spec, id) => [...shopShape(spec, id), ...itemsOk(spec.items, id)]);
-declare('properties', shape({ name: { type: 'string', req: true }, poi: { type: 'string', req: true }, price: { type: 'any', req: true }, income: { type: 'any', req: true }, cap: { type: 'any', def: 0 } }));
+declare('properties', shape({ name: { type: 'string', req: true }, poi: { type: 'string', req: true }, price: { type: 'any', req: true }, income: { type: 'any', req: true }, cap: { type: 'any', def: 0 }, district: { type: 'string', def: 'lowtown' } }));   // (district: where its door is, EXPANSION.md 2.1)
 
 /** a price, an income, a cap: a number, or a TUNE knob's name */
 export const amountOf = v => (typeof v === 'string' ? TUNE[v] ?? 0 : v || 0);

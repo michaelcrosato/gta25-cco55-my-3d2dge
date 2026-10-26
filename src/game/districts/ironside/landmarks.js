@@ -17,7 +17,8 @@ L('union-hall', 'Union Hall', [{ rect: [13, 36, 25, 46], kind: 'building', store
 L('rail-yard', 'Ironside Rail Yard', [{ rect: [37, 11, 57, 25], kind: 'yard', surface: 'rail' }], [{ id: 'rail-yard', kind: 'landmark', at: [47, 26], label: 'The rail yard' }],
   [{ kind: 'container', at: [41, 14], facing: 0, color: '#8a5a3a', solid: { hx: 20, hy: 8, top: 16 } }, { kind: 'container', at: [52, 22], facing: 0, color: '#3a6ac8', solid: { hx: 20, hy: 8, top: 16 } }]);
 L('launderette', "Sudsy's Launderette", [{ rect: [40, 41, 48, 48], kind: 'building', storeys: 2, look: brick('#c8b8a0', '#5a4a40', { face: 'plaster', door: { chance: 1 } }), sign: { text: "SUDSY'S", color: '#5af0ff' } }, { rect: [37, 49, 49, 49], kind: 'plaza', surface: 'plaza' }],
-  [{ id: 'safehouse', kind: 'safehouse', at: [44, 50], label: "The flat over Sudsy's" }, { id: 'ironside-board', kind: 'landmark', at: [39, 50], label: 'The planning board' }]);   // (the crew's board for Blackout, EXPANSION.md X3: in the flat, its marker at the plaza's west end)
+  [{ id: 'safehouse', kind: 'safehouse', at: [44, 50], label: "The flat over Sudsy's" }, { id: 'ironside-board', kind: 'landmark', at: [39, 50], label: 'The planning board' },
+    { id: 'launderette', kind: 'property', property: 'launderette', at: [48, 50], label: "Sudsy's Launderette" }]);   // (the shop under the flat, for sale: EXPANSION.md 5, X4)   // (the crew's board for Blackout, EXPANSION.md X3: in the flat, its marker at the plaza's west end)
 L('smelting', 'Ironside Smelting Co.', [{ rect: [50, 36, 57, 47], kind: 'building', storeys: 4, look: brick('#6e4436', '#363230', { windows: { lit: .4, w: 6, h: 5 } }), sign: { text: 'SMELTING CO.', color: '#ffa23a' } }, { rect: [50, 48, 57, 49], kind: 'yard', surface: 'yard' }],
   [{ id: 'smelting', kind: 'landmark', at: [53, 50], label: 'Ironside Smelting Co.' }],
   [{ kind: 'chimney', at: [52.5, 38.5], z: 96, roof: true }, { kind: 'chimney', at: [55.5, 38.5], z: 96, roof: true }]);
@@ -30,7 +31,7 @@ L('scrap-cathedral', 'The Scrap Cathedral', [{ rect: [37, 63, 57, 75], kind: 'ya
   [{ id: 'scrap-cathedral', kind: 'landmark', at: [47, 76], label: 'The Scrap Cathedral' }, { id: 'phone-monks', kind: 'payphone', at: [38, 77] }],
   [{ kind: 'container', at: [38.5, 64], facing: Math.PI / 2, color: '#7a4a2e', solid: { hx: 8, hy: 20, top: 16 } }, { kind: 'container', at: [56, 65], facing: Math.PI / 2, color: '#5a5a5e', solid: { hx: 8, hy: 20, top: 16 } },
     { kind: 'container', at: [38.5, 72], facing: Math.PI / 2, color: '#8a3a2a', solid: { hx: 8, hy: 20, top: 16 } }, { kind: 'container', at: [56, 72], facing: Math.PI / 2, color: '#6a5a3a', solid: { hx: 8, hy: 20, top: 16 } }]);
-L('scrap-crusher', 'Monk & Sons Crushing', [{ rect: [11, 85, 27, 95], kind: 'yard', surface: 'yard' }], [{ id: 'scrap-crusher', kind: 'landmark', at: [19, 84], label: 'Monk & Sons Crushing' }],
+L('scrap-crusher', 'Monk & Sons Crushing', [{ rect: [11, 85, 27, 95], kind: 'yard', surface: 'yard' }], [{ id: 'scrap-crusher', kind: 'landmark', at: [15, 84], label: 'Monk & Sons Crushing' }],   // (west of the Crusher Yard's kicker: the yard's Hookline parks off its run-up)
   [{ kind: 'crusher', at: [19.5, 90.5], solid: { hx: 20, hy: 14, top: 30 } }, { kind: 'mound', at: [13.5, 93.5], solid: { hx: 20, hy: 14, top: 10 } }, { kind: 'mound', at: [25.5, 93.5], solid: { hx: 20, hy: 14, top: 10 } }]);
 L('spray-pray-west', 'Spray & Pray West', [{ rect: [38, 86, 45, 92], kind: 'building', storeys: 1, look: brick('#5a6a8a', '#3a3a44', { door: { chance: 1, w: 12, h: 14 } }), sign: { text: 'SPRAY & PRAY', color: '#ff8af0' } }],
   [{ id: 'spray-pray', kind: 'shop', shop: 'respray', at: [41, 84], label: 'Spray & Pray West' }]);
@@ -51,4 +52,14 @@ L('pylon-line', 'The pylon line', [{ rect: [97, 35, 98, 49], kind: 'yard', surfa
   [[98, 37], [98, 47], [98, 65], [98, 73]].map(at => ({ kind: 'pylon', at, facing: Math.PI / 2, solid: { hx: 9, hy: 9, top: 116 } })));
 // (the runway a lot of its own kind, 'construction', paved: a yard's would be strewn with crates, a plaza's lit on a grid)
 L('airstrip', 'Ironside Airstrip', [{ rect: [71, 85, 112, 95], kind: 'construction', surface: 'road' }, { rect: [104, 86, 111, 91], kind: 'building', storeys: 2, look: metal('#7a8a8a', '#4a5458', { windows: { lit: .25 } }), sign: { text: 'AIRSTRIP', color: '#7af0ff' } }],
-  [{ id: 'airstrip', kind: 'landmark', at: [90, 97], label: 'Ironside Airstrip' }]);
+  [{ id: 'airstrip', kind: 'landmark', at: [90, 97], label: 'Ironside Airstrip' }, { id: 'hangar', kind: 'property', property: 'airstrip', at: [103, 89], label: 'The hangar' }]);   // (the hangar's door on the runway, for sale: X4)
+// (EXPANSION.md 5, X4) the allotments: rows of beans and cabbages on Voltage Row's open block south of Loop Avenue,
+// Crop Duster's field (a lot of the runway's kind, grassed: no trees or lamps for the Duster to clip)
+L('allotments', 'Voltage Row Allotments', [{ rect: [71, 63, 87, 75], kind: 'construction', surface: 'grass' }], [{ id: 'allotments', kind: 'landmark', at: [79, 62], label: 'The allotments' }]);
+// (X4) the slag tip: the smelters' dross dumped on the block north of Substation 9, bare dirt; the Slag Heap's kicker
+// and landing are stunts/ironside.js's ramps
+L('slag-tip', 'Ironside Slag Tip', [{ rect: [71, 11, 87, 25], kind: 'construction', surface: 'dirt' }], [{ id: 'slag-tip', kind: 'landmark', at: [79, 26], label: 'The slag tip' }]);
+// (X4) Ironside's Kwik-Lux, on Crusher Lane east of Spray & Pray West, its front on the sidewalk: its till for a hold-up
+// (the clerk faces out from the wall behind the counter's spot)
+L('kwik-lux-ironside', 'Kwik-Lux (Ironside)', [{ rect: [49, 85, 55, 90], kind: 'building', storeys: 1, look: metal('#3a5a4a', '#2a3a32', { door: { chance: 1 } }), sign: { text: 'KWIK-LUX', color: '#5aff8a' } }],
+  [{ id: 'kwik-lux-ironside', kind: 'shop', shop: 'kwiklux', holdup: true, at: [52, 84], label: 'Kwik-Lux' }]);

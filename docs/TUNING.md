@@ -367,6 +367,12 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `price_arcade` Pixel Palace Arcade | 25000 | 0..200000 | Pixel Palace Arcade ($) |
 | `income_arcade` Arcade income | 900 | 0..20000 | Arcade income ($) |
 | `cap_arcade` Arcade till | 4500 | 0..100000 | Arcade till ($) |
+| `price_launderette` Sudsy's Launderette | 20000 | 0..200000 | Sudsy's Launderette ($) |
+| `income_launderette` Launderette income | 700 | 0..20000 | Launderette income ($) |
+| `cap_launderette` Launderette till | 3500 | 0..100000 | Launderette till ($) |
+| `price_airstrip` Ironside Airstrip | 40000 | 0..200000 | Ironside Airstrip ($) |
+| `income_airstrip` Airstrip income | 1200 | 0..20000 | Airstrip income ($) |
+| `cap_airstrip` Airstrip till | 6000 | 0..100000 | Airstrip till ($) |
 
 ## Economy
 

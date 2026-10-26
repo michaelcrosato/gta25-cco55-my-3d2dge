@@ -1775,3 +1775,37 @@ and where it landed.
     the Scrapper takes its model's class (tow); the weapon recipe's fixture is a Staple Gun (the Nail Gun is Ironside's
     own).
 - **Answered:** no. **Landed in:** X3.
+
+## D41 · 2026-10-26 · X4: Ironside's side content
+- **Principle:** EXPANSION.md 5 and X4's acceptance (each activity through the bot on seeds 1-3 and a pad; the campaign
+  completes Lowtown and Ironside); D21 after the MOTOR and bot changes it needed.
+- **Calls:**
+  - **Crop Duster** (a job, three levels; the Duster from the phone's JOBS): rings hung over the allotments' rows and
+    round the runway, flown through in order against the clock, 12, 16 and 24 of them (one and a half, two and three
+    times round the field). A ring counts within 50 across and 30 of its height. The field is flown at a dusting pace
+    (the bot's 130 u/s): at the Duster's top speed its turns are too wide for the rings.
+  - **The Ironside Air Race** is flown against the board, not against rivals in the air: the Airstrip's three best
+    times (21, 24 and 28 s) are the racers, a podium beats the third, the purse pays by the place. There is no AI
+    pilot (the AutoPlayer flies the player's plane, and the slice's racers are road drivers); the board makes the race
+    the same each time. Twelve gates round the works, taxied to the line on the runway, a countdown, a false start
+    fails. The bot flies it in 21.8 s on every seed: second, behind Ace Malone.
+  - **MAYHEM: Nail the Scrappers:** the Nail Gun against ten of the Monks' Scrappers round the Scrap Cathedral; eight
+    in 1:30. All three of Ironside's gangs are out of it (a Gnome patrol walks its beat through the targets).
+  - **The stunts:** the Flyover's End (a spur off the Flyover's west side, over the Monks' yard: a road deck like the
+    Loop Gap, whose lanes join none of the Flyover's, so the road graph keeps none on it and the traffic never takes
+    it), the Slag Heap (a kicker and a landing on the slag tip, a new lot north of Substation 9) and the Crusher Yard (a
+    kicker in Monk & Sons' yard, beside the crusher); the slag tip, the allotments and the airstrip are lots of the
+    runway's kind (no trees, lamps or crates); a deck takes a `surface` (the Slag Heap's of dross, `'slag'`), and a
+    `noSpawn` zone keeps parked cars off each kicker's run-up (the look read found one at the Slag Heap's foot).
+  - **15 Moto Tokens** on what the map fixes; none on a deck: a body walking up a ramp's lane is knocked back down it
+    by the traffic (the spur's token is under its end).
+  - **The properties** (Sudsy's Launderette, the Airstrip's hangar) and **the hold-up** (the Ironside Kwik-Lux on
+    Crusher Lane); a property names its district (`district`, Lowtown's when unsaid).
+  - **The attract reel** CROP DUSTER plays in Ironside: a reel names its district (`district`), and the attract mode
+    enters it.
+  - **MOTOR's part:** the AutoPlayer flies a plane through a goal with a height (never circling it, kept 40 over what
+    stands there) and at a goal's speed (`goto`'s `speed`); a mission marker can be a hoop in the air (`hoop`); a plane
+    that flies into a wall or a lamp stops there and drops (it had hung stalled against a lamp for good); a crowd's
+    gang member a job has out of it never squares up to the player's aim; the campaign plays each district's own and
+    crosses an open bridge to the next.
+- **Answered:** no. **Landed in:** X4.

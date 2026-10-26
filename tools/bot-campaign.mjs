@@ -6,7 +6,9 @@
 // walked into (the bot accepts the JOB card), a job from the phone in its vehicle, a race's start driven into, a token
 // walked onto, a stunt driven at flat out, a property's BUY prompt pressed and its confirm card accepted. Stars left
 // over from a job are lost first, as a player would (the MissionBot's evade); a property short of cash waits for the
-// pay of what comes after it, or of a job played again.
+// pay of what comes after it, or of a job played again. Each district's (EXPANSION.md 2.1) are played in it: with
+// nothing left where it stands, it crosses an open bridge to a district with something left (by the dev teleport, onto
+// the bridge's gate), and Lowtown's missions open Ironside's bridge.
 //   node tools/bot-campaign.mjs [--seed 1] [--hours 8] [--verbose] [--only id,id [--ready]] [--mortal]  ·  exit 0 at 100%
 //   (--only: those items alone, every other mission, activity, token, stunt and property passed over: a probe of what
 //   failed; --ready: every other mission done and $20,000 in hand first, so a late mission is on offer at once).
@@ -158,6 +160,26 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   const onlySet = only ? new Set(only) : null, mine = id => !onlySet || onlySet.has(id);
   const tried = new Map(), again = k => { if (!mine(k.split(':')[1])) return false; const n = (tried.get(k) || 0) + 1; tried.set(k, n); return n <= TRIES; };
   const startAt = a => { const q = typeof a.start.at === 'string' ? city.poi(a.start.at) : null; return q ? [q.x, q.y] : a.start.at; };
+  // the districts (EXPANSION.md 2.1): where the player is, where a token's set is; a district with something left in
+  // it that the campaign may still try (a mission on offer by what's done, an activity, a token, a stunt, a property),
+  // over an open bridge from here; and the crossing to it, by the dev teleport onto the bridge's gate
+  const here = () => C().district || 'lowtown';
+  const tokenIn = s => (M.get('collectibles', s.set) || {}).district || 'lowtown';
+  const left = d => {
+    const done = S().missions.done, A3 = S().activities, can = k => (tried.get(k) || 0) < TRIES && mine(k.split(':')[1]);
+    return M.all('missions').some(q => q.district === d && !done.includes(q.id) && (q.requires || []).every(r => done.includes(r)) && can('m:' + q.id))
+      || M.all('activities').some(a => a.district === d && a.kind !== 'event' && (A3[a.id] || 0) < (a.kind === 'job' ? a.levels || 1 : 1) && (a.kind === 'job' ? can(`a:${a.id}:${(A3[a.id] || 0) + 1}`) : can(`a:${a.id}:1`)))
+      || M.Collectibles.spots().some(s => tokenIn(s) === d && !S().collectibles.includes(s.id) && can('t:' + s.id))
+      || M.all('stunts').some(s => s.district === d && !S().stunts.includes(s.id) && can('s:' + s.id))
+      || M.all('properties').some(q => q.district === d && !owned(q.id) && can('p:' + q.id));
+  };
+  const elsewhere = () => { const X = gtm.crossings; return X ? (X.list.find(c => c.open && c.to !== here() && left(c.to)) || null) : null; };
+  const cross = c => {
+    const t0 = t, from = here(), [x0, y0, x1, y1] = c.gate, T = city.T; cool(); onFoot(); const p = P(); if (p.seat) p.seat.vehicle.unseat(p);
+    gtm.teleport((x0 + x1 + 1) / 2 * T, (y0 + y1 + 1) / 2 * T); const ok = run(20, () => here() === c.to); run(2);
+    steps.push({ what: 'crossing', id: `${from}>${c.to}`, ok, secs: Math.round(t - t0), why: ok ? '' : 'still in ' + here() }); say(`crossing ${c.id} to ${c.to}: ${ok ? 'over' : 'NOT over (still in ' + here() + ')'}`);
+    return ok;
+  };
 
   // ---- each kind of thing to do
   const mission = m => play('mission', m.id, () => { const at = C().giverOf(m); teleport(at[0], at[1]); return walk(at[0], at[1], { until: () => ours(m.id) }) && ours(m.id); });
@@ -180,7 +202,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     teleport(at[0], at[1]); run(2);   // (there first, as a player takes a car there: the traffic about it filled in)
     const nd = need === true ? null : need, { v, ok: aboard } = takeCar(() => carNear(at[0], at[1], nd, 600, false, at), () => carNear(at[0], at[1], nd, 300, true, at), () => carNear(P().x, P().y, nd, 1e9, false, at));
     if (!v) { why = 'no ' + (need === true ? 'car' : [].concat(need).join('/')) + ' near its start'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
-    A.goto(at[0], at[1], { car: v, stay: true }); const ok = auto(240, () => ours(a.id)) && (ours(a.id) || pilot(() => { const I = M.clearIntent(idle); I.down.handbrake = true; return I; }, 6, () => ours(a.id))); if (!ok) why = `drove to ${Math.round(P().x)},${Math.round(P().y)}: ${Math.round(Math.hypot(at[0] - P().x, at[1] - P().y))} u from the start`; return ok;
+    A.goto(at[0], at[1], { car: v, stay: true, taxi: v.cls === 'plane' }); const ok = auto(240, () => ours(a.id)) && (ours(a.id) || pilot(() => { const I = M.clearIntent(idle); I.down.handbrake = true; return I; }, 6, () => ours(a.id))); if (!ok) why = `drove to ${Math.round(P().x)},${Math.round(P().y)}: ${Math.round(Math.hypot(at[0] - P().x, at[1] - P().y))} u from the start`; return ok;
   });
   const token = s => {
     const way = [...(s.via || []), s.at], t0 = t; roam = true; teleport(way[0][0], way[0][1]);
@@ -254,20 +276,21 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   run(3);
   if (R().state === 'running') play('mission', R().id, () => true);
   while (t < limit) {
-    const c = M.completion(S()), G = gtm.life && gtm.life.gangs; say(`completion ${c.pct.toFixed(1)}%  $${gtm.crew.fund}${G ? '  respect ' + ['saints', 'rats', 'gnomes'].map(k => k + ' ' + Math.round(G.get(k))).join(', ') : ''}`); if (c.tenths >= 1000) break;
+    const c = M.completion(S()), G = gtm.life && gtm.life.gangs; say(`completion ${c.pct.toFixed(1)}%  $${gtm.crew.fund}  ${here()}${G ? '  respect ' + M.all('gangs').map(q => q.id + ' ' + Math.round(G.get(q.id))).join(', ') : ''}`); if (c.tenths >= 1000) break;
     const m = C().available().find(q => again('m:' + q.id)); if (m) { mission(m); continue; }
-    const A2 = S().activities, todo = M.all('activities').filter(a => a.kind !== 'event' && (A2[a.id] || 0) < (a.kind === 'job' ? a.levels || 1 : 1));
+    const A2 = S().activities, todo = M.all('activities').filter(a => a.kind !== 'event' && a.district === here() && (A2[a.id] || 0) < (a.kind === 'job' ? a.levels || 1 : 1));
     const key = q => `a:${q.id}:${(A2[q.id] || 0) + 1}`, n = q => tried.get(key(q)) || 0;
     const a = [...todo].sort((x, y) => n(x) - n(y)).find(q => again(key(q)));   // (one that failed waits behind the rest, as TRIES says: tried back to back, a job had met the same jam on the Harborfront's streets three times over)
     if (a) { if (a.kind === 'job' && a.start.vehicle) job(a, (A2[a.id] || 0) + 1); else activity(a); continue; }   // (a job started on foot, at its marker: L Courier's at Palm station, as an activity's start)
-    const tok = M.Collectibles.spots().find(s => !S().collectibles.includes(s.id) && again('t:' + s.id)); if (tok) { token(tok); continue; }
-    const st = M.all('stunts').find(s => !S().stunts.includes(s.id) && again('s:' + s.id)); if (st) { stunt(st); continue; }
-    const pr = M.all('properties').find(q => !owned(q.id) && gtm.crew.fund >= Math.round(M.amountOf(q.price)) && again('p:' + q.id)); if (pr) { property(pr); continue; }
-    // short of a property's price: a job at its top level again for its pay (the best paying one)
-    const want = M.all('properties').find(q => !owned(q.id) && (tried.get('p:' + q.id) || 0) < TRIES);
-    const jobs = M.all('activities').filter(q => q.kind === 'job' && (A2[q.id] || 0) >= (q.levels || 1)), pay = q => ((q.rewardsFor ? q.rewardsFor(q.levels || 1) : q.rewards) || {}).cash || 0;
+    const tok = M.Collectibles.spots().find(s => tokenIn(s) === here() && !S().collectibles.includes(s.id) && again('t:' + s.id)); if (tok) { token(tok); continue; }
+    const st = M.all('stunts').find(s => s.district === here() && !S().stunts.includes(s.id) && again('s:' + s.id)); if (st) { stunt(st); continue; }
+    const pr = M.all('properties').find(q => q.district === here() && !owned(q.id) && gtm.crew.fund >= Math.round(M.amountOf(q.price)) && again('p:' + q.id)); if (pr) { property(pr); continue; }
+    // short of a property's price: a job at its top level again for its pay (the best paying one, here)
+    const want = M.all('properties').find(q => q.district === here() && !owned(q.id) && (tried.get('p:' + q.id) || 0) < TRIES);
+    const jobs = M.all('activities').filter(q => q.kind === 'job' && q.district === here() && (A2[q.id] || 0) >= (q.levels || 1)), pay = q => ((q.rewardsFor ? q.rewardsFor(q.levels || 1) : q.rewards) || {}).cash || 0;
     const best = jobs.sort((x, y) => pay(y) - pay(x))[0];
     if (want && best && pay(best) > 0 && again('cash:' + Math.floor(t / 60))) { if (best.start.vehicle) job(best, best.levels || 1); else activity(best); continue; }
+    const away = elsewhere(); if (away && cross(away)) continue;   // (nothing left here: over a bridge to what's left there)
     break;   // (nothing left that might still go)
   }
   const c = M.completion(S()), fund = gtm.crew.fund, errors = [...R().errors.map(e => String(e.err && e.err.message || e.err)), ...gtm.BUS.errors.map(e => String(e.err && e.err.message || e.err))];

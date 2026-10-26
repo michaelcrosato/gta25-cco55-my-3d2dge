@@ -111,7 +111,8 @@ test('Ironside: it validates, plays with its traffic and crowd, has its doors, o
   for (const id of ['safehouse', 'hospital', 'precinct']) assert.ok(C.poi(id), 'its ' + id);
   const home = C.poi('safehouse'); assert.ok(Math.hypot(gtm.crew.ped.x - home.x, gtm.crew.ped.y - home.y) < 80, 'at its safehouse');
   assert.ok(['The Foundry', 'Scrapyard Flats', 'Voltage Row'].includes(s.hood), 'in one of its neighbourhoods: ' + s.hood);
-  assert.equal(gtm.career.available().length, 0, 'none of Lowtown\'s missions on offer'); assert.equal(gtm.career.startable().length, 0, 'nor its activities');
+  assert.equal(gtm.career.available().length, 0, 'none of Lowtown\'s missions on offer'); const st = gtm.career.startable().map(q => q.spec);
+  assert.ok(st.length >= 2 && st.every(a => a.district === 'ironside'), 'nor its activities: Ironside\'s own (X4): ' + st.map(a => a.id).join());
   assert.equal(gtm.crossings.get('east-bridge').open, true, 'the east bridge open');
   // (WRECKED here: St. Sooty's)
   gtm.combat.hurt(gtm.crew.ped, { amount: 999, kind: 'bullet', by: null }); g.game.advance(6);

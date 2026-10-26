@@ -10,7 +10,7 @@ import { shape } from '../core/schema.js';
 
 /** the bot hints an objective can carry, and the fields each needs ([x, y] points; tags name mission actors) */
 export const HINTS = {
-  goto: ['at'],                // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); inVehicle (in one, never left); interact (△ there); hover (a helicopter held over it, not landed); land (a plane set down on the strip that ends there: its heading, radians);
+  goto: ['at'],                // at: [x, y] (or route: [[x, y], ...]); radius; foot; vehicle (a tag to be in); inVehicle (in one, never left); interact (△ there); hover (a helicopter held over it, not landed); land (a plane set down on the strip that ends there: its heading, radians); speed (a plane flown there at it, u/s);
                                // spray: [x, y] (within reach, aimed there, the fire button held: a fire hose's, a gun's); reach
   enterVehicle: ['vehicle'],   // vehicle: a tag
   kill: ['targets'],           // targets: a tag; vehicle (a tag: rammed from that vehicle, never left for the job on foot)
@@ -74,7 +74,7 @@ declare('activities', (spec, id) => [...activityShape(spec, id), ...checkStages(
 // in a fresh world; each stage may name its view (the director's camera plan) and a caption. It pays nothing and is
 // never recorded
 const reelShape = shape({ title: { type: 'string', req: true }, shows: { type: 'string', def: '' }, views: { type: 'array', def: [] },
-  time: { type: 'number', def: 90, min: 10 }, stages: { type: 'array', req: true } });
+  time: { type: 'number', def: 90, min: 10 }, stages: { type: 'array', req: true }, district: { type: 'string', def: 'lowtown' } });   // (district: the one it plays in, EXPANSION.md X4)
 declare('reels', (spec, id) => [...reelShape(spec, id), ...checkStages(spec.stages), ...spec.stages.filter(s => s && s.view && !['iso', 'top', 'side7', 'chase'].includes(s.view)).map(s => `stage "${s.id}": view "${s.view}" (iso, top or side7)`)]);
 /** register a reel: defReel(id, { title, shows, views, time (s: the most it may run), stages: [{ id, view, caption,
  *  setup(m), *run(m) }] }) */

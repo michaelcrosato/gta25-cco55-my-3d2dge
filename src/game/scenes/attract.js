@@ -1,8 +1,9 @@
 // The attract mode (PLAN.md 8.20, 9.11): after TUNE.attractIdle seconds without input on the title or a menu opened from
-// it (and at once on a kiosk), the game plays itself. Each reel in a fresh Lowtown: the play scene in its demo mode (the
-// attract seed plus the reel's count, its own state objects, a blank save never written, no stats or records kept), the
-// rumble off, sound only if the browser already let it play. MOTOR's Director runs the show: the five reels
-// (src/game/reels/) played by the mission bot, a card every two or three (the title card, HOW TO PLAY, LOWTOWN'S MOST
+// it (and at once on a kiosk), the game plays itself. Each reel in a fresh city, its district's (Lowtown's; Ironside's
+// for CROP DUSTER, EXPANSION.md X4): the play scene in its demo mode (the attract seed plus the reel's count, its own
+// state objects, a blank save never written, no stats or records kept), the rumble off, sound only if the browser
+// already let it play. MOTOR's Director runs the show: the six reels (src/game/reels/) played by the mission bot, a
+// card every two or three (the title card, HOW TO PLAY, LOWTOWN'S MOST
 // WANTED: src/game/ui/attract-cards.js), the camera plan and its captions, the watchdog. Over it: the logo's bug with
 // its DEMO badge, PRESS ANY BUTTON blinking.
 //   Out: any input from any device (a key, bound or not; the mouse moved, a click, the wheel; a pad's button, stick or
@@ -12,7 +13,7 @@
 // else says BEST WITH A CONTROLLER (at most every TUNE.attractTapNote s); a key or a controller (pressed, or newly
 // connected) opens the title and normal play. #attract starts here; #attract/<reel> plays that one reel over and over
 // (no cards: the reels' tests and tools/record-attract.mjs).
-import { E, def, all, expose, TUNE, knob, RNG, resetActorIds, Director, wokeBy, List, UI, settingRows, hudLayout } from '../../motor/index.js';
+import { E, def, all, get, expose, TUNE, knob, RNG, resetActorIds, Director, wokeBy, List, UI, settingRows, hudLayout } from '../../motor/index.js';
 import { PLAY } from './play.js';
 import { drawCard } from '../ui/attract-cards.js';
 import { creditsScreen } from '../ui/credits.js';
@@ -31,7 +32,7 @@ def('scenes', 'attract', {
     const host = {
       startReel(id, s) {
         seed = s; if (built) play.exit();
-        play.enter({}); built = true; card = null; fade = FADE; exposeAll();
+        play.enter({ district: (get('reels', id) || {}).district }); built = true; card = null; fade = FADE; exposeAll();   // (in the reel's district: Ironside's in Ironside)
         if (viewStyle !== 'auto') game.setView(viewStyle);
         play.career.startReel(id);
       },

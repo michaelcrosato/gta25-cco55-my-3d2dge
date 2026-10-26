@@ -72,9 +72,10 @@ export class PlaneBody extends VehicleBody {
     this.u += ((h.top * (.3 + .7 * thr) * (1 - .45 * brk) - this.u) * .6 - (this.stalled ? 0 : this.vz * .35)) * dt;   // (a climb costs speed and a dive gives it, while the wings bite)
     if (this.stalled) { this.vz += (-220 - this.vz) * 2 * dt; this.u += 25 * dt; this.bank *= Math.max(0, 1 - dt); }
     else { const lift = E.clamp((this.u - h.stall) / (h.stall * .5), 0, 1); this.vz += (climb * h.climb * lift - this.vz) * 4 * dt; }
-    const nx = this.x + this.vx * dt, ny = this.y + this.vy * dt, nz = Math.min(h.ceiling, this.z + this.vz * dt), g = this.ground(world, nx, ny);
-    if (g !== null && g > nz + 2 && g > this.z) {   // (a wall, a roof's side: flown into)
-      this.felt.hit = this.u * h.mass * .6; this.felt.hitX = nx; this.felt.hitY = ny; this.u *= .2; this.vz = Math.min(this.vz, 0); return;
+    let nx = this.x + this.vx * dt, ny = this.y + this.vy * dt, g = this.ground(world, nx, ny); const nz = Math.min(h.ceiling, this.z + this.vz * dt);
+    if (g !== null && g > nz + 2 && g > this.z) {   // (a wall, a roof's side, a lamp: flown into, it stops there and drops; it had hung stalled against a lamp for good)
+      this.felt.hit = this.u * h.mass * .6; this.felt.hitX = nx; this.felt.hitY = ny; this.u *= .2; this.vz = Math.min(this.vz, 0);
+      nx = this.x; ny = this.y; g = this.ground(world);
     }
     this.x = M ? E.clamp(nx, 8, Wd - 8) : nx; this.y = M ? E.clamp(ny, 8, Hd - 8) : ny; this.z = nz; this.v = 0;
     this.pitch = Math.atan2(this.vz, Math.max(1, this.u)); this.tiltF = -this.pitch; this.tiltS = this.bank;

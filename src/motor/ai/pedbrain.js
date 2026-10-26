@@ -379,10 +379,11 @@ export class PedBrain {
         if (d < 72 && toward > .75 && w.city) { const s = w.city.surfaceAtPoint(v.x, v.y); if (s !== 'road' && s !== 'bridge') { this.react('flee', { x: v.x, y: v.y, t: 2.5 + this._r() * 2 }); break; } }
       }
     }
-    // aimed at by the player: cower, or run (the brave and tough square up)
+    // aimed at by the player: cower, or run (the brave and tough square up; never a gang's member while a job has it out
+    // of it, w.truce: a MAYHEM's Nail Gun swung past the Monks at their own cathedral had them shooting the player down)
     const pl = w.player;
     if (near && pl && pl.aiming && !this.busy && pl.aimer && this._aimedAt(pl)) {
-      if (this.traits.tough > .6 && this.traits.brave > .5) this.react('fight', { target: pl });
+      if (this.traits.tough > .6 && this.traits.brave > .5 && !(p.gang && w.truce && w.truce.has(p.gang))) this.react('fight', { target: pl });
       else if (this._r() < .7) this.react('cower', { by: pl }); else this.react('flee', { x: pl.x, y: pl.y });
     }
     // rain: some go under cover, the rest hurry; dry again, out they come

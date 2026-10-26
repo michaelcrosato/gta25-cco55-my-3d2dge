@@ -194,7 +194,7 @@ export class MissionBot {
   _go(dt, p, x, y, o, w) {
     const A = this.auto, g = A.goal;
     if (!g || g.board || !!g.foot !== !!o.foot || !!g.stay !== !!o.stay || !!g.hold !== !!o.hold || (g.style || 'player') !== (o.style || 'player')) A.goto(x, y, o);
-    else if (this.re <= 0 && Math.hypot(g.x - x, g.y - y) > (o.slack ?? 24)) { this.re = RETARGET; A.goto(x, y, { ...o, keep: true }); }
+    else if ((this.re <= 0 && Math.hypot(g.x - x, g.y - y) > (o.slack ?? 24)) || (o.z != null && g.z != null && Math.abs(g.z - o.z) > 16)) { this.re = RETARGET; A.goto(x, y, { ...o, keep: true }); }   // (a goal's height moved: a plane's next ring, at once)
     return A.update(dt, p, w);
   }
   // into that vehicle: a long way off, near it first by any means (a car taken, as the AutoPlayer does), then to its door
@@ -235,7 +235,7 @@ export class MissionBot {
       if (G.i < h.path.length) { const q = h.path[G.i], I = clearIntent(this.I), dx = q[0] - p.x, dy = q[1] - p.y, l = Math.hypot(dx, dy) || 1; I.move[0] = dx / l; I.move[1] = dy / l; return I; }
     }
     if (h.interact && !p.seat && Math.hypot(at[0] - p.x, at[1] - p.y) < Math.min(16, h.radius || 16)) { const I = clearIntent(this.I); const beat = this.t * 4 | 0; if (beat % 2 === 0) { I.down.interact = true; if (beat !== this._tapBeat) { this._tapBeat = beat; I.tap.interact = true; } } return I; }   // (there: △, a door's or a prompt's)
-    return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat, hover: !!h.hover, land: h.land ?? null, taxi: !!h.taxi }, w);   // (land: a plane set down on the strip ending there, its heading; to be got to in a vehicle: never out of it in a jam, backed and driven round again and again: H4's getaway failed on "Dex left the getaway car")
+    return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat, hover: !!h.hover, land: h.land ?? null, taxi: !!h.taxi, speed: h.speed ?? null }, w);   // (land: a plane set down on the strip ending there, its heading; to be got to in a vehicle: never out of it in a jam, backed and driven round again and again: H4's getaway failed on "Dex left the getaway car")
   }
   _deliver(dt, p, R, h, w) {
     const what = R.actors.tagged(h.what).find(alive), v = p.seat && p.seat.vehicle;

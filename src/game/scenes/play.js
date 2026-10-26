@@ -302,6 +302,15 @@ export const PLAY = {
         g.strokeStyle = color; g.lineWidth = 1.5; g.globalAlpha = .85; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const q of pts) g.lineTo(q[0], q[1]); g.stroke(); g.globalAlpha = 1;
       });
     }
+    // a hoop in the air (a mission marker's: a Crop Duster's ring, an Air Race's gate, EXPANSION.md X4): upright across
+    // the way it is flown through (h), pulsing, drawn in depth with what stands round it, lit (it reads at night)
+    function hoop(x, y, z, color, r = 40, h = 0) {
+      const t = game.real, c = Math.cos(h + Math.PI / 2), s = Math.sin(h + Math.PI / 2);
+      stage.shape(x, y, z, (g, P) => {
+        const k = 1 + .06 * Math.sin(t * 4), pts = []; for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2, q = P.proj(x + c * Math.cos(a) * r * k, y + s * Math.cos(a) * r * k, z + Math.sin(a) * r * k); if (!q) return; pts.push(q); }
+        g.strokeStyle = color; g.lineWidth = Math.max(1.5, 3 * pts[0][2]); g.globalAlpha = .9; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const q of pts) g.lineTo(q[0], q[1]); g.stroke(); g.globalAlpha = 1;
+      }, { emissive: true });
+    }
     // indoors: the interior's lamps, its guards and cameras, its doors, the possessed one and the fights' effects
     function drawInside(p, fx0, fy0) {
       const R = inside.run, T = R.map.T;
@@ -332,6 +341,7 @@ export const PLAY = {
       snap: () => { game.cam.snap = true; const p = hero(), v = p.seat && p.seat.vehicle; footprint.update(v ? v.x : p.x, v ? v.y : p.y); },
       fade: go => through(go),
       ring: (x, y, color, r) => doorRing(x, y, color, r),
+      hoop: (x, y, z, color, r, h) => hoop(x, y, z, color, r, h),
       outfit: i => { const ch = chOf(crew.active), look = ch && ch.outfits[i]; if (look) { hero().rig.setLook(look); crew.member(crew.active).outfit = i; } },
       stash: (v, id, at) => career && career.stash(v, id, at),
       garaged: id => (career ? career.garaged(id) : null),

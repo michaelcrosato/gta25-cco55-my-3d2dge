@@ -2,8 +2,9 @@
 // Lowtown across the canal. The Foundry (north-west), Scrapyard Flats (south-west) and Voltage Row (the east half);
 // the canal down the east edge (Lowtown beyond it) and the river along the south. Loop Avenue comes over the canal from
 // Lowtown on the east bridge and runs west through the middle; Ironside Avenue runs north to south, carried over the
-// works on the Flyover (z 64) between Union Street and Crusher Lane. The streets are one-way, as Lowtown's: Smelter
-// Street, Canal Street, River Road and Picket Row make a clockwise ring, and the streets inside it alternate.
+// works on the Flyover (z 64) between Union Street and Crusher Lane, its unfinished spur west over the Monks' yard. The
+// streets are one-way, as Lowtown's: Smelter Street, Canal Street, River Road and Picket Row make a clockwise ring,
+// and the streets inside it alternate.
 // Landmarks are in landmarks.js, the neighbourhoods' looks in styles.js, what is parked where in fleet.js.
 import { def } from '../../../motor/index.js';
 import { STYLES, HOODS } from './styles.js';
@@ -27,6 +28,10 @@ def('districts', 'ironside', {
     // the Flyover: Ironside Avenue up over the works from Union Street to Crusher Lane, a ramp down each end
     { id: 'flyover', kind: 'road', z: 64, width: 6, lanes: 4, path: [[64, 28], [64, 82]], pillarEvery: 4,
       ramps: [{ at: [64, 28], dir: 'N', length: 14 }, { at: [64, 82], dir: 'S', length: 12 }] },
+    // the Flyover's End (EXPANSION.md 5, X4): a spur never finished, off the Flyover's west side north of Crusher Lane,
+    // ending in thin air 64 u over the Scrap Cathedral's yard, past its south wall (Lowtown's Loop Gap's way: its lanes
+    // a jump the traffic never takes)
+    { id: 'flyover-end', kind: 'road', z: 64, width: 4, lanes: 2, path: [[61, 75], [49, 75]], pillarEvery: 4, openEnd: true },
   ],
   walls: [{ rect: [0, 0, 121, 1], type: EMBANKMENT }, { rect: [0, 2, 1, 104], type: EMBANKMENT }],
   props: { lampEvery: 6, clutter: .3 },
@@ -48,5 +53,6 @@ def('districts', 'ironside', {
   zones: [
     { kind: 'patrol', rect: [0, 0, 63, 56], name: 'Foundry beat' }, { kind: 'patrol', rect: [0, 57, 63, 104], name: 'Scrapyard beat' }, { kind: 'patrol', rect: [64, 0, 121, 104], name: 'Voltage beat' },
     { kind: 'noSpawn', rect: [122, 0, 127, 111] }, { kind: 'noSpawn', rect: [0, 105, 121, 111] }, { kind: 'noSpawn', rect: [118, 50, 121, 62] },   // (the water; the east bridge's end)
+    { kind: 'noSpawn', rect: [74, 26, 84, 31] }, { kind: 'noSpawn', rect: [18, 79, 28, 84] },   // (the Slag Heap's and the Crusher Yard's run-ups: no car parked at a kicker's foot, X4)
   ],
 });

@@ -61,7 +61,7 @@ export class AutoPlayer {
    *  goal that moved (what it learned on the way kept: the car it is taking, the cars it gave up on, the lanes it keeps
    *  off, how long it has been stuck) */
   goto(x, y, o = {}) {
-    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null, hover: !!o.hover, land: o.land ?? null, taxi: !!o.taxi }; this.state = 'idle'; this.path = null; this._dropBrain();   // (heading: the route's last lane one running that way; hover: a helicopter held over it, not landed)
+    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null, hover: !!o.hover, land: o.land ?? null, taxi: !!o.taxi, speed: o.speed ?? null }; this.state = 'idle'; this.path = null; this._dropBrain();   // (heading: the route's last lane one running that way; hover: a helicopter held over it, not landed)
     // (a new trip's counts start at nothing: they had run on from trip to trip, so a long-lived AutoPlayer (the campaign's,
     // the career's mission bot's) got out of the car at its first box once three were behind it anywhere, gave up a car
     // at a glance once 20 s of walks to doors were, and after its first hop anywhere never walked straight again, each
@@ -457,6 +457,10 @@ export class AutoPlayer {
       I.throttle = b.stalled || b.u < h.stall * 1.3 ? 1 : thr;   // (slow: full power, never a stall)
     };
     const cruise = Math.max(h.cruiseZ || 200, (gnd(g.x, g.y) ?? 0) + 70);
+    // a goal with a height (a ring, a race's gate: EXPANSION.md X4): flown through at it (kept 40 over what stands
+    // there), never circled
+    const at = g.z !== null && g.z !== undefined && (g.land === null || g.land === undefined) ? Math.max(g.z, (gnd(g.x, g.y) ?? 0) + 40) : null;
+    if (at !== null) { if (d < near) this.state = 'arrived'; steerTo(g.x, g.y); fly(at, g.speed ? Math.max(.35, Math.min(1, g.speed / h.top)) : .85); if (g.speed && b.u > g.speed + 20 && !b.stalled) I.brake = .5; return I; }   // (speed: held at it, a Crop Duster's dusting pace: the turns tighter)
     if (g.land === null || g.land === undefined) {   // over the goal (stay: circling it)
       if (d < near) { this.state = 'arrived'; if (g.stay) I.steer = .6; else steerTo(g.x, g.y); } else steerTo(g.x, g.y);
       fly(cruise); return I;
