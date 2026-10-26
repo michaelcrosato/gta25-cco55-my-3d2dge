@@ -260,8 +260,9 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
       ok = S().stunts.includes(s.id);
       // (why not: how the last jump came down, or that it never left the ground in the circle)
       const J = C().stunts && C().stunts.last, c = P().seat && P().seat.vehicle;
+      const by = c => { const q = gtm.fleet.near(c.x, c.y, 48).filter(o => o !== c && Math.abs((o.z || 0) - (c.z || 0)) < 16); return q.length ? '; by ' + q.map(o => `the ${o.def.id}${o.wrecked ? ' (wrecked)' : ''} at ${[o.x, o.y, o.z || 0].map(Math.round)}`).join(', ') : ''; };   // (what stood in its way)
       if (!ok) why = J && J.id === s.id ? `in the ${v.def.id} at ${Math.round(top)} u/s: down ${Math.round(J.dist)} on after ${J.air.toFixed(2)} s in the air${J.flipped ? ', on its roof' : ''}${J.wrecked ? ', wrecked' : ''} (it needs ${s.minDist} and ${s.minAir} s)`
-        : `in the ${v.def.id} at ${Math.round(top)} u/s: never off the ground in the takeoff circle (it ended at ${c ? [c.x, c.y, c.z || 0].map(Math.round) : 'on foot'})`;
+        : `in the ${v.def.id} at ${Math.round(top)} u/s: never off the ground in the takeoff circle (it ended at ${c ? [c.x, c.y, c.z || 0].map(Math.round) : 'on foot'}${c ? by(c) : ''})`;
     }
     steps.push({ what: 'stunt', id: s.id, ok, secs: Math.round(t - t0), why: ok ? '' : why }); say(`stunt ${s.id}: ${ok ? 'landed' : 'NOT landed (' + why + ')'}`);
     roaming(false); return ok;

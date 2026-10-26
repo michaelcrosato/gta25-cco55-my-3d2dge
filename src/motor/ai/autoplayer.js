@@ -436,7 +436,8 @@ export class AutoPlayer {
       d = Math.hypot(g.x - v.x, g.y - v.y);   // (on the ground, how far the plane is, not its cockpit: Blackout's Duster had stopped 2 short of the hangar's apron, arrived by its pilot's seat)
       if (g.air) { g.air = false; if (g.land !== null && g.land !== undefined) g.down = true; }   // (touched down)
       if (g.down) { I.brake = 1; if (v.speed < 4) { g.down = false; g.done = true; } return I; }   // (down: stopped)
-      if (g.done || (d < near && v.speed < 8)) { if (g.foot || !g.stay) return this._exit(v); this.state = 'arrived'; return I; }
+      const up = g.z !== null && g.z !== undefined && (g.land === null || g.land === undefined) && g.z > (gnd(g.x, g.y) ?? 0) + 20;   // (a goal up in the air, a ring: never reached from the ground under it; Crop Duster's Duster, left on the runway under the first ring, had sat there arrived to the job's end)
+      if (g.done || (!up && d < near && v.speed < 8)) { if (g.foot || !g.stay) return this._exit(v); this.state = 'arrived'; return I; }
       if (g.taxi) {   // (taxi: along the ground to it, never off it: a hangar's door off the strip's end, flown to and circled for good)
         const a = steerTo(g.x, g.y, 2.5); I.throttle = d >= near && v.speed < (Math.abs(a) > .6 ? 14 : 36) ? .5 : 0;
         // (a goal behind it: turned round the way there is room for its wings, held till it faces the goal; landed

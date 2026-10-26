@@ -1825,5 +1825,10 @@ and where it landed.
       the Bucket (`evade`'s `vehicle`); **Scab Labour** clears Loop Avenue's traffic on the buses' way as the stage
       starts;
     - **the campaign** turns down an offer on its way to a token, a stunt or a property (it had taken Sermon on the
-      Mound's at the Monks' payphone with every step, and never reached the Flyover's End token by it).
+      Mound's at the Monks' payphone with every step, and never reached the Flyover's End token by it);
+    - **a plane on the ground under a goal up in the air** (a ring) takes off for it: arrived by its distance alone,
+      Crop Duster's Duster, left on the runway under the first ring, had sat there to the job's end, and the Air Race
+      found no Duster after it;
+    - **Sermon on the Mound's heat** (the yard's and the chase's, held back while they lasted) is cleared with them:
+      lifted alone, it had come down on the crew as four stars, and Live Wire after it was played with the police on it.
 - **Answered:** no. **Landed in:** X4.

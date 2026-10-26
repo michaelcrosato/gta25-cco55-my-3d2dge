@@ -81,7 +81,7 @@ defMission('monks_sermon_mound', {
           m.say(['The collection! Their Bucket has the collection plate!', 'Take our Brute at the gate. Bring it back.'], FERROUS),
           m.chase('bucket', { reach: 72, text: 'Stop the Volt Boys\' Bucket with the collection (the Monks\' Brute is at the gate)', vehicle: 'ride' }),   // (reach: on its tail with it stopped; the truck's half and the Brute's are 50 between their middles, nose to tail)
         ]);
-        m.wanted.cap(5);
+        m.wanted.cap(5); m.wanted.clear();   // (the heat of the yard and the chase, held back while it lasted, gone with them: the Monks' business; lifted alone, it had come down on the crew as four stars)
         yield m.say(['The collection, returned. Every washer and bottle cap.', 'Go in peace, brother. Mostly peace.'], FERROUS);
       },
     },

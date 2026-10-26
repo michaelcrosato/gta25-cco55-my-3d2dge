@@ -32227,7 +32227,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           }
           return I;
         }
-        if (g.done || d < near4 && v.speed < 8) {
+        const up = g.z !== null && g.z !== void 0 && (g.land === null || g.land === void 0) && g.z > (gnd(g.x, g.y) ?? 0) + 20;
+        if (g.done || !up && d < near4 && v.speed < 8) {
           if (g.foot || !g.stay) return this._exit(v);
           this.state = "arrived";
           return I;
@@ -45975,6 +45976,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             // (reach: on its tail with it stopped; the truck's half and the Brute's are 50 between their middles, nose to tail)
           ]);
           m.wanted.cap(5);
+          m.wanted.clear();
           yield m.say(["The collection, returned. Every washer and bottle cap.", "Go in peace, brother. Mostly peace."], FERROUS2);
         }
       }
