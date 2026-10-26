@@ -44,6 +44,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | X2 Planes | done | a `plane` class (on its gear a slow car, in the air banked turns, a climb that costs speed, a stall, a landing level, slow and gentle); the Duster on Ironside Airstrip's apron and the Gull on the water; the bot flies them, off a clear run, to a point, down on a strip and taxiing (D39) · the planes' sim tests, the handling suite's plane checks, the gym's `plane` fixture on seeds 1-3 and through a pad, all merged content again (D21) · the look read (docs/media/x2) |
 | X3 Ironside's gangs and missions | done | the Rust Monks (the Scrap Cathedral, the Scrapper, the Nail Gun) and the Volt Boys (Substation 9, the Bucket, the Tesla Coil), the Gnomes' Ironside turf and HQ (a gang's HQ and rival per district); nine missions (Picket Line, Scab Labour, Holy Scrap, Sermon on the Mound, Live Wire, Short Circuit, and Blackout's Grid Map, The Lineman and finale) with the Power Station, an interior (D40) · each mission through the bot on seeds 1-3 and through a pad, the interior's validation and sim tests, the gangs', vehicles' and weapons' tests, all merged content again (D21) · the look read (docs/media/x3) |
 | X4 Ironside's side content | done | Crop Duster (a flown job, three levels: rings over the allotments), the Ironside Air Race (the Duster through twelve gates, against the board's three best times), MAYHEM: Nail the Scrappers, three stunts (the Flyover's End, the Slag Heap, the Crusher Yard), 15 Moto Tokens, two properties (Sudsy's Launderette, the Airstrip), the Ironside Kwik-Lux's hold-up and the attract reel CROP DUSTER (D41) · each through the bot on seeds 1-3 and a pad, Ironside's side-content sim test, the campaign through Lowtown and Ironside to 100%, all merged content again (D21) · the look read (docs/media/x4) |
+| X5 Glass Heights' map and the Causeway | done | Glass Heights, District 3 (128 x 112: Cathedral Hill, the Strip, Marina Heights; the Glass Tower and its jetty, St. Chrome's, the Bellevue's penthouse, the Observatory, the Velvet Casino, the Hotel Riviera, the Grand Palms, Heights PD, Heights General, the Yacht Club and the marina's piers, the Gull at its moorings); the Loop Causeway over the bay, shut in Lowtown's sea wall until Blackout is done (D42) · Glass Heights' sim tests in every view, its 10-minute soak, all merged content again (D21) · the look read (docs/media/x5) |
 
 ## Acceptance log
 
@@ -1645,3 +1646,31 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     (the frame kept is over the beans). The hoops hang upright across the way they are flown, green for the field and
     cyan for the race; in TOP-DOWN a gate reads as a flat ring. As the slice's, the HUD's lines sit over the world's
     labels with no panel under them.
+- **X5 · Glass Heights' map and the Loop Causeway (D42), done:**
+  - **What's in:** Glass Heights, District 3, 128 x 112: Cathedral Hill along the north (the Glass Tower over the bay
+    with its jetty, St. Chrome's Cathedral, the Bellevue, whose penthouse is the safehouse, the Observatory), the Strip
+    either side of Loop Avenue (the Velvet Casino behind its fountain, the Hotel Riviera, the Grand Palms, Heights PD,
+    Spray & Pray Heights) and Marina Heights above the sea (Heights General, the Yacht Club and its pier, the marina's
+    piers); the bay down the west edge, the sea east and south; its streets, cars and people (the slice's, their spawn
+    zones naming its three neighbourhoods), the Gull afloat at its moorings by the Club's pier. The Loop Causeway: Loop
+    Avenue on east from Lowtown's sea wall, over the bay into Glass Heights; shut on a new game (the sea wall, CAUSEWAY
+    CLOSED on it), open once Blackout is done (its last card says so), Lowtown with it shut the city it was.
+  - **The tests:** `tests/sim/glass-heights.test.mjs`: the Causeway shut on a new game and open once Blackout is done
+    (the sea wall's column cut, the deck out over the bay, the notice gone, the west bridge as it was); over it and
+    back by car in ISO, TOP-DOWN, MODE 7 and the chase camera, the district, the car (its paint and damage), the fund,
+    the hour, the stars and the view carried; on foot over it and back in each view; two runs from one seed hashing the
+    same after a crossing; Glass Heights validating with no warning, playing with its traffic, crowd and doors, the
+    Gull afloat off the pier, its hospital after WRECKED, a save made there loading there, and nothing registered twice;
+    the attract mode as it was (`npm test`'s attract run).
+  - **D21, on b15d80b's code:** the mission bot on seeds 1-3, 177 of 177, and through a pad, 59 of 59; the city soak,
+    Glass Heights' day 600 s: 737 cars and 3,090 peds seen, mean speed 27.4, longest stall 16.7 s (a far car at Heights
+    Avenue and Observatory Lane, kinematic), no car in another, no red run, worst stuck ped 6 s, worst wait to cross 16 s.
+  - **The look,** read shot by shot (`docs/media/x5`: its three neighbourhoods by day and night in ISO, TOP-DOWN, MODE 7
+    and the chase camera, read on the matrix's sheet, four kept; the Causeway at each end, along its deck in MODE 7 and
+    from above, Lowtown's sea wall shut and open; the Gull at the Club's pier). Four notes fixed: the Causeway's road had
+    stopped at the water in Lowtown once open (its deck goes on to the map's edge now); the Velvet Casino's roof was a bare
+    plum slab from above (its plant on it now); CAUSEWAY CLOSED, on the sea wall's west face, was half hidden by the wall
+    from the ISO camera (a board on posts on the wall's top now); Lowtown's span had no railings (railed now, MOTOR's
+    `rails` on an opening). As the slice's, a building's north face is out of the ISO camera's sight (the casino's front
+    on Loop Avenue among them), and the deck past Lowtown's gate is unmarked (a road's markings come with its band; it is
+    never driven: the crossing is at the gate).
