@@ -41,6 +41,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | L4 PLAN.md 19's backlog | done | the chase camera (a fourth view), photo filters, SURF CITY and VELVET, Paramedic and Tow Truck, the player-flown helicopter (SkyCam), boarding the L (L Courier), Club Chrome's interior, CHROME RAIDERS on its cabinet and Arcade high scores on the checklist (D36) · each through the bot on seeds 1-3 and a pad, the gym's rail, fly and arcade fixtures both ways, a recipe for each new kind · the look read and fixed (docs/media/l4) · see the acceptance log |
 | L5 The expansion's plan | done | `docs/EXPANSION.md` in PLAN.md's form: Ironside and Glass Heights, three gangs a district (seven in all), 18 missions with two heists (32 in the game), the bridges opening with the story one map at a time, planes, boats and three weapons; milestones X1-X8 with their acceptance and a Definition of Done; its scope recorded before any of it is built (D37) |
 | X1 Districts in play, Ironside's map | done | Ironside, District 2, grown from its stub (128 x 112: the Foundry, Scrapyard Flats, Voltage Row); the west bridge between it and Lowtown, closed until The Big Withdrawal is done; a crossing carries the vehicle, the crew, the time, the stars and the view, one map at a time across a fade; the career per district, `save.district` (D38) · the districts' sim tests in every view, Ironside's 10-minute soak, all merged content again (D21) · the look read (docs/media/x1) |
+| X2 Planes | done | a `plane` class (on its gear a slow car, in the air banked turns, a climb that costs speed, a stall, a landing level, slow and gentle); the Duster on Ironside Airstrip's apron and the Gull on the water; the bot flies them, off a clear run, to a point, down on a strip and taxiing (D39) · the planes' sim tests, the handling suite's plane checks, the gym's `plane` fixture on seeds 1-3 and through a pad, all merged content again (D21) · the look read (docs/media/x2) |
 
 ## Acceptance log
 
@@ -1539,3 +1540,27 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
   - **The look,** read shot by shot (`docs/media/x1`: its three neighbourhoods by day and night in ISO, TOP-DOWN,
     MODE 7 and the chase camera, the sheet and six kept): no defects; the Power Station stands a plain block till X3
     lays out its yard, and its roof is dark at night as Lowtown's roofs are.
+
+- **X2 · planes (D39), done:**
+  - **What's in:** a vehicle class, `plane` (`sim/vehicle/plane.js`): on its gear it rolls as a slow car and past its
+    rotation speed lifts off; in the air the stick banks it and the bank turns it, the throttle sets its speed, a climb
+    costs speed and a dive gives it, R1 / L1 climb and descend with the height held between (the helicopter's buttons);
+    under its stall speed its wings let go until it is 15% past it again; it sets down level, slow and gently on what
+    it can land on (a landplane the ground, a seaplane the water), and anything else is a crash. It meets things with
+    its fuselage, never leaves its district (it banks round at the world's edge) and crosses no bridge in the air. The
+    Duster stands on Ironside Airstrip's apron (a pad, kept as the SkyCam is); the Gull flies off and onto the sea. The
+    bot flies them (`AutoPlayer._plane`): off along a clear run, to a point at a cruising height clear of what stands
+    below and ahead, and with a `goto`'s `land` down on a strip (an approach 700 back at 150, the glide in lined up and
+    slow, round again when off the line).
+  - **The tests:** `tests/sim/planes.test.mjs` (the Duster off the runway, round a circuit at 200 and down again
+    unharmed; a stall and its recovery, a dive and a wall flown into crashes; boarded and left only on the ground, the
+    world's edge; the Gull off the water and onto it, a landplane on the water going under); the handling suite's plane
+    checks (its takeoff, its climb, its top speed, its height held, a banked turn, a stall, a gentle landing).
+  - **The bot:** the gym's `plane` fixture (the Duster off the strip, over Union Hall and down on the strip again) on
+    seeds 1-3, 3 of 3, and through a pad, 1 of 1.
+  - **D21, on `08366b8`'s code:** the mission bot on seeds 1-3, 135 of 135, and through a pad, 45 of 45 (the planes'
+    changes to the vehicle, the fleet, the driver and the AutoPlayer leave every merged mission and activity passing).
+  - **The look,** read shot by shot (`docs/media/x2`: the Duster on the apron in ISO, and aloft at 167 over the
+    Foundry in ISO, TOP-DOWN, MODE 7 and the chase camera): no defects. The biplane reads at every view, MODE 7's and
+    the chase camera's lens riding up with it; an aircraft casts no shadow on the ground, as the slice's helicopter
+    doesn't.
