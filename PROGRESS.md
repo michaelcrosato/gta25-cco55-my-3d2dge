@@ -1469,3 +1469,37 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     missed (it climbs when it goes nowhere now). Each a commit of its own (`63bcf53`, `ec30826`, `6ddd0b9`), each with
     `npm test` green.
   - **The campaign** on `6ddd0b9`'s code: 100.0% after 3.05 h of game, in 29 min.
+  - **What test:full found** (on `e2f61c4`, then `ae8bb79`, then `5cf9f52`): the day soak's seed played out differently
+    on L4's city and met two old faults: a car holding its junction stood blocked at the line with its nose over it, and
+    went on its old green once the box cleared, after the light had turned (a held box now lapses at red for a car still
+    short of the box); and a turf war went on after the focus left it, three of its fighters standing in a junction with
+    the traffic queued behind them (a war whose middle the focus leaves beyond the crowd's ring is over now: its
+    fighters walk off). Both soaks then: day 600 s, longest stall 4.0 s, no red runs; night 300 s, 9.3 s, none
+    (`ae8bb79`). The HUD-size-Huge audit (320 x 180) found the BUTTON LAYOUT screen's L1 / R1 outside the safe area, the
+    cabinet's tab having widened the strip: the tab is ARCADE, a tab strip closes its gaps where it would leave the safe
+    area, and the screen's rows, read by eye, had stood on one another at every size since M9 (twelve to a column in a
+    fixed 86 units): its body is as tall as the screen allows and what doesn't fit goes on a page more, △ MORE
+    (`5cf9f52`, both audits 51 of 51). The traffic's red lights then tipped two mission-bot runs: Harbor Hustle L1 on
+    seed 3 took a rival waiting at a red for a box (the AutoPlayer read a leader's waiting from a city car's brain,
+    which a job's car has not: a job's driving car carries its brain as `drivenBy` now), swung round it, and the route
+    from the swerve went round the block; and Firefighter L3 on seed 2 had its retry's engine put on the next street's
+    lane the other way, the call a lap of the city (a retry keeps the engine's heading first, and only a car in the lane
+    counts). Both pass on seeds 1-3 (`081a33c`). The pad pass then failed two of L4's own jobs: MAYHEM's meet had
+    Channel 6's SkyCam standing on its pad inside the ring of cars by the fountain (the meet's marshals clear the plaza
+    now); and Tow Truck L3 on seed 1, a run the pad pass had never yet passed, met a city a turf war had wrecked: a
+    burnt-out hauler at Loop Avenue and Marquee Street's mouth, a burnt-out Cortez at the kerb beside it, the units sent
+    to them queued behind wrecks at the next junction. Traffic shoved a car nobody drives only after 16 s blocked, so
+    the streets round them stood for minutes; a wreck is shoved after 4 s now (nobody comes back for it), and the bot
+    with a car on its hook never tries to go round (backing folds the rig; it pushes a car nobody drives on, and waits
+    out anything else), and a mission car that has stopped driving no longer shows its driver's last wait to the bot
+    behind it. Tow L3 passes by pad (silver, one retry, where every try at its first ticket had run out) and on seeds
+    1-3 (`8be7162`). test:full on that then failed Paramedic L3 on seed 2: an ambulance its crew had left in the lane,
+    and the bot's Medic behind it rocked through four retries, each round dropping its brain before the shove came;
+    boxed in by a car nobody drives, the bot now shoves it every other time (`b2a285d`). Its campaign then reached
+    98.2%: the stunt over the drawbridge never left the ground in three tries, a Cortez its driver had run from standing
+    on the span and the bridge, its gate shut for a lift, waiting on it (the tow takes a car nobody drives only out of
+    sight, and the campaign waits in sight of it); a car left by its driver on a drawbridge's span is towed once the
+    gate is shut and it has stood a minute, in sight too (`de2e5b0`).
+  - **The campaign** on `de2e5b0`'s code: 100.0% after 3.14 h of game, in 31 min.
+  - **`npm run test:full`** on `de2e5b0`'s code, alone: every one of its 34 steps passed, in 2 h 14 min (the perf gates,
+    the soaks, the mission bot on seeds 1-3 and through a pad, the bot gym both ways, the campaign at 100.0%).

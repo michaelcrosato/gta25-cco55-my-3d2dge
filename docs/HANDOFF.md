@@ -68,7 +68,7 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
   - Bring every view inside its budget, or inside targets the owner sets, without cutting the look.
   - Add a quality setting for slower machines, with the full look as the default.
   - Put the perf step back in test:full, with a DECISIONS entry that supersedes D29's first call.
-- [ ] **L4 · PLAN.md 19's backlog, on Lowtown:**
+- [x] **L4 · PLAN.md 19's backlog, on Lowtown:**
   - the free-turning chase camera (a fourth view, as view-independent as the rest);
   - player-flown helicopters, and boarding the L;
   - more radio stations, and photo filters;

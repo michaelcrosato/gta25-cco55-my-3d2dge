@@ -1608,4 +1608,16 @@ and where it landed.
   - **The recipes.** The new kinds each have one in docs/CONTENT-GUIDE.md: a helicopter a player flies, an L line's
     stations, an interior's patrons and spots, an arcade kit, an arcade high score, and a station's genre of its own
     (`def('genres')`, the station recipe's fixture now bringing one).
+  - **What test:full found.** A car holding a junction whose nose is over the line but short of the box obeys a red as
+    one still before the line does (it had gone on its old green once the box ahead cleared); a turf war whose middle
+    the focus has left beyond the crowd's ring is over, its fighters walking off (one out there had gone on unseen and
+    stood three of them in a junction, the traffic waiting on them). The controls screens' fourth tab is ARCADE, a tab
+    strip closes up where it would leave the safe area, and BUTTON LAYOUT pages what doesn't fit. A job's driving car
+    carries its driver's brain (`drivenBy`), so the bot behind a race's rival at a red waits as it waits in traffic; a
+    Firefighter retry keeps the engine on its own way. Traffic shoves a wreck in its way after TUNE.gridlock s (a car
+    nobody drives, 4 x that: its driver may come back), so a turf war's wrecks at a junction's mouth no longer stand the
+    streets round it; the bot with a car on its hook never goes round (a car nobody drives ahead is pushed on), and any
+    bot boxed in by a car nobody drives shoves it every other time; a mission car that stops driving drops its
+    `drivenBy`. A car its driver left on a drawbridge's span is towed, in sight too, once the gate has shut for a lift
+    and it has stood a minute (the bridge waits for its span to clear; the player's own car it waits on as before).
 - **Answered:** no. **Landed in:** after M13 (L4).
