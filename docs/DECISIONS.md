@@ -1852,7 +1852,10 @@ and where it landed.
     had stopped at the bay in the look read); the crossing of the bay is drawn in Glass Heights, Loop Avenue
     over the water to the map's edge (a bridge, railed), its gate the first two columns. Shut on a new game (the sea
     wall stands and CAUSEWAY CLOSED is on it), open once Blackout is done (its last card says so); shut, Lowtown is the
-    city it was. Glass Heights' end is always open: it is only reached over the Causeway.
+    city it was. Glass Heights' end is always open: it is only reached over the Causeway. The notice is a board on
+    posts on the wall's top (on the wall's west face, the ISO camera from the south-east had seen half of it past the
+    wall), and Lowtown's span is railed as Glass Heights' is (MOTOR: an opening names its railings, `rails`, a deck cut
+    out over the water having had none: a road's railings come with its walks).
   - **The Gull's moorings** (EXPANSION.md X2): alongside the Yacht Club's pier, afloat.
   - **Its streets** have the slice's cars and people, their spawn zones naming the three neighbourhoods (Zephyrs and
     Saints more often than across the bay); its gangs come in X6, with the Velvet Casino's interior and door, and its
