@@ -203,7 +203,7 @@ export class AutoPlayer {
     if (!this.brain || this.brain.v !== v) {
       this._dropBrain();
       const st = STYLES[g.style] || STYLES.player;
-      this.brain = new DriverBrain(v, this.G, { junctions: this.J, personality: st, siren: !!st.assertive });
+      this.brain = new DriverBrain(v, this.G, { junctions: this.J, personality: st, siren: !!st.assertive }); this.brainNew = true;
       // (round a jammed exit only when that way costs not much more: else it waits, as a U-turn at the map's edge in a
       // lorry is worse than the jam)
       // (no way there along the lane it faces, a one-way that leads off it: after a U-turn, else from the nearest lane
@@ -251,8 +251,13 @@ export class AutoPlayer {
     if (this._wedged(dt, v, b)) { this.esc = { to: this._ahead(b, 180) || [g.x, g.y], t: 0, slow: 0, back: 0, side: this.wedge.n % 2 ? 1 : -1 }; this._dropBrain(); return this._escape(dt, v); }   // (off the road round it, as the second try does)
     // (a leader waiting at a light, in a queue: traffic, not a box; a job's car too, by its driver's brain: a race's rival
     // stopped at a red, taken for a box, was swung round and the fresh route from the swerve went round the block)
-    const L = b.leader, LB = L && L.v && (L.v.brain || L.v.drivenBy), waits = !!LB && !LB.parked && ['signal', 'queue', 'yield'].includes(LB.cause), held = (L && L.gap < 14 && L.speed < 2 && !waits) || b.cause === 'ped';
-    this.boxT = held && v.speed < 3 && !b.pass && b.cause !== 'signal' && b.cause !== 'arrived' ? (this.boxT || 0) + dt : 0;
+    // (a brain made this step has seen nothing yet: the last one's cause stands for it, so a body standing in the lane
+    // still holds the box's clock. A chase's goal moves every few seconds, each move a new brain, and the clock had
+    // started again each time: IM2's Brute stood behind a hostile Volt Boy in the lane, the Bucket gone, to the job's end.
+    // A queue's leader it hasn't seen yet: that clock starts again, as it did)
+    const fresh = this.brainNew; this.brainNew = false; const cause = fresh ? this.lastCause : b.cause; this.lastCause = cause;
+    const L = b.leader, LB = L && L.v && (L.v.brain || L.v.drivenBy), waits = !!LB && !LB.parked && ['signal', 'queue', 'yield'].includes(LB.cause), held = (L && L.gap < 14 && L.speed < 2 && !waits) || cause === 'ped';
+    this.boxT = held && v.speed < 3 && !b.pass && cause !== 'signal' && cause !== 'arrived' ? (this.boxT || 0) + dt : 0;
     // (a car nobody drives in the way: pushed on, as the brain's gridlock shove does, sooner, every other time it boxes
     // us in (a round the times between); a car on the hook never rounds, backing folds the rig and a slant can't take
     // the two past: it pushes, and waits out anything else (a long jam is a stall's). Each round had dropped the brain
@@ -260,7 +265,7 @@ export class AutoPlayer {
     // ambulance its crew had left in the lane rocked there through four retries)
     const dead = !!L && !!L.v && !L.v.brain && !L.v.driver && L.v.owner !== 'mission';
     if (this.boxT > 5 && (v.towing || (dead && this.shoveNext))) { this.boxT = 0; this.shoveNext = false; if (dead) b.blocked = Math.max(b.blocked, TUNE.gridlock * 4 + .01); }
-    if (this.boxT > (b.cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.shoveNext = dead; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
+    if (this.boxT > (cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.shoveNext = dead; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
     const Bs = this.fleet && this.fleet.bridges, closed = Bs && Bs.length ? id => Bs.some(q => q.id === id && q.closed) : null;   // (a drawbridge's gates shut: stopped short as traffic is; unwatched, a job's truck had met a rising leaf at full tilt and flown past its turn)
     const I = b.update(dt, { fleet: this.fleet, t: w.t || this.t, pedsNear: w.pedsNear || null, wet: w.wet || 0, sirens: null, closed });
     return I;

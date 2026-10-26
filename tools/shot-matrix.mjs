@@ -4,7 +4,7 @@
 //                              [--weather clear] [--scale .5] [--out docs/media/shots] [--sheet-only]
 // Each shot stands at a point of interest that shows its neighbourhood (SPOTS), in its district (Ironside's three by
 // ?dev=1&district=ironside: EXPANSION.md X1). --bank shoots the First Lowtown Bank's
-// lobby in each view instead (bank-<view>.png, no sheet): M13's full matrix adds the bank (the UI screens are the UI
+// lobby in each view instead (bank-<view>.png, no sheet), --interior <id> another interior (Ironside's, at night): M13's full matrix adds the bank (the UI screens are the UI
 // audit's: tools/ui-audit.mjs --shots).
 import { chromium } from 'playwright';
 import { resolve, join } from 'node:path';
@@ -22,16 +22,17 @@ try {
   mkdirSync(out, { recursive: true });
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } }), errors = [], shots = [];
   page.on('pageerror', e => errors.push(String(e)));
-  if (process.argv.includes('--bank')) {   // (the bank in each view, its lobby from the front door)
+  const inner = arg('interior', process.argv.includes('--bank') ? 'bank' : null), q = inner && inner !== 'bank' ? '&dev=1&district=ironside&time=night' : '';
+  if (inner) {   // (an interior in each view from its front door: the bank's lobby; --interior <id>, Ironside's at night)
     for (const view of views) {
-      await page.goto(pathToFileURL(resolve('dist/index.html')).href + `?view=${view}&shot=${view}#interior/bank`);
+      await page.goto(pathToFileURL(resolve('dist/index.html')).href + `?view=${view}&shot=${view}${q}#interior/${inner}`);
       await page.waitForFunction(() => window.__gtm && window.__gtm.ready, null, { timeout: 20000 });
       await page.waitForTimeout(2000);
       const png = await page.screenshot(), W = Math.round(1920 * scale), H = Math.round(1080 * scale);
       const small = await page.evaluate(async ({ u, W, H }) => { const i = new Image(); await new Promise(r => { i.onload = r; i.src = u; }); const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(i, 0, 0, W, H); return c.toDataURL('image/png'); }, { u: 'data:image/png;base64,' + png.toString('base64'), W, H });
-      writeFileSync(join(out, `bank-${view}.png`), Buffer.from(small.split(',')[1], 'base64'));
+      writeFileSync(join(out, `${inner}-${view}.png`), Buffer.from(small.split(',')[1], 'base64'));
     }
-    console.log(`the bank in ${views.join(', ')} in ${out}${errors.length ? '; page errors: ' + errors.join(' | ') : ''}`);
+    console.log(`${inner} in ${views.join(', ')} in ${out}${errors.length ? '; page errors: ' + errors.join(' | ') : ''}`);
     if (errors.length) process.exitCode = 1;
   } else await matrix(page, errors, shots);
 } finally { await browser.close(); }

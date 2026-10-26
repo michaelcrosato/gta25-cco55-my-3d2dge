@@ -31813,6 +31813,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this._dropBrain();
         const st = STYLES2[g.style] || STYLES2.player;
         this.brain = new DriverBrain(v, this.G, { junctions: this.J, personality: st, siren: !!st.assertive });
+        this.brainNew = true;
         const plan3 = (o) => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
         const av = this.avoid, tz = g.z || 0, toHeading = g.heading, base3 = plan3({ z: v.z, tz, toHeading });
         const alt = av && av.size ? plan3({ z: v.z, tz, toHeading, avoid: (L24) => av.has(L24.id) }) : null, r7 = alt && (!base3 || alt.cost <= base3.cost * 1.6 + 10) ? alt : base3;
@@ -31886,15 +31887,19 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this._dropBrain();
         return this._escape(dt, v);
       }
-      const L23 = b.leader, LB = L23 && L23.v && (L23.v.brain || L23.v.drivenBy), waits = !!LB && !LB.parked && ["signal", "queue", "yield"].includes(LB.cause), held = L23 && L23.gap < 14 && L23.speed < 2 && !waits || b.cause === "ped";
-      this.boxT = held && v.speed < 3 && !b.pass && b.cause !== "signal" && b.cause !== "arrived" ? (this.boxT || 0) + dt : 0;
+      const fresh = this.brainNew;
+      this.brainNew = false;
+      const cause = fresh ? this.lastCause : b.cause;
+      this.lastCause = cause;
+      const L23 = b.leader, LB = L23 && L23.v && (L23.v.brain || L23.v.drivenBy), waits = !!LB && !LB.parked && ["signal", "queue", "yield"].includes(LB.cause), held = L23 && L23.gap < 14 && L23.speed < 2 && !waits || cause === "ped";
+      this.boxT = held && v.speed < 3 && !b.pass && cause !== "signal" && cause !== "arrived" ? (this.boxT || 0) + dt : 0;
       const dead3 = !!L23 && !!L23.v && !L23.v.brain && !L23.v.driver && L23.v.owner !== "mission";
       if (this.boxT > 5 && (v.towing || dead3 && this.shoveNext)) {
         this.boxT = 0;
         this.shoveNext = false;
         if (dead3) b.blocked = Math.max(b.blocked, TUNE.gridlock * 4 + 0.01);
       }
-      if (this.boxT > (b.cause === "ped" ? 8 : 5)) {
+      if (this.boxT > (cause === "ped" ? 8 : 5)) {
         this.boxT = 0;
         this.shoveNext = dead3;
         this.boxed = (this.boxed || 0) + 1;
@@ -34166,7 +34171,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // a vehicle rammed: at it flat out; pressed against it at a crawl (a push does no harm), backed off for another run
     _ram(dt, p, v, t, d, w9, hold3 = false) {
-      if (d > 140) return this._go(dt, p, t.x, t.y, { stay: true, style: "race", slack: 50, hold: hold3 }, w9);
+      if (d > 140) {
+        if (this.ramS) this.ramS.back = this.ramS.round = this.ramS.slow = this.ramS.held = 0;
+        return this._go(dt, p, t.x, t.y, { stay: true, style: "race", slack: 50, hold: hold3 }, w9);
+      }
       const I = clearIntent(this.I), S10 = this.ramS || (this.ramS = { back: 0, slow: 0, held: 0, round: 0, side: 1 });
       let da = Math.atan2(t.y - v.y, t.x - v.x) - v.heading;
       da = Math.atan2(Math.sin(da), Math.cos(da));

@@ -367,7 +367,7 @@ export class MissionBot {
   }
   // a vehicle rammed: at it flat out; pressed against it at a crawl (a push does no harm), backed off for another run
   _ram(dt, p, v, t, d, w, hold = false) {
-    if (d > 140) return this._go(dt, p, t.x, t.y, { stay: true, style: 'race', slack: 50, hold }, w);   // (hold: the hint's own vehicle, never given up in a jam)
+    if (d > 140) { if (this.ramS) this.ramS.back = this.ramS.round = this.ramS.slow = this.ramS.held = 0; return this._go(dt, p, t.x, t.y, { stay: true, style: 'race', slack: 50, hold }, w); }   // (hold: the hint's own vehicle, never given up in a jam; out of reach, a back-off is over: one left standing had braked it the moment it caught up again, and H4's Strongbox drove off round its block each time)
     const I = clearIntent(this.I), S = this.ramS || (this.ramS = { back: 0, slow: 0, held: 0, round: 0, side: 1 }); let da = Math.atan2(t.y - v.y, t.x - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
     if (S.back > 0) { S.back -= dt; I.brake = 1; if (Math.abs(da) > .4) I.steer = da > 0 ? -1 : 1; return I; }   // (backing off, the nose swung toward it: from beside a broadside target, straight back and straight on had slid past it again and again)
     // held at a crawl short of it (a queue between: the car ahead, not the target): backed off, then past at a slant,

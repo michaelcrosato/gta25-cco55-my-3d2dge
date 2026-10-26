@@ -1755,7 +1755,13 @@ and where it landed.
     plans on the control room's wall; the turbines' three valves are spots with a verb (SHUT), △ at one told on the BUS
     (`spot`).
   - **MOTOR's part:** a mission car's driver can be given orders (`m.drive(v, { to, style })`, a `slow` style: a bus on
-    its round); a mission car that stops driving drops its `drivenBy`; the bot's ram backs off steering away; a `chase`
+    its round); a mission car that stops driving drops its `drivenBy`; the bot's ram backs off steering away, and a
+    back-off is over once the target is out of reach (D21's re-run of the slice: one left standing had braked the bot
+    the moment it caught The Big Withdrawal's Strongbox up again, on seed 3 till the police shot the Hookline); the
+    AutoPlayer's box clock reads a brain made that step by the last one's cause (a chase's goal moves every few seconds,
+    each move a new brain, and the clock had started again each time: Sermon on the Mound's Brute stood behind a hostile
+    Volt Boy in the lane to the job's end; held over every fresh brain, it had rounded queues in chases, and Scab
+    Labour's Brute missed its buses); a `chase`
     names the car to chase in (`vehicle`); a `goto` takes waypoints (`path`, walked straight first: indoors no walk
     graph runs) and, for a plane, `taxi` (along the ground to it, never off it).
   - **Found by the bot** (each a fix in the mission, not a softer check): a sneak's path ran into a scrap pile in the
