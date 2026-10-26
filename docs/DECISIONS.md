@@ -1658,23 +1658,22 @@ and where it landed.
 - **Answered:** no. **Landed in:** L5.
 
 ## D38 · 2026-10-26 · X1: districts in play, and Ironside's map
-- **Principle:** EXPANSION.md 2.1 and 2.2, and X1's acceptance; PLAN.md 19 (one map at a time across a bridge fade);
-  D21 (after a map change, the merged content again).
+- **Principle:** EXPANSION.md 2.1 and 2.2, and X1's acceptance; PLAN.md 19 (one map at a time across a bridge fade); D21
+  (after a map change, the merged content again).
 - **Calls:**
-  - **A crossing is content.** A district names its crossings (`crossings`: a gate of cells at a road's end at the
-    map's edge, the way out, the district beyond and the crossing one comes in by there, where one is set down, and
-    the mission that opens it). **A closed crossing is the city built without it:** `buildCity(id, seed, { open })`
-    cuts a crossing's `openings` out of the walls (after everything else is laid out) and leaves out the signs and props
-    that bar it (`gate: <its id>`) only while it is open, so a district whose bridges are shut is the one it was before
-    they were drawn. MOTOR's `Crossings` (`world/crossing.js`) answers which open crossing a point stands in and where
-    one comes in. The play scene, finding the possessed one in an open gate on foot or at the wheel, enters again with
-    the district beyond (the engine's scene fade: the old scene stands still under it); and when the story opens a
-    bridge (the job that opens it done, the career idle), it enters again where it stands, its city built with the way
-    through.
+  - **A crossing is content.** A district names its crossings (`crossings`: a gate of cells at a road's end at the map's
+    edge, the way out, the district beyond and the crossing one comes in by there, where one is set down, and the
+    mission that opens it). **A closed crossing is the city built without it:** `buildCity(id, seed, { open })` cuts a
+    crossing's `openings` out of the walls (after everything else is laid out) and leaves out the signs and props that
+    bar it (`gate: <its id>`) only while it is open, so a district whose bridges are shut is the one it was before they
+    were drawn. MOTOR's `Crossings` (`world/crossing.js`) answers which open crossing a point stands in and where one
+    comes in. The play scene, finding the possessed one in an open gate on foot or at the wheel, enters again with the
+    district beyond (the engine's scene fade: the old scene stands still under it); and when the story opens a bridge
+    (the job that opens it done, the career idle), it enters again where it stands, its city built with the way through.
   - **What crosses:** the career's snapshot (the save as it stands, its district the new one), the view, the stars and
     the vehicle driven (its definition, paint, mods, damage, station and speed, up to 120: it rolls off the bridge onto
-    the nearest lane running in). The rest of the crew stand at their own spots in the new district (its safehouse
-    where theirs isn't there). The scene reseeds on entering, as on every entry, so a crossing replays the same.
+    the nearest lane running in). The rest of the crew stand at their own spots in the new district (its safehouse where
+    theirs isn't there). The scene reseeds on entering, as on every entry, so a crossing replays the same.
   - **Only a job holds a bridge** ("NOT DURING THIS JOB"): the stars cross, and the chase goes on.
   - **The career is per district.** A mission, an activity, a set of Moto Tokens and a stunt jump name their district
     (Lowtown's when unsaid) and are offered, laid out and counted there alone; a district with `career: true` plays the
@@ -1691,13 +1690,14 @@ and where it landed.
     until The Big Withdrawal is done; open, the embankment's two columns there are cut back out (`openings`) and the
     notice taken down. A run on the closed Lowtown hashes the same as before X1, step for step (a first try ran the
     avenue to the edge through a gap in the embankment and laid a picket of barrels across it: the gap split the
-    embankment's strip of ground in two, which dealt every lot in Lowtown anew, the barrels on Gnome Row's sidewalk moved
-    where the crowd fills in, and a traffic car turning at the dead end met the barrels where the embankment had been;
-    the gang, property and camera tests read a different city). The Big Withdrawal's credits now say the strike is off.
+    embankment's strip of ground in two, which dealt every lot in Lowtown anew, the barrels on Gnome Row's sidewalk
+    moved where the crowd fills in, and a traffic car turning at the dead end met the barrels where the embankment had
+    been; the gang, property and camera tests read a different city). The Big Withdrawal's credits now say the strike is
+    off.
   - **The map** shows the bridges, a closed one greyed and marked CLOSED.
   - **The checks:** Ironside's 10-minute city soak joins test:full's; the screenshot matrix shoots its three
     neighbourhoods. The random events' test now stands a player at the start of every ground lane rather than a sample
-    of 40 (the stalled car finds a spot from about one lane start in ten, before X1 as after: a sample's lanes move
-    with the road graph); two events no longer pick a spot on the cell past a lane's end in the sea.
+    of 40 (the stalled car finds a spot from about one lane start in ten, before X1 as after: a sample's lanes move with
+    the road graph); two events no longer pick a spot on the cell past a lane's end in the sea.
   - **PLAN.md 15.9's** "the District 2 stub loads" is now "Ironside loads": it is District 2.
 - **Answered:** no. **Landed in:** X1.

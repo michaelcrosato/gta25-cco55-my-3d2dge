@@ -40,6 +40,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | L3 Performance | done | crowd bodies redrawn into a pixel array and put by the box they cover, MODE 7's faces and images stopped where nearer walls hide them, its decks a row at a time, its city gathered from the lens's wedge, its far bodies, cars, props and decks faded into the haze, a body by its lens kept and enlarged; the Graphics setting (part 1); the perf gate back in test:full, five rounds (D35) · the reading of record: ISO 10.25 ms (10.4), TOP-DOWN 9.05 (12.7), MODE 7 12.13 (12.7) · closed on a70cd51: test:full passed, alone, in 117 min 20 s (its perf gate: 10.01, 8.86, 12.07) · see the acceptance log |
 | L4 PLAN.md 19's backlog | done | the chase camera (a fourth view), photo filters, SURF CITY and VELVET, Paramedic and Tow Truck, the player-flown helicopter (SkyCam), boarding the L (L Courier), Club Chrome's interior, CHROME RAIDERS on its cabinet and Arcade high scores on the checklist (D36) · each through the bot on seeds 1-3 and a pad, the gym's rail, fly and arcade fixtures both ways, a recipe for each new kind · the look read and fixed (docs/media/l4) · see the acceptance log |
 | L5 The expansion's plan | done | `docs/EXPANSION.md` in PLAN.md's form: Ironside and Glass Heights, three gangs a district (seven in all), 18 missions with two heists (32 in the game), the bridges opening with the story one map at a time, planes, boats and three weapons; milestones X1-X8 with their acceptance and a Definition of Done; its scope recorded before any of it is built (D37) |
+| X1 Districts in play, Ironside's map | done | Ironside, District 2, grown from its stub (128 x 112: the Foundry, Scrapyard Flats, Voltage Row); the west bridge between it and Lowtown, closed until The Big Withdrawal is done; a crossing carries the vehicle, the crew, the time, the stars and the view, one map at a time across a fade; the career per district, `save.district` (D38) · the districts' sim tests in every view, Ironside's 10-minute soak, all merged content again (D21) · the look read (docs/media/x1) |
 
 ## Acceptance log
 
@@ -1518,3 +1519,23 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     ISO at 10.64, M2's build reading fast in its rounds; L4's code had passed there at 10.05, and two gate runs alone
     then passed at 10.19 and 10.31. ISO's margin is 1-3% (MODE 7's 2-5%): a known risk for the expansion's perf step in
     each district (X8), where the headroom is to be found.
+
+- **X1 · districts in play, and Ironside's map (D38), done:**
+  - **What's in:** Ironside, District 2, grown from its stub to 128 x 112 (the Foundry, Scrapyard Flats and Voltage
+    Row, the canal and the river, Ironside Avenue on the Flyover, its doors, landmarks, fleet, traffic and crowd); the
+    west bridge between it and Lowtown, closed on a new game (Lowtown's embankment and the strike's notice across Loop
+    Avenue's west end, Lowtown hashing as before X1) and open once The Big Withdrawal is done; a crossing by car or on
+    foot, one map at a time across the engine's fade, carrying the vehicle, the crew, the hour, the stars and the view;
+    only a job holds a bridge; the career per district and `save.district`; the map's bridges, a closed one greyed.
+  - **The tests:** `tests/sim/districts.test.mjs`: the west bridge closed on a new game and open once The Big
+    Withdrawal is done; over it and back by car in ISO, TOP-DOWN, MODE 7 and the chase camera, the district, the car
+    (its paint and damage), the fund, the hour, the stars and the view carried; on foot over it and back in each view;
+    two runs from one seed hashing the same after a crossing; a job holding the bridge; Ironside validating, playing
+    with its traffic, crowd and doors, its hospital, and a save made there loading there.
+  - **D21, on `34bc156`'s code:** the mission bot on seeds 1-3, 135 of 135, and through a pad, 45 of 45; the city soak,
+    Lowtown's day 600 s (longest stall 4.0 s) and night 300 s (9.3 s) as before X1, and Ironside's day 600 s: 636 cars
+    and 2,214 peds seen, mean speed 29.3, longest stall 8.5 s, no car in another, no red run. The districts' tests and
+    Ironside's validation (the district recipe's checks) pass in `npm test`.
+  - **The look,** read shot by shot (`docs/media/x1`: its three neighbourhoods by day and night in ISO, TOP-DOWN,
+    MODE 7 and the chase camera, the sheet and six kept): no defects; the Power Station stands a plain block till X3
+    lays out its yard, and its roof is dark at night as Lowtown's roofs are.
