@@ -39,6 +39,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | L2 The known limits | done | the glows' halos cut by the walls in front, riders at their saddles, the bot's cover on the lanes under the decks, the last stretch's unstick, the pocket's restart, a tow truck lined up in the road, the campaign's jobs from the middle of town, the gym in test:full; three stars, a passer-by and a long truck's corners kept (D34) · closed on b7b7556: test:full passed, alone, in 107 min 43 s · see the acceptance log |
 | L3 Performance | done | crowd bodies redrawn into a pixel array and put by the box they cover, MODE 7's faces and images stopped where nearer walls hide them, its decks a row at a time, its city gathered from the lens's wedge, its far bodies, cars, props and decks faded into the haze, a body by its lens kept and enlarged; the Graphics setting (part 1); the perf gate back in test:full, five rounds (D35) · the reading of record: ISO 10.25 ms (10.4), TOP-DOWN 9.05 (12.7), MODE 7 12.13 (12.7) · closed on a70cd51: test:full passed, alone, in 117 min 20 s (its perf gate: 10.01, 8.86, 12.07) · see the acceptance log |
 | L4 PLAN.md 19's backlog | done | the chase camera (a fourth view), photo filters, SURF CITY and VELVET, Paramedic and Tow Truck, the player-flown helicopter (SkyCam), boarding the L (L Courier), Club Chrome's interior, CHROME RAIDERS on its cabinet and Arcade high scores on the checklist (D36) · each through the bot on seeds 1-3 and a pad, the gym's rail, fly and arcade fixtures both ways, a recipe for each new kind · the look read and fixed (docs/media/l4) · see the acceptance log |
+| L5 The expansion's plan | done | `docs/EXPANSION.md` in PLAN.md's form: Ironside and Glass Heights, three gangs a district (seven in all), 18 missions with two heists (32 in the game), the bridges opening with the story one map at a time, planes, boats and three weapons; milestones X1-X8 with their acceptance and a Definition of Done; its scope recorded before any of it is built (D37) |
 
 ## Acceptance log
 
@@ -1503,3 +1504,12 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
   - **The campaign** on `de2e5b0`'s code: 100.0% after 3.14 h of game, in 31 min.
   - **`npm run test:full`** on `de2e5b0`'s code, alone: every one of its 34 steps passed, in 2 h 14 min (the perf gates,
     the soaks, the mission bot on seeds 1-3 and through a pad, the bot gym both ways, the campaign at 100.0%).
+
+- **L5 · the expansion's plan (D37), done:**
+  - **`docs/EXPANSION.md`:** the full game at a glance (3 districts, 7 gangs, 32 missions, 3 heists, 9 jobs, 4 races,
+    5 MAYHEMs, 11 stunt jumps, 55 Moto Tokens, 6 properties, 4 interiors, 29 vehicle definitions, 14 weapons); the
+    world (travel between districts, Ironside west across the canal, Glass Heights east across the bay at the end of
+    the Loop Causeway); the gangs, the 18 missions and the side content a district; the content packs; MOTOR's work;
+    milestones X1-X8, planes before the missions that fly them and boats with the ones that sail; the Definition of
+    Done (a bot campaign at 100% across the three districts); the risks.
+  - **Its scope** is D37's, recorded before any of it is built; PLAN.md stays the contract for what it doesn't change.

@@ -78,7 +78,7 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
 
   Each goes through the bot on seeds 1-3 and through the pad, gets a content recipe if it is a new kind, and counts
   toward the campaign's 100%.
-- [ ] **L5 · The expansion's plan:** write `docs/EXPANSION.md` in PLAN.md's form (the content spec, milestones with
+- [x] **L5 · The expansion's plan:** write `docs/EXPANSION.md` in PLAN.md's form (the content spec, milestones with
   their acceptance, a Definition of Done). Commit it and record its scope in DECISIONS before building any of it. It
   follows PLAN.md 19's shape:
   - District 2, grown from its stub, and a District 3, each with its interiors, three gangs and their missions, and

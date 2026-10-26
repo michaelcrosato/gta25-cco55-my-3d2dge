@@ -1621,3 +1621,38 @@ and where it landed.
     `drivenBy`. A car its driver left on a drawbridge's span is towed, in sight too, once the gate has shut for a lift
     and it has stood a minute (the bridge waits for its span to clear; the player's own car it waits on as before).
 - **Answered:** no. **Landed in:** after M13 (L4).
+
+## D37 · 2026-10-26 · L5: the expansion's plan, `docs/EXPANSION.md`, and its scope
+- **Principle:** HANDOFF's L5 (`docs/EXPANSION.md` in PLAN.md's form, its scope recorded here before any of it is built)
+  and PLAN.md 19's shape for the full game (3 districts x 3 gangs plus 3 heists, the bridges opening with the story, one
+  map at a time, the content packs: planes, more boats, more weapons). PLAN.md stays the contract for what EXPANSION.md
+  does not change, and section 0's rule holds for it: scope changes come here, never cut silently.
+- **Calls:**
+  - **Two districts more, three gangs each.** Ironside (District 2, grown from its stub west across the canal: the
+    works) holds the Lawn Gnomes' union turf, the Rust Monks and the Volt Boys; Glass Heights (District 3, east across
+    the bay at the end of the Loop Causeway: the money) holds the Velvet Syndicate, the Yacht Club and the Chrome Saints
+    uptown. A gang in two districts keeps one respect.
+  - **18 missions:** each new gang's two, and each district's heist in two setups and a finale (Blackout at the Ironside
+    Power Station, House Edge at the Velvet Casino), each finale played by all three protagonists. With the slice's 14:
+    32. Each district's heist opens once two of its gangs' first jobs are done.
+  - **The bridges open with the story:** Loop Avenue's west bridge (the Gnomes' strike) when The Big Withdrawal is done;
+    the Loop Causeway, Loop Avenue carried east from the sea wall, when Blackout is done. **One map at a time:** a
+    crossing fades out, loads the other district and carries the player, the vehicle, the crew, the time, the weather
+    and the stars over (`save.district`). The career is per district (a mission, an activity, a token set and a stunt
+    name theirs); only a job holds a bridge. Streaming two districts at once stays left for later, as PLAN.md 19 leaves
+    it, until a profiler says the fade is the only seam left and both fit the budgets.
+  - **The content packs:** planes (a `plane` class: the Duster, the Gull seaplane), boats (the Splash, Moneybags, the
+    Yacht Club's Regatta), weapons (the Nail Gun, the Flare Gun, the Tesla Coil), and the gangs' and the jobs' vehicles
+    (the Scrapper, the Bucket, the Velvet limo, the Limo).
+  - **Side content a district:** a job at three levels (Crop Duster; Limo), a race (the Ironside Air Race; the Heights
+    Regatta), a MAYHEM, 3 stunt jumps, 15 Moto Tokens, 2 properties, a hold-up, an attract reel; the slice's random
+    events in each. The checklist's categories count every district; their weights stay.
+  - **Milestones X1-X8,** each closed as PLAN.md's are (its acceptance, the page building and playing, committed and
+    pushed, PROGRESS.md's evidence): districts in play and Ironside's map; planes; Ironside's gangs and missions;
+    Ironside's side content; Glass Heights' map and the Causeway; boats, and Glass Heights' gangs and missions; its side
+    content; the full game verified. Planes come before the missions that fly them (Short Circuit, Blackout) and boats
+    with the ones that sail (Overboard, Flare Up): the bot learns each first. The Definition of Done: a headless bot
+    campaign at 100% across the three districts, every view in every district, the perf gate in each.
+  - **Not in it:** more arcade cabinets or radio stations (the slice's stay as they are), streaming, and any change to
+    the engine beyond PLAN.md 12's process.
+- **Answered:** no. **Landed in:** L5.
