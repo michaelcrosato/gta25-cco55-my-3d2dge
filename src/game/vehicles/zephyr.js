@@ -50,6 +50,6 @@ def('vehicles', 'zephyr', {
   palette: ['#d01c1c', '#f0c020', '#ececf0', '#2a5ab0', '#18181c'],
   handling: { mass: 1150, top: 340, accel: 165, brake: 900, grip: 560, drift: .34, steer: .58, drive: 'awd', cgHeight: .2, wheelbase: L * .62 },   // (the model's axles)
   spec: { t200: 1.6, top: 340, brake200: 34 },
-  spawn: { zones: ['neon', 'palm'], weight: 1, timeOfDay: ['day', 'night'] }, price: 9000, tags: ['sports', 'fast', 'rare'],
+  spawn: { zones: ['neon', 'palm', 'strip', 'hill', 'marina'], weight: 1, timeOfDay: ['day', 'night'] }, price: 9000, tags: ['sports', 'fast', 'rare'],
   about: 'The Saints\' showroom coupe: the fastest thing on four wheels in Lowtown, and it stops like it hit a wall.',
 });

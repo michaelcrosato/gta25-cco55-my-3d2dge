@@ -94,7 +94,7 @@ def('vehicles', 'cortez', {
   palette: ['#c8423a', '#3a6ac8', '#d8c8a0', '#3a8a5a', '#2a2a30', '#e0e0e4', '#c88a2a'],
   handling: { mass: 1200, top: 260, accel: 150, brake: 640, grip: 460, drift: .32, steer: .58, drive: 'rwd' },   // (.58: inside the city's turning circle, D17)
   spec: { t200: 2.4, top: 260, brake200: 41 },
-  spawn: { zones: ['palm', 'neon', 'brick', 'harbor', 'foundry', 'scrapyard', 'voltage'], weight: 6, timeOfDay: ['day', 'night'] }, price: 0, tags: ['sedan', 'common'],
+  spawn: { zones: ['palm', 'neon', 'brick', 'harbor', 'foundry', 'scrapyard', 'voltage', 'strip', 'hill', 'marina'], weight: 6, timeOfDay: ['day', 'night'] }, price: 0, tags: ['sedan', 'common'],
 });
 
 // The Retiree: the Cortez as a pastel family wagon, soft and slow (Nana's car in Bingo Night).
@@ -103,7 +103,7 @@ def('vehicles', 'retiree', {
   palette: ['#9ad8b8', '#a8c8e8', '#f0b898', '#c0a8d8', '#ece2c4'],
   handling: { mass: 1300, top: 225, accel: 145, brake: 560, grip: 400, drift: .36, steer: .58, steerRate: 2.6, cgHeight: .3, drive: 'rwd' },
   spec: { t200: 3.4, top: 225, brake200: 47 },
-  spawn: { zones: ['palm', 'brick', 'foundry'], weight: 3, timeOfDay: ['day'] }, price: 0, tags: ['wagon', 'common'],
+  spawn: { zones: ['palm', 'brick', 'foundry', 'marina', 'hill'], weight: 3, timeOfDay: ['day'] }, price: 0, tags: ['wagon', 'common'],
   about: 'A pastel station wagon with wood down its sides: soft, slow, and roomy enough for the whole bingo team.',
 });
 
@@ -113,6 +113,6 @@ def('vehicles', 'fedsedan', {
   palette: ['#202026', '#3a3c42', '#1c2a4a', '#1e3a2c'],
   handling: { mass: 1350, top: 280, accel: 147, brake: 720, grip: 485, drift: .38, steer: .58, cgHeight: .2, drive: 'rwd' },
   spec: { t200: 2.2, top: 280, brake200: 39 },
-  spawn: { zones: ['neon', 'brick', 'voltage'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['sedan', 'police', 'unmarked'],
+  spawn: { zones: ['neon', 'brick', 'voltage', 'strip'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['sedan', 'police', 'unmarked'],
   about: 'An unmarked federal sedan: tinted glass, a big motor, a beacon by the driver and lights behind the grille.',
 });

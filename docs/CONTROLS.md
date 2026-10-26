@@ -62,7 +62,7 @@ In a helicopter (Channel 6's SkyCam) the same buttons fly it: the stick yaws, R2
 Space climbs and L1 / Shift descends; it holds its height between. Let down slow over a street or a roof, it settles,
 and △ / E gets out only on the ground.
 
-In a plane (the Duster on Ironside Airstrip; the Gull, a seaplane, on the water) R2 / W is the throttle and L2 / S the
+In a plane (the Duster on Ironside Airstrip; the Gull, a seaplane, at the Yacht Club's pier in Glass Heights) R2 / W is the throttle and L2 / S the
 brake; on the ground the stick steers it at a taxi, and past its take-off speed R1 / Space lifts it off. In the air the
 stick banks it round, R1 climbs and L1 / Shift descends (it holds its height between), and too slow its wings let go:
 it drops its nose until it has the speed again. Set it down level, slow and gently on the ground (the Gull on the

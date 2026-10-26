@@ -1832,3 +1832,32 @@ and where it landed.
     - **Sermon on the Mound's heat** (the yard's and the chase's, held back while they lasted) is cleared with them:
       lifted alone, it had come down on the crew as four stars, and Live Wire after it was played with the police on it.
 - **Answered:** no. **Landed in:** X4.
+
+## D42 · 2026-10-26 · X5: Glass Heights' map and the Loop Causeway
+- **Principle:** EXPANSION.md 2.1 and 2.3, and X5's acceptance (X1's, for the Causeway and Glass Heights); D38: a
+  closed crossing's city is the one built without it, one map at a time.
+- **Calls:**
+  - **Glass Heights, District 3** (128 x 112): Cathedral Hill along the north (the Glass Tower over the bay, the
+    Heights' tallest, its jetty out into the water across Bayshore Drive; St. Chrome's Cathedral; the Bellevue, whose
+    penthouse is the crew's safehouse; the Observatory), the Strip either side of Loop Avenue (the Velvet Casino behind
+    its fountain, the Hotel Riviera, the Grand Palms, Heights PD, Spray & Pray Heights), Marina Heights above the sea
+    along the south (Heights General, the Yacht Club and its pier, the marina's three piers). The bay down the west
+    edge, the open sea on the east and the south, an embankment along the north; Summit Road, Bluewater Drive, Marina
+    Drive and Bayshore Drive a clockwise ring of one-way streets, the streets inside it alternate, Heights Avenue and
+    Loop Avenue two-way. Glass, white marble and gold on the hill, plum, gold and neon on the Strip, stucco and sunset
+    pink by the sea.
+  - **The Loop Causeway:** Loop Avenue on east from Lowtown's sea wall over the bay. Lowtown keeps its side short: the
+    sea wall's column across the avenue's end, cut out as the Causeway's first span once it is open, is its gate (as
+    the west bridge's is the embankment's two columns), its deck going on over the water to the map's edge (the road
+    had stopped at the bay in the look read); the crossing of the bay is drawn in Glass Heights, Loop Avenue
+    over the water to the map's edge (a bridge, railed), its gate the first two columns. Shut on a new game (the sea
+    wall stands and CAUSEWAY CLOSED is on it), open once Blackout is done (its last card says so); shut, Lowtown is the
+    city it was. Glass Heights' end is always open: it is only reached over the Causeway.
+  - **The Gull's moorings** (EXPANSION.md X2): alongside the Yacht Club's pier, afloat.
+  - **Its streets** have the slice's cars and people, their spawn zones naming the three neighbourhoods (Zephyrs and
+    Saints more often than across the bay); its gangs come in X6, with the Velvet Casino's interior and door, and its
+    side content (a lift span on the Causeway among it) in X7.
+  - **Landmark ids are one namespace** for every district (the registry's): Heights PD and the marina are
+    `heights-pd` and `heights-marina` (named as Lowtown's, they had taken those ones' places, the registry's warning
+    the only sign); Glass Heights' test holds that nothing registers twice.
+- **Answered:** no. **Landed in:** X5.

@@ -1,5 +1,5 @@
 // test:full's city soaks (PLAN.md 8.9 and 8.10: "a 10-minute headless sim"): Lowtown by day for 10 minutes and at
-// night in the rain for 5, and Ironside by day for 10 (EXPANSION.md X1), the focus hopping its sights, held to the same
+// night in the rain for 5, and Ironside and Glass Heights by day for 10 (EXPANSION.md X1, X5), the focus hopping its sights, held to the same
 // bounds as the 90-second soak in tests/sim/city-life.test.mjs. Exits 1 on a breach.
 //   node tests/full/city-soak.mjs [--secs 600]
 import { citySoak } from '../city-soak.mjs';
@@ -7,7 +7,7 @@ import { citySoak } from '../city-soak.mjs';
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? +process.argv[i + 1] : d; };
 const secs = arg('secs', 600);
 let failed = 0;
-for (const run of [{ secs, seed: 1999, time: 'day', weather: 'clear' }, { secs: Math.round(secs / 2), seed: 7, time: 'night', weather: 'rain' }, { secs, seed: 2027, time: 'day', weather: 'clear', district: 'ironside' }]) {
+for (const run of [{ secs, seed: 1999, time: 'day', weather: 'clear' }, { secs: Math.round(secs / 2), seed: 7, time: 'night', weather: 'rain' }, { secs, seed: 2027, time: 'day', weather: 'clear', district: 'ironside' }, { secs, seed: 2031, time: 'day', weather: 'clear', district: 'glass-heights' }]) {
   const tag = (run.district ? run.district + ' ' : '') + `${run.time}/${run.weather}`;
   const r = await citySoak({ ...run, log: s => console.log(`  ${tag} ${s}`) });
   const bad = [

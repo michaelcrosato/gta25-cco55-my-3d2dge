@@ -68,6 +68,6 @@ def('vehicles', 'vandal', {
   // (the model's axles; the rider's weight back and a grippy locked rear, so its handbrake slide at speed stays catchable)
   handling: { mass: 220, top: 320, accel: 140, brake: 700, grip: 475, drift: .82, steer: .45, steerRate: 4, drive: 'rwd', wheelbase: 22, cg: .62, reverseTop: 30, gears: 6 },
   spec: { t200: 2.0, top: 320, brake200: 40 },
-  spawn: { zones: ['neon', 'brick', 'scrapyard'], weight: .5, timeOfDay: ['day', 'night'] }, price: 6000, tags: ['sport', 'bike', 'fast', 'rare'],
+  spawn: { zones: ['neon', 'brick', 'scrapyard', 'strip'], weight: .5, timeOfDay: ['day', 'night'] }, price: 6000, tags: ['sport', 'bike', 'fast', 'rare'],
   about: 'A 600 sport bike: it wheelies off the line, tops 320 and stops like a car, and it throws you off in a crash.',
 });

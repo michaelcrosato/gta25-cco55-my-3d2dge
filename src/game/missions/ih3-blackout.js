@@ -164,6 +164,7 @@ const payroll = {
     yield Object.assign(m.waitUntil(mm => { const v = mm.one('duster'); return !!v && mm.vehicle === v && v.body.landed && v.speed < 8 && Math.hypot(v.x - HANGAR[0], v.y - HANGAR[1]) < 48; }), { nav: () => HANGAR });
     m.wanted.clear();   // (the Gnomes roll the doors shut: the police drive past)
     yield m.say(['Doors shut. Cops drove right past.', 'That\'s Blackout, crew. Ironside\'s ours.'], DEX);
+    yield m.say(['Ironside: done.', 'Across the bay the Velvet Syndicate is asking after the crew: the Loop Causeway to Glass Heights is open.'], { name: 'Blackout', color: '#ffe066', per: 3 });   // (EXPANSION.md 2.1, X5: it opens the Causeway)
   },
 };
 

@@ -1,9 +1,9 @@
 // The screenshot matrix (PLAN.md 10): neighbourhood x time x view shots of the built page into docs/media/shots/, and
 // a contact sheet of them all (shots/sheet-<views>-<weather>.jpg), for the look review recorded in PROGRESS.
-//   node tools/shot-matrix.mjs [--hoods palm,neon,brick,harbor,foundry,scrapyard,voltage] [--times day,dusk,night] [--views iso,top,side7]
+//   node tools/shot-matrix.mjs [--hoods palm,neon,brick,harbor,foundry,scrapyard,voltage,hill,strip,marina] [--times day,dusk,night] [--views iso,top,side7]
 //                              [--weather clear] [--scale .5] [--out docs/media/shots] [--sheet-only]
 // Each shot stands at a point of interest that shows its neighbourhood (SPOTS), in its district (Ironside's three by
-// ?dev=1&district=ironside: EXPANSION.md X1). --bank shoots the First Lowtown Bank's
+// ?dev=1&district=ironside: EXPANSION.md X1; Glass Heights' by its own: X5). --bank shoots the First Lowtown Bank's
 // lobby in each view instead (bank-<view>.png, no sheet), --interior <id> another interior (Ironside's, at night): M13's full matrix adds the bank (the UI screens are the UI
 // audit's: tools/ui-audit.mjs --shots).
 import { chromium } from 'playwright';
@@ -12,8 +12,8 @@ import { pathToFileURL } from 'node:url';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
-export const SPOTS = { palm: 'gas-n-sip', neon: 'hotel-marquee', brick: 'boom-box', harbor: 'cranes', foundry: 'union-hall', scrapyard: 'scrap-cathedral', voltage: 'power-station' };
-const DISTRICT = { foundry: 'ironside', scrapyard: 'ironside', voltage: 'ironside' };   // (Lowtown's when unsaid)
+export const SPOTS = { palm: 'gas-n-sip', neon: 'hotel-marquee', brick: 'boom-box', harbor: 'cranes', foundry: 'union-hall', scrapyard: 'scrap-cathedral', voltage: 'power-station', hill: 'glass-tower', strip: 'velvet-casino', marina: 'yacht-club' };
+const DISTRICT = { foundry: 'ironside', scrapyard: 'ironside', voltage: 'ironside', hill: 'glass-heights', strip: 'glass-heights', marina: 'glass-heights' };   // (Lowtown's when unsaid)
 const hoods = arg('hoods', Object.keys(SPOTS).join(',')).split(','), times = arg('times', 'day,dusk,night').split(','), views = arg('views', 'iso').split(',');
 const weather = arg('weather', 'clear'), scale = +arg('scale', .5), out = arg('out', 'docs/media/shots');
 
