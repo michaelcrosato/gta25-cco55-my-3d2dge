@@ -18421,7 +18421,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     deliver: ["what", "to"],
     // what: a tag; to: [x, y]; tow (the tow truck's tag: what goes on its hook); health (the share it must keep)
     evade: [],
-    // lose the wanted level
+    // lose the wanted level; vehicle (the job's, a tag: lost them in it, never another)
     follow: ["target"],
     // target: a tag; dist
     race: ["line"],
@@ -25225,7 +25225,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** lose the wanted level (the stars to 0, or below o.below) */
     evade(o = {}) {
       const below = o.below ?? 1;
-      return op((m) => m.stars < below ? { value: true } : void 0, { start: (m) => m.objective(o.text || "Lose the cops", { hint: { kind: "evade" } }) });
+      return op((m) => m.stars < below ? { value: true } : void 0, { start: (m) => m.objective(o.text || "Lose the cops", { hint: o.vehicle ? { kind: "evade", vehicle: o.vehicle } : { kind: "evade" } }) });
     }
     /** get what (a tagged vehicle or ped) to the point to (within o.radius, 40; o.stopped: standing there; o.health: the
      *  vehicle above that share of its health, or the stage fails); the objective and the bot's deliver hint */
@@ -31919,7 +31919,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return this._round(dt, v);
       }
       const Bs = this.fleet && this.fleet.bridges, closed = Bs && Bs.length ? (id) => Bs.some((q) => q.id === id && q.closed) : null;
-      const I = b.update(dt, { fleet: this.fleet, t: w9.t || this.t, pedsNear: w9.pedsNear || null, wet: w9.wet || 0, sirens: null, closed });
+      const pedsNear = w9.pedsNear ? (x, y, r7) => w9.pedsNear(x, y, r7).filter((q) => !q.hostile) : null;
+      const I = b.update(dt, { fleet: this.fleet, t: w9.t || this.t, pedsNear, wet: w9.wet || 0, sirens: null, closed });
       return I;
     }
     // out of a jam the player's way: off the road (a sidewalk, a plaza, the wrong side) toward a point farther along the
@@ -32213,6 +32214,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       };
       const gnd = (x, y) => b.ground(W26, x, y);
       if (b.landed) {
+        d = Math.hypot(g.x - v.x, g.y - v.y);
         if (g.air) {
           g.air = false;
           if (g.land !== null && g.land !== void 0) g.down = true;
@@ -32232,8 +32234,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
         if (g.taxi) {
           const a = steerTo(g.x, g.y, 2.5);
-          I.throttle = v.speed < (Math.abs(a) > 0.6 ? 14 : 36) ? 0.5 : 0;
-          if (v.speed > 44 || d < near4 * 2 && v.speed > 16) I.brake = 1;
+          I.throttle = d >= near4 && v.speed < (Math.abs(a) > 0.6 ? 14 : 36) ? 0.5 : 0;
+          const room = (s) => {
+            const hd2 = v.heading + s * Math.PI / 2;
+            for (let r7 = 16; r7 <= 96; r7 += 8) {
+              const q = gnd(v.x + Math.cos(hd2) * r7, v.y + Math.sin(hd2) * r7);
+              if (q === null || q > 3) return r7;
+            }
+            return 96;
+          };
+          if (Math.abs(a) > 1.2) {
+            if (!g.turn) g.turn = room(1) >= room(-1) ? 1 : -1;
+            I.steer = g.turn;
+          } else g.turn = 0;
+          if (v.speed > 44 || d < near4 * 2 && v.speed > 16 || d < near4) I.brake = 1;
           return I;
         }
         const clear = (hd2, len) => {
@@ -33687,7 +33701,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         case "kill":
           return this._kill(dt, p, R7, h, w9);
         case "evade":
-          return this._evade(dt, p, R7, w9);
+          return this._evade(dt, p, R7, w9, h.vehicle ? R7.actors.tagged(h.vehicle).find(alive2) || null : null);
+        // (vehicle: the job's, lost them in it, never another)
         case "follow":
           return this._follow(dt, p, R7, h, w9);
         case "race":
@@ -34934,6 +34949,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           f.lostT = far ? f.lostT + dt : 0;
           if (f.lostT > GIVE_UP2) f.done = true;
         }
+        p.hostile = !f.done && !!P21 && tg === P21;
         if (f.done) {
           if (C19) C19.adopt(p, "calm", { arch: f.arch ? get("peds", f.arch) : null });
           else if (this.combat) this.combat.remove(p);
@@ -45269,6 +45285,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     // (at the east bridge's end)
   ];
   var BUS2 = { def: "hauler", color: "#f0f0ec", health: 0.5 };
+  var PICKET2 = [1400, 890];
   var RAMS = 1;
   var BLOW = 60;
   var stopped2 = (b) => b.out || b.wrecked || !!(b.damage && b.damage.burning);
@@ -45304,6 +45321,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (old && (old.damage.share < 0.6 || Math.hypot(old.x - q.x, old.y - q.y) > 80)) m.remove(old);
           const ride8 = m.ensure.vehicle("ride", "brute", q, { heading: q.heading, color: "#ff8ac8" });
           if (m.vehicle !== ride8) m.place("player", { in: ride8 });
+          m.clearTraffic(PICKET2, 500);
           BUSES.forEach((b, i) => {
             const at = m.lane(b.at);
             m.spawn.vehicle(BUS2.def, at, { tag: "bus" + (i + 1), heading: at.heading, color: BUS2.color, health: BUS2.health, driver: "volt-grunt", gang: "volts" });
@@ -45531,6 +45549,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         id: "steal",
         setup(m) {
           m.as("gus");
+          m.clearSpot(YARD2, 90);
           const v = bucket(m);
           if (v.damage.share < 0.6) v.damage.repair();
           if (m.dist(v) > 700) m.place("player", ACROSS2);
@@ -45538,7 +45557,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         *run(m) {
           yield m.enter("bucket", { text: "Steal the Volt Boys' Bucket from Substation 9's yard", lost: "the Bucket's gone" });
           m.wanted.set(2);
-          yield m.parallel([m.say(["There goes the alarm. Lose them before you go near the line."], VIV6), m.evade({ text: "The Substation's alarm: lose the police" })]);
+          yield m.parallel([m.say(["There goes the alarm. Lose them before you go near the line."], VIV6), m.evade({ text: "The Substation's alarm: lose the police", vehicle: "bucket" })]);
         }
       },
       {
@@ -45887,6 +45906,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   ];
   var CAR = [440, 1272];
   var BUCKET = [520, 1288];
+  var RUN2 = [[530, 1450], [300, 1618], [94, 1450], [300, 1280]];
   function raid(m, i) {
     WAVES2[i].forEach((at, k) => m.spawn.ped(k === 3 ? "volt-enforcer" : "volt-grunt", at, { tag: "wave" + i, role: "enemy", gang: "volts", attack: true, weapons: ["fists", "zapomatic"], profile: { range: 0.5, burst: 0.5, pause: 1, aimOff: 0.15 } }));
   }
@@ -45944,14 +45964,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (car4.damage.share < 0.6) car4.damage.repair();
           if (m.dist(YARD3) > 400) m.place("player", HOLD3);
           const b = m.lane(BUCKET);
-          m.spawn.vehicle("bucket", b, { tag: "bucket", heading: b.heading, driver: "volt-grunt", gang: "volts", drive: { flee: "player" } });
+          m.spawn.vehicle("bucket", b, { tag: "bucket", heading: b.heading, driver: "volt-grunt", gang: "volts", drive: { route: RUN2, loop: true, style: "fast" } });
           m.wanted.cap(0);
         },
         *run(m) {
           m.allowWanted();
           yield m.parallel([
             m.say(["The collection! Their Bucket has the collection plate!", "Take our Brute at the gate. Bring it back."], FERROUS2),
-            m.chase("bucket", { text: "Stop the Volt Boys' Bucket with the collection (the Monks' Brute is at the gate)", vehicle: "ride" })
+            m.chase("bucket", { reach: 72, text: "Stop the Volt Boys' Bucket with the collection (the Monks' Brute is at the gate)", vehicle: "ride" })
+            // (reach: on its tail with it stopped; the truck's half and the Brute's are 50 between their middles, nose to tail)
           ]);
           m.wanted.cap(5);
           yield m.say(["The collection, returned. Every washer and bottle cap.", "Go in peace, brother. Mostly peace."], FERROUS2);
@@ -46582,7 +46603,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var RED = { parts: [{ box: [-3.2, -3.2, 0, 3.2, 3.2, 10], color: "#b8322a", role: "body" }, { box: [-3.4, -3.4, 3.5, 3.4, 3.4, 4.5], color: "#8a2420", role: "cabin" }, { box: [-1, -1, 10, 1, 1, 10.6], color: "#e8c040", role: "body" }] };
   var NORTH3 = -Math.PI / 2;
   var RIDE = [1662, 1540];
-  var RUN2 = [[1450, 1234], [1e3, 1234]];
+  var RUN3 = [[1450, 1234], [1e3, 1234]];
   var LEFT = "you left the yard";
   function clearSpot2(m, p) {
     const C19 = m.city, T24 = C19.T, map = C19.map;
@@ -46787,7 +46808,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         *run(m) {
           const pullOut = Object.assign(m.waitUntil(() => true), { start: (mm) => {
             const v = mm.one("ride"), at = freeLane8(mm, [v.x + Math.cos(v.heading) * 150, v.y + Math.sin(v.heading) * 150], v.heading, [0, -1, 1, -2]);
-            mm.spawn.vehicle("saint", at, { tag: "leader", heading: at.heading, color: "#e8e8ec", driver: "saint-enforcer", drive: { route: RUN2, style: "fast" } });
+            mm.spawn.vehicle("saint", at, { tag: "leader", heading: at.heading, color: "#e8e8ec", driver: "saint-enforcer", drive: { route: RUN3, style: "fast" } });
           } });
           yield m.first([each(m, () => {
           }), m.sequence([
@@ -48098,7 +48119,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var SCHEMA2 = 1;
   var PROTAGONISTS = ["dex", "viv", "gus"];
   var STATS = ["driving", "shooting", "stamina", "stealth", "strength"];
-  var GANGS2 = ["saints", "rats", "gnomes"];
+  var GANGS2 = ["saints", "rats", "gnomes", "monks", "volts"];
   var num = (v, d, lo = -Infinity, hi = Infinity) => typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d;
   var str = (v, d) => typeof v === "string" ? v : d;
   var arr = (v, f = (x) => x) => Array.isArray(v) ? v.map(f).filter((x) => x !== void 0) : [];
@@ -51731,7 +51752,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var T19 = 16;
   var C16 = (x, y) => [x * T19 + 8, y * T19 + 8];
   var START2 = C16(80, 26);
-  var RUN3 = [C16(80, 48), C16(80, 72)];
+  var RUN4 = [C16(80, 48), C16(80, 72)];
   var APRON3 = [248, 1858];
   var AWAY3 = [C16(6, 118)];
   defReel("hot_pursuit", {
@@ -51760,7 +51781,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           m.view("side7", { heading: "south" });
         },
         *run(m) {
-          yield m.race(RUN3, { text: "Run", radius: 80 });
+          yield m.race(RUN4, { text: "Run", radius: 80 });
         }
       },
       {

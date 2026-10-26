@@ -19,6 +19,14 @@ test('a save round-trips: the protagonists\' stats, weapons and health, the crew
   assert.equal(data.protagonists.dex.health, 41); assert.equal(data.crewFund, 4321); assert.equal(data.respect.rats, -20); assert.equal(data.active, 'gus');
   assert.deepEqual(saves.list().map(s => s.slot), ['2']);
 });
+
+test('every gang\'s respect is kept: Ironside\'s as Lowtown\'s', async () => {
+  await import('../../src/game/gangs.js'); const { all } = await import('../../src/motor/index.js');
+  const d = blankSave(); for (const [k, g] of all('gangs').entries()) d.respect[g.id] = -90 + k * 7;
+  const r = normalizeSave(JSON.parse(JSON.stringify(d))).respect;
+  for (const [k, g] of all('gangs').entries()) assert.equal(r[g.id], -90 + k * 7, g.id);
+  assert.ok(all('gangs').length >= 5);
+});
 test('a v0 save (the prototype\'s one hero) migrates to v1', () => {
   const { backend, saves } = fresh();
   backend.set(saves.key('1'), readFileSync(new URL('../fixtures/save-v0.json', import.meta.url), 'utf8'));

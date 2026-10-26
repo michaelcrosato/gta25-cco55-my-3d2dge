@@ -130,7 +130,7 @@ stopped, health, tow })` (`tow`: the tow truck's tag, for a car brought on its h
 near, to, until })`, `m.chase(tag, { vehicle })`, `m.kill(tag, { count, done, vehicle })` (`done(actor)`: when a target counts
 before it is dead or wrecked, a car once it smokes; `vehicle`: the tag of the car the job is done from, which the bot
 boards and never leaves: a police car ramming suspects),
-`m.protect(tag, { until })`, `m.collect(tag)`, `m.photo(tag | [x, y], { from, range })`, `m.evade()`,
+`m.protect(tag, { until })`, `m.collect(tag)`, `m.photo(tag | [x, y], { from, range })`, `m.evade({ vehicle })` (`vehicle`: the job's, a tag, the police lost in it),
 `m.race(course, { racers })` (its value: the place), `m.say(lines, { name, color })`, `m.cutscene(shots)`,
 `m.wait(s)`, `m.waitUntil(pred, { timeout })`, `m.choice(options, { title, bot })` (its value: the option's id),
 `m.parallel([...])`, `m.first([...])`, `m.sequence([...])`, `m.switchTo(id)`, `m.reward()`. Immediate:
@@ -173,7 +173,7 @@ within a cell of it); `path`: waypoints walked straight first, indoors where no 
 aim at with the fire button held, from within `reach`: the Pumper's cannon, a gun; for a plane, `land`: the strip's
 heading, down on it, and `taxi`: along the ground, never off it), `enterVehicle` (`vehicle`), `deliver` (`what`, `to`; `tow`:
 the tow truck's tag, for a car on its hook), `kill` (`targets`: rammed from the wheel, shot or beaten on foot, out of
-the window from a passenger seat; `vehicle`: a tag, rammed from that vehicle and never left for the job on foot), `evade` (away from the police), `follow` (`target`, `dist`), `race` (`line`),
+the window from a passenger seat; `vehicle`: a tag, rammed from that vehicle and never left for the job on foot), `evade` (away from the police; `vehicle`: a tag, lost them in it, never another), `follow` (`target`, `dist`), `race` (`line`),
 `photo` (`target`: a tag or [x, y], `from`), `stealth` (`path`: waypoints walked crouched, waiting while a guard is
 uneasy; a guard outdoors that has seen it fought; a guard close with its back turned taken down). The ops above set
 their own. The bot does not swim or sail (it flies a helicopter or a plane a `goto` names): a stage it must finish is reachable

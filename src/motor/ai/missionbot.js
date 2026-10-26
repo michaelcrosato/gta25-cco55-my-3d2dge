@@ -114,7 +114,7 @@ export class MissionBot {
       case 'enterVehicle': { const t = R.actors.tagged(h.vehicle).find(alive); return t ? this._board(dt, p, t, w) : this._idle(I, v); }
       case 'deliver': return this._deliver(dt, p, R, h, w);
       case 'kill': return this._kill(dt, p, R, h, w);
-      case 'evade': return this._evade(dt, p, R, w);
+      case 'evade': return this._evade(dt, p, R, w, h.vehicle ? R.actors.tagged(h.vehicle).find(alive) || null : null);   // (vehicle: the job's, lost them in it, never another)
       case 'follow': return this._follow(dt, p, R, h, w);
       case 'race': return this._race(dt, p, R, w);
       case 'photo': return this._photo(dt, p, R, h, w);

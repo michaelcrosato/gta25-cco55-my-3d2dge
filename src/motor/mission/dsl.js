@@ -15,7 +15,7 @@ export const HINTS = {
   enterVehicle: ['vehicle'],   // vehicle: a tag
   kill: ['targets'],           // targets: a tag; vehicle (a tag: rammed from that vehicle, never left for the job on foot)
   deliver: ['what', 'to'],     // what: a tag; to: [x, y]; tow (the tow truck's tag: what goes on its hook); health (the share it must keep)
-  evade: [],                   // lose the wanted level
+  evade: [],                   // lose the wanted level; vehicle (the job's, a tag: lost them in it, never another)
   follow: ['target'],          // target: a tag; dist
   race: ['line'],              // line: [[x, y], ...] checkpoints
   photo: ['target'],           // target: a tag; from: [x, y]

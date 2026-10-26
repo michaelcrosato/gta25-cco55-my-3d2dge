@@ -21,6 +21,7 @@ const BUSES = [
   { at: [1968, 872], wait: 65 },    // (at the east bridge's end)
 ];
 const BUS = { def: 'hauler', color: '#f0f0ec', health: .5 };   // (a hired bus, old and thin-skinned)
+const PICKET = [1400, 890];   // (the middle of Loop Avenue's stretch from the stops to the gates: its traffic cleared as the stage starts)
 const RAMS = 1, BLOW = 60;   // (how many rams stop a bus; how fast the two must close for a ram to count)
 const stopped = b => b.out || b.wrecked || !!(b.damage && b.damage.burning);
 const aim = n => `Ram the scab buses off the road before they reach the Smelting Co.: ${n} to go`;
@@ -47,6 +48,7 @@ defMission('gnomes_scab_labour', {
         const old = m.one('ride'); if (old && (old.damage.share < .6 || Math.hypot(old.x - q.x, old.y - q.y) > 80)) m.remove(old);
         const ride = m.ensure.vehicle('ride', 'brute', q, { heading: q.heading, color: '#ff8ac8' });
         if (m.vehicle !== ride) m.place('player', { in: ride });
+        m.clearTraffic(PICKET, 500);   // (the strike's pickets have Loop Avenue's east end, the buses' way in, out of Gus's sight from the hall: a Scrapper queued behind a bus at the lights had held the Brute off it to the gates)
         BUSES.forEach((b, i) => { const at = m.lane(b.at); m.spawn.vehicle(BUS.def, at, { tag: 'bus' + (i + 1), heading: at.heading, color: BUS.color, health: BUS.health, driver: 'volt-grunt', gang: 'volts' }); });
         m.data.atStop = 0; m.data.gone = [false, false, false];
       },

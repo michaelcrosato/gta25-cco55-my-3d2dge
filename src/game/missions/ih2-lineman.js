@@ -29,13 +29,14 @@ defMission('heist_lineman', {
       id: 'steal',
       setup(m) {
         m.as('gus');
+        m.clearSpot(YARD, 90);   // (what a try before left standing in the yard: the car Gus fled in, against the Bucket's door)
         const v = bucket(m); if (v.damage.share < .6) v.damage.repair();
         if (m.dist(v) > 700) m.place('player', ACROSS);   // (a deep link: across the street from the yard)
       },
       *run(m) {
         yield m.enter('bucket', { text: 'Steal the Volt Boys\' Bucket from Substation 9\'s yard', lost: 'the Bucket\'s gone' });
         m.wanted.set(2);   // (the Substation's alarm)
-        yield m.parallel([m.say(['There goes the alarm. Lose them before you go near the line.'], VIV), m.evade({ text: 'The Substation\'s alarm: lose the police' })]);
+        yield m.parallel([m.say(['There goes the alarm. Lose them before you go near the line.'], VIV), m.evade({ text: 'The Substation\'s alarm: lose the police', vehicle: 'bucket' })]);
       },
     },
     {

@@ -431,9 +431,9 @@ export class MissionContext {
     }, { nav: m => m.one(tag), start: m => { m.objective(o.text || 'Get in', { hint: { kind: 'enterVehicle', vehicle: tag } }); const v = m.one(tag); if (v) m.marker(v, { color: '#7ac8ff' }); } });
   }
   /** lose the wanted level (the stars to 0, or below o.below) */
-  evade(o = {}) {
+  evade(o = {}) {   // (o.vehicle: the tag of the job's vehicle, lost them in: the bot keeps to it)
     const below = o.below ?? 1;
-    return op(m => (m.stars < below ? { value: true } : undefined), { start: m => m.objective(o.text || 'Lose the cops', { hint: { kind: 'evade' } }) });
+    return op(m => (m.stars < below ? { value: true } : undefined), { start: m => m.objective(o.text || 'Lose the cops', { hint: o.vehicle ? { kind: 'evade', vehicle: o.vehicle } : { kind: 'evade' } }) });
   }
   /** get what (a tagged vehicle or ped) to the point to (within o.radius, 40; o.stopped: standing there; o.health: the
    *  vehicle above that share of its health, or the stage fails); the objective and the bot's deliver hint */

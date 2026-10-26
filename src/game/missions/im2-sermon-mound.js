@@ -4,7 +4,9 @@
 // Then the raid's Bucket makes off with the collection: take the Monks' car at the gate after it, and stop it (wrecked,
 // or caught and stopped). Proves: waves, a chase.
 //   The waves come in from the yard's gate on Crusher Lane one after another, each when the last is down; the Bucket
-//   flees from the player wherever it can.
+//   runs rings round the yard's block, its crew jeering at the sermon, to shake the player off (X4: it had fled anywhere at all,
+//   and the bot's Brute, behind it, met Ironside's worst: wedged at the world's edge, the Bucket waited while the chase
+//   stood in a jam at the west bridge's lights for the rest of the hour, three times over in a campaign).
 import { defMission } from '../../motor/index.js';
 
 const FERROUS = { name: 'Brother Ferrous', color: '#d8903a' };
@@ -18,6 +20,10 @@ const WAVES = [
 ];
 const CAR = [440, 1272];   // (the Monks' Brute at the gate's curb)
 const BUCKET = [520, 1288];   // (the raid's Bucket, waiting on Crusher Lane)
+// (its run, round the crusher yard's block: south down Forge Street, west on River Road, north up Picket Row, east on
+// Crusher Lane past the gate, and again; Ironside Avenue meets Crusher Lane under the Flyover, and a run by it had gone
+// round the whole district, through the west bridge's lights)
+const RUN = [[530, 1450], [300, 1618], [94, 1450], [300, 1280]];
 
 function raid(m, i) {
   WAVES[i].forEach((at, k) => m.spawn.ped(k === 3 ? 'volt-enforcer' : 'volt-grunt', at, { tag: 'wave' + i, role: 'enemy', gang: 'volts', attack: true, weapons: ['fists', 'zapomatic'], profile: { range: .5, burst: .5, pause: 1, aimOff: .15 } }));
@@ -66,14 +72,14 @@ defMission('monks_sermon_mound', {
         for (const b of m.tagged('bucket')) m.remove(b);
         const q = m.curb(CAR), car = m.ensure.vehicle('ride', 'brute', q, { heading: q.heading, color: '#a8542a' }); if (car.damage.share < .6) car.damage.repair();
         if (m.dist(YARD) > 400) m.place('player', HOLD);
-        const b = m.lane(BUCKET); m.spawn.vehicle('bucket', b, { tag: 'bucket', heading: b.heading, driver: 'volt-grunt', gang: 'volts', drive: { flee: 'player' } });
+        const b = m.lane(BUCKET); m.spawn.vehicle('bucket', b, { tag: 'bucket', heading: b.heading, driver: 'volt-grunt', gang: 'volts', drive: { route: RUN, loop: true, style: 'fast' } });
         m.wanted.cap(0);
       },
       *run(m) {
         m.allowWanted();
         yield m.parallel([
           m.say(['The collection! Their Bucket has the collection plate!', 'Take our Brute at the gate. Bring it back.'], FERROUS),
-          m.chase('bucket', { text: 'Stop the Volt Boys\' Bucket with the collection (the Monks\' Brute is at the gate)', vehicle: 'ride' }),
+          m.chase('bucket', { reach: 72, text: 'Stop the Volt Boys\' Bucket with the collection (the Monks\' Brute is at the gate)', vehicle: 'ride' }),   // (reach: on its tail with it stopped; the truck's half and the Brute's are 50 between their middles, nose to tail)
         ]);
         m.wanted.cap(5);
         yield m.say(['The collection, returned. Every washer and bottle cap.', 'Go in peace, brother. Mostly peace.'], FERROUS);

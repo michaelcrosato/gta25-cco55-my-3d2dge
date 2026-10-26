@@ -41,11 +41,14 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
   const world = () => { const L = gtm.life; return { t: L ? L.t : 0, pedsNear: L ? (x, y, r) => L.pedsNear(x, y, r) : null, wet: gtm.weather.wet, wanted: L && L.wanted, police: L && L.police }; };
   const stars = () => { const w = gtm.life && gtm.life.wanted; return w ? w.stars : 0; };
   // the game run for secs of game time, or until until() comes true (true: it came). While the campaign is about a
-  // token, a stunt or a property (roam), a job that starts on the way (a giver's marker walked by, a race's start stopped
-  // in: the bot takes their cards) is quit at once, as ours() quits one on the way to another: whatever runs, the
-  // career's bot has the controls, not the campaign
-  let roam = false;
-  const run = (secs, until = null) => { for (let s = 0; s < secs; s += .25) { game.advance(.25); t += .25; fresh(); if (roam && R().state === 'running') { say(`${R().id} started on the way: quit`); R().quit('not the campaign\'s'); } if (onStep) onStep(t, g, A); if (until && until()) return true; } return false; };
+  // token, a stunt or a property (roam), an offer on the way (a giver's marker walked by, a race's start stopped in) is
+  // turned down, as a player going by turns it down: the career's bot, which takes every card, is out of the career
+  // meanwhile (taken and quit, Sermon on the Mound's offer at the Monks' payphone had come again with each step there,
+  // and the Flyover's End token by it was never reached); one that runs all the same is quit, as ours() quits one on
+  // the way to another: whatever runs, the career's bot has the controls, not the campaign
+  let roam = false, bot = null;
+  const roaming = on => { roam = on; if (on && C().bot) { bot = C().bot; C().bot = null; } else if (!on && bot) { C().bot = bot; bot = null; } };
+  const run = (secs, until = null) => { for (let s = 0; s < secs; s += .25) { game.advance(.25); t += .25; fresh(); if (roam && C().card && C().card.auto) C().close(); if (roam && R().state === 'running') { say(`${R().id} started on the way: quit`); R().quit('not the campaign\'s'); } if (onStep) onStep(t, g, A); if (until && until()) return true; } return false; };
   // a controller at the scene's pilot seam (the player's own) for secs, or until until()
   const pilot = (f, secs, until) => { gtm.pilot(f); const ok = run(secs, until); gtm.pilot(null); return ok; };
   // the AutoPlayer at the controls until it arrives (or until())
@@ -205,19 +208,19 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     A.goto(at[0], at[1], { car: v, stay: true, taxi: v.cls === 'plane' }); const ok = auto(240, () => ours(a.id)) && (ours(a.id) || pilot(() => { const I = M.clearIntent(idle); I.down.handbrake = true; return I; }, 6, () => ours(a.id))); if (!ok) why = `drove to ${Math.round(P().x)},${Math.round(P().y)}: ${Math.round(Math.hypot(at[0] - P().x, at[1] - P().y))} u from the start`; return ok;
   });
   const token = s => {
-    const way = [...(s.via || []), s.at], t0 = t; roam = true; teleport(way[0][0], way[0][1]);
+    const way = [...(s.via || []), s.at], t0 = t; roaming(true); teleport(way[0][0], way[0][1]);
     walk(way[0][0], way[0][1], { secs: 60 });
     for (const w of way) climb(w[0], w[1], w.length > 2 ? w[2] : null);
     run(1); const ok = S().collectibles.includes(s.id);
     steps.push({ what: 'token', id: s.id, ok, secs: Math.round(t - t0), why: ok ? '' : `stood at ${P().x.toFixed(0)},${P().y.toFixed(0)},${(P().z || 0).toFixed(0)}` }); say(`token ${s.id}: ${ok ? 'found' : 'NOT found'}`);
-    roam = false; return ok;
+    roaming(false); return ok;
   };
   // a stunt over the drawbridge waits at its approach for a lift: the run starts once the leaves are on their way up
   // and high enough that they stand half raised as the car reaches them (a try later, a little later in the lift)
   const bridgeOf = s => (gtm.bridges || []).find(b => b.contains(s.takeoff[0], s.takeoff[1]) || Math.hypot((b.rect[0] + b.rect[2] + 1) * city.T / 2 - s.takeoff[0], (b.rect[1] + b.rect[3] + 1) * city.T / 2 - s.takeoff[1]) < s.r + 40);
   const lift = (b, go) => pilot((dt, p) => { const I = M.clearIntent(idle); I.down.handbrake = true; return I; }, 4 * 3600 / 24, () => b.phase === 'raising' && b.lift >= go);
   const stunt = s => {
-    const t0 = t, ap = s.approach || [s.takeoff[0] - 300, s.takeoff[1]], [tx, ty] = s.takeoff, n = tried.get('s:' + s.id) || 1; cool(); roam = true;
+    const t0 = t, ap = s.approach || [s.takeoff[0] - 300, s.takeoff[1]], [tx, ty] = s.takeoff, n = tried.get('s:' + s.id) || 1; cool(); roaming(true);
     const { v, ok: aboard } = takeCar(() => carNear(ap[0], ap[1]), () => carNear(P().x, P().y, null, 1e9), () => carNear(ap[0], ap[1], null, 300, true)); let ok = false, why = v ? 'no landing' : 'no car';   // (none near the run-up: one from where the player is, driven there)
     if (v && !aboard) why = `could not board the ${v.def.id} at ${Math.round(v.x)},${Math.round(v.y)}${v.driver ? ' (driven)' : ''}`;
     else if (v) {
@@ -261,14 +264,14 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
         : `in the ${v.def.id} at ${Math.round(top)} u/s: never off the ground in the takeoff circle (it ended at ${c ? [c.x, c.y, c.z || 0].map(Math.round) : 'on foot'})`;
     }
     steps.push({ what: 'stunt', id: s.id, ok, secs: Math.round(t - t0), why: ok ? '' : why }); say(`stunt ${s.id}: ${ok ? 'landed' : 'NOT landed (' + why + ')'}`);
-    roam = false; return ok;
+    roaming(false); return ok;
   };
   const owned = id => S().properties.some(q => q.id === id);
   const property = pr => {
-    const t0 = t, q = city.poi(pr.poi); roam = true; teleport(q.x, q.y); walk(q.x, q.y, { secs: 60, until: () => !!C().prompt });
+    const t0 = t, q = city.poi(pr.poi); roaming(true); teleport(q.x, q.y); walk(q.x, q.y, { secs: 60, until: () => !!C().prompt });
     if (C().prompt) { press(); run(.5); if (C().card && C().card.id === 'confirm') { C().card.items.find(q => /^BUY/.test(q.label)).act(); run(.5); } }
-    const ok = owned(pr.id); steps.push({ what: 'property', id: pr.id, ok, secs: Math.round(t - t0), why: ok ? '' : C().prompt ? 'not bought' : 'no prompt' }); say(`property ${pr.id}: ${ok ? 'bought' : 'NOT bought'}`);
-    roam = false; return ok;
+    const ok = owned(pr.id); steps.push({ what: 'property', id: pr.id, ok, secs: Math.round(t - t0), why: ok ? '' : `${C().prompt ? 'not bought' : 'no prompt'} (stood at ${[P().x, P().y, P().z || 0].map(Math.round)}, ${Math.round(Math.hypot(q.x - P().x, q.y - P().y))} u from its door${P().seat ? ', in the ' + P().seat.vehicle.def.id : ''}${C().card ? ', the ' + C().card.id + ' card up' : ''})` }); say(`property ${pr.id}: ${ok ? 'bought' : 'NOT bought'}`);
+    roaming(false); return ok;
   };
 
   // ---- the campaign: the prologue, then whatever is left, missions first (they open the rest and pay the most)

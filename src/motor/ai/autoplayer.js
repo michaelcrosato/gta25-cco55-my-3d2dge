@@ -267,7 +267,10 @@ export class AutoPlayer {
     if (this.boxT > 5 && (v.towing || (dead && this.shoveNext))) { this.boxT = 0; this.shoveNext = false; if (dead) b.blocked = Math.max(b.blocked, TUNE.gridlock * 4 + .01); }
     if (this.boxT > (cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.shoveNext = dead; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
     const Bs = this.fleet && this.fleet.bridges, closed = Bs && Bs.length ? id => Bs.some(q => q.id === id && q.closed) : null;   // (a drawbridge's gates shut: stopped short as traffic is; unwatched, a job's truck had met a rising leaf at full tilt and flown past its turn)
-    const I = b.update(dt, { fleet: this.fleet, t: w.t || this.t, pedsNear: w.pedsNear || null, wet: w.wet || 0, sirens: null, closed });
+    // (the player's enemies in the road aren't waited for: Volt Boys going for the player had stood round IM2's Brute in
+    // their turf, and it waited on them to the job's end, rounding and rounding)
+    const pedsNear = w.pedsNear ? (x, y, r) => w.pedsNear(x, y, r).filter(q => !q.hostile) : null;
+    const I = b.update(dt, { fleet: this.fleet, t: w.t || this.t, pedsNear, wet: w.wet || 0, sirens: null, closed });
     return I;
   }
   // out of a jam the player's way: off the road (a sidewalk, a plaza, the wrong side) toward a point farther along the
@@ -430,12 +433,18 @@ export class AutoPlayer {
     const steerTo = (x, y, k = 2) => { const a = ang(Math.atan2(y - v.y, x - v.x) - v.heading); I.steer = Math.max(-1, Math.min(1, a * k)); return a; };
     const gnd = (x, y) => b.ground(W, x, y);
     if (b.landed) {
+      d = Math.hypot(g.x - v.x, g.y - v.y);   // (on the ground, how far the plane is, not its cockpit: Blackout's Duster had stopped 2 short of the hangar's apron, arrived by its pilot's seat)
       if (g.air) { g.air = false; if (g.land !== null && g.land !== undefined) g.down = true; }   // (touched down)
       if (g.down) { I.brake = 1; if (v.speed < 4) { g.down = false; g.done = true; } return I; }   // (down: stopped)
       if (g.done || (d < near && v.speed < 8)) { if (g.foot || !g.stay) return this._exit(v); this.state = 'arrived'; return I; }
       if (g.taxi) {   // (taxi: along the ground to it, never off it: a hangar's door off the strip's end, flown to and circled for good)
-        const a = steerTo(g.x, g.y, 2.5); I.throttle = v.speed < (Math.abs(a) > .6 ? 14 : 36) ? .5 : 0;
-        if (v.speed > 44 || (d < near * 2 && v.speed > 16)) I.brake = 1; return I;
+        const a = steerTo(g.x, g.y, 2.5); I.throttle = d >= near && v.speed < (Math.abs(a) > .6 ? 14 : 36) ? .5 : 0;
+        // (a goal behind it: turned round the way there is room for its wings, held till it faces the goal; landed
+        // west on the strip, Blackout's Duster had turned for the hangar toward the strip's edge and stood against the
+        // wall there till the police shot it to a wreck)
+        const room = s => { const hd = v.heading + s * Math.PI / 2; for (let r = 16; r <= 96; r += 8) { const q = gnd(v.x + Math.cos(hd) * r, v.y + Math.sin(hd) * r); if (q === null || q > 3) return r; } return 96; };
+        if (Math.abs(a) > 1.2) { if (!g.turn) g.turn = room(1) >= room(-1) ? 1 : -1; I.steer = g.turn; } else g.turn = 0;
+        if (v.speed > 44 || (d < near * 2 && v.speed > 16) || d < near) I.brake = 1; return I;   // (within reach: braked there, whichever way it faces; it had circled the Air Race's start for good, the line inside its turn)
       }
       // the run: the way it faces if clear for its roll, else the longest clear one of the compass's eight (and the
       // goal's way), the nearer the goal's the better

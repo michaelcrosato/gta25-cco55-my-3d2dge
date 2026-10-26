@@ -241,6 +241,7 @@ export class Gangs {
         const far = Math.hypot(tg.x - p.x, tg.y - p.y) > LOSE_R || !sameLevel(p, tg);
         f.lostT = far ? f.lostT + dt : 0; if (f.lostT > GIVE_UP) f.done = true;
       }
+      p.hostile = !f.done && !!P && tg === P;   // (going for the player: the player's enemy, as a job's are: aimed at first, and no driver of theirs waits for it in the road)
       if (f.done) { if (C) C.adopt(p, 'calm', { arch: f.arch ? get('peds', f.arch) : null }); else if (this.combat) this.combat.remove(p); f.gone = true; continue; }
       const I = f.brain.attack(dt, clearIntent(f.brain.I), tg.seat && tg.seat.vehicle ? tg.seat.vehicle : tg);
       p.update(dt, I, PW);

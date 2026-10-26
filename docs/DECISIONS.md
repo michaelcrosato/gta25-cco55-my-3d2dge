@@ -1808,4 +1808,22 @@ and where it landed.
     that flies into a wall or a lamp stops there and drops (it had hung stalled against a lamp for good); a crowd's
     gang member a job has out of it never squares up to the player's aim; the campaign plays each district's own and
     crosses an open bridge to the next.
+  - **Found by X4's runs** (D21 again, and the first campaign through both districts), each mended:
+    - **the save** kept the respect of the slice's three gangs alone: the Rust Monks' and the Volt Boys' went back to 0
+      at every entry of the play scene (a load, each crossing); it keeps every gang's now;
+    - **Sermon on the Mound's Bucket** (X3) runs rings round the crusher yard's block, a loop of its four streets, and
+      is caught on its tail with it stopped (72 between their middles, a truck's and a car's): free to flee anywhere, it
+      had wedged itself at the world's edge while the bot's Brute stood in the west bridge's jam, past the campaign's
+      limit three times running;
+    - **the player's enemies in the road:** a gang member going for the player is `hostile`, as a job's enemies are,
+      and the AutoPlayer's driving waits for none of them (Volt Boys in their turf had stood round the Brute for good);
+    - **a plane at a taxi** brakes within the goal's reach whichever way it faces (the Duster had circled the Air Race's
+      start for good), turns round for a goal behind it the side its wings have room (Blackout's Duster, landed west, had
+      turned for the hangar into the strip's edge and stood against the wall there till the police shot it to a wreck),
+      and on the ground counts the plane's distance, not its cockpit's;
+    - **The Lineman** clears the yard of a try's leftovers before the Bucket is set down, and its evade keeps the bot in
+      the Bucket (`evade`'s `vehicle`); **Scab Labour** clears Loop Avenue's traffic on the buses' way as the stage
+      starts;
+    - **the campaign** turns down an offer on its way to a token, a stunt or a property (it had taken Sermon on the
+      Mound's at the Monks' payphone with every step, and never reached the Flyover's End token by it).
 - **Answered:** no. **Landed in:** X4.
