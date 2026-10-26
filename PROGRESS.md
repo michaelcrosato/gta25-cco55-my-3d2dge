@@ -1513,3 +1513,8 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     milestones X1-X8, planes before the missions that fly them and boats with the ones that sail; the Definition of
     Done (a bot campaign at 100% across the three districts); the risks.
   - **Its scope** is D37's, recorded before any of it is built; PLAN.md stays the contract for what it doesn't change.
+  - **`npm run test:full`** on `b8138c5`'s code, alone: every one of its 34 steps passed, in 2 h 11 min (ISO's draw
+    10.03 ms on the gate's machine against its 10.4). Its first run, on the same code, had failed only the perf gate:
+    ISO at 10.64, M2's build reading fast in its rounds; L4's code had passed there at 10.05, and two gate runs alone
+    then passed at 10.19 and 10.31. ISO's margin is 1-3% (MODE 7's 2-5%): a known risk for the expansion's perf step in
+    each district (X8), where the headroom is to be found.
