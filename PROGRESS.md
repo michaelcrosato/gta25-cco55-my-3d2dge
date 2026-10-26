@@ -42,6 +42,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | L5 The expansion's plan | done | `docs/EXPANSION.md` in PLAN.md's form: Ironside and Glass Heights, three gangs a district (seven in all), 18 missions with two heists (32 in the game), the bridges opening with the story one map at a time, planes, boats and three weapons; milestones X1-X8 with their acceptance and a Definition of Done; its scope recorded before any of it is built (D37) |
 | X1 Districts in play, Ironside's map | done | Ironside, District 2, grown from its stub (128 x 112: the Foundry, Scrapyard Flats, Voltage Row); the west bridge between it and Lowtown, closed until The Big Withdrawal is done; a crossing carries the vehicle, the crew, the time, the stars and the view, one map at a time across a fade; the career per district, `save.district` (D38) · the districts' sim tests in every view, Ironside's 10-minute soak, all merged content again (D21) · the look read (docs/media/x1) |
 | X2 Planes | done | a `plane` class (on its gear a slow car, in the air banked turns, a climb that costs speed, a stall, a landing level, slow and gentle); the Duster on Ironside Airstrip's apron and the Gull on the water; the bot flies them, off a clear run, to a point, down on a strip and taxiing (D39) · the planes' sim tests, the handling suite's plane checks, the gym's `plane` fixture on seeds 1-3 and through a pad, all merged content again (D21) · the look read (docs/media/x2) |
+| X3 Ironside's gangs and missions | done | the Rust Monks (the Scrap Cathedral, the Scrapper, the Nail Gun) and the Volt Boys (Substation 9, the Bucket, the Tesla Coil), the Gnomes' Ironside turf and HQ (a gang's HQ and rival per district); nine missions (Picket Line, Scab Labour, Holy Scrap, Sermon on the Mound, Live Wire, Short Circuit, and Blackout's Grid Map, The Lineman and finale) with the Power Station, an interior (D40) · each mission through the bot on seeds 1-3 and through a pad, the interior's validation and sim tests, the gangs', vehicles' and weapons' tests, all merged content again (D21) · the look read (docs/media/x3) |
 
 ## Acceptance log
 
@@ -1564,3 +1565,35 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     Foundry in ISO, TOP-DOWN, MODE 7 and the chase camera): no defects. The biplane reads at every view, MODE 7's and
     the chase camera's lens riding up with it; an aircraft casts no shadow on the ground, as the slice's helicopter
     doesn't.
+
+- **X3 · Ironside's gangs and missions (D40), done:**
+  - **What's in:** the Rust Monks (Scrapyard Flats; the Scrap Cathedral, their HQ and payphone; the Scrapper, a crane
+    truck on the Hookline's chassis; the Nail Gun) and the Volt Boys (Voltage Row; Substation 9; the Bucket, a cherry
+    picker on the Hauler's; the Tesla Coil), each with its grunt and enforcer, turf and rival; the Lawn Gnomes' Ironside
+    turf and HQ, the Union Hall (a gang's HQ and rival per district: `hqs`, `rivals`). Nine missions: Picket Line and
+    Scab Labour (the Gnomes), Holy Scrap and Sermon on the Mound (the Monks), Live Wire and Short Circuit (the Volt
+    Boys), and Blackout's setups Grid Map and The Lineman and its finale, played by all three. The Ironside Power
+    Station, an interior: its lobby, corridor, control room under its camera, turbine hall and switchyard, its valves
+    spots with a verb.
+  - **The tests:** `tests/sim/ironside-gangs.test.mjs` (specs clean; turf, HQs and rivals by district; the Monks at
+    the Cathedral, hostile, going for the player; the Buckets and Scrappers keeping to their turf; the Nail Gun and the
+    Tesla Coil at Lead Farm once their jobs are done, the coil's arc jumping); `tests/sim/power-station.test.mjs` (it
+    validates, its door is Ironside's, the lobby reaches every room; the corridor's east aisle out of the guard's
+    sight; the camera's sweep and the plans; △ at a valve told on the BUS); the handling suite's per-vehicle checks
+    (the Scrapper's and the Bucket's handling within their spec, their models sound); the range bench (the Nail Gun's
+    and the Tesla Coil's DPS within 10%); the gang, vehicle and weapon recipe tests beside them (the weapon's fixture a
+    Staple Gun now: the Nail Gun is Ironside's).
+  - **The bot:** each of the nine on seeds 1-3, 27 of 27, and through a pad, 9 of 9 (in the runs below).
+  - **D21, on `e56dc10`'s code:** the mission bot on seeds 1-3, 162 of 162, and through a pad, 54 of 54. The re-run
+    found two of the slice's: The Big Withdrawal on seed 3 losing its Strongbox at the ram (a back-off left standing
+    while the Strongbox was out of reach braked the bot as it caught up; seed 3 had taken 619 s of game before X3, and
+    passes gold in 209 s now), and Sermon on the Mound's Brute stuck behind a hostile Volt Boy in the lane (the box
+    clock started again with each new brain of a chase: it reads the last brain's cause now; held over every fresh
+    brain at first, it rounded queues in chases, and Scab Labour's Brute missed its buses).
+  - **The look,** read shot by shot (`docs/media/x3`: the Power Station in ISO, TOP-DOWN, MODE 7 and the chase camera
+    at night; each HQ, the Union Hall, the Scrap Cathedral and Substation 9, in each view by day; six kept): no
+    defects. The Power Station's white plaster is lit at night and the void outside its walls shows in MODE 7, the
+    chase camera and TOP-DOWN, as the bank's side door's does (the slice's interior look). Each HQ has its crew by it:
+    the Gnomes in pink at the Union Hall, the Volt Boys in hard hats by their Bucket at Substation 9; the Monks' hangout
+    is put down across Crusher Lane from the Cathedral's door (the crowd puts no one down in its inner ring round the
+    player), out of the ISO frame of a start at the door, as the gangs' test reads it from across the street.
