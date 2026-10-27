@@ -134,9 +134,9 @@ export class Ped {
     if (I.tap.ability && this.ability) this.ability.toggle();
     // the aim: locked, assisted or free (the facing when nothing aims)
     const A = w.aim || {}, range = spec ? spec.range : 300;
-    const idleAim = !I.down.aim && !I.aim && !I.aimPoint && !I.down.attack && !I.tap.attack;
-    this.aimer.update(dt, { held: !!I.down.aim && ranged, idle: idleAim, dir: I.aim, facing: m.facing, shooter: this, candidates: A.candidates || [], toScreen: A.toScreen || ((x, y, z) => [x, y - z]),
-      los: A.los, range, level: A.level || 'standard', threat: A.threat, point: I.aimPoint, stick: I.aimStick || 0 });
+    const idleAim = !I.down.aim && !I.aim && !I.aimPoint && !I.down.attack && !I.tap.attack, snap = !!spec && spec.projectile === 'photo';   // (the Snap's aim free: no lock, no assist; a camera, it had swung to a guard by Floor Plan's vault and missed the door)
+    this.aimer.update(dt, { held: !!I.down.aim && ranged && !snap, idle: idleAim, dir: I.aim, facing: m.facing, shooter: this, candidates: A.candidates || [], toScreen: A.toScreen || ((x, y, z) => [x, y - z]),
+      los: A.los, range, level: snap ? 'off' : A.level || 'standard', threat: A.threat, point: I.aimPoint, stick: I.aimStick || 0 });
     // moving: sprint on stamina, a walk while aiming, standing still to swing
     let mv = I.move, len = Math.hypot(mv[0], mv[1]);
     if (this.aiming && len > TUNE.aimWalk) mv = [mv[0] / len * TUNE.aimWalk, mv[1] / len * TUNE.aimWalk];

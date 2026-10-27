@@ -20514,9 +20514,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (I.tap.reload) this.inv.reload();
       if (I.tap.ability && this.ability) this.ability.toggle();
       const A = w12.aim || {}, range = spec ? spec.range : 300;
-      const idleAim = !I.down.aim && !I.aim && !I.aimPoint && !I.down.attack && !I.tap.attack;
+      const idleAim = !I.down.aim && !I.aim && !I.aimPoint && !I.down.attack && !I.tap.attack, snap = !!spec && spec.projectile === "photo";
       this.aimer.update(dt, {
-        held: !!I.down.aim && ranged,
+        held: !!I.down.aim && ranged && !snap,
         idle: idleAim,
         dir: I.aim,
         facing: m.facing,
@@ -20525,7 +20525,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         toScreen: A.toScreen || ((x, y, z) => [x, y - z]),
         los: A.los,
         range,
-        level: A.level || "standard",
+        level: snap ? "off" : A.level || "standard",
         threat: A.threat,
         point: I.aimPoint,
         stick: I.aimStick || 0
@@ -23778,7 +23778,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return { ...A.end, state: { facing: A.facing, crouch: u < 0.6 } };
     }
   };
-  function boardingFor(ped, v, seat7 = 0) {
+  function boardingFor(ped, v, seat7 = 0, o = {}) {
     if (!v.body || v.wrecked || v.sunk || flyer(v) && !v.body.landed || v.cls === "rail" || v.towedBy || !level(ped, v)) return null;
     if (v.speed > TUNE.boardSpeed) return null;
     const doors2 = v.model.doors;
@@ -23793,6 +23793,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
     }
     if (!best) return null;
+    if (o.clear && v.cls !== "bike" && !o.clear(W(v, best.x, best.y).x, W(v, best.x, best.y).y)) {
+      let alt = null, ad = Infinity;
+      for (const d of doors2) {
+        const p = W(v, d.x, d.y), dist = Math.hypot(p.x - ped.x, p.y - ped.y);
+        if (o.clear(p.x, p.y) && dist < ad) {
+          ad = dist;
+          alt = d;
+        }
+      }
+      if (alt) {
+        best = alt;
+        bd = ad;
+      }
+    }
     const s = v.model.seats[Math.min(seat7, v.model.seats.length - 1)] || { x: 0, y: 0 }, occupant = v.seats[seat7];
     const kind = v.cls === "bike" || v.cls === "boat" && !v.model.doors.some((d) => d.side === 0) ? "mount" : occupant ? "carjack" : "enterCar";
     return { vehicle: v, door: best, seat: seat7, seatSpot: s, kind, victim: occupant || null, locked: v.locked && kind !== "mount" && !occupant, dist: bd, at: W(v, best.x, best.y) };
@@ -31301,7 +31315,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const I = clearIntent(f.I || (f.I = makeIntent())), p = f.ped, c = f.call, u = c.unit;
       f.t += dt;
       if (p.dead || p.floored || p.held) return I;
-      let to = null;
+      let to = null, via = null;
       switch (f.task) {
         case "out":
           if (!p.boarding && !p.seat) {
@@ -31334,38 +31348,55 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (!p.boarding) {
             p.clip = null;
             p.posing = null;
-            const plan4 = boardingFor(p, u.v, f.seat);
-            if (plan4 && !u.v.seats[f.seat] && f.t < 15) p.board(plan4);
-            else if (f.t >= 15) this._strand(f);
+            const plan4 = boardingFor(p, u.v, f.seat, { clear: (x, y) => this._clear(x, y, u.v) });
+            if (plan4 && !u.v.seats[f.seat] && f.t < 15) {
+              const c2 = Math.cos(u.v.heading), s = Math.sin(u.v.heading), door2 = [u.v.x + plan4.door.x * c2 - plan4.door.y * s, u.v.y + plan4.door.x * s + plan4.door.y * c2];
+              if (this._detour(p, door2, u.v) === door2) p.board(plan4);
+              else {
+                to = door2;
+                via = u.v;
+              }
+            } else if (f.t >= 15) this._strand(f);
           }
           break;
         default:
           break;
       }
       if (to) {
-        const g = this._detour(p, to), dx = g[0] - p.x, dy = g[1] - p.y, l10 = Math.hypot(dx, dy) || 1;
+        const g = this._detour(p, to, via), dx = g[0] - p.x, dy = g[1] - p.y, l10 = Math.hypot(dx, dy) || 1;
         I.move[0] = dx / l10 * 0.5;
         I.move[1] = dy / l10 * 0.5;
       }
       return I;
     }
     // the way to a point with vehicles in between (its own unit, most often): the shortest way round their boxes (widened
-    // by a body) by their corners, a visibility graph over the few near it; its next corner, or straight there
-    _detour(p, to) {
+    // by a body) by their corners, a visibility graph over the few near it; its next corner, or straight there (skip: one
+    // left out, the unit whose door it walks to)
+    _detour(p, to, skip = null) {
       const boxes = [];
       for (const v of this.fleet.near(p.x, p.y, 110)) {
-        if (!v.body || aloft(v) || Math.abs(v.z - p.z) > 12) continue;
+        if (!v.body || v === skip || aloft(v) || Math.abs(v.z - p.z) > 12) continue;
         const c = Math.cos(v.heading), s = Math.sin(v.heading);
         boxes.push({ v, c, s, L: v.hl + 9, W: v.hw + 9, loc: (q) => [(q[0] - v.x) * c + (q[1] - v.y) * s, -(q[0] - v.x) * s + (q[1] - v.y) * c] });
       }
-      const P25 = [p.x, p.y], cut = (a, b) => boxes.some((B2) => segBox(B2.loc(a), B2.loc(b), B2.L - 3, B2.W - 3));
+      const P25 = [p.x, p.y];
+      for (const B2 of boxes) {
+        B2.l = B2.L - 3;
+        B2.w = B2.W - 3;
+        const [lx, ly] = B2.loc(P25), ix = B2.l - Math.abs(lx), iy = B2.w - Math.abs(ly);
+        if (ix > 0 && iy > 0) {
+          if (iy < ix) B2.w = Math.abs(ly) - 0.5;
+          else B2.l = Math.abs(lx) - 0.5;
+        }
+      }
+      const cut = (a, b) => boxes.some((B2) => segBox(B2.loc(a), B2.loc(b), B2.l, B2.w));
       if (!cut(P25, to)) return to;
       const nodes = [P25, to];
       for (const B2 of boxes) for (const [lx, ly] of [[B2.L, B2.W], [B2.L, -B2.W], [-B2.L, B2.W], [-B2.L, -B2.W]]) {
         const q = [B2.v.x + lx * B2.c - ly * B2.s, B2.v.y + lx * B2.s + ly * B2.c];
         if (!boxes.some((o) => {
           const l10 = o.loc(q);
-          return Math.abs(l10[0]) < o.L - 3 && Math.abs(l10[1]) < o.W - 3;
+          return Math.abs(l10[0]) < o.l && Math.abs(l10[1]) < o.w;
         })) nodes.push(q);
       }
       const n = nodes.length, D = new Array(n).fill(Infinity), prev = new Array(n).fill(-1), done2 = new Array(n).fill(false);
@@ -31388,6 +31419,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const way2 = [];
       for (let k = 1; k > 0; k = prev[k]) way2.unshift(nodes[k]);
       return way2.find((q) => Math.hypot(q[0] - p.x, q[1] - p.y) > 4) || to;
+    }
+    // whether a body can stand at (x, y): no vehicle but v's there (a door's spot, a car parked against it)
+    _clear(x, y, v) {
+      return !this.fleet.near(x, y, 60).some((o) => {
+        if (o === v || aloft(o) || Math.abs(o.z - v.z) > 12) return false;
+        const c = Math.cos(o.heading), s = Math.sin(o.heading), lx = (x - o.x) * c + (y - o.y) * s, ly = -(x - o.x) * s + (y - o.y) * c;
+        return Math.abs(lx) < o.hl + 6 && Math.abs(ly) < o.hw + 6;
+      });
     }
     // where a crew member goes on the scene: the body (the paramedics, either side of it), round the report (the officers)
     _post(f) {
@@ -45558,7 +45597,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
   function zephyr(m, i) {
     const P25 = m.vehicle || m.player, h = P25.heading ?? 0, q = m.lane([Math.max(WEST4, P25.x - Math.cos(h) * BEHIND2), P25.y - Math.sin(h) * BEHIND2], h);
-    const v = m.spawn.vehicle("zephyr", [q.x, q.y], { tag: "yacht", heading: q.heading, color: YACHT, driver: "yacht-grunt", drive: { chase: "player", style: "race", keep: 120 }, gang: "yacht" });
+    const v = m.spawn.vehicle("zephyr", [q.x, q.y], { tag: "yacht", heading: q.heading, color: YACHT, driver: "yacht-grunt", drive: { chase: "player", style: "race", keep: 120 }, gang: "yacht", mods: { armor: true } });
     seat2(m, v, "yacht-grunt", "yachtgun" + i, 1, { role: "enemy", gang: "yacht", weapons: ["fists", "snub38"], driveBy: "saint", profile: AIM3 });
     return v;
   }
@@ -45609,6 +45648,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           m.wanted.cap(0);
           m.ally("saints");
           m.truce("velvet");
+          m.peace();
         },
         *run(m) {
           const comes = m.sequence(NEXT.map((t, i) => m.waitUntil((mm) => {

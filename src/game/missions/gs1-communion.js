@@ -30,7 +30,7 @@ function saint(m) {
 // a Yacht Club Zephyr come up behind the player on the road, a member at the wheel and one at the window
 function zephyr(m, i) {
   const P = m.vehicle || m.player, h = P.heading ?? 0, q = m.lane([Math.max(WEST, P.x - Math.cos(h) * BEHIND), P.y - Math.sin(h) * BEHIND], h);
-  const v = m.spawn.vehicle('zephyr', [q.x, q.y], { tag: 'yacht', heading: q.heading, color: YACHT, driver: 'yacht-grunt', drive: { chase: 'player', style: 'race', keep: 120 }, gang: 'yacht' });
+  const v = m.spawn.vehicle('zephyr', [q.x, q.y], { tag: 'yacht', heading: q.heading, color: YACHT, driver: 'yacht-grunt', drive: { chase: 'player', style: 'race', keep: 120 }, gang: 'yacht', mods: { armor: true } });   // (armoured: Lugnut's Buzzsaw had blown one up alongside, and Dex with it)
   seat(m, v, 'yacht-grunt', 'yachtgun' + i, 1, { role: 'enemy', gang: 'yacht', weapons: ['fists', 'snub38'], driveBy: 'saint', profile: AIM });
   return v;
 }
@@ -62,7 +62,7 @@ defMission('saints_communion', {
         const v = saint(m); if (m.vehicle !== v) m.place('player', { in: v });
         m.clearTraffic(at, 200);
         m.wanted.clear(); m.wanted.cap(0);   // (the Saints' business and the Yacht Club's: the shooting brings no heat)
-        m.ally('saints'); m.truce('velvet');   // (the Syndicate keeps out of it: a hood at a limo's wheel had got out at Lugnut and left it across the avenue)
+        m.ally('saints'); m.truce('velvet'); m.peace();   // (the Syndicate keeps out of it: a hood at a limo's wheel had got out at Lugnut and left it across the avenue; and no turf war on the hill: the city's Saints and Yacht hoods shooting it out round the chrome had flared Dex down)
       },
       *run(m) {
         const comes = m.sequence(NEXT.map((t, i) => m.waitUntil(mm => { if (mm.stageTime < t) return false; zephyr(mm, i); return true; })));

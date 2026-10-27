@@ -78,7 +78,7 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | Planes: a body that rolls on its gear, lifts off past its rotation speed, banks to turn, stalls under its stall speed and sets down gently or crashes (a seaplane on water), turned back at the world's edge on a predicted exit (along it, flown on); the AutoPlayer flying one (a clear run, a cruising height, an approach, a glide and a go-around) | `src/motor/sim/vehicle/plane.js`, `model.js` (`planeParts`), `src/motor/ai/autoplayer.js` (`_plane`) | X2 |
 | Vehicle damage (zone dents, smoke, fire, the explosion) and the handling bench per definition | `src/motor/sim/vehicle/damage.js`, `handling.js` | M4 |
 | The Vehicle actor (seats, doors, lights, siren, horn, radio, nitro, mods, sinking) and the Fleet (sleeping, a neighbour grid, cars on cars, knockdowns, street furniture, chains, trains, tools) | `src/motor/actors/vehicle.js`, `fleet.js` | M4 |
-| Boarding: enter, carjack, break-in, mount, exit and bail-out as `E.ACTIONS` beats | `src/motor/actors/boarding.js` | M4 |
+| Boarding: enter, carjack, break-in, mount, exit and bail-out as `E.ACTIONS` beats (a door against a parked car passed over for a clear one, a slide across) | `src/motor/actors/boarding.js` | M4 |
 | A district's fleet: curb parking by neighbourhood, landmark spots, moorings, the L, the heli's patrol | `src/motor/world/fleet-spawn.js`, `src/game/districts/lowtown/fleet.js` | M4 |
 | The vehicle renderer (paint, dents, steering, doors, lights, beams, sirens, rotors, wakes) and VehicleFX (skids, smoke, sparks, slicks, mines, jets) | `src/motor/render/vehicle-draw.js`, `box-model.js` | M4 |
 | The radio stub (`stations`), the vehicle HUD panel, the Proving Ground's `garage` and the model sheet | `src/motor/audio/stations.js`, `src/motor/ui/hud.js`, `src/game/proving/garage-zone.js`, `tools/model-sheet.mjs` | M4 |
@@ -86,7 +86,7 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The road graph (lanes, junction regions, connectors, crosswalks), the GPS (A*, reverse costs), the signals and the junction reservations, the sidewalk graph | `src/motor/nav/` | M5 |
 | Traffic (the spawner in the annulus, the far LOD, hand-offs, service units) and its DriverBrain (IDM, junctions, sirens, passing) | `src/motor/ai/traffic.js`, `driver.js` | M5 |
 | The crowd (its own ring, gliding peds, reactions, witnesses, troupes, patrols, groups) and the PedBrain | `src/motor/ai/crowd.js`, `pedbrain.js` | M5, M6 |
-| The emergency services (the police's look-round, the Medic, the Pumper) and CityLife, which steps the city together | `src/motor/ai/emergency.js`, `city-life.js` | M5 |
+| The emergency services (the police's look-round, the Medic, the Pumper; a crew back in past a parked car, round it to a clear door) and CityLife, which steps the city together | `src/motor/ai/emergency.js`, `city-life.js` | M5 |
 | The AutoPlayer core (walks the sidewalks, drives the GPS route; sails a boat over the water's cells round the shore and what lies moored, X6) | `src/motor/ai/autoplayer.js` | M5 |
 | The wanted level (crimes, heat, stars, search and evade) and the police (sight, tiers, units, the Eye, roadblocks, spike strips, NABBED) | `src/motor/police/wanted.js`, `police.js`, `pursuit.js`, `cop.js` | M6 |
 | One fighting brain for everyone who fights on foot (guns in bursts, a clear line of fire, bats, throws) | `src/motor/ai/fighter.js` | M6 |

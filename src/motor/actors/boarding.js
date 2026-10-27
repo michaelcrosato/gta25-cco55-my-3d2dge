@@ -88,8 +88,10 @@ E.ACTIONS.bailOut = {
 };
 
 /** the door a ped at (x, y) uses to reach seat (the nearest door that serves it; any door for a driver's seat: a
- *  passenger door slides across), and whether getting in needs a jack, a break-in or a hop. null: it can't be boarded */
-export function boardingFor(ped, v, seat = 0) {
+ *  passenger door slides across), and whether getting in needs a jack, a break-in or a hop. null: it can't be boarded.
+ *  o.clear(x, y): whether a door's spot can be stood at; that door blocked (a car parked against it), the nearest clear
+ *  one of any seat's, a slide across */
+export function boardingFor(ped, v, seat = 0, o = {}) {
   if (!v.body || v.wrecked || v.sunk || (flyer(v) && !v.body.landed) || v.cls === 'rail' || v.towedBy || !level(ped, v)) return null;   // (a heli on the ground only: the Eye has no doors)
   if (v.speed > TUNE.boardSpeed) return null;
   const doors = v.model.doors; if (!doors.length) return null;
@@ -100,6 +102,11 @@ export function boardingFor(ped, v, seat = 0) {
     if (dist < bd) { bd = dist; best = d; }
   }
   if (!best) return null;
+  if (o.clear && v.cls !== 'bike' && !o.clear(W(v, best.x, best.y).x, W(v, best.x, best.y).y)) {
+    let alt = null, ad = Infinity;
+    for (const d of doors) { const p = W(v, d.x, d.y), dist = Math.hypot(p.x - ped.x, p.y - ped.y); if (o.clear(p.x, p.y) && dist < ad) { ad = dist; alt = d; } }
+    if (alt) { best = alt; bd = ad; }
+  }
   const s = v.model.seats[Math.min(seat, v.model.seats.length - 1)] || { x: 0, y: 0 }, occupant = v.seats[seat];
   const kind = v.cls === 'bike' || (v.cls === 'boat' && !v.model.doors.some(d => d.side === 0)) ? 'mount' : occupant ? 'carjack' : 'enterCar';
   return { vehicle: v, door: best, seat, seatSpot: s, kind, victim: occupant || null, locked: v.locked && kind !== 'mount' && !occupant, dist: bd, at: W(v, best.x, best.y) };

@@ -1931,4 +1931,14 @@ and where it landed.
     - **The bot** shoots a car with the aim free: the lock is for bodies, and grabbed a passer-by beyond it.
     - **GY2 Flare Up** keeps the peace and a truce with the Syndicate at the meet: a turf war on Cathedral Hill had
       a Velvet hood's shotgun take Dex down among the cars.
+    - **The Snap aims free:** no lock and no assist (a camera, not a gun): through a pad, Floor Plan's photograph of
+      the vault's door had swung to a guard by it, every time.
+    - **GS1 Communion** keeps the peace on the hill (the city's Saints and Yacht hoods shooting it out round the chrome
+      had flared Dex down, through a pad), and the Club's two Zephyrs are armoured (Lugnut's Buzzsaw had blown one up
+      alongside the chrome, and Dex with it).
+    - **The services' crews get back in** past a parked car: a door against one, in by a clear door (`boardingFor`'s
+      `o.clear`, a slide across); a car between, round it first (the walk to a door a straight one); and a body pressed
+      against a car no longer finds every way out of there cut (the detour drew its side in to it). A Fed Sedan at the
+      Grand Palms' curb had stranded a Medic's crew and left the unit in Casino Row's one lane for good; a unit left so
+      on Observatory Lane had held Communion's chrome Saint in its queue past any clock.
 - **Answered:** no. **Landed in:** X6.

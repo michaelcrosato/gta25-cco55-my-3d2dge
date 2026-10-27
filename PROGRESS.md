@@ -45,6 +45,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | X3 Ironside's gangs and missions | done | the Rust Monks (the Scrap Cathedral, the Scrapper, the Nail Gun) and the Volt Boys (Substation 9, the Bucket, the Tesla Coil), the Gnomes' Ironside turf and HQ (a gang's HQ and rival per district); nine missions (Picket Line, Scab Labour, Holy Scrap, Sermon on the Mound, Live Wire, Short Circuit, and Blackout's Grid Map, The Lineman and finale) with the Power Station, an interior (D40) · each mission through the bot on seeds 1-3 and through a pad, the interior's validation and sim tests, the gangs', vehicles' and weapons' tests, all merged content again (D21) · the look read (docs/media/x3) |
 | X4 Ironside's side content | done | Crop Duster (a flown job, three levels: rings over the allotments), the Ironside Air Race (the Duster through twelve gates, against the board's three best times), MAYHEM: Nail the Scrappers, three stunts (the Flyover's End, the Slag Heap, the Crusher Yard), 15 Moto Tokens, two properties (Sudsy's Launderette, the Airstrip), the Ironside Kwik-Lux's hold-up and the attract reel CROP DUSTER (D41) · each through the bot on seeds 1-3 and a pad, Ironside's side-content sim test, the campaign through Lowtown and Ironside to 100%, all merged content again (D21) · the look read (docs/media/x4) |
 | X5 Glass Heights' map and the Causeway | done | Glass Heights, District 3 (128 x 112: Cathedral Hill, the Strip, Marina Heights; the Glass Tower and its jetty, St. Chrome's, the Bellevue's penthouse, the Observatory, the Velvet Casino, the Hotel Riviera, the Grand Palms, Heights PD, Heights General, the Yacht Club and the marina's piers, the Gull at its moorings); the Loop Causeway over the bay, shut in Lowtown's sea wall until Blackout is done (D42) · Glass Heights' sim tests in every view, its 10-minute soak, all merged content again (D21) · the look read (docs/media/x5) |
+| X6 Boats, Glass Heights' gangs and missions | done | the Velvet Syndicate (the Velvet Casino, the Velvet limo) and the Yacht Club (the Club's pier, the Regatta, the Flare Gun), the Saints uptown at St. Chrome's; the Splash, the Regatta and Moneybags on the water, the AutoPlayer sailing round what lies moored; nine missions (Communion, High Mass, The Comp, Loaded Dice, Overboard, Flare Up, and House Edge's Floor Plan, The Gull and finale) with the Velvet Casino, an interior whose vault opens (D43) · each mission through the bot on seeds 1-3 and through a pad, the casino's validation and sim tests, the gangs', boats', planes' and mission verbs' tests, the gym's `boat` fixture on seeds 1-3 and through a pad, all merged content again (D21) · the look read (docs/media/x6) |
 
 ## Acceptance log
 
@@ -1674,3 +1675,48 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     `rails` on an opening). As the slice's, a building's north face is out of the ISO camera's sight (the casino's front
     on Loop Avenue among them), and the deck past Lowtown's gate is unmarked (a road's markings come with its band; it is
     never driven: the crossing is at the gate).
+- **X6 · Boats, and Glass Heights' gangs and missions (D43), done:**
+  - **What's in:** the Velvet Syndicate (plum and gold, a spade, damask: the Strip, the Velvet Casino, the Velvet limo,
+    the Buzzsaw and the Persuader) and the Yacht Club (navy and white, an anchor, bands: Marina Heights, the Club's pier,
+    the Regatta and the Zephyr, the Snub and the Flare Gun), the Saints uptown at St. Chrome's; rivals by district. On
+    the water the Splash (the marina's), the Regatta (the Club's) and Moneybags (the Syndicate's floating casino), the
+    AutoPlayer sailing a course round the shore and what lies moored; the Velvet limo and a white one for hire; the Flare
+    Gun (a flare sets what it hits burning and leaves a pool of fire; Lead Farm's once Overboard is done). The Velvet
+    Casino (the floor and the hall the public's, the staff corridor, the cage, the vault that opens once cracked, the
+    roof and its fire escape; three hoods, four cameras, patrons). Nine missions: Communion and High Mass (the Saints),
+    The Comp and Loaded Dice (the Syndicate), Overboard and Flare Up (the Club), and House Edge's Floor Plan, The Gull
+    and finale (all three of the crew: the vault from inside, the cage van rammed, the take flown out in the Gull, four
+    stars). MOTOR: a seated rider's drive-by, a chase that keeps its distance, a guard that minds only its own hurt, a
+    phone's camera no gun indoors, the flare, an interior's guard's own weapons and `R.open(mark)`, `m.peace()`, a
+    seaplane afloat boarded from the shore, the planes' approach inside the world's edge and their edge guard on a
+    predicted exit.
+  - **The tests:** `tests/sim/heights-gangs.test.mjs` (the two gangs and the Saints uptown: specs clean, turf, HQs,
+    rivals by district, hostile on sight at the casino, the limos and the Club's Zephyrs in their turf, the Flare Gun on
+    the shelf and a flare setting a car burning with its pool of fire, a job's peace holding turf wars off);
+    `tests/sim/casino.test.mjs` (it validates, its two doors the city's, the vault sealed from both; a guest on the
+    floor, the corridor on a staff pass and off it; △ at the vault's door and at the take, the vault opened and walked
+    into); `tests/sim/boats.test.mjs` (the boats afloat at their moorings, the Regatta sailed home round the moored Gull,
+    never pushing it); `tests/sim/mission-motor.test.mjs` (a seated rider's drive-by, a chase's keep, m.peace held and
+    lifted); `tests/sim/planes.test.mjs` (along the world's edge a plane flies on); the mission lint and every stage's
+    deep link with the nine missions; the bot gym's `boat` and `plane` fixtures on seeds 1-3 and through a pad, 6 of 6
+    each way.
+  - **Each mission through the bot** (in D21 on f3947b4, below): on seeds 1-3, 27 of 27, all but three without a retry
+    (High Mass seed 1, busted once at the grid; Flare Up seeds 2 and 3, Dex down once, by a crowd cop who squared up to
+    the Flare Gun aimed past him, and in the water); through a pad, all nine, Floor Plan and Communion after X6's last
+    commit (Loaded Dice and The Comp after a retry).
+  - **From the runs of all merged content** (D43's addendum): the AutoPlayer's off-route replan kept off a goal near
+    or to be faced (Holy Scrap's tow and Tow at level 3 had been led off their stops; it still re-plans after .6 s, a
+    Medic stuck on the Loop's deck at 2.5); a shot from the shoulder at a car lower than the muzzle at its flank (the car
+    under the point, or the first on a free aim's line, beating the assist's pull past it; the assist with a point never
+    more than 40 u past it), the bot's shots at a car with the aim free; the Snap's aim free (Floor Plan through a pad);
+    the services' crews back in past a parked car (a unit left in a one-way street's lane had held traffic for good);
+    Flare Up's and Communion's peace, Flare Up's truce with the Syndicate, Communion's Zephyrs armoured.
+  - **D21, on f3947b4's code:** the mission bot on seeds 1-3, 204 of 204; through a pad, 66 of 68, Floor Plan (the
+    Snap swung to a guard) and Communion (a turf war on the hill) fixed in X6's last commit: Floor Plan through the pad,
+    gold; Communion through the pad, gold, and on seeds 1-3, 3 of 3. All merged content again on X7's head (X7's
+    entry).
+  - **The look,** read shot by shot (`docs/media/x6`: the casino by night, dusk and from the back, its floor in ISO,
+    TOP-DOWN and MODE 7, the cage in the chase camera, the vault opened; the Yacht Club, St. Chrome's, the marina from
+    above, the limos, Moneybags with the Regatta and a Splash, a flare's fire, House Edge's rams). Three notes fixed:
+    the ALARM banner had covered the location line (centred in the space beside it now); the objective band had met a
+    first-time tip's box (below it now); St. Chrome's sign read "ST. CHROME'S." with a stray stop (gone).
