@@ -390,6 +390,7 @@ const windowStage = {
   setup(m) {
     stayOut(m);
     const car = standoff(m);
+    m.clearTraffic([car.x, car.y], 200);   // (the deck round the standoff clear: a car stopped in the jam between the getaway and the van had held the bot's fire for good, the line never clear)
     m.view('side7', { heading: 'east' });   // (MODE 7 looking back along the deck: the car, and the van on its tail)
     if (!m.one('swat')) swatVan(m, car, true); m.music('chase');
   },

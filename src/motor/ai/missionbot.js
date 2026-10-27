@@ -395,14 +395,18 @@ export class MissionBot {
     I.steer = Math.max(-1, Math.min(1, da * 2.5)); I.throttle = 1; return I;
   }
   // a target coming at the car, or standing, along open road (within 700, the line between them all road at their
-  // level): met head on, straight at it, not by the GPS's way round to its lane (Scab Labour's Brute, the first bus
-  // rammed, had gone round Ironside's one-way blocks to the next one's stop while it drove on to the gates; and queued
-  // in its own lane while a bus stood in the other)
+  // level, no car on it): met head on, straight at it, not by the GPS's way round to its lane (Scab Labour's Brute, the
+  // first bus rammed, had gone round Ironside's one-way blocks to the next one's stop while it drove on to the gates;
+  // and queued in its own lane while a bus stood in the other). A car between, the GPS's way: straight on into a queue
+  // at the lights, Vigilante's cruiser had sat behind it while the suspect got away
   _headOn(v, t, d) {
     if (d > 700 || Math.abs((t.z || 0) - (v.z || 0)) > 8) return false;
     const ux = (v.x - t.x) / d, uy = (v.y - t.y) / d; if ((t.speed || 0) >= 8 && Math.cos(t.heading) * ux + Math.sin(t.heading) * uy < .8) return false;
     const C = this.city; for (let s = 16; s < d; s += 16) { const x = t.x + ux * s, y = t.y + uy * s, k = C.surfaceAtPoint(x, y); if ((k !== 'road' && k !== 'bridge') || C.map.heightAt(x, y) > (v.z || 0) + 4) return false; }
-    return true;
+    let open = true; if (this.fleet) this.fleet.each((v.x + t.x) / 2, (v.y + t.y) / 2, d / 2 + 30, q => {   // (nothing between: a car between, the GPS's way round it)
+      if (!open || q === v || q === t || !q.body) return; const s = (q.x - t.x) * ux + (q.y - t.y) * uy;
+      if (s > 0 && s < d && Math.abs((q.y - t.y) * ux - (q.x - t.x) * uy) < q.hw + v.hw + 6) open = false; });
+    return open;
   }
   // on foot against one target: the fighter brain with the player's own weapons (a vehicle beaten with a bat, or shot)
   _fight(dt, p, t, w) {

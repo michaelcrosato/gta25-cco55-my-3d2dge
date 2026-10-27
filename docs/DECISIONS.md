@@ -1994,8 +1994,15 @@ and where it landed.
       down), and **Blackout's Duster lands east**, in over the open country west of the strip, stopped short of the
       hangar: landing west, its approach lay out at Ironside's edge over the sea, with no room to come round.
     - **The bot rams a target coming at it, or standing, along open road head on** (within 700, the line between
-      them all road at their level), straight at it: by the GPS's way round to its lane, Scab Labour's Brute had gone
-      round Ironside's one-way blocks to the next bus while it drove on to the gates.
+      them all road at their level and no car on it), straight at it: by the GPS's way round to its lane, Scab Labour's
+      Brute had gone round Ironside's one-way blocks to the next bus while it drove on to the gates. With a car on the
+      line it takes the GPS's way still: straight on into a queue at the lights, Vigilante's cruiser had sat behind it
+      while the suspect got away (level 3, the second run).
+    - **The Big Withdrawal's standoff** clears the deck round it of traffic (200): a car stopped in the jam between the
+      getaway and the van had held the bot's fire for good, its line never clear (seed 2, the second run).
+    - **The campaign tool crosses by way of a district between:** with nothing left where it is and no open bridge
+      to a district with something left, it crosses to one whose own open bridges reach one (Ironside's way to Glass
+      Heights is by Lowtown); a campaign had stopped in Ironside with all of Glass Heights to play.
     - **The Crusher Yard's run-up** starts on Crusher Lane's south walk, the kicker's climb the rest (from the lane's
       middle, its traffic stopped the car short each try).
     - **Paramedic's clocks** a little longer (3.2 to 2.7 times the road's time and 34 to 29 s): level 3's patients had

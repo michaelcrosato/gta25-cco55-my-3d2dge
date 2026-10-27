@@ -8,7 +8,8 @@
 // over from a job are lost first, as a player would (the MissionBot's evade); a property short of cash waits for the
 // pay of what comes after it, or of a job played again. Each district's (EXPANSION.md 2.1) are played in it: with
 // nothing left where it stands, it crosses an open bridge to a district with something left (by the dev teleport, onto
-// the bridge's gate), and Lowtown's missions open Ironside's bridge.
+// the bridge's gate; by way of one between, a district with nothing left), Lowtown's missions opening Ironside's
+// bridge and Ironside's the Causeway to Glass Heights.
 //   node tools/bot-campaign.mjs [--seed 1] [--hours 8] [--verbose] [--only id,id [--ready]] [--mortal]  ·  exit 0 at 100%
 //   (--only: those items alone, every other mission, activity, token, stunt and property passed over: a probe of what
 //   failed; --ready: every other mission done and $20,000 in hand first, so a late mission is on offer at once).
@@ -176,7 +177,14 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
       || M.all('stunts').some(s => s.district === d && !S().stunts.includes(s.id) && can('s:' + s.id))
       || M.all('properties').some(q => q.district === d && !owned(q.id) && can('p:' + q.id));
   };
-  const elsewhere = () => { const X = gtm.crossings; return X ? (X.list.find(c => c.open && c.to !== here() && left(c.to)) || null) : null; };
+  // (none over a bridge from here: over one to a district whose own open bridges reach one with something left:
+  // Ironside's is reached from Lowtown, and so is Glass Heights, so the way from the one to the other is by Lowtown)
+  const opensOf = c => !c.opens || S().missions.done.includes(c.opens);
+  const elsewhere = () => {
+    const X = gtm.crossings; if (!X) return null;
+    return X.list.find(c => c.open && c.to !== here() && left(c.to))
+      || X.list.find(c => c.open && c.to !== here() && ((M.get('districts', c.to) || {}).crossings || []).some(k => k.to !== here() && opensOf(k) && left(k.to))) || null;
+  };
   const cross = c => {
     const t0 = t, from = here(), [x0, y0, x1, y1] = c.gate, T = city.T; cool(); onFoot(); const p = P(); if (p.seat) p.seat.vehicle.unseat(p);
     gtm.teleport((x0 + x1 + 1) / 2 * T, (y0 + y1 + 1) / 2 * T); const ok = run(20, () => here() === c.to); run(2);
