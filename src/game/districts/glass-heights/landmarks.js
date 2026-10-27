@@ -14,7 +14,8 @@ const stucco = (side, top, o = {}) => ({ side, top, face: 'plaster', roof: 'tile
 // moors by it, EXPANSION.md GH2)
 L('glass-tower', 'The Glass Tower', [{ rect: [19, 12, 31, 22], kind: 'building', storeys: 12, look: glass('#8ab0d8', '#4a5a6a', { windows: { lit: .6, w: 6, h: 10 }, door: { chance: 1, color: '#2a3a4a' } }), sign: { text: 'GLASS TOWER', color: '#7af0ff' } },
   { rect: [17, 23, 33, 25], kind: 'plaza', surface: 'plaza' }, { rect: [2, 15, 7, 18], kind: 'pier', surface: 'pier' }],
-  [{ id: 'glass-tower', kind: 'landmark', at: [25, 26], label: 'The Glass Tower' }, { id: 'tower-jetty', kind: 'landmark', at: [5, 16], label: "The Tower's jetty" }],
+  [{ id: 'glass-tower', kind: 'landmark', at: [25, 26], label: 'The Glass Tower' }, { id: 'tower-jetty', kind: 'landmark', at: [5, 16], label: "The Tower's jetty" },
+    { id: 'penthouse', kind: 'property', property: 'penthouse', at: [28, 23], label: 'The Glass Tower penthouse' }],   // (its top floor, for sale at the tower's door: EXPANSION.md 5, X7)
   [{ kind: 'aerial', at: [22.5, 14.5], z: 288, roof: true }, { kind: 'dish', at: [28.5, 19.5], z: 288, roof: true }]);
 L('st-chrome', "St. Chrome's Cathedral", [{ rect: [45, 12, 55, 21], kind: 'building', storeys: 5, look: marble('#ece8e0', '#b89a4a', { windows: { lit: .5, w: 4, h: 10 }, door: { chance: 1, color: '#c8a04a' } }), sign: { text: "ST CHROME'S", color: '#ffd23a' } },
   { rect: [43, 22, 57, 25], kind: 'plaza', surface: 'plaza' }],
@@ -42,7 +43,8 @@ L('velvet-casino', 'The Velvet Casino', [{ rect: [43, 63, 57, 65], kind: 'plaza'
   [{ kind: 'fountain', at: [50.5, 64.5] }, { kind: 'ac', at: [47.5, 69.5], z: 96, roof: true }, { kind: 'ac', at: [53.5, 72.5], z: 96, roof: true }, { kind: 'vent', at: [47.5, 73.5], z: 96, roof: true }, { kind: 'dish', at: [54.5, 68.5], z: 96, roof: true }]);
 L('grand-palms', 'The Grand Palms', [{ rect: [98, 63, 111, 72], kind: 'building', storeys: 7, look: stucco('#c8a04a', '#5a4a2a', { windows: { lit: .6 }, door: { chance: 1 } }), sign: { text: 'GRAND PALMS', color: '#ffd23a' } },
   { rect: [97, 73, 112, 75], kind: 'plaza', surface: 'plaza' }],
-  [{ id: 'grand-palms', kind: 'landmark', at: [104, 76], label: 'The Grand Palms' }]);
+  [{ id: 'grand-palms', kind: 'landmark', at: [104, 76], label: 'The Grand Palms' }],
+  [{ kind: 'newsstand', at: [106.5, 74.5] }]);   // (the hotel's newsstand on its forecourt: the Palms Newsstand jump's, stunts/heights.js, X7)
 L('spray-pray-heights', 'Spray & Pray Heights', [{ rect: [18, 66, 25, 72], kind: 'building', storeys: 1, look: { side: '#5a6a8a', top: '#3a3a44', face: 'plaster', roof: 'plain', windows: { lit: .2 }, door: { chance: 1, w: 12, h: 14 } }, sign: { text: 'SPRAY & PRAY', color: '#ff8af0' } }],
   [{ id: 'spray-pray', kind: 'shop', shop: 'respray', at: [21, 62], label: 'Spray & Pray Heights' }]);
 
@@ -55,7 +57,18 @@ L('heights-general', 'Heights General', [{ rect: [45, 86, 55, 93], kind: 'buildi
 // Gull alongside it), the sea along the shore open to a boat: to row 110 they had walled the marina's west off from the
 // Club's east)
 L('heights-marina', 'The Marina', [{ rect: [74, 105, 75, 107], kind: 'pier', surface: 'pier' }, { rect: [80, 105, 81, 107], kind: 'pier', surface: 'pier' }, { rect: [86, 105, 87, 107], kind: 'pier', surface: 'pier' }],
-  [{ id: 'marina', kind: 'marina', at: [80, 104], label: 'The Marina' }]);
+  [{ id: 'marina', kind: 'marina', at: [80, 104], label: 'The Marina' }, { id: 'berth', kind: 'property', property: 'berth', at: [77, 104], label: 'The Marina berth' }]);   // (a berth between the piers, for sale on the walk: X7)
 L('yacht-club', 'The Yacht Club', [{ rect: [99, 86, 110, 93], kind: 'building', storeys: 2, look: stucco('#f0f0f4', '#2a3a6a', { face: 'plank', roof: 'slab', windows: { lit: .5, w: 6 }, door: { chance: 1, color: '#2a3a6a' } }), sign: { text: 'YACHT CLUB', color: '#7ab0ff' } },
   { rect: [97, 94, 112, 95], kind: 'plaza', surface: 'plaza' }, { rect: [100, 105, 109, 108], kind: 'pier', surface: 'pier' }],
   [{ id: 'yacht-club', kind: 'landmark', at: [104, 96], label: 'The Yacht Club' }, { id: 'club-pier', kind: 'landmark', at: [104, 106], label: "The Club's pier" }, { id: 'phone-yacht', kind: 'payphone', at: [98, 96] }]);
+
+// (X7) the Strip's Kwik-Lux, on Casino Row west of Velvet Row, its front on the sidewalk: its till for a hold-up (the
+// clerk faces out from the wall behind the counter's spot)
+L('kwik-lux-strip', 'Kwik-Lux (the Strip)', [{ rect: [27, 70, 32, 75], kind: 'building', storeys: 1, look: { side: '#3a5a4a', top: '#2a3a32', face: 'plaster', roof: 'plain', windows: { lit: .6 }, door: { chance: 1 } }, sign: { text: 'KWIK-LUX', color: '#5aff8a' } }],
+  [{ id: 'kwik-lux-strip', kind: 'shop', shop: 'kwiklux', holdup: true, at: [29, 76], label: 'Kwik-Lux' }]);
+// (X7) Villa Marisol, on Heights Avenue: the house in its garden's north-east corner, the lawn round it, the pool across
+// the garden's middle; the Villa Pool's kicker and landing are stunts/heights.js's ramps
+L('villa-marisol', 'Villa Marisol', [{ rect: [71, 85, 87, 95], kind: 'lawn', surface: 'grass' },
+  { rect: [82, 85, 87, 89], kind: 'building', storeys: 2, look: stucco('#f4ece0', '#c86a3a', { windows: { lit: .5 }, door: { chance: 1, color: '#7a4a2a' } }) },
+  { rect: [78, 89, 80, 93], kind: 'pool', surface: 'water' }],
+  [{ id: 'villa-marisol', kind: 'landmark', at: [70, 87], label: 'Villa Marisol' }]);

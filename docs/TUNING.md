@@ -376,6 +376,12 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `price_airstrip` Ironside Airstrip | 40000 | 0..200000 | Ironside Airstrip ($) |
 | `income_airstrip` Airstrip income | 1200 | 0..20000 | Airstrip income ($) |
 | `cap_airstrip` Airstrip till | 6000 | 0..100000 | Airstrip till ($) |
+| `price_penthouse` The Glass Tower penthouse | 60000 | 0..200000 | The Glass Tower penthouse ($) |
+| `income_penthouse` Penthouse income | 1600 | 0..20000 | Penthouse income ($) |
+| `cap_penthouse` Penthouse till | 8000 | 0..100000 | Penthouse till ($) |
+| `price_berth` The Marina berth | 30000 | 0..200000 | The Marina berth ($) |
+| `income_berth` Berth income | 900 | 0..20000 | Berth income ($) |
+| `cap_berth` Berth till | 4500 | 0..100000 | Berth till ($) |
 
 ## Economy
 

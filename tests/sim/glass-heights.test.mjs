@@ -105,7 +105,7 @@ test('Glass Heights: it validates, plays with its traffic and crowd, has its doo
   const home = C.poi('safehouse'); assert.ok(Math.hypot(gtm.crew.ped.x - home.x, gtm.crew.ped.y - home.y) < 80, 'at its safehouse');
   assert.ok(['Cathedral Hill', 'The Strip', 'Marina Heights'].includes(s.hood), 'in one of its neighbourhoods: ' + s.hood);
   assert.equal(gtm.career.available().length, 0, 'none of the other districts\' missions on offer');
-  assert.equal(gtm.career.startable().length, 0, 'nor their activities');
+  assert.equal(gtm.career.startable().map(a => a.spec.id).sort().join(), 'mayhem_flare_limos,race_heights_regatta', 'nor their activities: the Heights\' own alone (X7)');
   assert.equal(gtm.crossings.get('causeway-west').open, true, 'the Causeway open');
   const gull = gtm.fleet.vehicles.find(v => v.def.id === 'gull'), pier = C.poi('club-pier');
   assert.ok(gull && gull.body.landed && Math.hypot(gull.x - pier.x, gull.y - pier.y) < 12 * T && ['water', 'deep'].includes(C.surfaceAt(Math.floor(gull.x / T), Math.floor(gull.y / T))), 'the Gull afloat off the Club\'s pier');

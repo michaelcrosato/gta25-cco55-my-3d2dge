@@ -1942,3 +1942,50 @@ and where it landed.
       Grand Palms' curb had stranded a Medic's crew and left the unit in Casino Row's one lane for good; a unit left so
       on Observatory Lane had held Communion's chrome Saint in its queue past any clock.
 - **Answered:** no. **Landed in:** X6.
+
+## D44 · 2026-10-27 · X7: Glass Heights' side content
+
+- **Asked:** EXPANSION.md 5's side content for Glass Heights: Limo, the Heights Regatta, its MAYHEM, three stunts, 15
+  Moto Tokens, two properties, its hold-up and its attract reel (the Strip at night).
+- **Decided:**
+  - **Limo** (`job_limo`, three levels): Heights Limousines' fares, met at a door of the Heights (twelve: the hotels,
+    the casino, the Glass Tower, St. Chrome's, the Observatory, the Yacht Club, Heights General, the Bellevue, the
+    marina, Heights PD, Villa Marisol) and driven to the door they name, each leg a fair drive by the road from the last
+    (6 to 16 s of `m.eta`); two fares at level 1, three at 2, four at 3. Each ride runs against its own clock, the
+    road's time stretched (40 to 48 s and 3.8 to 4.4 times `m.eta`: a limo driven gently is slow, stopping at the reds,
+    a van's turning circle round the one-way blocks), and the fare's patience: every knock the car takes costs it
+    (260 to 400 for a whole car's worth), at none they get out; the tip by how smooth it was. In a limo: the Grand
+    Palms' white one for hire at its curb (the fleet's), the Syndicate's black; on foot (a deep link, a retry) Heights
+    Limousines lends one at the Grand Palms' curb, and one burning, a wreck or half gone is replaced. The bot drives it
+    in a new style, `smooth` (below).
+  - **The Heights Regatta** (`race_heights_regatta`): any boat, round the Heights by sea through ten buoys (out of the
+    bay, along the south shore clear of the piers, round the south-east point, up the east shore to the line off the
+    Strip), **against the Yacht Club's board**, its three best times (28, 32, 38 s), not boats on the course: the
+    racers MOTOR gives a race drive the road graph alone. A podium by the board; the purse by the place.
+  - **MAYHEM: Flare the Limos** (`mayhem_flare_limos`): the Flare Gun on nine Velvet limos parked round the Velvet
+    Casino; seven set alight in 1:30, the city's own counting too. It holds the peace while it runs (the rampage
+    helper's `peace`): where three gangs' turfs meet, a turf war had set the limos alight and shot the player down.
+  - **The three stunts:** **the Villa Pool** (EXPANSION.md's villa: Villa Marisol's garden on Heights Avenue, a kicker
+    off the avenue's east walk, over the pool onto a landing on the far lawn); **the Velvet Fountain** in place of the
+    Causeway's lift span (the bay is the Causeway's whole span, its west end the district's edge and its crossing: a
+    span raised would cut the district off, and a jump over it would end at the crossing), a kicker up the casino's
+    forecourt from Heights Avenue's west walk, over the fountain (from the avenue's middle, its traffic had stopped the
+    car short each try); **the Palms Newsstand** in place of the marina pier (no pier has room to land, each ending in
+    open sea a few rows out), a kicker up the Grand Palms' forecourt from Bluewater Drive, over the hotel's newsstand.
+  - **15 Moto Tokens** in Glass Heights alone; the marina's is `mt-heights-marina` (as `mt-marina-pier` it had been
+    Lowtown's too, the one counting both). **Two properties:** the Glass Tower penthouse ($60,000, $1,600 a night, its
+    till $8,000) and the Marina berth ($30,000, $900, $4,500). **The hold-up:** the Strip's Kwik-Lux, a new shop on
+    Casino Row's north side, on the Kwik-Lux loop. **The map:** Villa Marisol (its lawn, the villa, the pool), the
+    Kwik-Lux, the Grand Palms' newsstand, the three kickers and the landing (terrain decks, as Ironside's).
+  - **The reel THE STRIP:** night, a Zephyr GT south down Heights Avenue past the casino's neon in MODE 7, east along
+    Casino Row past the Grand Palms in ISO, down Bluewater Drive to the marina, TOP; out of the Loop's junction (north of
+    it, a queue at its lights had the watchdog cut it). The attract soak names every reel now, the districts' too
+    (Crop Duster had been left off its list).
+  - **TOP's ground beyond the map** takes a district's `beyond`, its sea (Glass Heights' bay had ended in a flat grey
+    at the map's edge): the sea's colour by day, the hour's dark by night.
+  - **MOTOR:**
+    - **The AutoPlayer's `smooth` style,** a chauffeur's: through the lights and round what stands as a player, never
+      squeezing round a queue (`player`'s squeeze had put the limo on the walk past a jam, wedged against the sea wall;
+      `calm`, stopped in the queues, was knocked about and wrecked).
+    - `m.deliver`'s `style` (how the bot drives it; `careful` when unsaid) and a `goto` hint's `style`.
+- **Answered:** no. **Landed in:** X7.

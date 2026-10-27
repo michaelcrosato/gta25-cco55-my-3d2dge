@@ -21,7 +21,7 @@ import { Side7View } from './depth/side7.js';
 import { ChaseView, headingOf } from './depth/chase.js';
 import { TopView } from './depth/top.js';
 import { CutAway } from './cutaway.js';
-import { BACKDROPS } from './sky.js';
+import { BACKDROPS, beyondTop } from './sky.js';
 import { WeatherFX } from './weather-fx.js';
 import { CrossFade } from './crossfade.js';
 import { TUNE, knob } from '../core/tune.js';
@@ -84,7 +84,7 @@ export class Stage {
   /** the world to draw: { map (TileMap), city (its CityMap, for the cut-away), floor (FloorChunks), backdrop (E.Backdrop,
    *  ISO's sky), night, engineFloor (ISO draws the engine's own whole-map floor bake: small maps only, for comparisons) } */
   setWorld(w) {
-    this.world = Object.assign({ night: true }, w);
+    this.world = Object.assign({ night: true }, w); this.beyond = (w.city && !w.city.interior && w.city.spec && w.city.spec.beyond) || null;   // (a district's sea past its edge, TOP's: setSky)
     this.spans = w.map ? new Spans(w.map, w.floor ? w.floor.size : 256) : null;
     this.cutaway = w.city ? (w.city.cutaway || (w.city.cutaway = new CutAway(w.city, { room: !!w.city.interior }))) : null;   // (a city's buildings drop round the player in ISO; an interior's walls on the camera's side)
     for (const v of [this.side7, this.chase]) { v.cutAll = v.indoor = !!(w.city && w.city.interior); v.ready = false; v.heading = w.heading || 0; }
@@ -104,7 +104,7 @@ export class Stage {
       if (!v7.clear) v7.clear = [v7.fogStart, v7.farClip];   // (fog draws MODE 7's far fade in)
       v7.fogStart = v7.clear[0] - 190 * (s.haze || 0); v7.farClip = v7.clear[1] - 200 * (s.haze || 0);
     }
-    this.top.bg = s.top;
+    this.top.bg = this.beyond && !s.indoor ? beyondTop(s, this.beyond) : s.top;
   }
   /** start a frame: o.focus [x, y] (the possessed actor), o.vel [vx, vy] and o.speed01 (0..1 of top speed) steer the
    *  depth cameras; o.player [x, y, z] (the focus by default) is who the cut-away keeps in sight. Presentation only:

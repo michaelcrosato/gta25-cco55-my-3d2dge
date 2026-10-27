@@ -441,7 +441,8 @@ export class MissionContext {
     return op(m => (m.stars < below ? { value: true } : undefined), { start: m => m.objective(o.text || 'Lose the cops', { hint: o.vehicle ? { kind: 'evade', vehicle: o.vehicle } : { kind: 'evade' } }) });
   }
   /** get what (a tagged vehicle or ped) to the point to (within o.radius, 40; o.stopped: standing there; o.health: the
-   *  vehicle above that share of its health, or the stage fails); the objective and the bot's deliver hint */
+   *  vehicle above that share of its health, or the stage fails); the objective and the bot's deliver hint (o.style: how
+   *  the bot drives it, 'careful' when unsaid) */
   deliver(o) {
     const to = this.at(o.to), r = o.radius || 40, text = o.text || 'Deliver it';
     return op(m => {
@@ -450,7 +451,7 @@ export class MissionContext {
       const there = Math.hypot(w.x - to[0], w.y - to[1]) < r && (!o.stopped || (w.speed || 0) < 10);
       return there ? { value: true } : undefined;
     }, { nav: m => { const w = m.one(o.what); return w && w.body && m.vehicle !== w ? w : to; },
-      start: m => { m.objective(text, { hint: { kind: 'deliver', what: o.what, to, tow: o.tow, health: o.health } }); m.marker(to, { color: '#7aff8a', r: Math.min(r, 28) }); } });   // (health: the bot spares the car)
+      start: m => { m.objective(text, { hint: { kind: 'deliver', what: o.what, to, tow: o.tow, health: o.health, style: o.style } }); m.marker(to, { color: '#7aff8a', r: Math.min(r, 28) }); } });   // (health: the bot spares the car)
   }
   /** keep within o.lose (400) of a tagged target until o.until(m) holds (or it gets to o.to); out of reach for o.grace
    *  (4 s) fails the stage */

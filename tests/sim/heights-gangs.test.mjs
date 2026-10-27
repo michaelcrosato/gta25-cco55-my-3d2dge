@@ -40,8 +40,9 @@ test('the Syndicate at the Velvet Casino: members hang out there; hostile, they 
   assert.ok(members().every(m => ['velvet-grunt', 'velvet-enforcer'].includes(m.ped.archetype)), 'in their velvet');
   G.add('velvet', -50, 'test'); assert.equal(G.stance('velvet'), 'hostile');
   const m = members().find(q => Math.hypot(q.ped.x - hq.x, q.ped.y - hq.y) < 240 && G.turfAt(q.ped.x, q.ped.y) === 'velvet'), f = m.ped.mover.facing;
-  p.place(m.ped.x + Math.cos(f) * 50, m.ped.y + Math.sin(f) * 50); game.advance(3);
-  assert.ok(G.fighters.some(q => q.gang === 'velvet' && q.target === p), 'hostile: they go for the player');
+  p.place(m.ped.x + Math.cos(f) * 50, m.ped.y + Math.sin(f) * 50);
+  let went = false; for (let k = 0; k < 12 && !went; k++) { game.advance(.25); went = G.fighters.some(q => q.gang === 'velvet' && q.target === p); }   // (within 3 s: at 3 s itself, a fight may have broken off)
+  assert.ok(went, 'hostile: they go for the player');
 });
 
 test('the Velvet limos keep to the Strip and the Club\'s Zephyrs to Marina Heights in the traffic', async () => {

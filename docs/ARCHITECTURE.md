@@ -87,7 +87,7 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | Traffic (the spawner in the annulus, the far LOD, hand-offs, service units) and its DriverBrain (IDM, junctions, sirens, passing) | `src/motor/ai/traffic.js`, `driver.js` | M5 |
 | The crowd (its own ring, gliding peds, reactions, witnesses, troupes, patrols, groups) and the PedBrain | `src/motor/ai/crowd.js`, `pedbrain.js` | M5, M6 |
 | The emergency services (the police's look-round, the Medic, the Pumper; a crew back in past a parked car, round it to a clear door) and CityLife, which steps the city together | `src/motor/ai/emergency.js`, `city-life.js` | M5 |
-| The AutoPlayer core (walks the sidewalks, drives the GPS route; sails a boat over the water's cells round the shore and what lies moored, X6) | `src/motor/ai/autoplayer.js` | M5 |
+| The AutoPlayer core (walks the sidewalks, drives the GPS route in a style: calm, smooth, careful, player, race; sails a boat over the water's cells round the shore and what lies moored, X6) | `src/motor/ai/autoplayer.js` | M5 |
 | The wanted level (crimes, heat, stars, search and evade) and the police (sight, tiers, units, the Eye, roadblocks, spike strips, NABBED) | `src/motor/police/wanted.js`, `police.js`, `pursuit.js`, `cop.js` | M6 |
 | One fighting brain for everyone who fights on foot (guns in bursts, a clear line of fire, bats, throws) | `src/motor/ai/fighter.js` | M6 |
 | Gangs (respect, stances, hangouts and beats, gang cars in their turf, turf wars and a job's peace that holds them off) | `src/motor/gangs/gangs.js`, `src/game/gangs.js`, `src/game/peds/gangs.js` | M6 |

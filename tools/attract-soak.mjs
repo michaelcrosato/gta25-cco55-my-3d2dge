@@ -20,7 +20,7 @@ import { loadGame } from '../tests/harness.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; }, has = k => process.argv.includes('--' + k);
 const chromium = has('chromium'), seeds = arg('seeds', chromium ? '1' : '0,1,2,3').split(',').map(Number), mins = +arg('mins', chromium ? 5 : 30);   // (seed 0: the shipped page, no ?seed: Lowtown as players get it)
-const SAMPLE = 10, HEAP = 20, REELS = ['joyride', 'hot_pursuit', 'turf_war', 'switch', 'heist_tease'];
+const SAMPLE = 10, HEAP = 20, REELS = ['joyride', 'hot_pursuit', 'turf_war', 'switch', 'heist_tease', 'crop_duster', 'strip_night'];   // (every reel: the districts' too)
 
 // the run's samples judged: { ok, fails: [...] }
 const median = l => { const q = [...l].sort((a, b) => a - b); return q.length ? q[Math.floor(q.length / 2)] : 0; };

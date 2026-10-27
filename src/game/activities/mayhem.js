@@ -1,4 +1,4 @@
-// MAYHEM (PLAN.md 9.5; EXPANSION.md 5): the rampages, Lowtown's three and Ironside's. Each starts on foot at its skull
+// MAYHEM (PLAN.md 9.5; EXPANSION.md 5): the rampages, Lowtown's three, Ironside's and Glass Heights'. Each starts on foot at its skull
 // marker in a gang's corner of town, hands
 // over its weapon (the stage's alone: the player's own come back after) and counts against the clock:
 //   - Zap Rats: the Zap-O-Matic among the Harbor Rats on the Fish Market's quay and round it (its arc chains through a
@@ -9,6 +9,8 @@
 //     up counts, the city's own too;
 //   - Nail the Scrappers (Ironside, X4): the Nail Gun on the Rust Monks' crane trucks parked round the Scrap
 //     Cathedral. Any Scrapper wrecked or set burning counts, the city's own too.
+//   - Flare the Limos (Glass Heights, X7): the Flare Gun on the Velvet Syndicate's limos parked round the Velvet Casino.
+//     Any Velvet limo set burning counts, the city's own too.
 // While a rampage runs the precinct turns a blind eye (no stars), and the gang it's against keeps its own out of it
 // (the city's members don't come running, and a stray costs no respect: the rampage's price is its own); however it
 // ends, both are lifted. Proves: MAYHEM's frame (a skull, a weapon, a count, a clock), kills counted by the BUS, a
@@ -30,7 +32,8 @@ function clearSpot(m, p) {
   return p;
 }
 // a rampage: spec { title, district (Lowtown's when unsaid), at (its skull: a point of interest, or a point), brief, kit (the loadout), need, secs, label, tag (the
-// targets the bot is pointed at), text, gangs (whose members keep out of it), spawn(m) (its targets, made once a try),
+// targets the bot is pointed at), text, gangs (whose members keep out of it), peace (no turf war breaks out while it
+// runs: where three gangs' turfs meet), spawn(m) (its targets, made once a try),
 // listen(m) (its BUS listeners), count(m) (how many so far), lines, done (the line once it's over), rewards }
 function rampage(id, S) {
   defActivity(id, {
@@ -42,6 +45,7 @@ function rampage(id, S) {
         if (m.dist(S.at) > 300) m.place('player', clearSpot(m, m.at(S.at)));   // (a deep link: at the skull)
         m.loadout({ ...S.kit, health: 100, armor: 100, only: true });
         for (const g of S.gangs) m.truce(g);
+        if (S.peace) m.peace();
         m.data.city = 0; S.spawn(m);
         if (S.listen) S.listen(m);
       },
@@ -153,4 +157,26 @@ rampage('mayhem_nail_scrappers', {
   },
   listen(m) { m.on('vehicleDestroyed', e => { if (e.by !== m.player.id) return; const v = m.byId(e.vehicle); if (v && v.def.id === 'scrapper' && v.owner !== 'mission') m.data.city++; }); },
   count: m => m.tagged('scrapper').filter(blown).length + (m.data.city || 0),
+});
+
+// ---- Flare the Limos (Glass Heights, EXPANSION.md 5, X7): the Velvet Syndicate's limos parked round the Velvet
+// Casino's block, in the lanes of Loop Avenue, Velvet Row, Heights Avenue and Casino Row each its street's way (75 u
+// and more apart); the skull on the casino's forecourt, in flare range of all but the two round the back. A flare sets a limo burning (that counts),
+// and a burning one goes up a while later: keep back
+const LIMOS = [
+  { at: [704, 880], h: 0 }, { at: [896, 880], h: 0 }, { at: [800, 920], h: 180 },   // (Loop Avenue, staggered: two rows side by side had gone up together)
+  { at: [608, 1056], h: 90 }, { at: [608, 1152], h: 90 }, { at: [1040, 1056], h: 270 }, { at: [1040, 1152], h: 270 },
+  { at: [704, 1280], h: 0 }, { at: [896, 1280], h: 0 },   // (Casino Row, round the back)
+];
+rampage('mayhem_flare_limos', {
+  title: 'MAYHEM: Flare the Limos', district: 'glass-heights', at: [800, 1000], brief: ['The Flare Gun. The Velvet Syndicate\'s limos, round their casino.', 'Set 7 of the 9 alight in 1:30. Keep back: a burning one goes up.'],
+  kit: { weapons: ['flaregun'], ammo: { flaregun: 40 }, select: 'flaregun' }, need: 7, secs: 90, spare: 25, label: 'LIMOS', tag: 'vlimo',
+  text: 'MAYHEM: set 7 Velvet limos alight with the Flare Gun (the city\'s count too)', lines: ['MAYHEM!', 'Seven Velvet limos. One Flare Gun. Ninety seconds.'], done: 'MAYHEM over. The Syndicate\'s valets will be busy.',
+  rewards: { cash: 2500, respect: { velvet: -10 } }, gangs: ['velvet', 'saints', 'yacht'], peace: true,
+  spawn(m) {
+    if (m.tagged('vlimo').length) return;
+    for (const c of LIMOS) { const q = m.lane(c.at, c.h * Math.PI / 180); m.spawn.vehicle('velvetlimo', q, { tag: 'vlimo', heading: q.heading, gang: 'velvet' }); }
+  },
+  listen(m) { m.on('vehicleDestroyed', e => { if (e.by !== m.player.id) return; const v = m.byId(e.vehicle); if (v && v.def.id === 'velvetlimo' && v.owner !== 'mission') m.data.city++; }); },
+  count: m => m.tagged('vlimo').filter(blown).length + (m.data.city || 0),
 });

@@ -14,6 +14,7 @@ const EMBANKMENT = { h: 32, top: '#5a7a5a', side: '#b8b4aa', face: 'stone', roof
 
 def('districts', 'glass-heights', {
   name: 'Glass Heights', size: [128, 112], seed: 2031, storey: 24, career: true,
+  beyond: '#163a62',   // (the open sea past its edges: TOP's ground beyond the map, X7)
   hoods: HOODS, styles: STYLES,
   hoodMap: [[0, 0, 127, 31, 'hill'], [0, 32, 127, 78, 'strip'], [0, 79, 127, 111, 'marina']],
   water: [{ rect: [0, 0, 7, 111], kind: 'sea' }, { rect: [122, 0, 127, 111], kind: 'sea' }, { rect: [8, 105, 121, 111], kind: 'sea' }],

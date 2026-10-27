@@ -61,8 +61,9 @@ function seaPath(x0, y0, g, wet, W, H) {
 }
 // (player and race drive as a player does: through the lights and the stop signs, first into a junction's box, round
 // what stands in the lane at once: the brain's siren mode, with no siren sounding; and round a queue that has not
-// moved for a few seconds: its squeeze. Calm keeps to the rules)
-const STYLES = { calm: { speed: 1, gap: 1, patience: 1, calm: true }, careful: { speed: .95, gap: 1.2, patience: .6, calm: true, assertive: true, squeeze: 6 }, player: { speed: 1.25, gap: .75, patience: .5, calm: true, assertive: true, squeeze: 4 }, race: { speed: 1.6, gap: .6, patience: .15, calm: true, assertive: true, squeeze: 2.5 } };
+// moved for a few seconds: its squeeze. Calm keeps to the rules. Smooth, a chauffeur's: through the lights and round
+// what stands as a player, never squeezing round a queue: a limo on the walk past a jam had wedged against the sea wall)
+const STYLES = { calm: { speed: 1, gap: 1, patience: 1, calm: true }, smooth: { speed: 1.1, gap: 1, patience: .6, calm: true, assertive: true }, careful: { speed: .95, gap: 1.2, patience: .6, calm: true, assertive: true, squeeze: 6 }, player: { speed: 1.25, gap: .75, patience: .5, calm: true, assertive: true, squeeze: 4 }, race: { speed: 1.6, gap: .6, patience: .15, calm: true, assertive: true, squeeze: 2.5 } };
 
 export class AutoPlayer {
   /** o: { city, roads ({ graph, gps, walks }), fleet, junctions } */
@@ -77,7 +78,7 @@ export class AutoPlayer {
   /** is the vehicle with this id one not to take (given up on for this goal, or a moment ago)? */
   shuns(id) { return this.tried.has(id) || (this.gaveUp.has(id) && this.t - this.gaveUp.get(id) < SHUN); }
   /** go to (x, y): o.foot keeps it on foot (out of a vehicle first); o.car: drive there in this vehicle; o.stay: stop
-   *  there seated; o.style: 'calm' | 'careful' | 'player' | 'race'; o.radius: near enough; o.z: the goal's height (a
+   *  there seated; o.style: 'calm' | 'smooth' | 'careful' | 'player' | 'race'; o.radius: near enough; o.z: the goal's height (a
    *  deck: driven to the lane up there); o.hold: never give up the vehicle it drives (a job's own: a jam it can't drive
    *  out of is backed and driven round, again and again, never left); o.heading: come in along a lane running that way
    *  (a tow truck to stand facing it); o.hover: in a helicopter, held over it (not landed); o.keep: the same trip to a

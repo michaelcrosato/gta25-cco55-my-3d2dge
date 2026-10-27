@@ -248,14 +248,14 @@ export class MissionBot {
       if (G.i < h.path.length) { const q = h.path[G.i], I = clearIntent(this.I), dx = q[0] - p.x, dy = q[1] - p.y, l = Math.hypot(dx, dy) || 1; I.move[0] = dx / l; I.move[1] = dy / l; return I; }
     }
     if (h.interact && !p.seat && Math.hypot(at[0] - p.x, at[1] - p.y) < Math.min(16, h.radius || 16)) { const I = clearIntent(this.I); const beat = this.t * 4 | 0; if (beat % 2 === 0) { I.down.interact = true; if (beat !== this._tapBeat) { this._tapBeat = beat; I.tap.interact = true; } } return I; }   // (there: △, a door's or a prompt's)
-    return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat, hover: !!h.hover, land: h.land ?? null, taxi: !!h.taxi, speed: h.speed ?? null }, w);   // (land: a plane set down on the strip ending there, its heading; to be got to in a vehicle: never out of it in a jam, backed and driven round again and again: H4's getaway failed on "Dex left the getaway car")
+    return this._go(dt, p, at[0], at[1], { foot: !!h.foot || !!h.interact, stay: true, radius: h.interact ? 8 : h.radius || 24, z: at[2], hold: !!h.inVehicle && !!p.seat, hover: !!h.hover, land: h.land ?? null, taxi: !!h.taxi, speed: h.speed ?? null, style: h.style || undefined }, w);   // (land: a plane set down on the strip ending there, its heading; to be got to in a vehicle: never out of it in a jam, backed and driven round again and again: H4's getaway failed on "Dex left the getaway car")
   }
   _deliver(dt, p, R, h, w) {
     const what = R.actors.tagged(h.what).find(alive), v = p.seat && p.seat.vehicle;
     if (h.tow && what) return this._towTo(dt, p, R, h, what, w);
     if (what && what.body && v !== what) return this._board(dt, p, what, w);   // (the vehicle to deliver: in it first)
     if (!v) { const I = this._car(dt, p, w); if (I) return I; }
-    return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: 'careful', radius: 40, z: h.to[2], hold: !!(what && what.body) }, w);   // (the job's own car: never left in a jam)
+    return this._go(dt, p, h.to[0], h.to[1], { stay: true, style: h.style || 'careful', radius: 40, z: h.to[2], hold: !!(what && what.body) }, w);   // (the job's own car: never left in a jam)
   }
   // a tow (deliver's tow: the truck's tag): into the truck; lined up on the car's axis past whichever end has room,
   // facing away from it (driven in along a lane that runs that way: a long truck turned round at the kerb had wedged

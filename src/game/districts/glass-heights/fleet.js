@@ -1,7 +1,8 @@
 // Glass Heights' fleet (EXPANSION.md 2.3), as Lowtown's fleet.js: cars and bikes along the curbs by neighbourhood, the
 // landmarks' own vehicles at their doors (cruisers at Heights PD, the Medic at Heights General, a Zephyr GT under the
-// Riviera's awning, a Saint at St. Chrome's, the Cortez by the safehouse, a Fed Sedan at the Grand Palms); the Gull at
-// its moorings off the Yacht Club's pier, the MPD Eye over the Strip, and the traffic and the crowd round the focus.
+// Riviera's awning, a Saint at St. Chrome's, the Cortez by the safehouse, a Fed Sedan and the white limo for hire at the
+// Grand Palms); the Gull at its moorings off the Yacht Club's pier, the MPD Eye over the Strip, and the traffic and the
+// crowd round the focus.
 // The Heights drive the dearest cars in the city, and the Strip never sleeps.
 import { def } from '../../../motor/index.js';
 
@@ -11,6 +12,7 @@ def('fleets', 'glass-heights', {
   spots: [
     { def: 'cruiser', near: 'precinct', n: 2 }, { def: 'medic', near: 'hospital' }, { def: 'zephyr', near: 'hotel-riviera' },
     { def: 'saint', near: 'st-chrome' }, { def: 'cortez', near: 'safehouse' }, { def: 'fedsedan', near: 'grand-palms' },
+    { def: 'limo', near: 'grand-palms' },   // (the hotel's white limo for hire: the Limo job's, X7)
   ],
   // (the Gull moored alongside the Club's pier's east side, its nose out to sea, a door on the pier and the passage
   // along the shore past the pier's end clear of it: off the end, a Regatta had rammed it for good and nobody could
