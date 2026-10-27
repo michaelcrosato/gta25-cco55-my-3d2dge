@@ -63,8 +63,8 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | Engine patch 7 (canvas lighting cost) and patch 1's `cutTop` | `vendor/my-3d2dge/PATCHES.md` | M2 |
 | Saves: a JSON document per slot (migrate, normalize, keep a corrupt one as `:bak`, locked in the demo) | `src/motor/core/save.js`, `src/game/save.js` | M3 |
 | Combat data: the `weapons` registry, Vitals (armour, regeneration, knockdown, stun), Inventory (slots of a kind, magazines, reloads), Stats, Abilities | `src/motor/combat/weapons.js`, `vitals.js`, `inventory.js`, `stats.js`, `abilities.js` | M3 |
-| Aim: lock-on in a screen cone (threats first), flicks, assist levels, the shot's pitch; z-aware sight lines | `src/motor/combat/aim.js` | M3 |
-| The Combat world: Shots (3D segment hits against bodies and boxes, walls by height, decks), Explosives (arcs, bounces, rockets, blasts, chains), the Fire grid, Pickups, zaps, the Snap, melee, drive-bys; BUS hit, kill, crime, explode, photo | `src/motor/combat/combat.js`, `shots.js`, `explosives.js`, `pickups.js`, `src/motor/sim/fire.js` | M3 |
+| Aim: lock-on in a screen cone (threats first), flicks, assist levels (with the mouse's point, never far past it), the shot's pitch; z-aware sight lines | `src/motor/combat/aim.js` | M3 |
+| The Combat world: Shots (3D segment hits against bodies and boxes, walls by height, decks; a shot from the shoulder at a car lower than it, at its flank), Explosives (arcs, bounces, rockets, blasts, chains), the Fire grid, Pickups, zaps, the Snap, melee, drive-bys; BUS hit, kill, crime, explode, photo | `src/motor/combat/combat.js`, `shots.js`, `explosives.js`, `pickups.js`, `src/motor/sim/fire.js` | M3 |
 | The weapons bench (each weapon's measured DPS against its spec) | `src/motor/combat/bench.js` | M3 |
 | Peds on foot: the Mover's verbs, stamina, crouch, a roll that stops short, strafing, knockdown and get-up, seats | `src/motor/actors/ped.js` | M3 |
 | PedRig: a look over the Humanoid, MOTOR's weapon models drawn among the limbs (GTM-PATCH 8), the foregrip IK | `src/motor/actors/ped-rig.js`, `src/motor/render/weapon-models.js` | M3 |

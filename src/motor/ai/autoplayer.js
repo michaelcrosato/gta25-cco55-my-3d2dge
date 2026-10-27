@@ -245,11 +245,14 @@ export class AutoPlayer {
       this.state = 'drive'; this.offT = 0;
     }
     const b = this.brain;
-    // off its route a moment (a turn missed, a pass round a wreck onto the next lane): a fresh route from where it is,
+    // off its route a while (a turn missed: a pass round a parked car onto the next lane, a squeeze round a queue, is
+    // back on it in a moment): a fresh route from where it is,
     // the brain kept (with the old route it wanders, and Communion's chrome Saint, past its turn, had gone round Glass
-    // Heights' ring of one-way streets for good)
-    const here = b.here; this.offT = here && here.k === 'lane' && b.route && b.goal && !b.route.includes(here.id) ? (this.offT || 0) + dt : 0;
-    if (this.offT > .6) { this.offT = 0; const r = this._plan(v, g); if (r) b.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); }
+    // Heights' ring of one-way streets for good). Not near the goal, nor to a goal to be faced a way: there the last lanes
+    // are the approach's to work out (Holy Scrap's tow truck, re-routed as it went, came at its last wreck where it
+    // couldn't face it, and a Tow job's owner got to its car first)
+    const here = b.here; this.offT = here && here.k === 'lane' && b.route && b.goal && d > 300 && g.heading == null && !b.route.includes(here.id) ? (this.offT || 0) + dt : 0;
+    if (this.offT > 2.5) { this.offT = 0; const r = this._plan(v, g); if (r) b.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); }
     // stalled (a jam, a gridlocked box): a fresh route from here; three times, out (at street level). An exit jammed
     // past the brain's wait: a fresh route that keeps off that lane
     const jam = b.cause === 'exit' && v.speed < 3; this.exitHeld = jam ? (this.exitHeld || 0) + dt : Math.max(0, (this.exitHeld || 0) - dt * .5);

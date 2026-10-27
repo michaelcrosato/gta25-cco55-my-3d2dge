@@ -95,6 +95,7 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `lockKeep` Lock-on keeps to | 1.25 | 1..2 | A locked target stays locked out to this many times the weapon range |
 | `flickAt` Flick threshold | 0.75 | 0.3..1 | How far the right stick must travel from rest, in a moment, to switch the lock |
 | `flickCone` Flick cone | 60 | 10..120 | Degrees either side of the flick that the next target may lie in |
+| `pointPast` Assist past the point | 40 | 0..400 | How far beyond the mouse's point the aim assist may still pull to a target (u) |
 | `gravity` Thrown gravity | 520 | 100..2000 | Gravity on thrown things (u/s²) |
 | `bounce` Grenade bounce | 0.38 | 0..1 | The share of its speed a grenade keeps off a bounce |
 | `chainDelay` Chain delay | 0.18 | 0..2 | Seconds before a blast sets off the next explosive thing in reach |

@@ -417,6 +417,7 @@ export class MissionBot {
       }
     }
     const J = F.attack(dt, I, t);
+    if (t.body) J.down.aim = false;   // (a car aimed at freely: the lock is for bodies, and grabbed a passer-by beyond it)
     return F.want && p.inv.current !== F.want ? this._step(J, p, F.want) : J;
   }
   // to a weapon: picked (the wheel's pick), or with the pad the d-pad's steps, a tap every other step

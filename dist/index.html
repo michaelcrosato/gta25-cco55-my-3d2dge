@@ -18810,6 +18810,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   knob("Combat", "lockKeep", "Lock-on keeps to", 1.25, 1, 2, 0.05, "A locked target stays locked out to this many times the weapon range");
   knob("Combat", "flickAt", "Flick threshold", 0.75, 0.3, 1, 0.05, "How far the right stick must travel from rest, in a moment, to switch the lock");
   knob("Combat", "flickCone", "Flick cone", 60, 10, 120, 5, "Degrees either side of the flick that the next target may lie in");
+  knob("Combat", "pointPast", "Assist past the point", 40, 0, 400, 5, "How far beyond the mouse's point the aim assist may still pull to a target (u)");
   var ASSIST = { off: { cone: 0, pull: 0 }, low: { cone: 8, pull: 0.45 }, standard: { cone: 16, pull: 0.8 } };
   var CHEST = 22;
   var SIGHT_TRIES = 4;
@@ -18951,7 +18952,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.dir = [dx / l10, dy / l10];
         this.pitchTo = Math.abs(below) > 20 ? [o.point[0], o.point[1], (o.point[2] || 0) + CHEST] : null;
         const h2 = assist(s, this.dir, o.candidates, { ...o, level: o.level === "off" ? "off" : "low" });
-        if (h2.target) {
+        if (h2.target && Math.hypot(h2.target.x - s.x, h2.target.y - s.y) <= l10 + TUNE.pointPast) {
           this.dir = h2.dir;
           this.pitchTo = [h2.target.x, h2.target.y, (h2.target.z || 0) + CHEST];
         }
@@ -31964,8 +31965,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       const b = this.brain;
       const here = b.here;
-      this.offT = here && here.k === "lane" && b.route && b.goal && !b.route.includes(here.id) ? (this.offT || 0) + dt : 0;
-      if (this.offT > 0.6) {
+      this.offT = here && here.k === "lane" && b.route && b.goal && d > 300 && g.heading == null && !b.route.includes(here.id) ? (this.offT || 0) + dt : 0;
+      if (this.offT > 2.5) {
         this.offT = 0;
         const r7 = this._plan(v, g);
         if (r7) b.setRoute(r7.lanes, { lane: r7.to.lane.id, s: r7.to.s });
@@ -34533,6 +34534,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
       }
       const J = F2.attack(dt, I, t);
+      if (t.body) J.down.aim = false;
       return F2.want && p.inv.current !== F2.want ? this._step(J, p, F2.want) : J;
     }
     // to a weapon: picked (the wheel's pick), or with the pad the d-pad's steps, a tap every other step
@@ -36223,7 +36225,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         muzzle = [b.x - hy * side * off2 + hx * 2, b.y + hx * side * off2 + hy * 2, (b.z || 0) + 15];
       }
       let spread = spec.spread * p.stats.spread() * (ab ? ab.spread : 1) * (moving ? TUNE.moveSpread : 1) * (p.crouching ? TUNE.crouchSpread : 1);
-      const damage = spec.damage * (ab ? ab.damage : 1), at = A.pitchTo;
+      const damage = spec.damage * (ab ? ab.damage : 1);
+      let at = A.pitchTo;
+      if (!A.target) {
+        const car4 = this._atCar(p, muzzle, A, spec, seat7), far = (q) => Math.hypot(q[0] - muzzle[0], q[1] - muzzle[1]);
+        if (car4 && (!at || A.point || far(car4) + 24 < far(at))) at = car4;
+      }
       let base4 = at ? [at[0] - muzzle[0], at[1] - muzzle[1], at[2] - muzzle[2]] : [A.dir[0], A.dir[1], 0];
       if (at) {
         const l10 = Math.hypot(...base4);
@@ -36375,6 +36382,49 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         BUS.emit("crime", { type: "murder", x: at[0], y: at[1], by: o.by, victim: t.id, victimFaction: t.faction || null, severity: 3, lawful: by3 ? by3.faction === "police" : false });
       }
       return r7;
+    }
+    // a level shot at a car lower than the muzzle (a posed rig's, at the shoulder): at its flank, not along the aim, which
+    // flew over its roof (the Flare Gun's flares at the Velvet limos had sailed on past them, or to a passer-by the assist
+    // found beyond). The car aimed at: the one under the mouse's point (or a bot's), else, the aim free (a stick's), the
+    // first along its line within the range. A
+    // body posed only when drawn (the crowd's, the police's, the gangs') holds its gun lower, under a roof already; a
+    // bike's rider sits in the open, a body to aim at. Null where there is none
+    _atCar(p, m, A, spec, seat7) {
+      if (seat7 || p.lazyRig) return null;
+      const q = A.point, dir = A.dir, range = spec && spec.range || 300;
+      let best = q ? 0 : range, hit = null;
+      for (const t of this.boxes) {
+        if (!t.hurt || !t.hl || t.cls === "bike" || Math.abs((t.z || 0) - (p.z || 0)) > 20 || (t.z || 0) + (typeof t.height === "number" ? t.height : 20) >= m[2]) continue;
+        const c = Math.cos(-(t.heading || 0)), s = Math.sin(-(t.heading || 0));
+        if (q) {
+          const ox2 = q[0] - t.x, oy2 = q[1] - t.y;
+          if (Math.abs(ox2 * c - oy2 * s) <= t.hl + 4 && Math.abs(ox2 * s + oy2 * c) <= t.hw + 4) {
+            hit = t;
+            break;
+          }
+          continue;
+        }
+        if (Math.abs(t.x - m[0]) > range + 80 || Math.abs(t.y - m[1]) > range + 80) continue;
+        const ox = m[0] - t.x, oy = m[1] - t.y, lx = ox * c - oy * s, ly = ox * s + oy * c, dx = dir[0] * c - dir[1] * s, dy = dir[0] * s + dir[1] * c;
+        let t0 = 0, t1 = best;
+        for (const [o, d, h] of [[lx, dx, t.hl], [ly, dy, t.hw]]) {
+          if (Math.abs(d) < 1e-9) {
+            if (Math.abs(o) > h) t0 = Infinity;
+            continue;
+          }
+          let ta = (-h - o) / d, tb = (h - o) / d;
+          if (ta > tb) [ta, tb] = [tb, ta];
+          t0 = Math.max(t0, ta);
+          t1 = Math.min(t1, tb);
+        }
+        if (t0 <= t1 && t0 < best) {
+          best = t0;
+          hit = t;
+        }
+      }
+      if (!hit) return null;
+      const z = (hit.z || 0) + Math.min(14, (typeof hit.height === "number" ? hit.height : 20) * 0.55);
+      return q ? [q[0], q[1], z] : [m[0] + dir[0] * (best + 6), m[1] + dir[1] * (best + 6), z];
     }
     // a flare's end (EXPANSION.md 6, X6): the Molotov's fire, as a shot: a pool of burning phosphor where it lands
     _flarePool(x, y, d) {
@@ -46163,6 +46213,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           m.wanted.clear();
           m.wanted.cap(0);
           m.truce("saints");
+          m.truce("velvet");
+          m.peace();
           if (m.dist(CARS5[1].at) > 1200) m.place("player", "observatory");
         },
         *run(m) {

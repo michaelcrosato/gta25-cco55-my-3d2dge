@@ -1916,4 +1916,19 @@ and where it landed.
     under way runs its course), lifted when it ends.
   - **The bot gym's `boat` fixture** starts on the quay by the Bilge Rat (the sail measured, not a drive across
     Lowtown's jams: from the safehouse, seed 2 had been busted in one).
+  - **From X6's runs of all merged content** (D21 again after each):
+    - **The AutoPlayer's off-route replan** waits for a car that has stayed off its route 2.5 s, far from its goal,
+      and never for a goal it must face a way: a pass round a parked car onto the next lane, or a squeeze round a
+      queue, had re-planned at once into a fresh route that led the tow (Holy Scrap, Tow at level 3) away from its
+      stop.
+    - **A shot at a car lower than the shooter's muzzle** (a posed rig's, at the shoulder: the player's and the
+      crew's in hand) goes at its flank, not level along the aim over its roof. The car aimed at is the one under the
+      mouse's point, or with the aim free (a stick's) the first along its line within range, unless a lock is held;
+      it beats what the assist pulled to beyond it. **The assist with a point** never pulls to a target more than
+      `pointPast` (40 u) beyond it. A body posed only when drawn (the crowd's, the police's, the gangs') holds its gun
+      lower, under a roof already, and a bike's rider sits in the open, a body: neither changes. Flare Up's flares had
+      flown over the Saints' cars or to a passer-by the assist found past them, and a pad player's would have too.
+    - **The bot** shoots a car with the aim free: the lock is for bodies, and grabbed a passer-by beyond it.
+    - **GY2 Flare Up** keeps the peace and a truce with the Syndicate at the meet: a turf war on Cathedral Hill had
+      a Velvet hood's shotgun take Dex down among the cars.
 - **Answered:** no. **Landed in:** X6.

@@ -10,6 +10,7 @@ knob('Combat', 'lockCone', 'Lock-on cone', 70, 10, 180, 5, 'Degrees of screen a 
 knob('Combat', 'lockKeep', 'Lock-on keeps to', 1.25, 1, 2, .05, 'A locked target stays locked out to this many times the weapon range');
 knob('Combat', 'flickAt', 'Flick threshold', .75, .3, 1, .05, 'How far the right stick must travel from rest, in a moment, to switch the lock');
 knob('Combat', 'flickCone', 'Flick cone', 60, 10, 120, 5, 'Degrees either side of the flick that the next target may lie in');
+knob('Combat', 'pointPast', 'Assist past the point', 40, 0, 400, 5, 'How far beyond the mouse\'s point the aim assist may still pull to a target (u)');
 /** aim assist levels: the cone (degrees either side, on screen) it helps within and how much of the way it pulls */
 export const ASSIST = { off: { cone: 0, pull: 0 }, low: { cone: 8, pull: .45 }, standard: { cone: 16, pull: .8 } };
 export const CHEST = 22;   // a body's chest above its feet (the engine's HEIGHTS.chest)
@@ -128,7 +129,7 @@ export class Aimer {
       const dx = o.point[0] - s.x, dy = o.point[1] - s.y, l = Math.hypot(dx, dy) || 1, below = (s.z || 0) - (o.point[2] || 0);
       this.dir = [dx / l, dy / l]; this.pitchTo = Math.abs(below) > 20 ? [o.point[0], o.point[1], (o.point[2] || 0) + CHEST] : null;
       const h = assist(s, this.dir, o.candidates, { ...o, level: o.level === 'off' ? 'off' : 'low' });
-      if (h.target) { this.dir = h.dir; this.pitchTo = [h.target.x, h.target.y, (h.target.z || 0) + CHEST]; }
+      if (h.target && Math.hypot(h.target.x - s.x, h.target.y - s.y) <= l + TUNE.pointPast) { this.dir = h.dir; this.pitchTo = [h.target.x, h.target.y, (h.target.z || 0) + CHEST]; }   // (never one well past the point: the mouse on a car, not a passer-by beyond it)
       return this;
     }
     const h = assist(s, dir, o.candidates, o);

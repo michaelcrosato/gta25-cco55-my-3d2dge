@@ -39,7 +39,7 @@ defMission('yacht_flare_up', {
       id: 'meet',
       setup(m) {
         meet(m); splash(m); m.loadout(KIT); m.wanted.clear(); m.wanted.cap(0);   // (the police on their way: two stars when the last car's alight)
-        m.truce('saints');   // (the meet's own Saints fight for it; the hill's others keep out of it)
+        m.truce('saints'); m.truce('velvet'); m.peace();   // (the meet's own Saints fight for it; the hill's others keep out of it, the Syndicate's hoods too, and no turf war breaks out over it)
         if (m.dist(CARS[1].at) > 1200) m.place('player', 'observatory');
       },
       *run(m) {
