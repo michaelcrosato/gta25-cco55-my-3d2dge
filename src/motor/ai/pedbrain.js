@@ -190,6 +190,7 @@ export class PedBrain {
     if (w && this._stillBlock && this.curbT > 1.5) this.curbT = GIVE_UP;
     if ((this.curbT += dt) < GIVE_UP) return false;
     const S = this.S, here = this.node, N = S.nodes[here]; this.curbT = 0; this.curbAt = null; if (!N) return false;
+    if (this._stillBlock) this.skipCross = { id: e.id, n: 6 };   // (a car left standing on it: kept off it the next few turns, or it came round the corner to it again and again)
     let opts = N.edges.map(id => S.edges[id]).filter(q => q !== e); if (opts.some(q => q.kind !== 'cross')) opts = opts.filter(q => q.kind !== 'cross');
     if (!opts.length) return false;
     if (this.state === 'goto') { this._stopIdle(); this.goal = null; this.state = 'walk'; }
@@ -269,6 +270,7 @@ export class PedBrain {
     let opts = n.edges.map(id => S.edges[id]).filter(e => S.other(e, here) !== this.from || n.edges.length === 1);
     if (this._closedAt) { const ok = opts.filter(e => { const B = S.nodes[S.other(e, here)]; return !this._closedAt((n.x + B.x) / 2, (n.y + B.y) / 2) && !this._closedAt(B.x, B.y); }); if (ok.length) opts = ok; }   // (never onto a drawbridge with its gates shut)
     if (noCross && opts.some(e => e.kind !== 'cross')) opts = opts.filter(e => e.kind !== 'cross');
+    const K = this.skipCross; if (K) { if (--K.n <= 0) this.skipCross = null; let ok = opts.filter(e => e.id !== K.id); if (!ok.length) ok = n.edges.map(id => S.edges[id]).filter(e => e.id !== K.id); if (ok.length) opts = ok; }   // (none but it: back the way it came, a corner on a stub of sidewalk)
     if (!opts.length) opts = n.edges.map(id => S.edges[id]);
     if (away) {
       let best = null, bd = -1;
@@ -365,7 +367,7 @@ export class PedBrain {
     }
     const n = this.S.nearestEdge(p.x, p.y, 300); if (!n) return null;
     const o = Math.round(Math.max(-W, Math.min(W, n.o)));
-    if (n.dist < NEAR_LINE || (Math.abs(n.o) < W && n.dist < JOIN && this.S.freeAt(n.e, n.d, o) === o)) { this.rejoin(); return null; }
+    if ((n.dist < NEAR_LINE || (Math.abs(n.o) < W && n.dist < JOIN && this.S.freeAt(n.e, n.d, o) === o)) && this.rejoin()) return null;   // (rejoin's own reach a little shorter: between them, it had stood still on its feet for good)
     const [x, y] = this.S.along(n.e, n.d, 0); return { to: [x, y] };
   }
 

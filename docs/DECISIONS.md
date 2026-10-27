@@ -2043,6 +2043,26 @@ and where it landed.
   - **The campaign's rescue** (a vehicle 120 s stuck, put back on its lane): stuck again where it was put, it tows the
     wrecks round it too, in sight or not (a crash scene's wrecks across a junction had held its traffic, and the Limo's
     limo in it, for good, the rescue putting it back in the same jam).
+  - **The city soaks in Ironside and Glass Heights** (test:full's: 10 minutes each by day, held to the 90-second soak's
+    bounds) had failed since X6 brought Glass Heights its gangs: their turf wars leave wrecks in the streets, and the
+    city around a wreck had not coped. Each mended in MOTOR's traffic and crowd:
+    - **A siren behind a car yielding to it with no room to pull over**, itself waiting in a queue, waits as the queue
+      does (its cause the queue): it had stood with no cause for half a minute behind a turf war's wreck at a junction.
+    - **A far car (kinematic) stuck behind a wreck it can't shove** hops past it along its own lane when the road past it
+      is clear, never past the lane's end into a junction's box (where it had met the cross traffic): with no bump to
+      shove with, it had crept through the wreck as if it weren't there, on into a unit parked at its scene.
+    - **A pass round something that moves off** keeps out of the lane while it is still alongside (a bike round a unit
+      whose crew had just got back in had swung back in onto the unit pulling away).
+    - **Pinned with no room behind to back off**, a car's nose on the corner of a wreck it goes round, the car behind
+      backs off a moment (when it has room) and the wreck gives as a car shoved aside does: two had stood there for good.
+    - **A ped kept off a crossing a car stands on**, the next few turns; on a stub of sidewalk with no other way, back the
+      way it came: it had come round to the same crossing again and again, waiting 40 s.
+    - **A ped on its feet just out of a line's reach walks to it:** `rejoin`'s reach half a unit shorter than the call
+      to it, it had stood still between them for good.
+    - **One Medic a death:** a body the Medic has been for and left lies its time out, never called for again (a second
+      Medic sent to it had marked it attended once more, and kept it).
+    - **The soak's red run** is a car over its stop line on red: one over it before the red, held up on the zebra past
+      it by the people crossing, clears the box after (a red run counted at the box, a bike's).
   - **The perf gate in each district** (`tools/perf.mjs --gate`): Ironside's and Glass Heights' tours (night, rain,
     the crowd at full, as Lowtown's) in each view, each read against M2's Lowtown view measured in the same round (M2
     has neither district), within the same budgets.

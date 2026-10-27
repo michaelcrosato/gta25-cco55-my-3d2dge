@@ -453,7 +453,13 @@ export class DriverBrain {
       for (let j = this.i; j < this.path.length; j++) { const e = this.path[j]; if (e.k === 'lane' && e.id === this.goal.lane) { const gg = d + this.goal.s - (e.s0 || 0); if (gg >= -1 || j > this.i || j === this.path.length - 1) { goalGap = Math.max(0, gg); break; } } d += e.len; }   // (the goal behind us on this lane: the next time round; on the way's last lane, passed: here will do. A unit braking for its stop behind a car had run past it, and with nowhere on stood at its lane's end for good, its speed running on)
       if (goalGap !== null && goalGap < 8 && sp < 8) this.arrived = true;
     }
-    if (this.pass) { this.pass.d += sp * dt; if (this.pass.d >= this.pass.end) this.pass = null; }
+    if (this.pass) {
+      const P = this.pass, o = P.obstacle; P.d += sp * dt;
+      // (what it went round moving off, still beside it: no back into the lane yet, not onto it; a bike round a unit
+      // whose crew had just got back in had swung back in onto the unit pulling away)
+      if (P.d >= P.end - 24 && o.speed > 3 && P.end < (P.end0 ??= P.end) + 200) { const a = this.ahead(0); if (a && Math.abs((o.x - a.p[0]) * a.t[0] + (o.y - a.p[1]) * a.t[1]) < o.hl + v.hl + 12) P.end = P.d + 32; }
+      if (P.d >= P.end) this.pass = null;
+    }
     const look = 46 + sp * 1.35, S = this._samples(look);
     const L = this._leader(w, S); this.leader = L;
     // a gridlock: a ring of stopped drivers each waiting on the next (none can back off: cars behind each). After
@@ -502,11 +508,18 @@ export class DriverBrain {
     const stuck = L && L.speed < 2 && L.gap < 30 && sp < 3 && (!this._queued(L.v) || (ob && ob.leader && ob.leader.v === v) || squeeze) && (!this.cause || squeeze || (this.cause === 'stop' && this._throughBox(L.v)));   // (a car nobody drives on a stop sign's line: the halt there never comes, so round it as anywhere; it had held the street behind it for good)
     this.blocked = stuck ? this.blocked + dt : Math.max(0, this.blocked - dt * 2);
     if (stuck && this.siren) this.blocked = Math.max(this.blocked, TUNE.passAfter * this.p.patience);   // (a siren goes round at once)
-    if (stuck) this.cause = L.v.duty && L.v.duty.out ? 'scene' : null;   // (a unit at its scene: a cause to wait, while it tries to go round)
+    // (a unit at its scene: a cause to wait, while it tries to go round; and a siren's behind a car yielding to it with
+    // no room to pull over, itself waiting in a queue: a queue, while it tries to go round (one behind a turf war's wreck
+    // at a junction had stood there for half a minute with no cause, and the unit behind it the same))
+    const lb = L && L.v.brain;
+    if (stuck) this.cause = L.v.duty && L.v.duty.out ? 'scene' : this.siren && lb && lb.cause && lb.yieldTo === v && !lb.over ? 'queue' : null;
     this.honkT = Math.max(0, this.honkT - dt);
     if (this.blocked > TUNE.honkAfter * this.p.patience && this.honkT <= 0) this.honkT = 3.5;
     if (stuck && !this.pass && this.blocked > TUNE.passAfter * this.p.patience) { this.passTry -= dt; if (this.passTry <= 0) { this.passTry = .75; this.pass = this._planPass(L, w, S); } }
-    if (this._shoves(L, stuck)) { this.creepT = 2.5; this.blocked = TUNE.passAfter * this.p.patience; L.v.shoved = 3; if (w.fleet) w.fleet.wake(L.v); }   // (it gives as a pushed car does: vehicle.js)
+    if (this._shoves(L, stuck)) {
+      if (v.kinematic) { this.hop = L.v; this.blocked = TUNE.passAfter * this.p.patience; }   // (a far car: past it along its lane, nobody near to see; it had crept through the wreck as if it weren't there, on into a unit parked at its scene)
+      else { this.creepT = 2.5; this.blocked = TUNE.passAfter * this.p.patience; L.v.shoved = 3; if (w.fleet) w.fleet.wake(L.v); }   // (it gives as a pushed car does: vehicle.js)
+    }
     return acc;
   }
   // the free-road part of the thinking alone (between a far car's looks): no faster than its lane allows
@@ -544,10 +557,27 @@ export class DriverBrain {
     // pinned (pushing and going nowhere, nothing ahead): back off on the other lock, then try again
     const pushing = I.throttle > .25 && sp < 1.5 && (!this.leader || this.leader.gap > 12) && !this.cause;
     this.pinned = pushing ? this.pinned + dt : 0;
-    if (this.pinned > 1.6) { this.pinned = 0; if (this._roomBehind(w, 24)) { this.unstick = .8; this.unsticks++; } }
+    // (no room behind to back off: the car behind backs off a moment, when it has room, and what it goes round, nobody's
+    // car or a wreck, gives as a car shoved aside does; its nose on a wreck's corner, it had pushed there for good, the
+    // car behind it with no way round either)
+    if (this.pinned > 1.6) {
+      this.pinned = 0; const o = this.pass && this.pass.obstacle;
+      if (this._roomBehind(w, 24)) { this.unstick = .8; this.unsticks++; }
+      else {
+        if (o && !o.brain && !o.driver && o.owner !== 'mission') { o.shoved = 3; if (w.fleet) w.fleet.wake(o); }
+        const c = Math.cos(b.heading), s = Math.sin(b.heading), q = w.fleet && w.fleet.near(b.x - c * (v.hl * 2 + 12), b.y - s * (v.hl * 2 + 12), 24).find(u => u !== v && u.brain && !u.brain.parked && Math.cos(u.heading - b.heading) > .7);
+        if (q && !(q.brain.unstick > 0) && q.brain._roomBehind(w, 24)) q.brain.unstick = .9;
+      }
+    }
     if (this.unstick > 0) { this.unstick -= dt; I.throttle = 0; I.down.handbrake = false; I.brake = b.u < -18 ? 0 : .55; I.steer = -I.steer || 1; }   // (a short, slow back-off)
     else this.unsticks = sp > 20 ? 0 : this.unsticks;
     return I;
+  }
+  /** is the path d ahead clear for us (a far car's hop past what it can't shove: o), no other vehicle within our box? */
+  _landFree(w, d, o) {
+    const a = this.ahead(d), v = this.v; if (!a || !w.fleet) return false;
+    for (const u of w.fleet.around(a.p[0], a.p[1], v.hl + 40)) { if (u === v || u === o || !u.body || aloft(u) || Math.abs(u.z - a.p[2]) > 12) continue; if (boxDistance(u, a.p[0], a.p[1]) < v.hl + 4) return false; }
+    return true;
   }
   /** far: one step as a kinematic lane follower (the vehicle placed on its path; no physics) */
   step(dt, w = {}) {
@@ -558,6 +588,7 @@ export class DriverBrain {
     const look = (this._tick = (this._tick || 0) + 1) % 3 === this.id % 3 || this._acc === undefined;
     const acc = look ? (this._acc = this._think(dt * 3, w)) : Math.min(this._acc, this._think0(dt));
     this.speed = E.clamp(this.speed + acc * dt, 0, 400);
+    if (this.hop) { const o = this.hop, L = this.leader, cur = this.path[this.i]; this.hop = null; if (L && L.v === o && cur && cur.k === 'lane') { const d = L.gap + o.hl * 2 + v.hl * 2 + 12; if (this.s + d + v.hl < cur.len && this._landFree(w, d, o)) this._advance(d, 0, 0); } }   // (stuck behind a wreck: _shoves; on along its own lane only, never past its end into a junction's box, where it had met the cross traffic)
     this._advance(this.speed * dt, 0, 0); this._grow();
     const end = this.path[this.path.length - 1]; if (this.i === this.path.length - 1 && this.s >= end.len) { this.s = end.len; this.speed = 0; }   // (at the very end of its way, nowhere on: stopped there, not running on the spot)
     const a = this.ahead(0); if (!a) return;

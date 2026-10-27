@@ -22547,8 +22547,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (goalGap !== null && goalGap < 8 && sp < 8) this.arrived = true;
       }
       if (this.pass) {
-        this.pass.d += sp * dt;
-        if (this.pass.d >= this.pass.end) this.pass = null;
+        const P25 = this.pass, o = P25.obstacle;
+        P25.d += sp * dt;
+        if (P25.d >= P25.end - 24 && o.speed > 3 && P25.end < (P25.end0 ??= P25.end) + 200) {
+          const a2 = this.ahead(0);
+          if (a2 && Math.abs((o.x - a2.p[0]) * a2.t[0] + (o.y - a2.p[1]) * a2.t[1]) < o.hl + v.hl + 12) P25.end = P25.d + 32;
+        }
+        if (P25.d >= P25.end) this.pass = null;
       }
       const look3 = 46 + sp * 1.35, S11 = this._samples(look3);
       const L28 = this._leader(w12, S11);
@@ -22645,7 +22650,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const stuck = L28 && L28.speed < 2 && L28.gap < 30 && sp < 3 && (!this._queued(L28.v) || ob && ob.leader && ob.leader.v === v || squeeze) && (!this.cause || squeeze || this.cause === "stop" && this._throughBox(L28.v));
       this.blocked = stuck ? this.blocked + dt : Math.max(0, this.blocked - dt * 2);
       if (stuck && this.siren) this.blocked = Math.max(this.blocked, TUNE.passAfter * this.p.patience);
-      if (stuck) this.cause = L28.v.duty && L28.v.duty.out ? "scene" : null;
+      const lb = L28 && L28.v.brain;
+      if (stuck) this.cause = L28.v.duty && L28.v.duty.out ? "scene" : this.siren && lb && lb.cause && lb.yieldTo === v && !lb.over ? "queue" : null;
       this.honkT = Math.max(0, this.honkT - dt);
       if (this.blocked > TUNE.honkAfter * this.p.patience && this.honkT <= 0) this.honkT = 3.5;
       if (stuck && !this.pass && this.blocked > TUNE.passAfter * this.p.patience) {
@@ -22656,10 +22662,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
       }
       if (this._shoves(L28, stuck)) {
-        this.creepT = 2.5;
-        this.blocked = TUNE.passAfter * this.p.patience;
-        L28.v.shoved = 3;
-        if (w12.fleet) w12.fleet.wake(L28.v);
+        if (v.kinematic) {
+          this.hop = L28.v;
+          this.blocked = TUNE.passAfter * this.p.patience;
+        } else {
+          this.creepT = 2.5;
+          this.blocked = TUNE.passAfter * this.p.patience;
+          L28.v.shoved = 3;
+          if (w12.fleet) w12.fleet.wake(L28.v);
+        }
       }
       return acc;
     }
@@ -22719,9 +22730,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.pinned = pushing ? this.pinned + dt : 0;
       if (this.pinned > 1.6) {
         this.pinned = 0;
+        const o = this.pass && this.pass.obstacle;
         if (this._roomBehind(w12, 24)) {
           this.unstick = 0.8;
           this.unsticks++;
+        } else {
+          if (o && !o.brain && !o.driver && o.owner !== "mission") {
+            o.shoved = 3;
+            if (w12.fleet) w12.fleet.wake(o);
+          }
+          const c2 = Math.cos(b.heading), s = Math.sin(b.heading), q = w12.fleet && w12.fleet.near(b.x - c2 * (v.hl * 2 + 12), b.y - s * (v.hl * 2 + 12), 24).find((u) => u !== v && u.brain && !u.brain.parked && Math.cos(u.heading - b.heading) > 0.7);
+          if (q && !(q.brain.unstick > 0) && q.brain._roomBehind(w12, 24)) q.brain.unstick = 0.9;
         }
       }
       if (this.unstick > 0) {
@@ -22733,6 +22752,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       } else this.unsticks = sp > 20 ? 0 : this.unsticks;
       return I;
     }
+    /** is the path d ahead clear for us (a far car's hop past what it can't shove: o), no other vehicle within our box? */
+    _landFree(w12, d, o) {
+      const a = this.ahead(d), v = this.v;
+      if (!a || !w12.fleet) return false;
+      for (const u of w12.fleet.around(a.p[0], a.p[1], v.hl + 40)) {
+        if (u === v || u === o || !u.body || aloft(u) || Math.abs(u.z - a.p[2]) > 12) continue;
+        if (boxDistance(u, a.p[0], a.p[1]) < v.hl + 4) return false;
+      }
+      return true;
+    }
     /** far: one step as a kinematic lane follower (the vehicle placed on its path; no physics) */
     step(dt, w12 = {}) {
       const v = this.v, b = v.body;
@@ -22741,6 +22770,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const look3 = (this._tick = (this._tick || 0) + 1) % 3 === this.id % 3 || this._acc === void 0;
       const acc = look3 ? this._acc = this._think(dt * 3, w12) : Math.min(this._acc, this._think0(dt));
       this.speed = E.clamp(this.speed + acc * dt, 0, 400);
+      if (this.hop) {
+        const o = this.hop, L28 = this.leader, cur = this.path[this.i];
+        this.hop = null;
+        if (L28 && L28.v === o && cur && cur.k === "lane") {
+          const d = L28.gap + o.hl * 2 + v.hl * 2 + 12;
+          if (this.s + d + v.hl < cur.len && this._landFree(w12, d, o)) this._advance(d, 0, 0);
+        }
+      }
       this._advance(this.speed * dt, 0, 0);
       this._grow();
       const end2 = this.path[this.path.length - 1];
@@ -30071,6 +30108,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.curbT = 0;
       this.curbAt = null;
       if (!N7) return false;
+      if (this._stillBlock) this.skipCross = { id: e.id, n: 6 };
       let opts = N7.edges.map((id) => S11.edges[id]).filter((q) => q !== e);
       if (opts.some((q) => q.kind !== "cross")) opts = opts.filter((q) => q.kind !== "cross");
       if (!opts.length) return false;
@@ -30223,6 +30261,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (ok.length) opts = ok;
       }
       if (noCross && opts.some((e) => e.kind !== "cross")) opts = opts.filter((e) => e.kind !== "cross");
+      const K2 = this.skipCross;
+      if (K2) {
+        if (--K2.n <= 0) this.skipCross = null;
+        let ok = opts.filter((e) => e.id !== K2.id);
+        if (!ok.length) ok = n.edges.map((id) => S11.edges[id]).filter((e) => e.id !== K2.id);
+        if (ok.length) opts = ok;
+      }
       if (!opts.length) opts = n.edges.map((id) => S11.edges[id]);
       if (away) {
         let best = null, bd = -1;
@@ -30422,10 +30467,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const n = this.S.nearestEdge(p.x, p.y, 300);
       if (!n) return null;
       const o = Math.round(Math.max(-W3, Math.min(W3, n.o)));
-      if (n.dist < NEAR_LINE || Math.abs(n.o) < W3 && n.dist < JOIN && this.S.freeAt(n.e, n.d, o) === o) {
-        this.rejoin();
-        return null;
-      }
+      if ((n.dist < NEAR_LINE || Math.abs(n.o) < W3 && n.dist < JOIN && this.S.freeAt(n.e, n.d, o) === o) && this.rejoin()) return null;
       const [x, y] = this.S.along(n.e, n.d, 0);
       return { to: [x, y] };
     }
@@ -31187,7 +31229,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this.step % 30) return;
       const C27 = this.life.crowd, fp = this.fp;
       if (C27) for (const m of C27.members) {
-        if (!m.deadT || m.attended || this.t < 1 || C27.t - m.deadT < TUNE.medicAfter || fp.d(m.ped.x, m.ped.y) > TUNE.fpActivity) continue;
+        if (!m.deadT || m.attended || m.served === m.deadT || this.t < 1 || C27.t - m.deadT < TUNE.medicAfter || fp.d(m.ped.x, m.ped.y) > TUNE.fpActivity) continue;
         const c = this.call("medic", m.ped.x, m.ped.y, { target: m });
         if (c) {
           c.target = m;
@@ -31253,7 +31295,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         c.state = "done";
         c.done = c.done || "answered";
         this.answered++;
-        if (c.target && c.target.attended !== void 0) c.target.attended = false;
+        if (c.target && c.target.attended !== void 0) {
+          c.target.attended = false;
+          c.target.served = c.target.deadT;
+        }
       }
     }
     // on the scene: the crew gets out (the Pumper's stays at its cannon)

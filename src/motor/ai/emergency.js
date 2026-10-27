@@ -79,7 +79,7 @@ export class Emergency {
     if (this.step % 30) return;   // (four times a second)
     const C = this.life.crowd, fp = this.fp;
     if (C) for (const m of C.members) {
-      if (!m.deadT || m.attended || this.t < 1 || C.t - m.deadT < TUNE.medicAfter || fp.d(m.ped.x, m.ped.y) > TUNE.fpActivity) continue;
+      if (!m.deadT || m.attended || m.served === m.deadT || this.t < 1 || C.t - m.deadT < TUNE.medicAfter || fp.d(m.ped.x, m.ped.y) > TUNE.fpActivity) continue;   // (served: a Medic has been for this death; a body it left lies its time out, never called for again and kept)
       const c = this.call('medic', m.ped.x, m.ped.y, { target: m }); if (c) { c.target = m; m.attended = true; }
     }
     const F = this.combat && this.combat.fire;   // (a burning car goes up long before a unit could come: what it lights is the call)
@@ -112,7 +112,7 @@ export class Emergency {
       if (c.crew.every(f => f.task === 'aboard' || f.ped.dead)) this._back(c);
       return;
     }
-    if (c.state === 'leaving' && c.crew.every(f => f.task === 'aboard' || f.ped.dead)) { this.onFoot = this.onFoot.filter(f => !c.crew.includes(f)); if (this._driver(u)) this.life.traffic.release(u); c.state = 'done'; c.done = c.done || 'answered'; this.answered++; if (c.target && c.target.attended !== undefined) c.target.attended = false; }   // (a body not brought back lies its time out and goes, as any)
+    if (c.state === 'leaving' && c.crew.every(f => f.task === 'aboard' || f.ped.dead)) { this.onFoot = this.onFoot.filter(f => !c.crew.includes(f)); if (this._driver(u)) this.life.traffic.release(u); c.state = 'done'; c.done = c.done || 'answered'; this.answered++; if (c.target && c.target.attended !== undefined) { c.target.attended = false; c.target.served = c.target.deadT; } }   // (a body not brought back lies its time out and goes, as any)
   }
   // on the scene: the crew gets out (the Pumper's stays at its cannon)
   _arrive(c) {
