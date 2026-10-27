@@ -2034,6 +2034,15 @@ and where it landed.
     - **The bot's evade picks another place when it gets no nearer the last in 20 s,** that one passed over from then
       on: through a pad, the Lineman's Bucket had wedged at a curb short of the airstrip's hangar, between two parked
       cars, for the run's whole 30 minutes (D21 on X7's last code, 72 of 73).
+  - **Two jobs' clocks** (D21 on 731bf12, 217 of 219, and the campaign): **Limo's** ride timed from the limo itself, the
+    way it faces (from the door with no heading, the GPS had timed the Bellevue to the Marina as 10 s of road, the limo
+    facing the other way down a one-way street with a loop of the east shore to drive first), its clocks a little looser
+    (4.8 to 4.2 times the road's time and 52 to 48 s; level 3's knocks 360 a car's worth, not 400): hours into the
+    campaign, in the evening's traffic, its level 3 had been late fare after fare. **Tow's** level 3 at 3.4 and 48 s (at
+    3.2 and 44, seed 2's fourth ticket had its owner there first every try).
+  - **The campaign's rescue** (a vehicle 120 s stuck, put back on its lane): stuck again where it was put, it tows the
+    wrecks round it too, in sight or not (a crash scene's wrecks across a junction had held its traffic, and the Limo's
+    limo in it, for good, the rescue putting it back in the same jam).
   - **The perf gate in each district** (`tools/perf.mjs --gate`): Ironside's and Glass Heights' tours (night, rain,
     the crowd at full, as Lowtown's) in each view, each read against M2's Lowtown view measured in the same round (M2
     has neither district), within the same budgets.

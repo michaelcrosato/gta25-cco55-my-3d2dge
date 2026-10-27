@@ -40550,9 +40550,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     ["villa-marisol", "Villa Marisol"]
   ].map(([id, name]) => ({ id, name }));
   var FARES = [0, 2, 3, 4];
-  var KNOCK = [0, 260, 330, 400];
-  var SLACK3 = [0, 4.4, 4.1, 3.8];
-  var GRACE3 = [0, 48, 44, 40];
+  var KNOCK = [0, 260, 320, 360];
+  var SLACK3 = [0, 4.8, 4.5, 4.2];
+  var GRACE3 = [0, 52, 50, 48];
   var ARCH = ["office", "tourist", "retiree", "nightowl", "clubber"];
   var R2 = 40;
   var CURB2 = [104, 76];
@@ -40600,7 +40600,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     return m.data.legs = out;
   }
-  var clock3 = (m, to, from) => Math.round(GRACE3[m.level] + (m.eta(to, from) ?? Math.hypot(to[0] - from[0], to[1] - from[1]) * 1.4 / 150) * SLACK3[m.level]);
+  var clock3 = (m, to, from) => {
+    const f = Array.isArray(from) ? from : [from.x, from.y];
+    return Math.round(GRACE3[m.level] + (m.eta(to, from) ?? Math.hypot(to[0] - f[0], to[1] - f[1]) * 1.4 / 150) * SLACK3[m.level]);
+  };
   var neutral3 = (m) => {
     for (const g of ["saints", "velvet", "yacht"]) m.truce(g);
   };
@@ -40624,7 +40627,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const f = m.one("fare"), v = m.one("ride");
       if (f && v) m.place(f, { in: v, seat: 2 });
       yield m.say([["To " + L28.toName + ", please. And gently.", "Take me to " + L28.toName + ". No rush. No bumps.", L28.toName + ". I have a weak stomach, driver.", L28.toName + ", and step on it. Smoothly."][k % 4]], { name: "Your fare", color: "#c8c8d0" });
-      const T33 = m.timer(clock3(m, to, meet2), { label: "FARE", reason: "the fare was late and got out" });
+      const T33 = m.timer(clock3(m, to, v || meet2), { label: "FARE", reason: "the fare was late and got out" });
       let share = v ? v.damage.share : 1;
       const comfort = m.waitUntil((mm) => {
         const c = mm.one("ride");
@@ -41079,8 +41082,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var CARS2 = ["cortez", "zephyr", "saint"];
   var MAX7 = 4;
   var count6 = (m) => Math.min(MAX7, 1 + m.level);
-  var SLACK7 = [0, 3.8, 3.4, 3.2];
-  var GRACE7 = [0, 50, 44, 44];
+  var SLACK7 = [0, 3.8, 3.4, 3.4];
+  var GRACE7 = [0, 50, 44, 48];
   var clock7 = (m, at, from = null) => Math.round(GRACE7[m.level] + (m.eta(at, from) ?? Math.hypot(at[0] - (from ? from.x : m.mover.x), at[1] - (from ? from.y : m.mover.y)) * 1.4 / 150) * SLACK7[m.level]);
   var IMPOUND = "precinct";
   var IN = 130;

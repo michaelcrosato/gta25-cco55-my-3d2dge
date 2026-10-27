@@ -15,8 +15,8 @@ const DOORS = [
   ['st-chrome', 'St. Chrome\'s'], ['observatory', 'the Observatory'], ['yacht-club', 'the Yacht Club'], ['hospital', 'Heights General'],
   ['safehouse', 'the Bellevue'], ['marina', 'the Marina'], ['precinct', 'Heights PD'], ['villa-marisol', 'Villa Marisol'],
 ].map(([id, name]) => ({ id, name }));
-const FARES = [0, 2, 3, 4], KNOCK = [0, 260, 330, 400];   // (KNOCK: the patience a whole car's worth of damage costs)
-const SLACK = [0, 4.4, 4.1, 3.8], GRACE = [0, 48, 44, 40];   // (looser than the tow's: a limo driven gently is slow, stopping at the reds, a van's turning circle round the Heights' one-way blocks. At 3.0 and 32 s, level 3, the bot had been late with a fare a light short of the door)
+const FARES = [0, 2, 3, 4], KNOCK = [0, 260, 320, 360];   // (KNOCK: the patience a whole car's worth of damage costs)
+const SLACK = [0, 4.8, 4.5, 4.2], GRACE = [0, 52, 50, 48];   // (looser than the tow's: a limo driven gently is slow, stopping at the reds, a van's turning circle round the Heights' one-way blocks. At 3.0 and 32 s, level 3, the bot had been late with a fare a light short of the door; at 3.8 and 40 s, hours into a campaign, in the evening's traffic, with fare after fare)
 const ARCH = ['office', 'tourist', 'retiree', 'nightowl', 'clubber'];
 const R = 40, CURB = [104, 76];   // (how near the door a fare is met or set down; the Grand Palms' curb, the loaner's)
 
@@ -50,7 +50,9 @@ function legs(m) {
   }
   return (m.data.legs = out);
 }
-const clock = (m, to, from) => Math.round(GRACE[m.level] + (m.eta(to, from) ?? Math.hypot(to[0] - from[0], to[1] - from[1]) * 1.4 / 150) * SLACK[m.level]);
+// (from: the limo itself, the way it faces: from the door with no heading, the GPS had timed the Bellevue to the Marina
+// as 10 s of road, the limo facing the other way down a one-way street with a loop of the east shore to drive first)
+const clock = (m, to, from) => { const f = Array.isArray(from) ? from : [from.x, from.y]; return Math.round(GRACE[m.level] + (m.eta(to, from) ?? Math.hypot(to[0] - f[0], to[1] - f[1]) * 1.4 / 150) * SLACK[m.level]); };
 const neutral = m => { for (const g of ['saints', 'velvet', 'yacht']) m.truce(g); };   // (a hire car is nobody's business)
 
 // fare k: met at its door (it gets in once the limo stands there), driven to the door it names
@@ -72,7 +74,7 @@ const fareStage = k => ({
     const f = m.one('fare'), v = m.one('ride'); if (f && v) m.place(f, { in: v, seat: 2 });   // (in the back)
     yield m.say([['To ' + L.toName + ', please. And gently.', 'Take me to ' + L.toName + '. No rush. No bumps.', L.toName + '. I have a weak stomach, driver.', L.toName + ', and step on it. Smoothly.'][k % 4]], { name: 'Your fare', color: '#c8c8d0' });
     // the ride: its clock, and the fare's patience, which every knock to the car wears down
-    const T = m.timer(clock(m, to, meet), { label: 'FARE', reason: 'the fare was late and got out' });
+    const T = m.timer(clock(m, to, v || meet), { label: 'FARE', reason: 'the fare was late and got out' });
     let share = v ? v.damage.share : 1;
     const comfort = m.waitUntil(mm => {
       const c = mm.one('ride'); if (!c) return false;

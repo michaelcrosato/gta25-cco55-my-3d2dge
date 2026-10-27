@@ -126,9 +126,13 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     const L = n.lane, free = s => { const q = G.pointOn(L, s); return gtm.fleet.near(q[0], q[1], 40).every(o => o === v || Math.hypot(o.x - q[0], o.y - q[1]) > 36) ? q : null; };
     let q = null; for (let k = 0; k < 6 && !q; k++) q = free(Math.min(L.len - 30, n.s + k * 50)); if (!q) q = G.pointOn(L, n.s);
     const b = v.body; b.x = q[0]; b.y = q[1]; b.z = q[2] || 0; b.heading = Math.atan2(L.dir[1], L.dir[0]); b.u = b.v = b.w = 0; b.vz = 0; b.airborne = false; v.asleep = false;
+    // (stuck there again: the wrecks round it towed too, in sight or not: a crash scene's wrecks across a junction had
+    // held the traffic about them, and the Limo's limo in it, for good, the rescue putting it back in the same jam)
+    const again = rescues.some(r => r.id === id && Math.hypot(r.at[0] - x0, r.at[1] - y0) < 100);
+    let towed = 0; if (again) for (const o of gtm.fleet.near(x0, y0, 160)) if (o !== v && o.wrecked && o.owner !== 'mission') { gtm.fleet.remove(o); towed++; }
     const A2 = C().bot && C().bot.auto; if (A2) { A2._dropBrain(); A2.esc = null; A2.round = null; A2.prog = null; A2.wedge = null; }
-    rescues.push({ id, at: [x0, y0], to: [Math.round(q[0]), Math.round(q[1])], vehicle: v.def.id, t: Math.round(t) });
-    say(`  ${id}: rescued, ${STALL} s stuck at ${x0},${y0} in the ${v.def.id}: put back on lane ${L.id} at ${Math.round(q[0])},${Math.round(q[1])}`);
+    rescues.push({ id, at: [x0, y0], to: [Math.round(q[0]), Math.round(q[1])], vehicle: v.def.id, t: Math.round(t), towed });
+    say(`  ${id}: rescued, ${STALL} s stuck at ${x0},${y0} in the ${v.def.id}: put back on lane ${L.id} at ${Math.round(q[0])},${Math.round(q[1])}${towed ? ', ' + towed + ' wreck(s) round it towed' : ''}`);
   };
   const play = (what, id, start, max = 2400) => {
     const t0 = t; cool(); why = '';
@@ -333,7 +337,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const s of r.steps) console.log(`${s.ok ? 'ok  ' : 'FAIL'} ${s.what} ${s.id}${s.ok ? (s.medal ? ' ' + s.medal : '') : ' (' + s.why + ')'} ${s.secs} s${!s.ok && s.fails && s.fails.length ? '; ' + s.fails.join(', ') : ''}`);
   for (const q of r.items) console.log(`  ${q.label}: ${q.done}/${q.of}`);
   if (r.errors.length) console.log('ERRORS: ' + r.errors.join(' | '));
-  console.log(`rescues: ${r.rescues.length}${r.rescues.map(q => `\n  ${q.id}: the ${q.vehicle} at ${q.at.join(',')} put on the lane at ${q.to.join(',')} (${q.t} s)`).join('')}`);
+  console.log(`rescues: ${r.rescues.length}${r.rescues.map(q => `\n  ${q.id}: the ${q.vehicle} at ${q.at.join(',')} put on the lane at ${q.to.join(',')}${q.towed ? ', ' + q.towed + ' wreck(s) round it towed' : ''} (${q.t} s)`).join('')}`);
   console.log(`\ncompletion ${r.pct.toFixed(1)}% after ${(r.secs / 3600).toFixed(2)} h of game [${((Date.now() - t0) / 60000).toFixed(1)} min]`);
   process.exit(r.tenths >= 1000 && !r.errors.length ? 0 : 1);
 }
