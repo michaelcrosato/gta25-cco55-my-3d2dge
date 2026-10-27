@@ -1917,10 +1917,10 @@ and where it landed.
   - **The bot gym's `boat` fixture** starts on the quay by the Bilge Rat (the sail measured, not a drive across
     Lowtown's jams: from the safehouse, seed 2 had been busted in one).
   - **From X6's runs of all merged content** (D21 again after each):
-    - **The AutoPlayer's off-route replan** waits for a car that has stayed off its route 2.5 s, far from its goal,
-      and never for a goal it must face a way: a pass round a parked car onto the next lane, or a squeeze round a
-      queue, had re-planned at once into a fresh route that led the tow (Holy Scrap, Tow at level 3) away from its
-      stop.
+    - **The AutoPlayer's off-route replan** is for a car far from its goal (300 u), and never for a goal it must face
+      a way: there the last lanes are the approach's to work out (Holy Scrap's tow truck, re-routed as it went, came
+      at its last wreck where it couldn't face it; at Tow's level 3 an owner got to its car first). It still re-plans
+      after .6 s off its route: waited 2.5 s, a Medic past its turn was up the Loop's ramp and stuck on its deck.
     - **A shot at a car lower than the shooter's muzzle** (a posed rig's, at the shoulder: the player's and the
       crew's in hand) goes at its flank, not level along the aim over its roof. The car aimed at is the one under the
       mouse's point, or with the aim free (a stick's) the first along its line within range, unless a lock is held;

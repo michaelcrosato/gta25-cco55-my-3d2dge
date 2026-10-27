@@ -31966,7 +31966,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const b = this.brain;
       const here = b.here;
       this.offT = here && here.k === "lane" && b.route && b.goal && d > 300 && g.heading == null && !b.route.includes(here.id) ? (this.offT || 0) + dt : 0;
-      if (this.offT > 2.5) {
+      if (this.offT > 0.6) {
         this.offT = 0;
         const r7 = this._plan(v, g);
         if (r7) b.setRoute(r7.lanes, { lane: r7.to.lane.id, s: r7.to.s });
