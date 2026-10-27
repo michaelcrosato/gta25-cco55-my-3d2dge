@@ -2111,6 +2111,11 @@ and where it landed.
       - **No long-vehicle rule in the boxes:** one this round had taken the box from every other lane for a long vehicle
         turning (two left turns locked nose to nose, misread), and a limo turning had held Drag Mass's racers at the
         Harbor for good. Boxes conflict by their curves alone.
+      - **The bot gym keeps the city's gangs at peace** (`tools/botgym.mjs`, as `m.peace()` does for a job): it measures
+        the bot at each hint, and the turf wars are the missions' and the campaign's to meet (on seed 3 one broke out
+        by the follow's mark and shot its Saint to a wreck beside the bot). **Its tow fixture's car has its spot
+        cleared**, as the Tow job's has (`m.clearSpot`): one parked nose to its front, on a one-way street, had left
+        the truck no end to hook. The gym had last passed whole at L4's close; seed 3's tow failed from X6's close on.
       - **The soak's own measures:** a crossing of the stop line under a siren is no calm red run when the call ends
         before the box (as a panic that ends there, `soak-red-run.test.mjs`), and the line is crossed by the car's
         front, as the driver reads it (where a line stands at a lane's start straight out of another box, j3's, a car
