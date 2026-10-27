@@ -46,6 +46,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | X4 Ironside's side content | done | Crop Duster (a flown job, three levels: rings over the allotments), the Ironside Air Race (the Duster through twelve gates, against the board's three best times), MAYHEM: Nail the Scrappers, three stunts (the Flyover's End, the Slag Heap, the Crusher Yard), 15 Moto Tokens, two properties (Sudsy's Launderette, the Airstrip), the Ironside Kwik-Lux's hold-up and the attract reel CROP DUSTER (D41) · each through the bot on seeds 1-3 and a pad, Ironside's side-content sim test, the campaign through Lowtown and Ironside to 100%, all merged content again (D21) · the look read (docs/media/x4) |
 | X5 Glass Heights' map and the Causeway | done | Glass Heights, District 3 (128 x 112: Cathedral Hill, the Strip, Marina Heights; the Glass Tower and its jetty, St. Chrome's, the Bellevue's penthouse, the Observatory, the Velvet Casino, the Hotel Riviera, the Grand Palms, Heights PD, Heights General, the Yacht Club and the marina's piers, the Gull at its moorings); the Loop Causeway over the bay, shut in Lowtown's sea wall until Blackout is done (D42) · Glass Heights' sim tests in every view, its 10-minute soak, all merged content again (D21) · the look read (docs/media/x5) |
 | X6 Boats, Glass Heights' gangs and missions | done | the Velvet Syndicate (the Velvet Casino, the Velvet limo) and the Yacht Club (the Club's pier, the Regatta, the Flare Gun), the Saints uptown at St. Chrome's; the Splash, the Regatta and Moneybags on the water, the AutoPlayer sailing round what lies moored; nine missions (Communion, High Mass, The Comp, Loaded Dice, Overboard, Flare Up, and House Edge's Floor Plan, The Gull and finale) with the Velvet Casino, an interior whose vault opens (D43) · each mission through the bot on seeds 1-3 and through a pad, the casino's validation and sim tests, the gangs', boats', planes' and mission verbs' tests, the gym's `boat` fixture on seeds 1-3 and through a pad, all merged content again (D21) · the look read (docs/media/x6) |
+| X7 Glass Heights' side content | done | Limo (fares to the Heights' doors, smoothly: three levels), the Heights Regatta (ten buoys round the Heights by sea, against the Yacht Club's board), MAYHEM: Flare the Limos, three stunts (the Villa Pool, the Velvet Fountain, the Palms Newsstand), 15 Moto Tokens, two properties (the Glass Tower penthouse, the Marina berth), the Strip's Kwik-Lux's hold-up, Villa Marisol, the attract reel THE STRIP; the AutoPlayer's `smooth` style, TOP's sea past Glass Heights' edge (D44) · each activity through the bot on seeds 1-3 and a pad, Glass Heights' side-content sim test, the campaign over its tokens, stunts and properties, all merged content again (D21) · the look read (docs/media/x7) |
 
 ## Acceptance log
 
@@ -1720,3 +1721,44 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     above, the limos, Moneybags with the Regatta and a Splash, a flare's fire, House Edge's rams). Three notes fixed:
     the ALARM banner had covered the location line (centred in the space beside it now); the objective band had met a
     first-time tip's box (below it now); St. Chrome's sign read "ST. CHROME'S." with a stray stop (gone).
+- **X7 · Glass Heights' side content (D44), done:**
+  - **What's in:** Limo (Heights Limousines' fares, met at the Heights' doors and driven to the door they name, their
+    patience worn by every knock, the tip by how smooth it was: two fares at level 1, three at 2, four at 3); the
+    Heights Regatta (any boat round the Heights by sea through ten buoys, against the Yacht Club's board of three times);
+    MAYHEM: Flare the Limos (seven of the Syndicate's nine limos round the casino set alight in 1:30); three stunts (the
+    Villa Pool over Villa Marisol's pool, the Velvet Fountain up the casino's forecourt, the Palms Newsstand up the Grand
+    Palms'); 15 Moto Tokens; the Glass Tower penthouse and the Marina berth; the Strip's Kwik-Lux and its hold-up; the
+    Grand Palms' white limo for hire; the attract reel THE STRIP (night down Heights Avenue in MODE 7, Casino Row in ISO,
+    the marina from above). MOTOR: the AutoPlayer's `smooth` style, `m.deliver`'s and a `goto` hint's `style`, TOP's
+    ground past the map in a district's sea colour (`beyond`).
+  - **The tests:** `tests/sim/heights-side.test.mjs` (the Strip's Kwik-Lux emptying its till with two stars; the
+    penthouse and the berth bought at their doors and paying at midnight, neither door in Lowtown; the three stunts'
+    kickers at their heights and the Villa's pool between the kicker and the landing, each approach behind its run-up;
+    the 15 tokens in Glass Heights alone, every token id its own across the districts; the hire limo at the Grand
+    Palms); Glass Heights' sim test offering the Heights' own race and MAYHEM alone; the attract soak's list naming
+    every reel.
+  - **Each activity through the bot** (in D21 on 409066b, below): Limo at each level on seeds 1-3, 9 of 9 (seed 2's
+    three after a retry: a fare late, or out of patience with the bumps) and each level through the pad; the Regatta 3
+    of 3, gold, and through the pad; Flare the Limos 3 of 3 (seed 2 after a retry) and through the pad. The reel THE STRIP ten times running from the attract seed: nine to their end, one cut by the
+    watchdog at a queue for Casino Row's lights (Hot Pursuit's are three in ten).
+  - **The campaign tool over the Heights' items** (`--only`, `--ready`): the 15 tokens and the three stunts (the Palms
+    Newsstand at its second try).
+  - **What the runs found,** each mended (D44 and its addendum): Limo's clocks at first too short for a limo driven
+    gently (late a light short of the door) and the `player` style's squeeze wedging the limo on the walk past a jam
+    (`smooth` now); a Medic's crew stranded by a Fed Sedan parked against its door, the unit left in Casino Row's lane for
+    good (X6's last commit); the Velvet Fountain's run-up from the avenue's middle held in the Strip's traffic (from its
+    west walk now); the Heights' marina token sharing Lowtown's id; a turf war round Flare the Limos (its peace); the
+    reel's start in a queue at the Loop's lights; and in all merged content and the campaign, Blackout's Duster circling
+    its approach at Ironside's edge (a plane's turn out at 600, Blackout landing east), Scab Labour's Brute going round
+    the blocks to the next bus (the head-on ram), the Crusher Yard's run-up in Crusher Lane's traffic, and Paramedic's
+    level 3 a little short of time.
+  - **D21, on 409066b's code (X7's last):** the mission bot on seeds 1-3, 219 of 219 (155 gold, 50 silver, 14 bronze;
+    20 after a retry); through a pad, 72 of 73, the Lineman's evade wedged at a curb short of the airstrip's hangar,
+    fixed in X8's first commit and run again (X8's entry). Two runs of all merged content before it, on e834dc3, had
+    found Vigilante's level 3 sat behind a queue by the head-on ram and The Big Withdrawal's seed 2 with a car in its line
+    of fire: both fixed in 409066b (D44's addendum).
+  - **The look,** read shot by shot (`docs/media/x7`: the Villa Pool's jump in ISO and MODE 7 and its pool from above,
+    the Velvet Fountain's and the Palms Newsstand's jumps, the Kwik-Lux, the penthouse's and the berth's doors, a
+    fare picked up and a ride in the chase camera, the Regatta's line from above and the race, Flare the Limos, the reel
+    THE STRIP). One note fixed: TOP's ground past the map's edge had been a flat grey off Glass Heights' bay (the
+    district's sea colour now, `beyond`).
