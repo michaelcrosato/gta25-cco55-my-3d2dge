@@ -2076,32 +2076,50 @@ and where it landed.
       - **A far car that can't hop past a car nobody drives** (the lane full to its end, or in a junction's box) marks it,
         and the tow takes a marked car where far cars go unseen, though nobody ever left it: a turf war's wrecks one
         behind another, and a parked car knocked into a box (one with a home goes home).
-      - **A pass's obstacle that moves** (pulled out, knocked on) is a car like any other, a leader once ahead, and the
-        pass merges back over its next stretch as at any end, never at once.
-      - **A long vehicle turning takes the box** from every other lane (`junctions.js`: more than 34 from its middle to
-        its nose; two left turns from either side had met nose to nose, a limo's tail over the other's way).
+      - **A pass's obstacle knocked well on** (more than 30 from where the pass was planned, and not beside us) is a car
+        like any other, a leader once ahead, and the pass merges back over its next stretch as at any end, never at
+        once; scraped along a little as we go by, it is still what we go round (a Saint had stopped for good beside a
+        Tow job's car it brushed, the street behind it, and the owner got there first).
       - **At a crawl the tyres never throw a car about** (`body.js`): a step of sideways grip that would reverse a slide
         stops it (two parked cars knocked into a slow slide had swung side to side each step, never slow enough to
         sleep, and crept into the lane), and a car held by its brake or handbrake never gathers speed (the front tyres
         on a wheel left turned had crept one held at a red over its line).
       - **An amber is no go from a stand at the line** (a far hauler halted there had taken the box on the last of it).
       - **A far car breaks a gridlock's ring by hopping past** onto the lane beyond, where there is room (it has no bump
-        to shove with: it had driven on through a bike).
+        to shove with: it had driven on through a bike); from a junction's box, the whole of it onto that lane, a long
+        one's too (a Scrapper's hop had come up short of it, a ring in Ironside's j13 for 75 s), and a car parked at the
+        curb, clear of the lanes, is no car in the landing's way.
       - **A squeezer goes into a box only when no holder of a crossing way stands in it** (`Junctions.occupied`), and
-        **a panicking driver**, through any light and the reservations still, **never into such a box** (a bike
-        scared by shots had locked itself nose to nose with a turning car, 27 s).
+        **a panicking driver**, through any light and the reservations still, **never into such a box, nor where
+        another as scared goes through crossing its way** (`Junctions.rush`: seen there by another as scared alone,
+        never by a grant or a squeezer; calm again short of the box, it asks as anyone does): a bike scared by shots
+        had locked itself nose to nose with a turning car, 27 s, and two cars scared by Drag Mass's racers, unseen by
+        each other, had locked so in c45 for good. (Panic taken as a siren's turn in the box instead had the Monks'
+        blockade queue Picket Line's soup van under their guns; a squeezer that waited on a scared car's rush had
+        stood 100 s at j28 behind one stuck in the box, a Tow ticket lost.)
       - **A car wedged off its line is never put back into a junction's box but on its green** (one put down in it on
         the red had gone on through it).
       - **A ped fleeing on its feet into a wall or a ramp's side** runs along it a while, one way, then the other (one
         had run at the Flyover's on-ramp for 15 s).
       - **A troupe's file is put down with each follower's place on its leader's trail out of sight** too (a mime had
         come in at 368 from the focus, past the edge's end).
+      - **An ally never shoots at a car beside the one it rides in** (`actors.js`, within a wreck's blast of it,
+        `fighter.js`'s `BLAST`): shot to a wreck there it blows up on its own (Lugnut's Buzzsaw had wrecked
+        Communion's chrome Saint so, a Zephyr burning alongside it in a queue).
+      - **The bot's way never turns back in a dead end's stub** unless nothing else goes (`autoplayer.js`, `noDeadEnds`
+        first): the Harbor's stub turns back through the sea, and the bot had driven Holy Rollers' Saint into it.
+      - **No long-vehicle rule in the boxes:** one this round had taken the box from every other lane for a long vehicle
+        turning (two left turns locked nose to nose, misread), and a limo turning had held Drag Mass's racers at the
+        Harbor for good. Boxes conflict by their curves alone.
       - **The soak's own measures:** a crossing of the stop line under a siren is no calm red run when the call ends
-        before the box (as a panic that ends there, `soak-red-run.test.mjs`); two bikes side by side, closer than 14 and
-        clear, are no overlap (the bound is the pair's widths when narrower). Two sim tests read what they mean, not
-        an instant: the Monks go for the player within 3 s (four of them can have shot the player down by the third),
-        and a gang car out of its turf counts only when nothing drives it home (one carried over the border a moment
-        before the look is on its way back).
+        before the box (as a panic that ends there, `soak-red-run.test.mjs`), and the line is crossed by the car's
+        front, as the driver reads it (where a line stands at a lane's start straight out of another box, j3's, a car
+        in on the green and queued there with its centre still in that box had been counted on the red); two bikes
+        side by side, closer than 14 and clear, are no overlap (the bound is the pair's widths when narrower). Two sim
+        tests read what they mean, not an instant: the Monks go for the player within 3 s (four of them can have shot
+        the player down by the third), and a gang car out of its turf counts only when nothing drives it home, a few
+        seconds on (one carried over the border a moment before the look is on its way back, or is sent at the gangs'
+        next look, every 2 s).
   - **The perf gate in each district** (`tools/perf.mjs --gate`): Ironside's and Glass Heights' tours (night, rain,
     the crowd at full, as Lowtown's) in each view, each read against M2's Lowtown view measured in the same round (M2
     has neither district), within the same budgets.

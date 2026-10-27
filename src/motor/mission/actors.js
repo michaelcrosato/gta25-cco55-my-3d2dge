@@ -24,7 +24,7 @@ import { BUS } from '../core/bus.js';
 import { makeIntent, clearIntent } from '../sim/intent.js';
 import { Ped } from '../actors/ped.js';
 import { pedLook } from '../actors/peds.js';
-import { Fighter } from '../ai/fighter.js';
+import { Fighter, BLAST } from '../ai/fighter.js';
 import { DriverBrain } from '../ai/driver.js';
 import { drawBoxModel } from '../render/box-model.js';
 import { PROP_MODELS } from '../render/city-render.js';
@@ -228,6 +228,9 @@ export class MissionActors {
     const T = o.driveBy === 'player' ? P : this.tagged(o.driveBy).find(a => !a.dead && !a.wrecked); if (!T) return null;
     const t = T.seat && T.seat.vehicle ? T.seat.vehicle : T, dx = t.x - p.x, dy = t.y - p.y, d = Math.hypot(dx, dy);
     if (d < 1 || d > spec.range * (pr.range ?? .8)) { e.dbT = 0; return null; }
+    // (an ally never at a car beside the one it rides in: shot to a wreck there, it blows up on its own; Lugnut's Buzzsaw
+    // had wrecked the chrome Saint so, a Zephyr burning alongside it in a queue)
+    const mine = p.seat && p.seat.vehicle; if (o.role === 'ally' && mine && t.hl !== undefined && Math.hypot(t.x - mine.x, t.y - mine.y) - mine.hl < BLAST) { e.dbT = 0; return null; }
     const burst = pr.burst ?? .6, pause = pr.pause ?? 1, I = clearIntent(e.Idb || (e.Idb = makeIntent())), a = Math.atan2(dy, dx) + this.rng.range(-1, 1) * (pr.aimOff ?? .1);
     e.dbT = (e.dbT || 0) + dt; I.aim = [Math.cos(a), Math.sin(a)]; if (e.dbT % (burst + pause) < burst) I.down.fire = true;
     return I;

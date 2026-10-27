@@ -49,11 +49,14 @@ test('the Velvet limos keep to the Strip and the Club\'s Zephyrs to Marina Heigh
   const { game, gtm } = await loadGame({ hash: '#play', query: Q }), T0 = gtm.life.traffic, seen = { velvet: 0, yacht: 0 }; let out = 0;
   for (const at of [[50, 56], [90, 70], [64, 100], [104, 90], [30, 60]]) {
     gtm.teleport(...pt(...at)); game.advance(20);
+    const outside = c => { const h = gtm.city.hoodAtPoint(c.v.x, c.v.y); return (!h || !gtm.motor.get('gangs', c.gang).turf.includes(h.id)) && !c.homing; }, over = [];   // (one carried over the border and on its way home is keeping to it)
     for (const c of T0.cars) {
       if (!c.gang || !['velvet', 'yacht'].includes(c.gang)) continue;
-      seen[c.gang]++;
-      const h = gtm.city.hoodAtPoint(c.v.x, c.v.y); if ((!h || !gtm.motor.get('gangs', c.gang).turf.includes(h.id)) && !c.homing) out++;   // (one carried over the border and on its way home is keeping to it)
+      seen[c.gang]++; if (outside(c)) over.push(c);
     }
+    // (one just carried over, in a box or at a lane's start, is sent home at the gangs' next look, every 2 s, once on a
+    // lane with room to stop: out still, a few seconds on, it is not keeping to its turf)
+    if (over.length) { game.advance(5); out += over.filter(c => T0.cars.includes(c) && outside(c)).length; }
   }
   assert.ok(seen.velvet > 0 && seen.yacht > 0, 'both on the streets: ' + JSON.stringify(seen));
   assert.ok(out <= 1, 'out of their turf: ' + out);

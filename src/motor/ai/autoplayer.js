@@ -223,7 +223,10 @@ export class AutoPlayer {
   // the route to the goal: along the lane it faces, after a U-turn, else from the nearest lane whichever way it runs;
   // the way round a jammed exit (avoid) when that costs not much more
   _plan(v, g) {
-    const plan = o => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
+    // (never round by a dead end's stub, turning back in it, unless nothing else goes: the one at the Harbor's sea turns
+    // back through the sea, and a bot had driven a job's Saint into it)
+    const via = o => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
+    const plan = o => via({ ...o, noDeadEnds: true }) || via(o);
     const av = this.avoid, tz = g.z || 0, toHeading = g.heading, base = plan({ z: v.z, tz, toHeading });
     const alt = av && av.size ? plan({ z: v.z, tz, toHeading, avoid: L => av.has(L.id) }) : null;
     return alt && (!base || alt.cost <= base.cost * 1.6 + 10) ? alt : base;

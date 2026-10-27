@@ -15,7 +15,8 @@ import { TUNE } from '../core/tune.js';
 import { makeIntent } from '../sim/intent.js';
 import { aloft } from '../sim/vehicle/defs.js';
 
-const NODE_NEAR = 9, THROW_MIN = 70, THROW_MAX = 230, THROW_EVERY = 6, BLAST = 110;
+const NODE_NEAR = 9, THROW_MIN = 70, THROW_MAX = 230, THROW_EVERY = 6;
+export const BLAST = 110;   // (how near a car shot to a wreck can blow up on one: a fighter or a rider spares that much)
 /** how a fighter fights: its range (a share of its gun's), bursts and pauses (s), aim (radians off at most), and kite
  *  (a share of that range: closer than it, it backs off as it fires; 0: it stands) */
 export const FIGHT = { range: .45, burst: .7, pause: .6, aimOff: .08, kite: 0 };

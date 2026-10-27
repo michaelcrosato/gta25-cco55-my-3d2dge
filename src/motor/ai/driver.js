@@ -23,7 +23,7 @@
 //     on through the junction's box beside it (an assertive driver round a unit parked at its scene too); with no way
 //     round at all, after 4 x TUNE.gridlock seconds shoved aside at a creep;
 //   - panic (shots, a blast nearby): faster, the lights and the reservations ignored (never a box a crossing car
-//     stands in); a crash: a pause, then on;
+//     stands in, nor where another as scared goes through crossing its way); a crash: a pause, then on;
 //   - a siren behind it: it pulls over into a gap on its right wide enough to clear the siren's way and waits there;
 //     with none (a street parked up on both sides) it drives on ahead of it at its own speed.
 // Deterministic: its choices draw from the RNG stream it is given; it reads only the simulation (fleet, junctions,
@@ -195,7 +195,7 @@ export class DriverBrain {
     for (const o of w.fleet.around(mid[0], mid[1], S[S.length - 1].d / 2 + 60)) {
       const R = o.hl + hw + 4;
       if (o.x < x0 - R || o.x > x1 + R || o.y < y0 - R || o.y > y1 + R) continue;   // (nowhere near the path's box)
-      if (o === v || !o.body || aloft(o) || (this.pass && o === this.pass.obstacle && o.speed <= 3 && !this.pass.moved) || o.towedBy === v || v.towedBy === o) continue;   // (what it goes round, while it stands: moving off into the lane ahead, it leads as any car does; a scrapper had driven on through a cruiser pulling out ahead of it, both far)
+      if (o === v || !o.body || aloft(o) || (this.pass && o === this.pass.obstacle && o.speed <= 3 && !this.pass.lead) || o.towedBy === v || v.towedBy === o) continue;   // (what it goes round, while it stands: moving off into the lane ahead, it leads as any car does; a scrapper had driven on through a cruiser pulling out ahead of it, both far)
       if (o.asleep && this._laneClear(o)) continue;   // (parked at a curb, clear of every lane)
       for (let qi = 0; qi < S.length; qi++) {
         const q = S[qi], far = Math.max(Math.abs(o.x - q.p[0]), Math.abs(o.y - q.p[1])) - R;
@@ -279,9 +279,12 @@ export class DriverBrain {
         const lane = G.lanes[c.from], stopPos = Math.min(lane.stopS, c.fromS - 2);   // (d: from our centre to where this connector leaves its lane)
         const lineD = d - (c.fromS - stopPos) - v.hl, approach = sp * sp / (2 * b * .6) + 45;
         if (this.panic > 0) {   // (panicking: through any light and the reservations, but never into a box where one crossing its way stands: a bike had locked itself nose to nose with a turning car)
-          if (lineD > approach || !this.J.occupied(this, c, t)) return null;
-          this.cause = 'yield'; return Math.max(0, lineD);
+          if (lineD > approach) return null;
+          if (this.J.occupied(this, c, t, true)) { this.cause = 'yield'; return Math.max(0, lineD); }
+          if (!(this.held && this.held.conn === c)) { this.J.rush(this, c, t); this.held = { conn: c, el: e, rush: true }; }   // (seen in the box as it goes, by one as scared crossing its way: two scared by Drag Mass's racers, unseen by each other, had locked nose to nose in c45 for good)
+          return null;
         }
+        if (this.held && this.held.rush && this.held.conn === c) this._release();   // (calm again short of the box: it asks as anyone does)
         if (this.held && this.held.conn === c) {
           // (not through yet: a light that changed is obeyed; so it is by one standing at the line with its nose over it,
           // short of the box: held up there by something in the box, it had gone on its old green once that cleared)
@@ -465,11 +468,12 @@ export class DriverBrain {
       // whose crew had just got back in had swung back in onto the unit pulling away)
       const a = this.ahead(0), beside = !!a && Math.abs((o.x - a.p[0]) * a.t[0] + (o.y - a.p[1]) * a.t[1]) < o.hl + v.hl + 12;
       if (P.d >= P.end - 24 && o.speed > 3 && P.end < (P.end0 ??= P.end) + 200 && beside) P.end = P.d + 32;
-      // (moved from where the pass was planned round it: no longer what it goes round but a car like any other, a leader
-      // once ahead (a Medic going round a car knocked on down the lane had swung back in onto it where it stopped); back
-      // into the lane over the next stretch as at any pass's end, never at once (a far cruiser parked mid-pass had
-      // swung back onto a Medic parked beside it))
-      if (!P.moved && Math.hypot(o.x - (P.ox ?? o.x), o.y - (P.oy ?? o.y)) > 8) { P.moved = true; if (!beside) P.end = Math.min(P.end, P.d + 24); }
+      // (knocked well on from where the pass was planned round it, ahead of us now: no longer what it goes round but a car
+      // like any other, a leader (a Medic going round a car knocked on down the lane had swung back in onto it where it
+      // stopped); back into the lane over the next stretch as at any pass's end, never at once (a far cruiser parked
+      // mid-pass had swung back onto a Medic parked beside it). Scraped along a little as we go by, it is still what we
+      // go round: a Saint had stopped beside a job's car it brushed, for good, and the street behind it)
+      if (!P.lead && !beside && Math.hypot(o.x - (P.ox ?? o.x), o.y - (P.oy ?? o.y)) > 30) { P.lead = true; P.end = Math.min(P.end, P.d + 24); }
       if (P.d >= P.end) this.pass = null;
     }
     const look = 46 + sp * 1.35, S = this._samples(look);
@@ -588,7 +592,7 @@ export class DriverBrain {
   /** is the path d ahead clear for us (a far car's hop past what it can't shove: o), no other vehicle within our box? */
   _landFree(w, d, o) {
     const a = this.ahead(d), v = this.v; if (!a || !w.fleet) return false;
-    for (const u of w.fleet.around(a.p[0], a.p[1], v.hl + 40)) { if (u === v || u === o || !u.body || aloft(u) || Math.abs(u.z - a.p[2]) > 12) continue; if (boxDistance(u, a.p[0], a.p[1]) < v.hl + 4) return false; }
+    for (const u of w.fleet.around(a.p[0], a.p[1], v.hl + 40)) { if (u === v || u === o || !u.body || aloft(u) || Math.abs(u.z - a.p[2]) > 12 || (u.asleep && this._laneClear(u))) continue; if (boxDistance(u, a.p[0], a.p[1]) < v.hl + 4) return false; }   // (one parked at the curb, clear of the lanes, is no car in the way)
     return true;
   }
   /** far: one step as a kinematic lane follower (the vehicle placed on its path; no physics) */
@@ -600,7 +604,8 @@ export class DriverBrain {
     const look = (this._tick = (this._tick || 0) + 1) % 3 === this.id % 3 || this._acc === undefined;
     const acc = look ? (this._acc = this._think(dt * 3, w)) : Math.min(this._acc, this._think0(dt));
     this.speed = E.clamp(this.speed + acc * dt, 0, 400);
-    if (this.hop) { const o = this.hop, L = this.leader, cur = this.path[this.i]; this.hop = null; if (L && L.v === o) { const d = L.gap + o.hl * 2 + v.hl * 2 + 12, a = this.ahead(d), on = a && this.path[a.j], fits = !!cur && (cur.k === 'lane' ? this.s + d + v.hl < cur.len : !!on && on.k === 'lane' && a.s > v.hl && a.s + v.hl < on.len); if (fits && this._landFree(w, d, o)) this._advance(d, 0, 0); else if (!o.brain && !o.driver) o.inWayT = this.t; } }   // (from a junction's box (a gridlock's ring) onto the lane out of it)   // (stuck behind a wreck: _shoves; on along its own lane only, never past its end into a junction's box, where it had met the cross traffic)
+    if (this.hop) { const o = this.hop, L = this.leader, cur = this.path[this.i]; this.hop = null; if (L && L.v === o) { let d = L.gap + o.hl * 2 + v.hl * 2 + 12, a = this.ahead(d), on = a && this.path[a.j]; if (cur && cur.k !== 'lane' && on && on.k === 'lane' && a.s <= v.hl) { d += v.hl + 2 - a.s; a = this.ahead(d); on = a && this.path[a.j]; }   // (from a box: the whole of it on the lane beyond, a long one too)
+          const fits = !!cur && (cur.k === 'lane' ? this.s + d + v.hl < cur.len : !!on && on.k === 'lane' && a.s > v.hl && a.s + v.hl < on.len); if (fits && this._landFree(w, d, o)) this._advance(d, 0, 0); else if (!o.brain && !o.driver) o.inWayT = this.t; } }   // (from a junction's box (a gridlock's ring) onto the lane out of it)   // (stuck behind a wreck: _shoves; on along its own lane only, never past its end into a junction's box, where it had met the cross traffic)
     this._advance(this.speed * dt, 0, 0); this._grow();
     const end = this.path[this.path.length - 1]; if (this.i === this.path.length - 1 && this.s >= end.len) { this.s = end.len; this.speed = 0; }   // (at the very end of its way, nowhere on: stopped there, not running on the spot)
     const a = this.ahead(0); if (!a) return;

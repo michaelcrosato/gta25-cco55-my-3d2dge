@@ -8,15 +8,13 @@
 //     waits forever);
 //   - a holder keeps it until its car has left the box (release), or until it stops asking for a second (despawned);
 //   - a waiter that isn't ready blocks nobody (a red light's queue, a full exit);
-//   - a long vehicle turning (a truck's, a limo's: more than LONG from its middle to its nose) sweeps wider than a car's
-//     width: it and every connector from another lane are taken to conflict (two left turns from either side had met nose
-//     to nose in the box, a limo's tail over the other's way, and stood there).
+//   - a panicking driver goes through unreserved (rush): no holder, so no grant waits on it, but another panicking one
+//     sees it there (occupied(..., scared)).
 // Plain data, deterministic: the same asks in the same order give the same grants.
-//   const J = new Junctions(graph);  J.ask(brain, conn, t, ready, prio) -> bool  ·  J.release(brain)  ·  J.holds(brain)
+//   const J = new Junctions(graph);  J.ask(brain, conn, t, ready, prio) -> bool  ·  J.rush(brain, conn, t)  ·  J.release(brain)  ·  J.holds(brain)
 import { sq } from '../core/dmath.js';
 const CLEAR = 26;   // two curves nearer than this (two car half-widths) conflict
 const STEP = 6;     // units between the samples along a curve
-const LONG = 34;    // a vehicle longer than this from its middle to its nose turns wide
 
 export class Junctions {
   constructor(graph) {
@@ -24,7 +22,7 @@ export class Junctions {
     const byRegion = new Map();
     for (const c of graph.conns) { if (!c.region || c.kind === 'change') continue; let a = byRegion.get(c.region); if (!a) byRegion.set(c.region, a = []); a.push(c); }
     for (const [id, list] of byRegion) {
-      this.regions.set(id, { id, conns: list.map(c => c.id), holders: new Map(), waiters: new Map() });
+      this.regions.set(id, { id, conns: list.map(c => c.id), holders: new Map(), waiters: new Map(), rush: new Map() });
       const pts = list.map(c => { const n = Math.max(2, Math.ceil(c.len / STEP)), out = []; for (let k = 0; k <= n; k++) out.push(graph.pointOnConn(c, k / n)); return out; });
       for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
         const a = list[i], b = list[j];
@@ -38,12 +36,6 @@ export class Junctions {
   _add(a, b) { let s = this.conflicts.get(a); if (!s) this.conflicts.set(a, s = new Set()); s.add(b); }
   /** do two connectors conflict? */
   conflict(a, b) { const s = this.conflicts.get(a); return !!s && s.has(b); }
-  // two asks that can't share the box: their curves, or a long vehicle's turn and anything from another lane
-  _clash(brain, c, other, oc) {
-    if (this.conflict(c, oc)) return true;
-    const C = this.g.conns, wide = (b, id) => !!b.v && b.v.hl > LONG && C[id].kind !== 'straight';
-    return C[c].from !== C[oc].from && (wide(brain, c) || wide(other, oc));
-  }
   /** the region record of a connector (null: no region, nothing to reserve) */
   regionOf(c) { return c && c.region ? this.regions.get(c.region) || null : null; }
   /** brain asks to cross by connector c at time t. ready: it could go now; prio: a siren's (ranks it first).
@@ -60,33 +52,36 @@ export class Junctions {
     for (const [b, o] of R.holders) {
       if (b === brain) continue;
       if (t - o.seen > 1) { R.holders.delete(b); continue; }   // (it stopped asking: despawned, rerouted)
-      if (this._clash(brain, c.id, b, o.conn)) return false;
+      if (this.conflict(c.id, o.conn)) return false;
     }
     for (const [b, o] of R.waiters) {
       if (b === brain) continue;
       if (t - o.seen > .25) { R.waiters.delete(b); continue; }
-      if ((o.t0 < w.t0 || (o.t0 === w.t0 && o.id < w.id)) && this._clash(brain, c.id, b, o.conn)) return false;
+      if ((o.t0 < w.t0 || (o.t0 === w.t0 && o.id < w.id)) && this.conflict(c.id, o.conn)) return false;
     }
     R.waiters.delete(brain); R.holders.set(brain, { conn: c.id, t, seen: t });
     return true;
   }
   /** is a holder of a connector clashing with c in the box, its vehicle on c's way (a squeezer that goes in anyway
    *  waits for that: one had locked nose to nose with a left turn's holder) */
-  occupied(brain, c, t) {
+  occupied(brain, c, t, scared = false) {
     const R = this.regionOf(c); if (!R) return false;
-    for (const [b, o] of R.holders) {
-      if (b === brain || t - o.seen > 1 || !b.v || !this._clash(brain, c.id, b, o.conn)) continue;
+    for (const [b, o] of scared ? [...R.holders, ...R.rush] : R.holders) {
+      if (b === brain || t - o.seen > 1 || !b.v || !this.conflict(c.id, o.conn)) continue;
       const v = b.v, r = v.hl + CLEAR; for (const p of c.pts) if (sq(p[0] - v.x) + sq(p[1] - v.y) < r * r) return true;
     }
     return false;
   }
+  /** brain goes through the box by connector c unreserved (a panicking driver): no holder, so nobody's grant waits on
+   *  it, but another panicking driver's occupied() sees it there until it is out (release) */
+  rush(brain, c, t) { const R = this.regionOf(c); if (R) R.rush.set(brain, { conn: c.id, t, seen: t }); }
   /** keep a held box (a holder that is through the stop line asks no more, but holds until it is out) */
-  touch(brain, c, t) { const R = this.regionOf(c), h = R && R.holders.get(brain); if (h) h.seen = t; }
+  touch(brain, c, t) { const R = this.regionOf(c), h = R && (R.holders.get(brain) || R.rush.get(brain)); if (h) h.seen = t; }
   /** does brain hold the box for connector c? */
   holds(brain, c) { const R = this.regionOf(c), h = R && R.holders.get(brain); return !!h && h.conn === c.id; }
   /** give back whatever brain holds or waits for (out of the box; despawned) */
   release(brain, regionId = null) {
-    for (const R of regionId ? [this.regions.get(regionId)].filter(Boolean) : this.regions.values()) { R.holders.delete(brain); R.waiters.delete(brain); }
+    for (const R of regionId ? [this.regions.get(regionId)].filter(Boolean) : this.regions.values()) { R.holders.delete(brain); R.waiters.delete(brain); R.rush.delete(brain); }
   }
   /** for tests and the dev overlay: holders and waiters per region */
   stats() { let holders = 0, waiters = 0; for (const R of this.regions.values()) { holders += R.holders.size; waiters += R.waiters.size; } let pairs = 0; for (const s of this.conflicts.values()) pairs += s.size; return { regions: this.regions.size, conflicts: pairs / 2, holders, waiters }; }

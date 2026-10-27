@@ -126,17 +126,20 @@ test('noDeadEnds: a route never into a dead end\'s stub to turn back in it (one 
   assert.ok(via > 0, 'without it, the quickest way back is by a stub\'s turn');
 });
 
-test('junctions: a long vehicle turning takes the box from every other lane; going straight, or a car, only from what crosses its way', () => {
+
+test('junctions: a panicking driver\'s rush through a box is seen there by another as scared, never by a grant or a squeezer; gone with its release', () => {
   const J = new Junctions(G);
   let pair = null;
-  for (const R of J.regions.values()) {
-    for (const a of R.conns) for (const b of R.conns) if (!pair && G.conns[a].kind === 'left' && G.conns[a].from !== G.conns[b].from && !J.conflict(a, b)) pair = [G.conns[a], G.conns[b]];
-    if (pair) break;
-  }
-  assert.ok(pair, 'a left turn and another lane\'s way through the same box that never cross');
-  const [turn, other] = pair, limo = { id: 1, v: { hl: 38 } }, car = { id: 2, v: { hl: 29 } }, next = { id: 3, v: { hl: 29 } };
-  assert.equal(J.ask(car, turn, 0, true), true); assert.equal(J.ask(next, other, .01, true), true, 'a car\'s turn: the other way goes too');
-  J.release(car); J.release(next);
-  assert.equal(J.ask(limo, turn, 1, true), true); assert.equal(J.ask(next, other, 1.01, true), false, 'a limo\'s turn: the other way waits');
-  J.release(limo); assert.equal(J.ask(next, other, 1.02, true), true, 'and goes once it is through');
+  for (const R of J.regions.values()) { for (const a of R.conns) for (const b of R.conns) if (!pair && J.conflict(a, b)) pair = [G.conns[a], G.conns[b]]; if (pair) break; }
+  assert.ok(pair, 'two connectors crossing in one box');
+  const [mine, theirs] = pair;
+  let at = null, best = Infinity;   // (the scared car where its way comes nearest to ours)
+  for (let k = 0; k <= 20; k++) { const p = G.pointOnConn(theirs, k / 20); for (const q of mine.pts) { const d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < best) { best = d; at = p; } } }
+  const scared = { id: 1, v: { x: at[0], y: at[1], hl: 29 } }, calm = { id: 2, v: { x: 0, y: 0, hl: 29 } };
+  assert.equal(J.occupied(calm, mine, 0, true), false, 'nobody there');
+  J.rush(scared, theirs, 0);
+  assert.equal(J.occupied(calm, mine, .1, true), true, 'the scared car on a crossing way in the box: occupied, to another as scared');
+  assert.equal(J.occupied(calm, mine, .1), false, 'not to a squeezer (it waits on holders alone)');
+  assert.equal(J.ask(calm, mine, .1, true), true, 'and no grant waits on it');
+  J.release(calm); J.release(scared); assert.equal(J.occupied(calm, mine, .2, true), false, 'released: gone');
 });
