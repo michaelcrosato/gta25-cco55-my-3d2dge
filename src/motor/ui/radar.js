@@ -141,6 +141,7 @@ function blip(g, x, y, shape, c) {
 export function drawWanted(g, right, y, wanted, t) {
   if (!wanted) return;
   const n = wanted.stars, flash = wanted.flashing && Math.floor(t * 3) % 2 === 0, s = 7, gap = 15, x0 = right - 8 - gap * 4;
+  g.fillStyle = 'rgba(5,3,12,.45)'; g.fillRect(Math.round(x0 - 10), Math.round(y - 10), gap * 4 + 20, 20);   // (a plate: the stars read over a sign or a bright street)
   for (let i = 0; i < 5; i++) {
     const x = x0 + i * gap, on = i < n;
     star(g, x, y, s + 1.5, on ? '#05030c' : '#8a84a8');   // (the stars not earned: outlines)

@@ -1,8 +1,9 @@
 // Glass Heights' side content (EXPANSION.md 5, X7; D44): the Strip's Kwik-Lux's hold-up (the till, two stars), its two
 // properties (bought at their doors there, never in Lowtown), its three stunt jumps on their kickers, the Villa's pool
 // water under the first, its 15 Moto Tokens laid out in Glass Heights alone (every token's id its own across the
-// districts), and the Grand Palms' white limo for hire at its curb. Limo, the Regatta and Flare the Limos are the
-// mission bot's to play (tools/bot.mjs), the tokens, stunts and properties the campaign's too.
+// districts), and the Grand Palms' white limo for hire at its curb (and back there after a fire, the wrecks towed out
+// of sight: X8). Limo, the Regatta and Flare the Limos are the mission bot's to play (tools/bot.mjs), the tokens, stunts
+// and properties the campaign's too.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../harness.mjs';
@@ -66,4 +67,16 @@ test('the Grand Palms\' white limo for hire stands at its curb, and the Limo job
   const v = gtm.fleet.vehicles.find(o => o.def.id === 'limo' && Math.hypot(o.x - q.x, o.y - q.y) < 320);
   assert.ok(v, 'the white limo by the Grand Palms');
   assert.equal(gtm.motor.get('activities', 'job_limo').levels, 3);
+});
+
+test('the white limo burnt at its curb with a car beside it: both towed once out of sight, and a fresh limo parked there', async () => {
+  const { game, gtm } = await at('grand-palms'), F = gtm.fleet, K = F.keepers.find(k => k.def === 'limo'), v = K.v;
+  const other = F.spawn('cortez', K.home.x + 55, K.home.y, K.home.heading); game.advance(.1);
+  v.damage.explode(); other.damage.explode(); game.advance(.2);
+  gtm.crew.ped.place(K.home.x - 1400, K.home.y - 900);
+  for (let s = 0; s < 40 && K.v === v; s += 2) game.advance(2);
+  assert.notEqual(K.v, v, 'a fresh limo');   // (a wreck by its home had kept it from coming back for good: X8's campaign)
+  assert.ok(!K.v.wrecked && Math.hypot(K.v.x - K.home.x, K.v.y - K.home.y) < 1, 'at its curb');
+  assert.equal(F.near(K.home.x, K.home.y, 120).filter(o => o.wrecked).length, 0, 'the wrecks towed');
+  assert.equal((game.errors || []).length, 0, JSON.stringify(game.errors));
 });

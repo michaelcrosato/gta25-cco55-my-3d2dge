@@ -26702,6 +26702,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   function drawWanted(g, right, y, wanted, t) {
     if (!wanted) return;
     const n = wanted.stars, flash = wanted.flashing && Math.floor(t * 3) % 2 === 0, s = 7, gap = 15, x0 = right - 8 - gap * 4;
+    g.fillStyle = "rgba(5,3,12,.45)";
+    g.fillRect(Math.round(x0 - 10), Math.round(y - 10), gap * 4 + 20, 20);
     for (let i = 0; i < 5; i++) {
       const x = x0 + i * gap, on = i < n;
       star(g, x, y, s + 1.5, on ? "#05030c" : "#8a84a8");
@@ -27142,11 +27144,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     get safe() {
       return this.L.safe;
     }
-    /** text at (x, y) (its top left; align 'center' or 'right' moves it); o: { scale, align, wrap, outline, shadow } */
+    /** text at (x, y) (its top left; align 'center' or 'right' moves it); o: { scale, align, wrap, outline, shadow, plate
+     *  (a dark plate behind it: true, or its colour) } */
     text(s, x, y, color = UI.ink, o = {}) {
       const scale = o.scale || 1, t = textImage(String(s), color, { outline: o.outline === void 0 ? UI.outline : o.outline, shadow: o.shadow, scale, align: o.align, wrap: o.wrap }), r7 = t.r;
-      this.g.drawImage(t.cv, Math.round(x) - t.ax, Math.round(y) - t.ay);
       const w12 = r7 ? r7.w : E.font.width(String(s), { scale }), h = r7 ? r7.h : 7 * scale, x0 = o.align === "center" ? x - w12 / 2 : o.align === "right" ? x - w12 : x;
+      if (o.plate) {
+        this.g.fillStyle = o.plate === true ? "rgba(5,3,12,.55)" : o.plate;
+        this.g.fillRect(Math.round(x0) - 3, Math.round(y) - 2, Math.round(w12) + 6, Math.round(h) + 4);
+      }
+      this.g.drawImage(t.cv, Math.round(x) - t.ax, Math.round(y) - t.ay);
       this.rec.text(String(s), Math.round(x0), y, w12, h, scale, "normal");
       return { w: w12, h };
     }
@@ -29445,7 +29452,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this._towT = 2;
         const span = (v) => v.abandonT !== void 0 && this.t - v.abandonT > SPAN_TOW && this.fleet.bridges.some((b) => b.gate && b.phase === "down" && b.contains(v.x, v.y));
         for (const v of [...this.fleet.vehicles]) {
-          const t0 = v.abandonT ?? v.leftT;
+          if (v.wrecked && v.wreckT === void 0) v.wreckT = this.t;
+          const t0 = v.abandonT ?? v.leftT ?? v.wreckT;
           if (t0 === void 0 || this.t - t0 <= TOW_AFTER || fp.d(v.x, v.y) <= TUNE.fpSpawnIn && !span(v) || v.owner === "mission" || v.seats.some((p) => p && !p.dead) || v.damage && v.damage.burning) continue;
           if (v.home && !v.wrecked && fp.d(v.home.x, v.home.y) > TUNE.fpSpawnIn && this._homeFree(v)) {
             this._home(v);
@@ -34635,7 +34643,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return this._go(dt, p, K2.at[0], K2.at[1], o, w12);
       }
       if (v && w12.respray && !W31.seen && Math.hypot(w12.respray[0] - v.x, w12.respray[1] - v.y) < 1200) return this._go(dt, p, w12.respray[0], w12.respray[1], { stay: true, style, radius: 18, slack: 30, hold: !!job3 }, w12);
-      if (!this.dest || Math.hypot(this.dest[0] - P25.x, this.dest[1] - P25.y) < 80) this.dest = v && v.cls === "boat" ? this._farWater(v, w12) : this._far(P25, w12);
+      const far = () => {
+        this.destD = Infinity;
+        this.destT = 0;
+        return v && v.cls === "boat" ? this._farWater(v, w12) : this._far(P25, w12, this.destOff);
+      };
+      if (!this.dest || Math.hypot(this.dest[0] - P25.x, this.dest[1] - P25.y) < 80) this.dest = far();
+      const dd = Math.hypot(this.dest[0] - P25.x, this.dest[1] - P25.y);
+      if (dd < this.destD - 40) {
+        this.destD = dd;
+        this.destT = 0;
+      } else if ((this.destT += dt) > 20) {
+        (this.destOff ||= /* @__PURE__ */ new Set()).add(this.dest.join());
+        this.dest = far();
+      }
       return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style, slack: 80, hold: !!job3 }, w12);
     }
     // on the water (X6): a point out on it far from the police's cars (none of them follows a boat), well away from the
@@ -34714,7 +34735,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return this.cover;
     }
     // the point of interest farthest from the police round the player (or from the player, with none about), past 500
-    _far(P25, w12) {
+    // (off: points passed over, by "x,y")
+    _far(P25, w12, off2 = null) {
       const units = w12.police && w12.police.units ? w12.police.units.filter((u) => !u.gone && u.car && u.car.v).map((u) => u.car.v) : [];
       let cx6 = P25.x, cy = P25.y;
       if (units.length) {
@@ -34724,7 +34746,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       let best = null, bd = -1;
       for (const q of this.city.pois) {
         const dp = Math.hypot(q.x - P25.x, q.y - P25.y);
-        if (dp < 500 || dp > 2600) continue;
+        if (dp < 500 || dp > 2600 || off2 && off2.has(q.x + "," + q.y)) continue;
         const d = Math.hypot(q.x - cx6, q.y - cy) - dp * 0.3;
         if (d > bd) {
           bd = d;
@@ -39414,6 +39436,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   // src/motor/ui/hud.js
   var CORNERS2 = /* @__PURE__ */ new Map();
   var OUT = "#05030c";
+  var PLATE = "rgba(5,3,12,.55)";
+  function plate(g, x, y, w12, h) {
+    g.fillStyle = PLATE;
+    g.fillRect(Math.round(x), Math.round(y), Math.round(w12), Math.round(h));
+  }
   function corner(P25, key, sig, w12, h, x, y, draw) {
     let c = CORNERS2.get(key);
     if (!c) {
@@ -39456,7 +39483,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         X2.rect(g, x + 1, yy, w12, 4, back2);
         X2.rect(g, x + 1, yy, Math.round(w12 * Math.max(0, Math.min(1, frac))), 4, col);
       };
-      if (o.name) T33(o.name, x, 0, o.color || "#ffe066");
+      if (o.name) {
+        plate(g, x, 0, E.font.width(o.name) + 4, 9);
+        T33(o.name, x + 1, 1, o.color || "#ffe066");
+      }
       bar(y, v.health / 100, low2 ? "#ff3a3a" : "#5ad84a", "#1e3a1a");
       bar(y + 7, v.armor / 100, "#5ab0ff", "#1a2a3e");
       if (a) {
@@ -39468,8 +39498,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const label2 = !rd ? "" : p.inv.reloading > 0 ? "RELOAD" : spec.mag ? `${rd.mag} / ${Math.max(0, rd.total - rd.mag)}` : `${rd.total}`;
     corner(P25, "weapon", [spec && spec.id, label2].join("|"), 100, 56, L28.weapon[0] - 100, L28.weapon[1], (g, T33) => {
       const rx6 = 100;
-      if (spec) T33(spec.name.toUpperCase(), rx6, 0, "#c8c0e8", { align: "right" });
-      E.ui.box(g, rx6 - 84, 10, 84, 36, { alpha: 0.6 });
+      if (spec) {
+        const s = spec.name.toUpperCase();
+        plate(g, rx6 - E.font.width(s) - 4, 0, E.font.width(s) + 4, 9);
+        T33(s, rx6 - 1, 1, "#c8c0e8", { align: "right" });
+      }
+      E.ui.box(g, rx6 - 84, 10, 84, 36, { alpha: 0.78 });
       if (spec && spec.model) drawWeaponIcon(g, spec.model, rx6 - 42, 26, 2.2);
       else drawFistIcon(g, rx6 - 42, 26, 2.4);
       if (label2) T33(label2, rx6 - 4, 37, p.inv.reloading > 0 ? "#ffd23a" : rd.total ? "#f0ecff" : "#ff5a5a", { align: "right" });
@@ -53005,7 +53039,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           const p = hero(), pv = p.seat && p.seat.vehicle, hold3 = stage2.top.hold, fx0 = hold3 ? hold3.x : pv ? pv.x : p.x, fy0 = hold3 ? hold3.y : pv ? pv.y : p.y;
           const L28 = hudLayout(P25), ch = chOf(crew.active), t = game2.real, cx6 = P25.W / 2, vg = crew.vignette;
           const where5 = (hoodName || "LOWTOWN").toUpperCase() + "  •  " + clock9.label() + "  •  " + (views.spec.label || views.active).toUpperCase();
-          if (!demo && !cab2) P25.text(where5, L28.sx0, L28.sy0, "#ffe066");
+          if (!demo && !cab2) P25.text(where5, L28.sx0, L28.sy0, "#ffe066", { plate: true });
           if (!crew.switching && !down2) tips.draw(P25, L28.sx0, L28.sy0 + 12);
           if (!crew.switching && !cab2) {
             drawPedHud(P25, p, { color: ch.color, name: ch.short + "   $" + crew.fund });
@@ -55310,7 +55344,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var TYRE = "#141418";
   var STRIPE2 = "#f2f0e6";
   var BLACK2 = "#141418";
-  var PLATE = "#d4d0c0";
+  var PLATE2 = "#d4d0c0";
   var G0 = cx - cl / 2;
   var G1 = cx + cl / 2;
   var RX0 = G0 + 3;
@@ -55350,7 +55384,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       P9([l2, -w2 + 1.2, z0 + 1.4, l2 + 0.35, w2 - 1.2, zs - 0.4], BLACK2, "bumper"),
       ...pair2(l2, 7.4, zb - 3, l2 + 0.45, 11.4, zs, "#c8c4b0", "bumper"),
       P9([-l2 - 0.35, -w2 + 1.4, zb - 3.2, -l2, w2 - 1.4, zs], "#8a1a1a", "bumper"),
-      P9([-l2 - 0.3, -3.2, 4.2, -l2, 3.2, 6.8], PLATE, "bumper"),
+      P9([-l2 - 0.3, -3.2, 4.2, -l2, 3.2, 6.8], PLATE2, "bumper"),
       P9([-l2, -w2, zs, l2, w2, zb], PAINT2),
       // on top: the scoop (paint) with its black mouth; the stripes over the bonnet, the scoop and the boot
       P9([SX0, -3.9, zb, SX1, 3.9, SZ], PAINT2, "trim", { paint: true }),
@@ -55410,7 +55444,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var GRILLE = "#24242a";
   var GLASS4 = "#3a4a5a";
   var TYRE2 = "#1a1a20";
-  var PLATE2 = "#d4d0c0";
+  var PLATE3 = "#d4d0c0";
   var RUB2 = "#2e2e34";
   var RACK = "#8a8a92";
   var LID = [-l3, -w3, zs2, l3, w3, zb2];
@@ -55428,7 +55462,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var CAPS = [P10([l3 - 0.05, -w3, z02, l3, w3, zs2], PAINT3), P10([-l3, -w3, z02, -l3 + 0.05, w3, zs2], PAINT3)];
   var ENDS = [
     P10([l3, -5.6, 6.2, l3 + 0.35, 5.6, 10.6], GRILLE, "bumper"),
-    P10([-l3 - 0.3, -3.2, 5, -l3, 3.2, 7.6], PLATE2, "bumper"),
+    P10([-l3 - 0.3, -3.2, 5, -l3, 3.2, 7.6], PLATE3, "bumper"),
     ...lens(true, 6.6, 10.6, 8.6, "#c8c4b0"),
     ...lens(false, 6.6, 10.6, 8.6, "#8a1a1a")
   ];
@@ -56055,7 +56089,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var GLASS7 = "#33404e";
   var TYRE3 = "#18181c";
   var HUB = "#8e929a";
-  var PLATE3 = "#d4d0c0";
+  var PLATE4 = "#d4d0c0";
   var HEAD2 = "#fff4c8";
   var TAIL2 = "#8a1a1a";
   var GLASS_BOX2 = [CX0 + 1, -w5 + 1.2, zw, CX1 - 0.5, w5 - 1.2, zg];
@@ -56157,7 +56191,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       ...pair5(l4 - 1.4, 10.6, zf, l4 + 0.55, 13.8, zf + 0.2, HEAD2, "light"),
       // the back: the tail lamps and the plate on the chassis' end
       ...pair5(-l4 - 0.4, 9.4, 9, -l4, 13.6, 12.6, TAIL2, "tail"),
-      P14([-l4 - 0.3, -8.2, 7.8, -l4, -2.6, 11], PLATE3, "bumper"),
+      P14([-l4 - 0.3, -8.2, 7.8, -l4, -2.6, 11], PLATE4, "bumper"),
       // the cab: glass all round, the roof in the paint
       ...cab(),
       // the exhaust stack up the cab's back right corner, a heat shield round its middle
@@ -56707,7 +56741,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var WALL3 = "#e8e6e0";
   var VINYL = "#e2d9c4";
   var DARK7 = "#33363e";
-  var PLATE4 = "#d4d0c0";
+  var PLATE5 = "#d4d0c0";
   var RX02 = cx5 - cl5 / 2 + 2.5;
   var RX12 = cx5 + cl5 / 2 - 6;
   var P19 = (box2, color, role = "body", more) => more ? { box: box2, color, role, ...more } : { box: box2, color, role };
@@ -56745,7 +56779,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       ...pair8(l7, 9.7, zb4 - 3, l7 + 0.35, 12.5, zs3, "#c8c4b0", "bumper"),
       ...pair8(-l7 - 0.35, w8 - 1.5, zb4 - 3.4, -l7, w8, zs3, "#8a1a1a", "bumper"),
       P19([-l7 - 0.4, -10.2, 9.2, -l7, 10.2, 10.4], CHROME9, "bumper"),
-      P19([-l7 - 0.3, -3.4, 5.4, -l7, 3.4, 8.2], PLATE4, "bumper"),
+      P19([-l7 - 0.3, -3.4, 5.4, -l7, 3.4, 8.2], PLATE5, "bumper"),
       P19([-l7, -w8, zs3, l7, w8, zb4], PAINT6),
       // on top: chrome belt lines along the edges, a chrome strip up the bonnet to the mascot, the fins (paint) capped in chrome
       ...pair8(-l7 + 10, w8 - 0.7, zb4, l7 - 0.8, w8, zb4 + 0.25, CHROME9, "trim"),
@@ -57110,7 +57144,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var STEEL4 = "#b8bcc4";
   var ENGINE = "#3c3c44";
   var ARM = "#4a4a54";
-  var PLATE5 = "#d4d0c0";
+  var PLATE6 = "#d4d0c0";
   var P23 = (box2, color, role = "body", more) => more ? { box: box2, color, role, ...more } : { box: box2, color, role };
   var T32 = (box2) => P23(box2, PAINT9, "trim", { paint: true });
   var pair12 = (x0, a, z1, x1, b, z2, color, role, more) => [P23([x0, -b, z1, x1, -a, z2], color, role, more), P23([x0, a, z1, x1, b, z2], color, role, more)];
@@ -57153,7 +57187,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       T32([-14.4, -2.1, 10.4, -9.6, 2.1, 12.4]),
       T32([-16, -1.4, 10.6, -14.4, 1.4, 12.2]),
       P23([-16.3, -1.1, 10.9, -16, 1.1, 11.9], "#8a1a1a", "tail"),
-      P23([-16.2, -1.2, 9.8, -15.9, 1.2, 10.6], PLATE5, "trim")
+      P23([-16.2, -1.2, 9.8, -15.9, 1.2, 10.6], PLATE6, "trim")
     ],
     wheels: [{ x: fx5, y: 0, r: r6, steer: true }, { x: rx5, y: 0, r: r6, steer: false }],
     seats: [{ x: -6.6, y: 0, z: 8.2 }],

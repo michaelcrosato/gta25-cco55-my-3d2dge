@@ -8,7 +8,9 @@ files. Everything is drawn and played by code.
 
 ![The attract mode: the Joyride reel](docs/media/m11/attract-joyride.gif)
 
-The vertical slice is one district, **Lowtown**, with an enterable bank and Club Chrome, seen four ways:
+The city is three districts, a bridge apart: **Lowtown** (the docks, the neon and the brick), **Ironside** (the
+foundry, the scrapyards and the power station) and **Glass Heights** (the hill, the Strip and the marina), each with
+its gangs, missions and side content, opened one by one as the story goes on. It is seen four ways:
 - **ISOMETRIC** (primary), with a quarter-turning camera that pulls out with speed;
 - **TOP-DOWN**: GTA2's perspective lean, the camera climbing as you go faster;
 - **SIDE-SCROLL MODE 7**: the engine's side scrolling with depth, a rail camera that follows you sideways while the
@@ -16,9 +18,10 @@ The vertical slice is one district, **Lowtown**, with an enterable bank and Club
 - **CHASE**: a free-turning Mario Kart-style camera behind what you drive (or the way you walk), pulled in short of the
   walls.
 
-Switch any time (R3); the simulation never notices which view you watch it in. Beyond the slice's fourteen missions and
-side content: a helicopter to fly (Channel 6's SkyCam), the L to ride, seven jobs, and an arcade cabinet in Club Chrome
-that plays the engine's own shooter starter kit.
+Switch any time (R3); the simulation never notices which view you watch it in. There are cars, bikes and trucks to
+take, a helicopter, two planes and four boats; the L to ride; four interiors (the First Lowtown Bank, Club Chrome, the
+Ironside Power Station and the Velvet Casino), three heists in them; and an arcade cabinet in Club Chrome that plays
+the engine's own shooter starter kit.
 
 | ISO at night | MODE 7 in the rain | TOP-DOWN |
 |---|---|---|
@@ -27,24 +30,31 @@ that plays the engine's own shooter starter kit.
 | ![The bank's lobby](docs/media/m7/bank-lobby-iso.png) | ![The HUD, the radar and its GPS line](docs/media/m9/hud-car-gps-1080p.png) | ![A JOB DONE card](docs/media/m9/job-done-1080p.png) |
 | **SkyCam, behind it in CHASE** | **CHROME RAIDERS in Club Chrome** | **Riding the L** |
 | ![The SkyCam helicopter in the chase view](docs/media/l4/skycam-chase.png) | ![The arcade cabinet's bezel over the club](docs/media/l4/club-cabinet.png) | ![On the L in ISO](docs/media/l4/l-riding.png) |
+| **Ironside: the Duster over the works** | **The Velvet Casino's floor** | **Glass Heights: the Villa Pool jump** |
+| ![The Duster in the air, chase view](docs/media/x2/duster-air-chase.png) | ![The casino floor in ISO](docs/media/x6/casino-floor-iso.png) | ![A Zephyr over Villa Marisol's pool](docs/media/x7/villa-pool-jump-iso.png) |
 
 ## What's in it
 
 - **Three protagonists**, switched between on the fly: Dex Moreno the courier and wheelman, Viv Okafor the
   ex-detective, Gus Pilchard the tow-truck philosopher, each with an ability of their own.
-- **14 missions:** the prologue, three for each of the Chrome Saints, the Harbor Rats and the Lawn Gnomes, and the
-  heist on the First Lowtown Bank in three setups and a finale played LOUD or QUIET.
-- **Side content:** seven jobs at three levels (Moto Courier, Vigilante, Firefighter, Paramedic, Tow Truck, SkyCam in
-  the helicopter, L Courier on the train), two street races, three MAYHEMs, a high score on Club Chrome's cabinet, 25
-  Moto Tokens, five stunt jumps, random events, two properties to buy, shops, a respray.
-- **A city that lives:** traffic on one-way streets and the Loop's elevated deck, crowds on the sidewalks, the police
-  by wanted level (up to a helicopter and roadblocks), ambulances and fire engines, three gangs with respect, turf and
-  turf wars, a drawbridge, weather and a day.
+- **32 missions** for seven gangs: the prologue; the Chrome Saints, the Harbor Rats and the Lawn Gnomes in Lowtown;
+  the Rust Monks and the Volt Boys in Ironside; the Velvet Syndicate and the Yacht Club in Glass Heights (the Saints
+  uptown too); and three heists, each in three setups and a finale: the First Lowtown Bank (LOUD or QUIET), Blackout
+  at the Power Station, House Edge at the Velvet Casino.
+- **Side content:** nine jobs at three levels (Moto Courier, Vigilante, Firefighter, Paramedic, Tow Truck, SkyCam in
+  the helicopter, L Courier on the train, Crop Duster in the Duster, Limo on the Heights' doors), four races (two
+  street races, the Ironside Air Race, the Heights Regatta on the water), five MAYHEMs, a high score on Club Chrome's
+  cabinet, 55 Moto Tokens, eleven stunt jumps, six properties to buy, the Kwik-Lux hold-ups, random events, shops and
+  the respray.
+- **A city that lives:** traffic on one-way streets, the Loop's elevated deck and the bridges between the districts,
+  crowds on the sidewalks, the police by wanted level (up to a helicopter and roadblocks), ambulances and fire
+  engines, seven gangs with respect, turf and turf wars, a drawbridge, boats on the water, weather and a day.
 - **A controller-first 10-foot UI** for a DualSense on a TV (keyboard and mouse work too): the HUD, the phone, the
   map, the pause, every setting, rebinding per context.
 - **Sound:** six radio stations composed at run time (synth-punk, boom-bap, synthwave, surf rock, lounge and a talk
   show), with DJs and ads, and a score that comes up under the action.
-- **An attract mode** that plays the game by itself after ten idle seconds on the title, and leaves on any input.
+- **An attract mode** that plays the game by itself after ten idle seconds on the title (seven reels, the districts'
+  among them), and leaves on any input.
 - **The Proving Ground** (EXTRAS on the title): the handling ground, the traffic lab, the combat range, a wanted
   sandbox, the mission bench, a stress pad, the UI gallery and jukebox, photo mode (with its filters) and the dev tools
   (`?dev=1`).
@@ -57,7 +67,9 @@ controller first if you have one.
 - **Start:** NEW GAME. The prologue teaches the verbs: walk, get in, drive, deliver.
 - **Jobs come from payphones:** a ringing payphone on a gang's turf, or the crew's at the Greasy Spoke. Walk into its
   marker to see the JOB card. The phone (D-pad up) has your contacts, texts, and the city's jobs.
-- **Money** buys guns, a respray (loses the police), the two properties (they pay a little each night) and the heist.
+- **Money** buys guns, a respray (loses the police), the properties (they pay a little each night) and the heists.
+- **The districts open with the story:** Lowtown's heist opens the west bridge to Ironside, Ironside's the Loop
+  Causeway to Glass Heights. Drive over (or walk); your car, crew, time and stars come with you.
 - **Respect** with each gang rises with its jobs and falls with its rivals'. Hostile gangs go for you on their turf;
   friendly ones back you up.
 - **Stars** come from crimes the police see. Lose them out of sight, or at the respray. A job never starts while you
@@ -124,19 +136,21 @@ and the feedback for the engine's maintainers is [`docs/FEEDBACK-FOR-ENGINE.md`]
 - **Play:** `dist/index.html` (committed, rebuilt by every change).
 - **Build:** `npm ci` (Node 22 or later), then `npm run build`. `npm run dev` serves it on `localhost:5173` and rebuilds
   on every change.
-- **Test:** `npm test` is the gate (lint, the layer and vendor checks, a current build and tuning list, about 340 unit
+- **Test:** `npm test` is the gate (lint, the layer and vendor checks, a current build and tuning list, about 440 unit
   and sim tests, the 15 content recipes, FAN-OUT B's review tests (each a finding of the adversarial review, fixed), and
   the browser suites: smoke, replay, the Proving Ground's self-tests, audio, the attract mode, photo mode, the dev
   tools, one seed played headless and in Chromium to the same hash (D33), the engine's checker on the city and the
-  bank). `npm run test:full` adds the soaks, every mission through the
-  bot on three seeds and through a pad, the bot gym (a fixture per hint kind and per known limit, `tools/botgym.mjs`)
-  both ways, the bot campaign to 100% (the bot invulnerable there: `--god`) and the rest
-  (`PROGRESS.md` has each run's evidence). In a Claude Code cloud session the SessionStart hook installs everything;
+  bank). `npm run test:full` adds the perf gate in each district, the soaks, every mission and activity level through
+  the bot on three seeds and through a pad, the bot gym (a fixture per hint kind and per known limit,
+  `tools/botgym.mjs`) both ways, the bot campaign to 100% across the three districts (the bot invulnerable there:
+  `--god`) and the rest (`PROGRESS.md` has each run's evidence). In a Claude Code cloud session the SessionStart hook installs everything;
   elsewhere, run `npx playwright install chromium` once.
-- **Deep links:** `#title`, `#play` (or `#play/<spawn>`), `#interior/bank`, `#attract`, `#mission/<id>/<stage>`,
+- **Deep links:** `#title`, `#play` (or `#play/<spawn>`), `#interior/<id>` (`bank`, `club-chrome`, `power-station`,
+  `velvet-casino`), `#attract` (or `#attract/<reel>`), `#mission/<id>/<stage>`,
   `#proving/<zone>`. Options: `?view=iso|top|side7`, `?time=day|dusk|night`, `?weather=`, `?seed=`, `?dev=1` (the dev
-  menu, its GO to Ironside and Glass Heights; `&district=ironside` or `&district=glass-heights` starts there, `&bridges=open` opens every bridge), `?record=1`, `?perf=1`, `?selftest=1`, `?god=1` (the crew and their
-  rides take no harm: the bots').
+  menu, its GO to Ironside and Glass Heights; `&district=ironside` or `&district=glass-heights` starts there,
+  `&bridges=open` opens every bridge), `?record=1`, `?perf=1`, `?selftest=1`, `?god=1` (the crew and their rides take
+  no harm: the bots').
 
 ## Repository
 

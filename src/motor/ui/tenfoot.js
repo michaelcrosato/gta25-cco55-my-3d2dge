@@ -43,11 +43,13 @@ export class Pen {
   get W() { return this.L.W; }
   get H() { return this.L.H; }
   get safe() { return this.L.safe; }
-  /** text at (x, y) (its top left; align 'center' or 'right' moves it); o: { scale, align, wrap, outline, shadow } */
+  /** text at (x, y) (its top left; align 'center' or 'right' moves it); o: { scale, align, wrap, outline, shadow, plate
+   *  (a dark plate behind it: true, or its colour) } */
   text(s, x, y, color = UI.ink, o = {}) {
     const scale = o.scale || 1, t = textImage(String(s), color, { outline: o.outline === undefined ? UI.outline : o.outline, shadow: o.shadow, scale, align: o.align, wrap: o.wrap }), r = t.r;
-    this.g.drawImage(t.cv, Math.round(x) - t.ax, Math.round(y) - t.ay);
     const w = r ? r.w : E.font.width(String(s), { scale }), h = r ? r.h : 7 * scale, x0 = o.align === 'center' ? x - w / 2 : o.align === 'right' ? x - w : x;
+    if (o.plate) { this.g.fillStyle = o.plate === true ? 'rgba(5,3,12,.55)' : o.plate; this.g.fillRect(Math.round(x0) - 3, Math.round(y) - 2, Math.round(w) + 6, Math.round(h) + 4); }
+    this.g.drawImage(t.cv, Math.round(x) - t.ax, Math.round(y) - t.ay);
     this.rec.text(String(s), Math.round(x0), y, w, h, scale, 'normal');
     return { w, h };
   }

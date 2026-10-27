@@ -103,7 +103,8 @@ export class Traffic {
       // bridge waits for its span to clear, and one left there had held it down for good, a stunt over it waiting)
       const span = v => v.abandonT !== undefined && this.t - v.abandonT > SPAN_TOW && this.fleet.bridges.some(b => b.gate && b.phase === 'down' && b.contains(v.x, v.y));
       for (const v of [...this.fleet.vehicles]) {
-        const t0 = v.abandonT ?? v.leftT;
+        if (v.wrecked && v.wreckT === undefined) v.wreckT = this.t;   // (a wreck, towed as a car left is: one burnt by a landmark's curb had kept its own vehicle from coming back for good, the Grand Palms' limo)
+        const t0 = v.abandonT ?? v.leftT ?? v.wreckT;
         if (t0 === undefined || this.t - t0 <= TOW_AFTER || (fp.d(v.x, v.y) <= TUNE.fpSpawnIn && !span(v)) || v.owner === 'mission' || v.seats.some(p => p && !p.dead) || (v.damage && v.damage.burning)) continue;
         if (v.home && !v.wrecked && fp.d(v.home.x, v.home.y) > TUNE.fpSpawnIn && this._homeFree(v)) { this._home(v); this.homed++; } else { this.fleet.remove(v); this.towed++; }
       }

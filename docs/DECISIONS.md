@@ -2008,3 +2008,41 @@ and where it landed.
     - **Paramedic's clocks** a little longer (3.2 to 2.7 times the road's time and 34 to 29 s): level 3's patients had
       not waited two calls a run, and the campaign's three tries ran out on it.
 - **Answered:** no. **Landed in:** X7.
+
+## D45 · 2026-10-27 · X8: the full game, verified
+
+- **Asked:** EXPANSION.md X8: the campaign across three districts, the perf gate in each, the docs, the screenshot
+  matrix in every district; accepted by EXPANSION.md 9.
+- **Decided:**
+  - **The campaign across the three districts** (`tools/bot-campaign.mjs`): a new game played to 100%, each
+    district's items in it, crossing by the bridges the story opens (by way of a district between where no bridge from
+    here reaches one with something left, D44's addendum). Three things it met in Glass Heights, each the tool's:
+    - **A boat for a race:** its pick of a vehicle had passed boats over, so the Heights Regatta never started; a boat
+      is picked when one is asked for, and held still in the start once there, its way taken off it (astern while it
+      makes way, ahead while it drifts astern): on its handbrake, which holds no boat, the Splash had glided on out of
+      the start.
+    - **A landmark's own vehicle lost on the way** (the Grand Palms' limo, burnt): none about for a job that asks for
+      it, the campaign goes away from its home a while, as a player comes back to it later, and the city parks a fresh
+      one there (traffic's keepers: MOTOR's own since M4). It never had: a car burnt beside it stood within its home's
+      room, and **a wreck was never towed** (MOTOR, below).
+    - **A run-up's start never on the water:** backed off the Palms Newsstand's run-up for Bluewater Drive's traffic,
+      the car had been put in the sea past the drive's east side three tries running; with no room, a moment for the
+      traffic to pass.
+  - **MOTOR, from the runs:**
+    - **A wreck is towed as a car left is** (out of sight, after 10 s; a mission's own stay): one burnt by a
+      landmark's curb had kept its own vehicle from coming back for good, and with it a job (the Limo's).
+    - **The bot's evade picks another place when it gets no nearer the last in 20 s,** that one passed over from then
+      on: through a pad, the Lineman's Bucket had wedged at a curb short of the airstrip's hangar, between two parked
+      cars, for the run's whole 30 minutes (D21 on X7's last code, 72 of 73).
+  - **The perf gate in each district** (`tools/perf.mjs --gate`): Ironside's and Glass Heights' tours (night, rain,
+    the crowd at full, as Lowtown's) in each view, each read against M2's Lowtown view measured in the same round (M2
+    has neither district), within the same budgets.
+  - **The screenshot matrix in every district** (`tools/shot-matrix.mjs`): the ten neighbourhoods, each by day, at
+    dusk and at night, in ISO, TOP-DOWN and MODE 7 (90 shots), read one neighbourhood at a time
+    (`docs/media/x8/`). An interior is shot in its own district (the Power Station in Ironside, the Velvet Casino in
+    Glass Heights).
+  - **The HUD's words on plates** (the look read): the place line, the protagonist and the cash, the weapon's name and
+    the stars over a translucent dark plate, the weapon's box less see-through (.78): over the Glass Tower's sign, the
+    Gilded Lily's, Zappo Cola's, a white crossing or a pale wall they had not read.
+  - **The docs:** README for the full game; ARCHITECTURE's proofs; this.
+- **Answered:** no. **Landed in:** X8.

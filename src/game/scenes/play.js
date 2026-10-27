@@ -644,7 +644,7 @@ export const PLAY = {
         const p = hero(), pv = p.seat && p.seat.vehicle, hold = stage.top.hold, fx0 = hold ? hold.x : pv ? pv.x : p.x, fy0 = hold ? hold.y : pv ? pv.y : p.y;
         const L = hudLayout(P), ch = chOf(crew.active), t = game.real, cx = P.W / 2, vg = crew.vignette;
         const where = (hoodName || 'LOWTOWN').toUpperCase() + '  •  ' + clock.label() + '  •  ' + (views.spec.label || views.active).toUpperCase();
-        if (!demo && !cab) P.text(where, L.sx0, L.sy0, '#ffe066');   // (the attract mode's bug stands there)
+        if (!demo && !cab) P.text(where, L.sx0, L.sy0, '#ffe066', { plate: true });   // (the attract mode's bug stands there; the plate: over the Glass Tower's sign it had not read)
         if (!crew.switching && !down) tips.draw(P, L.sx0, L.sy0 + 12);
         if (!crew.switching && !cab) {   // (at the cabinet: its screen and the way back, the street's HUD off as a menu has it)
           drawPedHud(P, p, { color: ch.color, name: ch.short + '   $' + crew.fund });

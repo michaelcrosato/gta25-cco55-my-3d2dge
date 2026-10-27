@@ -94,7 +94,7 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     let best = null, bs = -Infinity;   // (a far one still counts: the only Pumper may be across town)
     for (const v of gtm.fleet.vehicles) {
       const mine = !!v.driver && v.driver === P();
-      if (v.wrecked || (v.locked && !need) || v.cls === 'rail' || v.cls === 'boat' || (v.cls === 'heli' && !(need && (v.body.landed || mine)))) continue;   // (the player's own counts: the Pumper the last call was answered in; a helicopter only when a job asks for one, on the ground or the one the player flies: the SkyCam the last level ended in, still up)
+      if (v.wrecked || (v.locked && !need) || v.cls === 'rail' || (v.cls === 'boat' && !(need && fits(need, v))) || (v.cls === 'heli' && !(need && (v.body.landed || mine)))) continue;   // (the player's own counts: the Pumper the last call was answered in; a helicopter only when a job asks for one, on the ground or the one the player flies: the SkyCam the last level ended in, still up; a boat only when asked for, the Regatta's)
       if (need ? !fits(need, v) : !M.pickable(v) || v.cls !== 'car') continue;
       const driven = !!(v.driver && v.driver !== P()); if (driven !== jack || shunned(v.id) || ((v.z || 0) > 10 && !mine)) continue;   // (at street level: one parked up on the Loop is walked to from under it)
       if (jack && !(v.speed < 2 && v.brain && v.brain.cause === 'signal' && !v.duty && !v.gang && v.owner !== 'mission')) continue;   // (never a unit on a call, a gang's or a job's)
@@ -200,20 +200,30 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
     const kinds = [].concat(a.start.vehicle).sort((p, q) => topOf(q) - topOf(p)), mid = [city.w * city.T / 2, city.h * city.T / 2];
     // (the one nearest the middle of town, as a player sets out on a job: one taken where the last item had left the
     // player, in a far corner at rush hour, had made the courier's tightest clock impossible from its first drop)
-    const { v, ok: aboard } = takeCar(...kinds.map(k => () => carNear(mid[0], mid[1], k, 1e9))); if (!v) { why = 'no ' + [].concat(a.start.vehicle).join('/') + ' about'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
+    let { v, ok: aboard } = takeCar(...kinds.map(k => () => carNear(mid[0], mid[1], k, 1e9)));
+    // (none about: a landmark's own lost on the way here, the Grand Palms' limo burnt; away from its home a while, as a
+    // player comes back to it later, the city parks a fresh one there)
+    const K = !v && gtm.fleet.keepers.find(k => kinds.includes(k.def));
+    if (K) { const far = [[.25, .25], [.75, .25], [.25, .75], [.75, .75]].map(([fx, fy]) => [city.w * city.T * fx, city.h * city.T * fy]).sort((p, q) => Math.hypot(q[0] - K.home.x, q[1] - K.home.y) - Math.hypot(p[0] - K.home.x, p[1] - K.home.y))[0];
+      const was = K.v; say(`${a.id}: no ${K.def} about (${was ? (was.wrecked ? 'wrecked' : 'driven') + ' at ' + Math.round(was.x) + ',' + Math.round(was.y) : 'gone'}; by its home: ${gtm.fleet.near(K.home.x, K.home.y, 120).filter(o => o !== was).map(o => o.def.id + (o.wrecked ? ' (wreck)' : '') + ' ' + Math.round(Math.hypot(o.x - K.home.x, o.y - K.home.y))).join(', ') || 'nothing'}): away from its home a while`); teleport(far[0], far[1]); run(15); ({ v, ok: aboard } = takeCar(...kinds.map(k => () => carNear(mid[0], mid[1], k, 1e9)))); }
+    if (!v) { why = 'no ' + [].concat(a.start.vehicle).join('/') + ' about'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
     if (!cool()) { why = 'wanted after taking the ' + v.def.id; return false; }   // (a police car broken into is a crime a cop may see, and a job never starts while wanted: the stars lost in it first, as a player would)
     if (C().card) C().close();   // (a drive-in shop's card, opened by stopping at its door: the phone waits for no card)
     C().phone(); const it = C().card && C().card.items.find(q => q.label === a.title.toUpperCase());
     if (!it) { why = 'not on the phone (' + (C().card ? C().card.items.map(q => q.label).join(', ') : 'no phone') + ')'; C().close(); return false; } it.act(); run(1); return ours(null);
   });
   // (arrived is within reach, not yet stopped: held a moment for the start's card, which asks a stopped car)
+  // (held: a car on its handbrake; a boat, which no handbrake holds, its way taken off it, astern while it makes way
+  // ahead and ahead while it drifts astern: on its handbrake the Regatta's Splash had glided on out of the start)
+  const still = () => { const I = M.clearIntent(idle), c = P().seat && P().seat.vehicle; if (!c || c.cls !== 'boat') { I.down.handbrake = true; return I; }
+    if (c.speed > 2) { if (c.body.vx * Math.cos(c.heading) + c.body.vy * Math.sin(c.heading) > 0) I.brake = 1; else I.throttle = .5; } return I; };
   const activity = a => play(a.kind, a.id, () => {
     const at = startAt(a), need = a.start.vehicle;
     if (a.start.foot || !need) { teleport(at[0], at[1]); return walk(at[0], at[1], { until: () => ours(a.id) }) && ours(a.id); }
     teleport(at[0], at[1]); run(2);   // (there first, as a player takes a car there: the traffic about it filled in)
     const nd = need === true ? null : need, { v, ok: aboard } = takeCar(() => carNear(at[0], at[1], nd, 600, false, at), () => carNear(at[0], at[1], nd, 300, true, at), () => carNear(P().x, P().y, nd, 1e9, false, at));
     if (!v) { why = 'no ' + (need === true ? 'car' : [].concat(need).join('/')) + ' near its start'; return false; } if (!aboard) { why = 'could not board the ' + v.def.id; return false; }
-    A.goto(at[0], at[1], { car: v, stay: true, taxi: v.cls === 'plane' }); const ok = auto(240, () => ours(a.id)) && (ours(a.id) || pilot(() => { const I = M.clearIntent(idle); I.down.handbrake = true; return I; }, 6, () => ours(a.id))); if (!ok) why = `drove to ${Math.round(P().x)},${Math.round(P().y)}: ${Math.round(Math.hypot(at[0] - P().x, at[1] - P().y))} u from the start`; return ok;
+    A.goto(at[0], at[1], { car: v, stay: true, taxi: v.cls === 'plane' }); const ok = auto(240, () => ours(a.id)) && (ours(a.id) || pilot(still, 6, () => ours(a.id))); if (!ok) why = `drove to ${Math.round(P().x)},${Math.round(P().y)}: ${Math.round(Math.hypot(at[0] - P().x, at[1] - P().y))} u from the start`; return ok;
   });
   const token = s => {
     const way = [...(s.via || []), s.at], t0 = t; roaming(true); teleport(way[0][0], way[0][1]);
@@ -238,8 +248,13 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
       // the Loop Gap's stub had it out of car after car; by the canal it stood 30 u short with no room to turn)
       const L = Math.hypot(tx - ap[0], ty - ap[1]) || 1, ux = (tx - ap[0]) / L, uy = (ty - ap[1]) / L, ang = a => Math.atan2(Math.sin(a), Math.cos(a));
       const z = ap[2] ?? 0, room = (x, y) => gtm.fleet.near(x, y, 80).every(o => o === v || Math.abs((o.z || 0) - z) > 12 || Math.hypot(o.x - x, o.y - y) > o.hl + v.hl + 4);
-      let k = 0; while (k < 4 && !room(ap[0] - ux * k * 30, ap[1] - uy * k * 30)) k++;
-      put(v, ap[0] - ux * Math.min(k, 3) * 30, ap[1] - uy * Math.min(k, 3) * 30, z, Math.atan2(uy, ux)); run(1);
+      // (never on the water: backed off the Palms Newsstand's run-up for the traffic on Bluewater Drive, it had been put
+      // in the sea past the drive's east side, three tries running; with no room, a moment for the traffic to pass)
+      const T = city.T, dry = (x, y) => { const s = city.surfaceAtPoint(x, y); return !!s && s !== 'water' && s !== 'deep' && !(gtm.fleet.world.water && gtm.fleet.world.water(Math.floor(x / T), Math.floor(y / T))); };
+      const back = k => [ap[0] - ux * k * 30, ap[1] - uy * k * 30], fine = k => dry(...back(k)) && room(...back(k));
+      let k = 0; for (let w = 0; w < 8; w++) { k = 0; while (k < 4 && !fine(k)) k++; if (k < 4) break; run(1); }
+      if (k > 3) k = 0;   // (none: at the run-up's start all the same)
+      put(v, ...back(k), z, Math.atan2(uy, ux)); run(1);
       // lined up first, at a crawl, on the line from the run-up's start to the takeoff (a car still turning as it floors
       // it misses a three-cell kicker), backed up to the start if lining up took it past, and stopped there
       const along = c => (c.x - ap[0]) * ux + (c.y - ap[1]) * uy, ahead = (c, k) => { const q = Math.max(along(c), 0) + k; return Math.atan2(ap[1] + uy * q - c.y, ap[0] + ux * q - c.x); };

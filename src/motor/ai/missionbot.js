@@ -457,7 +457,12 @@ export class MissionBot {
     }
     // out of their sight in a car, a respray within reach (and the fee in hand): there, before they find it again
     if (v && w.respray && !W.seen && Math.hypot(w.respray[0] - v.x, w.respray[1] - v.y) < 1200) return this._go(dt, p, w.respray[0], w.respray[1], { stay: true, style, radius: 18, slack: 30, hold: !!job }, w);
-    if (!this.dest || Math.hypot(this.dest[0] - P.x, this.dest[1] - P.y) < 80) this.dest = v && v.cls === 'boat' ? this._farWater(v, w) : this._far(P, w);
+    // (and another when it has got no nearer the last in 20 s, that one passed over from then on: through a pad, the
+    // Lineman's Bucket had wedged at a curb short of the airstrip's hangar, between two parked cars, for good)
+    const far = () => { this.destD = Infinity; this.destT = 0; return v && v.cls === 'boat' ? this._farWater(v, w) : this._far(P, w, this.destOff); };
+    if (!this.dest || Math.hypot(this.dest[0] - P.x, this.dest[1] - P.y) < 80) this.dest = far();
+    const dd = Math.hypot(this.dest[0] - P.x, this.dest[1] - P.y);
+    if (dd < this.destD - 40) { this.destD = dd; this.destT = 0; } else if ((this.destT += dt) > 20) { (this.destOff ||= new Set()).add(this.dest.join()); this.dest = far(); }
     return this._go(dt, p, this.dest[0], this.dest[1], { stay: true, style, slack: 80, hold: !!job }, w);
   }
   // on the water (X6): a point out on it far from the police's cars (none of them follows a boat), well away from the
@@ -513,11 +518,12 @@ export class MissionBot {
     return this.cover;
   }
   // the point of interest farthest from the police round the player (or from the player, with none about), past 500
-  _far(P, w) {
+  // (off: points passed over, by "x,y")
+  _far(P, w, off = null) {
     const units = w.police && w.police.units ? w.police.units.filter(u => !u.gone && u.car && u.car.v).map(u => u.car.v) : [];
     let cx = P.x, cy = P.y; if (units.length) { cx = units.reduce((a, u) => a + u.x, 0) / units.length; cy = units.reduce((a, u) => a + u.y, 0) / units.length; }
     let best = null, bd = -1;
-    for (const q of this.city.pois) { const dp = Math.hypot(q.x - P.x, q.y - P.y); if (dp < 500 || dp > 2600) continue; const d = Math.hypot(q.x - cx, q.y - cy) - dp * .3; if (d > bd) { bd = d; best = [q.x, q.y]; } }
+    for (const q of this.city.pois) { const dp = Math.hypot(q.x - P.x, q.y - P.y); if (dp < 500 || dp > 2600 || (off && off.has(q.x + ',' + q.y))) continue; const d = Math.hypot(q.x - cx, q.y - cy) - dp * .3; if (d > bd) { bd = d; best = [q.x, q.y]; } }
     return best || [P.x + 800, P.y];
   }
   _follow(dt, p, R, h, w) {
