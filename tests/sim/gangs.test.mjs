@@ -130,3 +130,16 @@ test('a turf war breaks out by itself within 10 minutes on seed 1 (by the Neon /
   assert.deepEqual([...war.gangs].sort(), ['rats', 'saints'], 'the Saints and the Rats');
   assert.ok(log.some(e => e.n === 'turfWarEnd'), 'and its end');
 });
+
+test('a fight with one the world has let go of (put away past the crowd\'s ring) ends: no member stands shooting at no one', async () => {
+  const { game, gtm } = await at(120, 60), G = gtm.life.gangs, C = gtm.life.crowd, map = gtm.city.map;
+  quiet(gtm); game.advance(.5);
+  const s = member(gtm, 'saints', 70);
+  const [m] = C.group({ n: 1, arch: [gtm.motor.get('gangs', 'rats').peds.grunt], rIn: 0, where: q => { const d = Math.hypot(q.x - s.x, q.y - s.y); return d > 80 && d < 160 && map.ray({ x: s.x, y: s.y, z: 0 }, { x: q.x, y: q.y, z: 0 }, { eye: 18, target: 18 }).clear; }, tag: ped => { ped.gang = 'rats'; } });
+  assert.ok(m, 'a Rat across the way');
+  G._fight(s, m.ped, null); game.advance(.5);
+  assert.ok(G.fighters.some(f => f.ped === s && f.target === m.ped), 'the Saint goes for the Rat');
+  C._drop(m); game.advance(.2);
+  assert.ok(!G.fighters.some(f => f.ped === s), 'the Rat put away: the Saint stands down');
+  assert.ok(C.members.some(q => q.ped === s), 'and is the crowd\'s again');
+});

@@ -2063,6 +2063,9 @@ and where it landed.
       Medic sent to it had marked it attended once more, and kept it).
     - **The soak's red run** is a car over its stop line on red: one over it before the red, held up on the zebra past
       it by the people crossing, clears the box after (a red run counted at the box, a bike's).
+    - **A gang fight with one the world has let go of ends:** a member whose target the crowd has put away out past
+      its ring (or whose car has gone) stands down, as one whose target is dead (the gang sim's: a Saint had stood two
+      minutes shooting at a Rat no longer in the world, the shots meeting nothing).
   - **The perf gate in each district** (`tools/perf.mjs --gate`): Ironside's and Glass Heights' tours (night, rain,
     the crowd at full, as Lowtown's) in each view, each read against M2's Lowtown view measured in the same round (M2
     has neither district), within the same budgets.

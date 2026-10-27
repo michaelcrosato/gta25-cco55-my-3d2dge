@@ -227,6 +227,9 @@ export class Gangs {
   // each fighter: at its target (another enemy near when it falls), back to the sidewalks when the fight is over
   _fightersStep(dt, P) {
     const PW = { map: this.city.map, city: this.city, combat: this.combat, fleet: this.fleet, aim: NOAIM }, C = this.life.crowd;
+    // (one the world has let go of, put away out past the crowd's ring, is no one to fight: a member had stood two minutes
+    // shooting at one, the shots meeting nothing)
+    const here = q => (q.seat ? this.fleet.vehicles.includes(q.seat.vehicle) : !this.combat || this.combat.bodies.includes(q));
     for (const f of this.fighters) {
       const p = f.ped;
       if (p.dead) {
@@ -236,8 +239,8 @@ export class Gangs {
       }
       if (p.seat) continue;
       let tg = f.target;
-      if (f.war && (!tg || tg.dead)) { const foes = this.fighters.filter(q => q.war === f.war && q.gang !== f.gang && !q.ped.dead).map(q => q.ped); tg = f.target = foes.length ? nearest(p, foes) : null; }
-      if (!tg || tg.dead || (!f.war && tg === P && this.allies.has(f.gang))) f.done = true;   // (a truce: one going for the player stands down)
+      if (f.war && (!tg || tg.dead || !here(tg))) { const foes = this.fighters.filter(q => q.war === f.war && q.gang !== f.gang && !q.ped.dead).map(q => q.ped); tg = f.target = foes.length ? nearest(p, foes) : null; }
+      if (!tg || tg.dead || !here(tg) || (!f.war && tg === P && this.allies.has(f.gang))) f.done = true;   // (a truce: one going for the player stands down)
       else {
         const far = Math.hypot(tg.x - p.x, tg.y - p.y) > LOSE_R || !sameLevel(p, tg);
         f.lostT = far ? f.lostT + dt : 0; if (f.lostT > GIVE_UP) f.done = true;
