@@ -332,7 +332,11 @@ export class PedBrain {
         if (this.t > this.until) { this.react('calm'); return this.feet ? this._join() : null; }
         if (!w.near && this.rejoin()) return null;   // (far from the focus: back to gliding, by the graph)
         const th = this.threat || { x: p.x - 1, y: p.y }, d = Math.hypot(p.x - th.x, p.y - th.y) || 1;
-        return { to: [p.x + (p.x - th.x) / d * 40, p.y + (p.y - th.y) / d * 40], run: true, sprint: this.traits.brave < .5 && d < 260 };
+        // (held still a second, into a wall or a ramp's side it can't climb: along it a while, one way, then the other.
+        // One had run at the Flyover's on-ramp for 15 s)
+        if (this.stuck > 1) { if (this.sideT > this.t) this.side = -this.side; else this.side ||= this._r() < .5 ? 1 : -1; this.sideT = this.t + 2; this.stuck = 0; }
+        let ux = (p.x - th.x) / d, uy = (p.y - th.y) / d; if (this.sideT > this.t) [ux, uy] = [-uy * this.side, ux * this.side];
+        return { to: [p.x + ux * 40, p.y + uy * 40], run: true, sprint: this.traits.brave < .5 && d < 260 };
       }
       case 'fight': {
         const tg = this.target;

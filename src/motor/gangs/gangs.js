@@ -165,7 +165,7 @@ export class Gangs {
       if (c.homing && !c.brain.route) c.homing = false;   // (its way home driven to the end: let it wander, sent again if still out)
       if (home && c.homing) { c.homing = false; c.brain.setRoute(null); }
       // (sent on a lane with room to stop: a new way taken at a light had run its red)
-      else if (!home && !c.homing && !c.brain.route && c.brain.here && c.brain.here.k === 'lane' && c.brain.here.len - c.brain.s > 60) { const hq = this.city.poi(g.hqs[this.city.id] || g.hq), r = hq && gps.routeTo(c.v.x, c.v.y, c.v.heading, hq.x, hq.y, { z: c.v.z }); if (r) { c.homing = true; c.brain.setRoute(r.lanes, null); } }
+      else if (!home && !c.homing && !c.brain.route && c.brain.here && c.brain.here.k === 'lane' && c.brain.here.len - c.brain.s > 60) { const hq = this.city.poi(g.hqs[this.city.id] || g.hq), way = (o = {}) => gps.routeTo(c.v.x, c.v.y, c.v.heading, hq.x, hq.y, { z: c.v.z, ...o }), r = hq && (way({ noDeadEnds: true }) || way()); if (r) { c.homing = true; c.brain.setRoute(r.lanes, null); } }
     }
     const C = this.life.crowd; if (!C) return;
     for (const q of this.groups) {

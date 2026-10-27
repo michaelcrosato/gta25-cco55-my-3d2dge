@@ -110,3 +110,33 @@ test('a goal behind on the lane the car is on: the route leaves it and comes rou
   assert.equal(r.lanes[0], L.id); assert.equal(r.lanes[r.lanes.length - 1], L.id);
   assert.ok(r.to.s < r.from.s, 'the goal behind where it starts');
 });
+
+test('noDeadEnds: a route never into a dead end\'s stub to turn back in it (one at the map\'s edge turns through the wall), but the goal\'s own', () => {
+  const stubs = G.lanes.filter(l => l.deadEnd === 'uturn'); assert.ok(stubs.length, 'Lowtown has stubs at its edges');
+  let via = 0;
+  for (const D of stubs) {
+    const back = G.conns[D.out[0]].to, feed = G.conns.filter(c => c.to === D.id).map(c => c.from);
+    for (const F of feed) {
+      const plain = gps.route(F, back), r = gps.route(F, back, { noDeadEnds: true });
+      if (plain && plain.lanes.includes(D.id)) via++;
+      if (r) assert.ok(r.lanes.every(id => G.lanes[id].deadEnd !== 'uturn'), `from ${F} to ${back}: round, not by a stub (${r.lanes.join(' ')})`);
+      const into = gps.route(F, D.id, { noDeadEnds: true }); assert.ok(into && into.lanes[into.lanes.length - 1] === D.id, `into the stub ${D.id} itself, when it is the goal`);
+    }
+  }
+  assert.ok(via > 0, 'without it, the quickest way back is by a stub\'s turn');
+});
+
+test('junctions: a long vehicle turning takes the box from every other lane; going straight, or a car, only from what crosses its way', () => {
+  const J = new Junctions(G);
+  let pair = null;
+  for (const R of J.regions.values()) {
+    for (const a of R.conns) for (const b of R.conns) if (!pair && G.conns[a].kind === 'left' && G.conns[a].from !== G.conns[b].from && !J.conflict(a, b)) pair = [G.conns[a], G.conns[b]];
+    if (pair) break;
+  }
+  assert.ok(pair, 'a left turn and another lane\'s way through the same box that never cross');
+  const [turn, other] = pair, limo = { id: 1, v: { hl: 38 } }, car = { id: 2, v: { hl: 29 } }, next = { id: 3, v: { hl: 29 } };
+  assert.equal(J.ask(car, turn, 0, true), true); assert.equal(J.ask(next, other, .01, true), true, 'a car\'s turn: the other way goes too');
+  J.release(car); J.release(next);
+  assert.equal(J.ask(limo, turn, 1, true), true); assert.equal(J.ask(next, other, 1.01, true), false, 'a limo\'s turn: the other way waits');
+  J.release(limo); assert.equal(J.ask(next, other, 1.02, true), true, 'and goes once it is through');
+});

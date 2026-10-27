@@ -102,10 +102,13 @@ export class Traffic {
       // (in sight too, a car its driver left on a drawbridge's span a minute once the gate is shut for a lift: the
       // bridge waits for its span to clear, and one left there had held it down for good, a stunt over it waiting)
       const span = v => v.abandonT !== undefined && this.t - v.abandonT > SPAN_TOW && this.fleet.bridges.some(b => b.gate && b.phase === 'down' && b.contains(v.x, v.y));
+      // (and one a far car can't hop past (the lane full to its end: a turf war's wrecks one behind another), where far
+      // cars go unseen: a limo had stood 38 s behind a Medic's wreck and a Cortez's)
+      const inWay = v => v.inWayT !== undefined && this.t - v.inWayT < 4 && fp.d(v.x, v.y) > TUNE.fpFull + LOD_IN;
       for (const v of [...this.fleet.vehicles]) {
         if (v.wrecked && v.wreckT === undefined) v.wreckT = this.t;   // (a wreck, towed as a car left is: one burnt by a landmark's curb had kept its own vehicle from coming back for good, the Grand Palms' limo)
-        const t0 = v.abandonT ?? v.leftT ?? v.wreckT;
-        if (t0 === undefined || this.t - t0 <= TOW_AFTER || (fp.d(v.x, v.y) <= TUNE.fpSpawnIn && !span(v)) || v.owner === 'mission' || v.seats.some(p => p && !p.dead) || (v.damage && v.damage.burning)) continue;
+        const t0 = v.abandonT ?? v.leftT ?? v.wreckT, blocking = inWay(v);   // (blocking: a parked car knocked into a junction's box too, that nobody ever left)
+        if (((t0 === undefined || this.t - t0 <= TOW_AFTER) && !blocking) || (fp.d(v.x, v.y) <= TUNE.fpSpawnIn && !span(v) && !blocking) || v.owner === 'mission' || v.seats.some(p => p && !p.dead) || (v.damage && v.damage.burning)) continue;
         if (v.home && !v.wrecked && fp.d(v.home.x, v.home.y) > TUNE.fpSpawnIn && this._homeFree(v)) { this._home(v); this.homed++; } else { this.fleet.remove(v); this.towed++; }
       }
       // a landmark's own vehicle gone (wrecked, sunk, towed off), nobody in it and nothing of it in sight: a fresh one
@@ -122,7 +125,7 @@ export class Traffic {
     const W = { fleet: this.fleet, t: ctx.t ?? this.t, pedsNear: ctx.pedsNear || null, wet: ctx.wet || 0, sirens: ctx.sirens || null, closed: ctx.closed || null };   // (closed(bridgeId): a drawbridge's gates shut)
     for (const c of this.cars) {
       const v = c.v, b = c.brain, d = fp.d(v.x, v.y);
-      if (c.duty && (c.duty.out || c.duty.ext)) continue;   // (parked at the scene, the crew out; or in the police's chase)
+      if (c.duty && (c.duty.out || c.duty.ext)) { if (c.duty.out && v.kinematic && v.bumpT !== this.fleet.t) { const B = v.body; B.u = B.v = B.w = 0; } continue; }   // (parked at the scene, the crew out; or in the police's chase. Parked out of the physics, a bump moves it but never sets it going, once nothing pushes it: a passing car's knock had left its speed on a parked cruiser for good, and the Medic behind it waited on it to move off)
       // near and far (with a little hysteresis); a car pushed off its lane stays physical until it is back on one
       if (v.kinematic && d < TUNE.fpFull - LOD_IN) { v.kinematic = false; v.body.setVelocity(Math.cos(v.heading) * b.speed, Math.sin(v.heading) * b.speed); }
       else if (!v.kinematic && d > TUNE.fpFull + LOD_IN && b.snap()) v.kinematic = true;
@@ -163,7 +166,7 @@ export class Traffic {
     cand.sort((a, b) => a[0] - b[0] || a[1].lane.id - b[1].lane.id || a[1].s - b[1].s);
     for (const [, p] of cand.slice(0, 30)) {
       if (this.fleet.near(p.x, p.y, 70).some(q => q.body && Math.abs(q.z - p.z) < 12 && Math.hypot(q.x - p.x, q.y - p.y) < q.hl + 40)) continue;
-      const r = this.gps.route(p.lane.id, goal.lane.id, { s: p.s }); if (!r) continue;
+      const r = this.gps.route(p.lane.id, goal.lane.id, { s: p.s, noDeadEnds: true }) || this.gps.route(p.lane.id, goal.lane.id, { s: p.s }); if (!r) continue;   // (never round by a dead end's turn: GPS noDeadEnds)
       const v = this.fleet.spawn(defId, p.x, p.y, Math.atan2(p.lane.dir[1], p.lane.dir[0])); v.body.z = p.z; v.traffic = true; v.bornT = this.t; v.owner = 'service'; v.siren = v.hasSiren;
       const crew = (o.crew || ['civilian']).slice(0, v.seats.length).map((id, i) => {
         const arch = get('peds', id), ped = new Ped({ x: p.x, y: p.y, faction: arch ? arch.faction : 'civilian', look: arch ? pedLook(arch, this.rng) : {}, lazyRig: true, health: arch && arch.health || 100, maxHealth: arch && arch.health || 100, armor: arch && arch.armor || 0, weapons: arch && arch.weapons || ['fists'] });

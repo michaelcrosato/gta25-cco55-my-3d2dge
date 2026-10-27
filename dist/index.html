@@ -15934,6 +15934,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const Mz = this.a * (FxF * sd + Fyf * cd) - this.b * Fyr;
       let du = (Fx / m + v * w12) * dt, dv = (Fy / m - u * w12) * dt, dw = Mz / this.I * dt;
       if ((braking > 0 || hand) && Math.sign(u + du) !== Math.sign(u) && Math.abs(u) < 40) du = -u;
+      if (contact && Math.abs(u) < 6 && v !== 0 && Math.sign(v + dv) !== Math.sign(v)) dv = -v;
+      if (contact && (C27.handbrake || C27.brake > 0) && !drive2 && Math.abs(u) < 3 && Math.abs(u + du) > Math.abs(u)) du = 0;
       this.u += du;
       this.v += dv;
       this.w += dw;
@@ -22140,7 +22142,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       for (const o of w12.fleet.around(mid[0], mid[1], S11[S11.length - 1].d / 2 + 60)) {
         const R9 = o.hl + hw6 + 4;
         if (o.x < x0 - R9 || o.x > x1 + R9 || o.y < y0 - R9 || o.y > y1 + R9) continue;
-        if (o === v || !o.body || aloft(o) || this.pass && o === this.pass.obstacle || o.towedBy === v || v.towedBy === o) continue;
+        if (o === v || !o.body || aloft(o) || this.pass && o === this.pass.obstacle && o.speed <= 3 && !this.pass.moved || o.towedBy === v || v.towedBy === o) continue;
         if (o.asleep && this._laneClear(o)) continue;
         for (let qi = 0; qi < S11.length; qi++) {
           const q = S11[qi], far = Math.max(Math.abs(o.x - q.p[0]), Math.abs(o.y - q.p[1])) - R9;
@@ -22249,7 +22251,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // the stop line ahead: the distance from our front to where we must stop (null: nothing to stop for)
     _junction(dt, w12, sp, S11) {
-      if (!this.J || this.panic > 0) return null;
+      if (!this.J) return null;
       const G2 = this.g, t = w12.t || 0, v = this.v, b = TUNE.idmBrake;
       let d = -this.s, j = this.i;
       for (; j < this.path.length; j++) {
@@ -22262,6 +22264,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           }
           const lane2 = G2.lanes[c.from], stopPos = Math.min(lane2.stopS, c.fromS - 2);
           const lineD = d - (c.fromS - stopPos) - v.hl, approach = sp * sp / (2 * b * 0.6) + 45;
+          if (this.panic > 0) {
+            if (lineD > approach || !this.J.occupied(this, c, t)) return null;
+            this.cause = "yield";
+            return Math.max(0, lineD);
+          }
           if (this.held && this.held.conn === c) {
             if ((lineD > 1 || j === this.i + 1 && sp < 3) && c.signals === "signal" && !this.siren) {
               const light2 = lightFor(c, G2, t);
@@ -22281,7 +22288,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             cause = "signal";
           } else if (light === "amber" && !this.siren) {
             const stopping = sp * sp / (2 * b) + 2, left3 = amberLeft(G2.regions.find((r7) => r7.id === c.region), t, c.axis), vLine = c.kind === "straight" ? sp : Math.min(sp, this._turnV || TURN_SPEED);
-            if (lineD > stopping || lineD / Math.max(1, vLine) > left3 - 0.2) {
+            if (sp < 3 || lineD > stopping || lineD / Math.max(1, vLine) > left3 - 0.2) {
               ready = false;
               cause = "signal";
             }
@@ -22309,7 +22316,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             }
           } else if (ready) this.exitT = 0;
           this.yieldT = ready && cause === "yield" && this.p.squeeze ? (this.yieldT || 0) + dt : 0;
-          if (this.J.ask(this, c, t, ready, this.siren ? 1 : 0) || this.yieldT > this.p.squeeze + 4) {
+          if (this.J.ask(this, c, t, ready, this.siren ? 1 : 0) || this.yieldT > this.p.squeeze + 4 && !this.J.occupied(this, c, t)) {
             this.held = { conn: c, el: e };
             this.halted = null;
             this.yieldT = 0;
@@ -22549,9 +22556,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this.pass) {
         const P25 = this.pass, o = P25.obstacle;
         P25.d += sp * dt;
-        if (P25.d >= P25.end - 24 && o.speed > 3 && P25.end < (P25.end0 ??= P25.end) + 200) {
-          const a2 = this.ahead(0);
-          if (a2 && Math.abs((o.x - a2.p[0]) * a2.t[0] + (o.y - a2.p[1]) * a2.t[1]) < o.hl + v.hl + 12) P25.end = P25.d + 32;
+        const a2 = this.ahead(0), beside2 = !!a2 && Math.abs((o.x - a2.p[0]) * a2.t[0] + (o.y - a2.p[1]) * a2.t[1]) < o.hl + v.hl + 12;
+        if (P25.d >= P25.end - 24 && o.speed > 3 && P25.end < (P25.end0 ??= P25.end) + 200 && beside2) P25.end = P25.d + 32;
+        if (!P25.moved && Math.hypot(o.x - (P25.ox ?? o.x), o.y - (P25.oy ?? o.y)) > 8) {
+          P25.moved = true;
+          if (!beside2) P25.end = Math.min(P25.end, P25.d + 24);
         }
         if (P25.d >= P25.end) this.pass = null;
       }
@@ -22561,7 +22570,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const ring2 = L28 && sp < 2 && !(this.creepT > 0) ? this._ring(L28) : null;
       this.ringT = ring2 !== null ? (this.ringT || 0) + dt : 0;
       if (this.ringT > TUNE.gridlock && ring2 === this.id) {
-        this.creepT = 2.5;
+        if (v.kinematic) this.hop = L28.v;
+        else this.creepT = 2.5;
         this.ringT = 0;
       }
       const creep = this.creepT > 0;
@@ -22659,6 +22669,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (this.passTry <= 0) {
           this.passTry = 0.75;
           this.pass = this._planPass(L28, w12, S11);
+          if (this.pass) {
+            this.pass.ox = L28.v.x;
+            this.pass.oy = L28.v.y;
+          }
         }
       }
       if (this._shoves(L28, stuck)) {
@@ -22773,9 +22787,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this.hop) {
         const o = this.hop, L28 = this.leader, cur = this.path[this.i];
         this.hop = null;
-        if (L28 && L28.v === o && cur && cur.k === "lane") {
-          const d = L28.gap + o.hl * 2 + v.hl * 2 + 12;
-          if (this.s + d + v.hl < cur.len && this._landFree(w12, d, o)) this._advance(d, 0, 0);
+        if (L28 && L28.v === o) {
+          const d = L28.gap + o.hl * 2 + v.hl * 2 + 12, a2 = this.ahead(d), on = a2 && this.path[a2.j], fits2 = !!cur && (cur.k === "lane" ? this.s + d + v.hl < cur.len : !!on && on.k === "lane" && a2.s > v.hl && a2.s + v.hl < on.len);
+          if (fits2 && this._landFree(w12, d, o)) this._advance(d, 0, 0);
+          else if (!o.brain && !o.driver) o.inWayT = this.t;
         }
       }
       this._advance(this.speed * dt, 0, 0);
@@ -22810,6 +22825,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       for (let d = 0; d <= 300; d += 30) {
         const a = this.ahead(d);
         if (!a) return false;
+        const e = this.path[a.j], c = e && e.k === "conn" ? this.g.conns[e.id] : null;
+        if (c && c.signals === "signal" && lightFor(c, this.g, this.t || 0) !== "green") continue;
         const [x, y, z = 0] = a.p;
         if (fleet && fleet.near(x, y, 80).some((o) => o !== v && o.body && Math.abs((o.z || 0) - z) < 12 && Math.hypot(o.x - x, o.y - y) < o.hl + v.hl + 4)) continue;
         b.x = x;
@@ -28819,7 +28836,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return c.len / (c.kind === "straight" || c.kind === "change" ? b.speed : TURN_SPEED) + (MOVE_PENALTY[c.kind] || 0) + b.len / b.speed;
     }
     /** the quickest lanes from lane `from` (s: how far along it we are) to lane `to`. o.avoid(lane) -> true skips a lane
-     *  (a raised drawbridge, a crash ahead). Returns { lanes: [ids], conns: [ids], cost } or null */
+     *  (a raised drawbridge, a crash ahead); o.noDeadEnds: never into a dead end's stub to turn back in it, but the goal's
+     *  own (a car can't turn in one: a stub at a district's edge turns back through the wall beyond it). Returns
+     *  { lanes: [ids], conns: [ids], cost } or null */
     route(from, to, o = {}) {
       return this._search(from, to, o, true);
     }
@@ -28846,7 +28865,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (i === to) break;
         for (const cid of L28[i].out) {
           const c = G2.conns[cid], j = c.to;
-          if (o.avoid && o.avoid(L28[j])) continue;
+          if (o.avoid && o.avoid(L28[j]) || o.noDeadEnds && L28[j].deadEnd === "uturn" && j !== to) continue;
           const nd = D[i] + this.stepCost(c);
           if (S11[j] !== st || nd < D[j] - 1e-12) {
             S11[j] = st;
@@ -28922,7 +28941,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (a.lane.id === b.lane.id && b.s < a.s - 1) {
         for (const cid of a.lane.out) {
           const c = this.g.conns[cid];
-          if (o.avoid && o.avoid(this.g.lanes[c.to])) continue;
+          if (o.avoid && o.avoid(this.g.lanes[c.to]) || o.noDeadEnds && this.g.lanes[c.to].deadEnd === "uturn" && c.to !== b.lane.id) continue;
           const q = this.route(c.to, b.lane.id, { ...o, s: c.toS || 0 });
           if (q && (!r7 || q.cost + this.stepCost(c) < r7.cost)) r7 = { lanes: [a.lane.id, ...q.lanes], conns: [cid, ...q.conns], cost: q.cost + this.stepCost(c) };
         }
@@ -28981,6 +29000,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   // src/motor/nav/junctions.js
   var CLEAR = 26;
   var STEP = 6;
+  var LONG = 34;
   var Junctions = class {
     constructor(graph) {
       this.g = graph;
@@ -29028,6 +29048,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const s = this.conflicts.get(a);
       return !!s && s.has(b);
     }
+    // two asks that can't share the box: their curves, or a long vehicle's turn and anything from another lane
+    _clash(brain, c, other, oc) {
+      if (this.conflict(c, oc)) return true;
+      const C27 = this.g.conns, wide = (b, id) => !!b.v && b.v.hl > LONG && C27[id].kind !== "straight";
+      return C27[c].from !== C27[oc].from && (wide(brain, c) || wide(other, oc));
+    }
     /** the region record of a connector (null: no region, nothing to reserve) */
     regionOf(c) {
       return c && c.region ? this.regions.get(c.region) || null : null;
@@ -29060,7 +29086,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           R9.holders.delete(b);
           continue;
         }
-        if (this.conflict(c.id, o.conn)) return false;
+        if (this._clash(brain, c.id, b, o.conn)) return false;
       }
       for (const [b, o] of R9.waiters) {
         if (b === brain) continue;
@@ -29068,11 +29094,23 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           R9.waiters.delete(b);
           continue;
         }
-        if ((o.t0 < w12.t0 || o.t0 === w12.t0 && o.id < w12.id) && this.conflict(c.id, o.conn)) return false;
+        if ((o.t0 < w12.t0 || o.t0 === w12.t0 && o.id < w12.id) && this._clash(brain, c.id, b, o.conn)) return false;
       }
       R9.waiters.delete(brain);
       R9.holders.set(brain, { conn: c.id, t, seen: t });
       return true;
+    }
+    /** is a holder of a connector clashing with c in the box, its vehicle on c's way (a squeezer that goes in anyway
+     *  waits for that: one had locked nose to nose with a left turn's holder) */
+    occupied(brain, c, t) {
+      const R9 = this.regionOf(c);
+      if (!R9) return false;
+      for (const [b, o] of R9.holders) {
+        if (b === brain || t - o.seen > 1 || !b.v || !this._clash(brain, c.id, b, o.conn)) continue;
+        const v = b.v, r7 = v.hl + CLEAR;
+        for (const p of c.pts) if (sq(p[0] - v.x) + sq(p[1] - v.y) < r7 * r7) return true;
+      }
+      return false;
     }
     /** keep a held box (a holder that is through the stop line asks no more, but holds until it is out) */
     touch(brain, c, t) {
@@ -29488,10 +29526,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if ((this._towT -= dt) <= 0) {
         this._towT = 2;
         const span = (v) => v.abandonT !== void 0 && this.t - v.abandonT > SPAN_TOW && this.fleet.bridges.some((b) => b.gate && b.phase === "down" && b.contains(v.x, v.y));
+        const inWay = (v) => v.inWayT !== void 0 && this.t - v.inWayT < 4 && fp.d(v.x, v.y) > TUNE.fpFull + LOD_IN;
         for (const v of [...this.fleet.vehicles]) {
           if (v.wrecked && v.wreckT === void 0) v.wreckT = this.t;
-          const t0 = v.abandonT ?? v.leftT ?? v.wreckT;
-          if (t0 === void 0 || this.t - t0 <= TOW_AFTER || fp.d(v.x, v.y) <= TUNE.fpSpawnIn && !span(v) || v.owner === "mission" || v.seats.some((p) => p && !p.dead) || v.damage && v.damage.burning) continue;
+          const t0 = v.abandonT ?? v.leftT ?? v.wreckT, blocking = inWay(v);
+          if ((t0 === void 0 || this.t - t0 <= TOW_AFTER) && !blocking || fp.d(v.x, v.y) <= TUNE.fpSpawnIn && !span(v) && !blocking || v.owner === "mission" || v.seats.some((p) => p && !p.dead) || v.damage && v.damage.burning) continue;
           if (v.home && !v.wrecked && fp.d(v.home.x, v.home.y) > TUNE.fpSpawnIn && this._homeFree(v)) {
             this._home(v);
             this.homed++;
@@ -29513,7 +29552,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const W31 = { fleet: this.fleet, t: ctx.t ?? this.t, pedsNear: ctx.pedsNear || null, wet: ctx.wet || 0, sirens: ctx.sirens || null, closed: ctx.closed || null };
       for (const c of this.cars) {
         const v = c.v, b = c.brain, d = fp.d(v.x, v.y);
-        if (c.duty && (c.duty.out || c.duty.ext)) continue;
+        if (c.duty && (c.duty.out || c.duty.ext)) {
+          if (c.duty.out && v.kinematic && v.bumpT !== this.fleet.t) {
+            const B2 = v.body;
+            B2.u = B2.v = B2.w = 0;
+          }
+          continue;
+        }
         if (v.kinematic && d < TUNE.fpFull - LOD_IN) {
           v.kinematic = false;
           v.body.setVelocity(Math.cos(v.heading) * b.speed, Math.sin(v.heading) * b.speed);
@@ -29568,7 +29613,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       cand.sort((a, b) => a[0] - b[0] || a[1].lane.id - b[1].lane.id || a[1].s - b[1].s);
       for (const [, p] of cand.slice(0, 30)) {
         if (this.fleet.near(p.x, p.y, 70).some((q) => q.body && Math.abs(q.z - p.z) < 12 && Math.hypot(q.x - p.x, q.y - p.y) < q.hl + 40)) continue;
-        const r7 = this.gps.route(p.lane.id, goal.lane.id, { s: p.s });
+        const r7 = this.gps.route(p.lane.id, goal.lane.id, { s: p.s, noDeadEnds: true }) || this.gps.route(p.lane.id, goal.lane.id, { s: p.s });
         if (!r7) continue;
         const v = this.fleet.spawn(defId, p.x, p.y, Math.atan2(p.lane.dir[1], p.lane.dir[0]));
         v.body.z = p.z;
@@ -30406,7 +30451,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           }
           if (!w12.near && this.rejoin()) return null;
           const th = this.threat || { x: p.x - 1, y: p.y }, d = Math.hypot(p.x - th.x, p.y - th.y) || 1;
-          return { to: [p.x + (p.x - th.x) / d * 40, p.y + (p.y - th.y) / d * 40], run: true, sprint: this.traits.brave < 0.5 && d < 260 };
+          if (this.stuck > 1) {
+            if (this.sideT > this.t) this.side = -this.side;
+            else this.side ||= this._r() < 0.5 ? 1 : -1;
+            this.sideT = this.t + 2;
+            this.stuck = 0;
+          }
+          let ux = (p.x - th.x) / d, uy = (p.y - th.y) / d;
+          if (this.sideT > this.t) [ux, uy] = [-uy * this.side, ux * this.side];
+          return { to: [p.x + ux * 40, p.y + uy * 40], run: true, sprint: this.traits.brave < 0.5 && d < 260 };
         }
         case "fight": {
           const tg = this.target;
@@ -30774,9 +30827,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       });
       if (!cand.length) return;
       const fileOut = (q2, dir2) => {
+        const A2 = this.S.nodes[q2.e.a], B3 = this.S.nodes[q2.e.b], ux2 = (B3.x - A2.x) / q2.e.len * dir2, uy2 = (B3.y - A2.y) / q2.e.len * dir2, [lx, ly] = this.S.along(q2.e, Math.max(0, Math.min(q2.e.len, q2.d)), 0);
         for (let i = 0; i < t.n; i++) {
           const [x, y] = this.S.along(q2.e, Math.max(0, Math.min(q2.e.len, q2.d - dir2 * i * t.gap)), 0);
-          if (Math.hypot(x - fp.x, y - fp.y) < rIn) return false;
+          if (Math.hypot(x - fp.x, y - fp.y) < rIn || Math.hypot(lx - ux2 * i * t.gap - fp.x, ly - uy2 * i * t.gap - fp.y) < rIn) return false;
         }
         return true;
       };
@@ -35241,7 +35295,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           c.homing = false;
           c.brain.setRoute(null);
         } else if (!home && !c.homing && !c.brain.route && c.brain.here && c.brain.here.k === "lane" && c.brain.here.len - c.brain.s > 60) {
-          const hq = this.city.poi(g.hqs[this.city.id] || g.hq), r7 = hq && gps.routeTo(c.v.x, c.v.y, c.v.heading, hq.x, hq.y, { z: c.v.z });
+          const hq = this.city.poi(g.hqs[this.city.id] || g.hq), way2 = (o = {}) => gps.routeTo(c.v.x, c.v.y, c.v.heading, hq.x, hq.y, { z: c.v.z, ...o }), r7 = hq && (way2({ noDeadEnds: true }) || way2());
           if (r7) {
             c.homing = true;
             c.brain.setRoute(r7.lanes, null);

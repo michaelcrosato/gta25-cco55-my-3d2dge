@@ -48,11 +48,12 @@ export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather 
       }
       if (c.duty && (c.duty.out || c.duty.arrived)) { w.still = 0; continue; }   // (a unit at its scene)
       // a calm driver onto a signalled connector on red, over its stop line on red (one over it before the red, held up on
-      // the zebra past it by the people crossing, clears the box after: no red run)
+      // the zebra past it by the people crossing, clears the box after: no red run; nor one over it under its siren, its
+      // call over before it was through: a unit held up behind a car pulled over for it had)
       const e = b.here, key = e ? e.k + e.id : '';
       if (b.panic > 0) w.pan = step;
       const nx = e && e.k === 'lane' ? b.path[b.i + 1] : null, nc = nx && nx.k === 'conn' ? G.conns[nx.id] : null;
-      if (nc && nc.signals === 'signal' && !(w.line && w.line.id === nc.id) && b.s >= Math.min(G.lanes[nc.from].stopS, nc.fromS - 2)) w.line = { id: nc.id, red: M.lightFor(nc, G, L.t) === 'red' && M.lightFor(nc, G, L.t - .5) === 'red' };
+      if (nc && nc.signals === 'signal' && !(w.line && w.line.id === nc.id) && b.s >= Math.min(G.lanes[nc.from].stopS, nc.fromS - 2)) w.line = { id: nc.id, red: !b.siren && M.lightFor(nc, G, L.t) === 'red' && M.lightFor(nc, G, L.t - .5) === 'red' };
       if (key !== w.el && e && e.k === 'conn' && !(w.line && w.line.id === e.id && !w.line.red) && !b.siren && !(b.panic > 0) && !(w.pan !== undefined && step - w.pan < 360) && v.body && v.body.u > 0) {
         const cn = G.conns[e.id]; if (cn.signals === 'signal' && M.lightFor(cn, G, L.t) === 'red' && M.lightFor(cn, G, L.t - .5) === 'red') {   // (red for half a second: not one committed on amber)
           r.redRuns++; r.redAt ||= { car: v.def.id, at: cn.region, t: +(step / 120).toFixed(2) }; r.lastRed = { c, cn, step }; }
@@ -68,7 +69,7 @@ export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather 
       const a = c.v; if (!a.body) continue;
       for (const o of gtm.fleet.around(a.x, a.y, OVERLAP + 2)) {
         if (o === a || !o.body || o.cls === 'heli' || (o.traffic && o.id < a.id && T.cars.some(q => q.v === o)) || Math.abs(a.z - o.z) > 10) continue;
-        if (Math.hypot(a.x - o.x, a.y - o.y) < OVERLAP) { r.overlaps++; r.overlapAt ||= { a: a.def.id, b: o.def.id, x: Math.round(a.x), y: Math.round(a.y), t: +(step / 120).toFixed(2) }; }
+        if (Math.hypot(a.x - o.x, a.y - o.y) < Math.min(OVERLAP, a.hw + o.hw + 2)) { r.overlaps++; r.overlapAt ||= { a: a.def.id, b: o.def.id, x: Math.round(a.x), y: Math.round(a.y), t: +(step / 120).toFixed(2) }; }   // (two bikes side by side are less than 14 apart, and clear)
       }
     }
     if (step % 30 === 29) { const filledC = filledSince; filledSince = false; for (const m of C.members) {   // (four times a second: the peds; a fill since the last look aside)

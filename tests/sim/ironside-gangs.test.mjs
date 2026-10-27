@@ -43,8 +43,9 @@ test('the Monks at the Scrap Cathedral: members hang out there; hostile, they go
   assert.ok(members().every(m => ['monk-grunt', 'monk-enforcer'].includes(m.ped.archetype)), 'in their robes');
   G.add('monks', -50, 'test'); assert.equal(G.stance('monks'), 'hostile');
   const m = members().find(q => Math.hypot(q.ped.x - hq.x, q.ped.y - hq.y) < 200), f = m.ped.mover.facing;
-  p.place(m.ped.x + Math.cos(f) * 50, m.ped.y + Math.sin(f) * 50); game.advance(3);
-  assert.ok(G.fighters.some(q => q.gang === 'monks' && q.target === p), 'hostile: they go for the player');
+  p.place(m.ped.x + Math.cos(f) * 50, m.ped.y + Math.sin(f) * 50);
+  let came = false; for (let t = 0; t < 3 && !came; t += .25) { game.advance(.25); came = G.fighters.some(q => q.gang === 'monks' && q.target === p); }   // (within 3 s: four of them can have shot the player down by then)
+  assert.ok(came, 'hostile: they go for the player');
 });
 
 test('the Volt Boys\' Buckets and the Monks\' Scrappers keep to their turf in the traffic', async () => {

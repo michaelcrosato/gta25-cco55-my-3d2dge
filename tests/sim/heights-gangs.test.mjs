@@ -52,7 +52,7 @@ test('the Velvet limos keep to the Strip and the Club\'s Zephyrs to Marina Heigh
     for (const c of T0.cars) {
       if (!c.gang || !['velvet', 'yacht'].includes(c.gang)) continue;
       seen[c.gang]++;
-      const h = gtm.city.hoodAtPoint(c.v.x, c.v.y); if (!h || !gtm.motor.get('gangs', c.gang).turf.includes(h.id)) out++;
+      const h = gtm.city.hoodAtPoint(c.v.x, c.v.y); if ((!h || !gtm.motor.get('gangs', c.gang).turf.includes(h.id)) && !c.homing) out++;   // (one carried over the border and on its way home is keeping to it)
     }
   }
   assert.ok(seen.velvet > 0 && seen.yacht > 0, 'both on the streets: ' + JSON.stringify(seen));

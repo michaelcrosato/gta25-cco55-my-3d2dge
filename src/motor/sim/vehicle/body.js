@@ -125,6 +125,13 @@ export class VehicleBody {
     let du = (Fx / m + v * w) * dt, dv = (Fy / m - u * w) * dt, dw = Mz / this.I * dt;
     // brakes never push a car backward: a braking step that would reverse the car stops it instead
     if ((braking > 0 || hand) && Math.sign(u + du) !== Math.sign(u) && Math.abs(u) < 40) du = -u;
+    // nor the tyres' sideways grip at a crawl: a step that would throw a slide the other way stops it (the slip model is
+    // singular at rest: two parked cars knocked into a slow slide had swung side to side each step, never slow enough
+    // to sleep, and crept sideways into the lane)
+    if (contact && Math.abs(u) < 6 && v !== 0 && Math.sign(v + dv) !== Math.sign(v)) dv = -v;
+    // and a car held (the brake or the handbrake on, no drive) never gathers speed at a crawl: the front tyres' grip on a
+    // wheel left turned has a forward part, and a car held at a red had crept on over its line into the box
+    if (contact && (C.handbrake || C.brake > 0) && !drive && Math.abs(u) < 3 && Math.abs(u + du) > Math.abs(u)) du = 0;
     this.u += du; this.v += dv; this.w += dw;
     if (this.flipped) {   // on its roof: it scrapes to a stop
       const s0 = Math.hypot(this.u, this.v), k = s0 > 0 ? Math.max(0, s0 - 380 * dt) / s0 : 0; this.u *= k; this.v *= k; this.w *= Math.max(0, 1 - 4 * dt);

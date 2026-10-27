@@ -7,12 +7,16 @@
 //     served among those ready: an all-way stop takes turns, a left turn waiting on a green gets its gap, and nobody
 //     waits forever);
 //   - a holder keeps it until its car has left the box (release), or until it stops asking for a second (despawned);
-//   - a waiter that isn't ready blocks nobody (a red light's queue, a full exit).
+//   - a waiter that isn't ready blocks nobody (a red light's queue, a full exit);
+//   - a long vehicle turning (a truck's, a limo's: more than LONG from its middle to its nose) sweeps wider than a car's
+//     width: it and every connector from another lane are taken to conflict (two left turns from either side had met nose
+//     to nose in the box, a limo's tail over the other's way, and stood there).
 // Plain data, deterministic: the same asks in the same order give the same grants.
 //   const J = new Junctions(graph);  J.ask(brain, conn, t, ready, prio) -> bool  ·  J.release(brain)  ·  J.holds(brain)
 import { sq } from '../core/dmath.js';
 const CLEAR = 26;   // two curves nearer than this (two car half-widths) conflict
 const STEP = 6;     // units between the samples along a curve
+const LONG = 34;    // a vehicle longer than this from its middle to its nose turns wide
 
 export class Junctions {
   constructor(graph) {
@@ -34,6 +38,12 @@ export class Junctions {
   _add(a, b) { let s = this.conflicts.get(a); if (!s) this.conflicts.set(a, s = new Set()); s.add(b); }
   /** do two connectors conflict? */
   conflict(a, b) { const s = this.conflicts.get(a); return !!s && s.has(b); }
+  // two asks that can't share the box: their curves, or a long vehicle's turn and anything from another lane
+  _clash(brain, c, other, oc) {
+    if (this.conflict(c, oc)) return true;
+    const C = this.g.conns, wide = (b, id) => !!b.v && b.v.hl > LONG && C[id].kind !== 'straight';
+    return C[c].from !== C[oc].from && (wide(brain, c) || wide(other, oc));
+  }
   /** the region record of a connector (null: no region, nothing to reserve) */
   regionOf(c) { return c && c.region ? this.regions.get(c.region) || null : null; }
   /** brain asks to cross by connector c at time t. ready: it could go now; prio: a siren's (ranks it first).
@@ -50,15 +60,25 @@ export class Junctions {
     for (const [b, o] of R.holders) {
       if (b === brain) continue;
       if (t - o.seen > 1) { R.holders.delete(b); continue; }   // (it stopped asking: despawned, rerouted)
-      if (this.conflict(c.id, o.conn)) return false;
+      if (this._clash(brain, c.id, b, o.conn)) return false;
     }
     for (const [b, o] of R.waiters) {
       if (b === brain) continue;
       if (t - o.seen > .25) { R.waiters.delete(b); continue; }
-      if ((o.t0 < w.t0 || (o.t0 === w.t0 && o.id < w.id)) && this.conflict(c.id, o.conn)) return false;
+      if ((o.t0 < w.t0 || (o.t0 === w.t0 && o.id < w.id)) && this._clash(brain, c.id, b, o.conn)) return false;
     }
     R.waiters.delete(brain); R.holders.set(brain, { conn: c.id, t, seen: t });
     return true;
+  }
+  /** is a holder of a connector clashing with c in the box, its vehicle on c's way (a squeezer that goes in anyway
+   *  waits for that: one had locked nose to nose with a left turn's holder) */
+  occupied(brain, c, t) {
+    const R = this.regionOf(c); if (!R) return false;
+    for (const [b, o] of R.holders) {
+      if (b === brain || t - o.seen > 1 || !b.v || !this._clash(brain, c.id, b, o.conn)) continue;
+      const v = b.v, r = v.hl + CLEAR; for (const p of c.pts) if (sq(p[0] - v.x) + sq(p[1] - v.y) < r * r) return true;
+    }
+    return false;
   }
   /** keep a held box (a holder that is through the stop line asks no more, but holds until it is out) */
   touch(brain, c, t) { const R = this.regionOf(c), h = R && R.holders.get(brain); if (h) h.seen = t; }

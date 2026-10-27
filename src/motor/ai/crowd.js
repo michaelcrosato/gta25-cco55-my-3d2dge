@@ -148,8 +148,13 @@ export class Crowd {
     const arch = get('peds', t.arch); if (!arch || !t.times.includes(ctx.night ? 'night' : 'day')) return;
     const fp = this.fp, cand = this.points.filter(q => { const d = Math.hypot(q.x - fp.x, q.y - fp.y); return d >= rIn && d <= TUNE.crowdOut && q.e.len >= t.n * t.gap && (!t.hoods.length || t.hoods.includes(q.hood)); });
     if (!cand.length) return;
-    // (the whole file in the annulus: the last of it can lie nearer the focus than its leader)
-    const fileOut = (q, dir) => { for (let i = 0; i < t.n; i++) { const [x, y] = this.S.along(q.e, Math.max(0, Math.min(q.e.len, q.d - dir * i * t.gap)), 0); if (Math.hypot(x - fp.x, y - fp.y) < rIn) return false; } return true; };
+    // (the whole file in the annulus: the last of it can lie nearer the focus than its leader; and each follower's place
+    // on the leader's trail, straight back from it, where it goes at once: past the edge's end that can be nearer still)
+    const fileOut = (q, dir) => {
+      const A = this.S.nodes[q.e.a], B = this.S.nodes[q.e.b], ux = (B.x - A.x) / q.e.len * dir, uy = (B.y - A.y) / q.e.len * dir, [lx, ly] = this.S.along(q.e, Math.max(0, Math.min(q.e.len, q.d)), 0);
+      for (let i = 0; i < t.n; i++) { const [x, y] = this.S.along(q.e, Math.max(0, Math.min(q.e.len, q.d - dir * i * t.gap)), 0); if (Math.hypot(x - fp.x, y - fp.y) < rIn || Math.hypot(lx - ux * i * t.gap - fp.x, ly - uy * i * t.gap - fp.y) < rIn) return false; }
+      return true;
+    };
     let q = null, dir = 1;
     for (let k = 0; k < 6 && !q; k++) { const c = cand[Math.floor(this.rng.next() * cand.length)], d0 = this.rng.next() < .5 ? 1 : -1; if (fileOut(c, d0)) { q = c; dir = d0; } else if (fileOut(c, -d0)) { q = c; dir = -d0; } }
     if (!q) return;

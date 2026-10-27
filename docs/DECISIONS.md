@@ -2066,6 +2066,42 @@ and where it landed.
     - **A gang fight with one the world has let go of ends:** a member whose target the crowd has put away out past
       its ring (or whose car has gone) stands down, as one whose target is dead (the gang sim's: a Saint had stood two
       minutes shooting at a Rat no longer in the world, the shots meeting nothing).
+    - **test:full's third run** (the gang fix moved every soak) found more, each mended where it lives:
+      - **A unit parked out of the physics stands when knocked:** its body's speed cleared once nothing pushes it (a
+        passing car's knock had left 55 u/s on a parked cruiser for good, and the Medic behind it waited on it to move
+        off; a car pushing it still pushes it, as the player in a stolen Medic does).
+      - **Traffic's GPS routes never turn back in a dead end's stub** (`gps.route`'s `noDeadEnds`, for the service units
+        and a gang's cars driven home): a stub at a district's edge turns back through the wall beyond it, and a limo
+        had stood there nose to the wall.
+      - **A far car that can't hop past a car nobody drives** (the lane full to its end, or in a junction's box) marks it,
+        and the tow takes a marked car where far cars go unseen, though nobody ever left it: a turf war's wrecks one
+        behind another, and a parked car knocked into a box (one with a home goes home).
+      - **A pass's obstacle that moves** (pulled out, knocked on) is a car like any other, a leader once ahead, and the
+        pass merges back over its next stretch as at any end, never at once.
+      - **A long vehicle turning takes the box** from every other lane (`junctions.js`: more than 34 from its middle to
+        its nose; two left turns from either side had met nose to nose, a limo's tail over the other's way).
+      - **At a crawl the tyres never throw a car about** (`body.js`): a step of sideways grip that would reverse a slide
+        stops it (two parked cars knocked into a slow slide had swung side to side each step, never slow enough to
+        sleep, and crept into the lane), and a car held by its brake or handbrake never gathers speed (the front tyres
+        on a wheel left turned had crept one held at a red over its line).
+      - **An amber is no go from a stand at the line** (a far hauler halted there had taken the box on the last of it).
+      - **A far car breaks a gridlock's ring by hopping past** onto the lane beyond, where there is room (it has no bump
+        to shove with: it had driven on through a bike).
+      - **A squeezer goes into a box only when no holder of a crossing way stands in it** (`Junctions.occupied`), and
+        **a panicking driver**, through any light and the reservations still, **never into such a box** (a bike
+        scared by shots had locked itself nose to nose with a turning car, 27 s).
+      - **A car wedged off its line is never put back into a junction's box but on its green** (one put down in it on
+        the red had gone on through it).
+      - **A ped fleeing on its feet into a wall or a ramp's side** runs along it a while, one way, then the other (one
+        had run at the Flyover's on-ramp for 15 s).
+      - **A troupe's file is put down with each follower's place on its leader's trail out of sight** too (a mime had
+        come in at 368 from the focus, past the edge's end).
+      - **The soak's own measures:** a crossing of the stop line under a siren is no calm red run when the call ends
+        before the box (as a panic that ends there, `soak-red-run.test.mjs`); two bikes side by side, closer than 14 and
+        clear, are no overlap (the bound is the pair's widths when narrower). Two sim tests read what they mean, not
+        an instant: the Monks go for the player within 3 s (four of them can have shot the player down by the third),
+        and a gang car out of its turf counts only when nothing drives it home (one carried over the border a moment
+        before the look is on its way back).
   - **The perf gate in each district** (`tools/perf.mjs --gate`): Ironside's and Glass Heights' tours (night, rain,
     the crowd at full, as Lowtown's) in each view, each read against M2's Lowtown view measured in the same round (M2
     has neither district), within the same budgets.
