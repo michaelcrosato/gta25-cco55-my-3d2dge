@@ -380,7 +380,7 @@ export class MissionBot {
   }
   // a vehicle rammed: at it flat out; pressed against it at a crawl (a push does no harm), backed off for another run
   _ram(dt, p, v, t, d, w, hold = false) {
-    if (d > 140) { if (this.ramS) this.ramS.back = this.ramS.round = this.ramS.slow = this.ramS.held = 0; return this._go(dt, p, t.x, t.y, { stay: true, style: 'race', slack: 50, hold }, w); }   // (hold: the hint's own vehicle, never given up in a jam; out of reach, a back-off is over: one left standing had braked it the moment it caught up again, and H4's Strongbox drove off round its block each time)
+    if (d > 140 && !this._headOn(v, t, d)) { if (this.ramS) this.ramS.back = this.ramS.round = this.ramS.slow = this.ramS.held = 0; return this._go(dt, p, t.x, t.y, { stay: true, style: 'race', slack: 50, hold }, w); }   // (hold: the hint's own vehicle, never given up in a jam; out of reach, a back-off is over: one left standing had braked it the moment it caught up again, and H4's Strongbox drove off round its block each time)
     const I = clearIntent(this.I), S = this.ramS || (this.ramS = { back: 0, slow: 0, held: 0, round: 0, side: 1 }); let da = Math.atan2(t.y - v.y, t.x - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
     if (S.back > 0) { S.back -= dt; I.brake = 1; if (Math.abs(da) > .4) I.steer = da > 0 ? -1 : 1; return I; }   // (backing off, the nose swung toward it: from beside a broadside target, straight back and straight on had slid past it again and again)
     // held at a crawl short of it (a queue between: the car ahead, not the target): backed off, then past at a slant,
@@ -393,6 +393,16 @@ export class MissionBot {
     if (S.slow > .8) { S.slow = 0; S.back = shove ? 2.4 : 1.6; I.brake = 1; return I; }   // (a longer run at one that gives way)
     if (Math.abs(da) > 2.2) { I.brake = 1; I.steer = da > 0 ? -1 : 1; return I; }   // (behind: back up, turning)
     I.steer = Math.max(-1, Math.min(1, da * 2.5)); I.throttle = 1; return I;
+  }
+  // a target coming at the car, or standing, along open road (within 700, the line between them all road at their
+  // level): met head on, straight at it, not by the GPS's way round to its lane (Scab Labour's Brute, the first bus
+  // rammed, had gone round Ironside's one-way blocks to the next one's stop while it drove on to the gates; and queued
+  // in its own lane while a bus stood in the other)
+  _headOn(v, t, d) {
+    if (d > 700 || Math.abs((t.z || 0) - (v.z || 0)) > 8) return false;
+    const ux = (v.x - t.x) / d, uy = (v.y - t.y) / d; if ((t.speed || 0) >= 8 && Math.cos(t.heading) * ux + Math.sin(t.heading) * uy < .8) return false;
+    const C = this.city; for (let s = 16; s < d; s += 16) { const x = t.x + ux * s, y = t.y + uy * s, k = C.surfaceAtPoint(x, y); if ((k !== 'road' && k !== 'bridge') || C.map.heightAt(x, y) > (v.z || 0) + 4) return false; }
+    return true;
   }
   // on foot against one target: the fighter brain with the player's own weapons (a vehicle beaten with a bat, or shot)
   _fight(dt, p, t, w) {

@@ -1988,4 +1988,16 @@ and where it landed.
       squeezing round a queue (`player`'s squeeze had put the limo on the walk past a jam, wedged against the sea wall;
       `calm`, stopped in the queues, was knocked about and wrecked).
     - `m.deliver`'s `style` (how the bot drives it; `careful` when unsaid) and a `goto` hint's `style`.
+  - **From X7's runs of all merged content and the campaign:**
+    - **A plane's approach** goes out 600 past its approach point to come round onto the line, not 300 (its own
+      turning circle: Blackout's Duster came back over the point still turning, and circled it till the police shot it
+      down), and **Blackout's Duster lands east**, in over the open country west of the strip, stopped short of the
+      hangar: landing west, its approach lay out at Ironside's edge over the sea, with no room to come round.
+    - **The bot rams a target coming at it, or standing, along open road head on** (within 700, the line between
+      them all road at their level), straight at it: by the GPS's way round to its lane, Scab Labour's Brute had gone
+      round Ironside's one-way blocks to the next bus while it drove on to the gates.
+    - **The Crusher Yard's run-up** starts on Crusher Lane's south walk, the kicker's climb the rest (from the lane's
+      middle, its traffic stopped the car short each try).
+    - **Paramedic's clocks** a little longer (3.2 to 2.7 times the road's time and 34 to 29 s): level 3's patients had
+      not waited two calls a run, and the campaign's three tries ran out on it.
 - **Answered:** no. **Landed in:** X7.

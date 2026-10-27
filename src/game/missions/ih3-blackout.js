@@ -21,7 +21,10 @@ const C = (x, y) => [(x + .5) * 16, (y + .5) * 16];
 const VALVES = [C(12, 14), C(20, 14), C(28, 14)], FRONT_OUT = C(2, 21);
 // (the hall's way in from the lobby: its gap in the wall at the lobby's foot; the way out again to the front door)
 const TO_HALL = [C(6, 17), C(7, 19), C(9, 19), C(12, 17)], TO_DOOR = [C(14, 17), C(9, 19), C(7, 19), C(3, 20)];   // (the valves' own cells, as a door's: walked up to, the bot stands by one; at the cell in front, it had stopped a cell short of △'s reach)
-const APRON = [1616, 1472], PAYROLL = [1656, 1440], STRIP = [1160, 1480], RUNWAY = Math.PI, HANGAR = [1640, 1472];   // (the Duster's stand; the payroll at the hangar's door; the runway's west end; the hangar's apron)
+const APRON = [1616, 1472], PAYROLL = [1656, 1440], RUNWAY = Math.PI, HANGAR = [1640, 1472];   // (the Duster's stand; the payroll at the hangar's door; the hangar's apron)
+// home: down on the strip landing east, in over the open country west of it, stopped short of the hangar (landed west,
+// the approach lay out at the world's edge over the sea, no room to come round onto it)
+const LAND = [1600, 1480], LAND_H = 0;
 const CUT = [304, 768], CUT_R = 110, LOW = 260;   // (the Gnomes' cut: dropped on the Union Hall's forecourt)
 const onStrip = v => v.x > 70 * 16 && v.x < 112 * 16 && v.y > 85 * 16 && v.y < 96 * 16;
 const spot = (m, at) => (q => ({ x: Math.round(q.x), y: Math.round(q.y), heading: +q.heading.toFixed(3) }))(m.curb(at));
@@ -156,9 +159,9 @@ const payroll = {
     m.marker(CUT, { color: '#ff8ac8', r: 28 });
     yield Object.assign(m.waitUntil(mm => { const v = mm.vehicle; return !!v && v === mm.one('duster') && !v.body.landed && v.body.z < LOW && Math.hypot(v.x - CUT[0], v.y - CUT[1]) < CUT_R; }), { nav: () => CUT });
     yield m.say(['Strike fund, delivered. Bring her home, lad. The hangar door\'s open.'], BRAMBLE);
-    m.objective('Land the Duster on the airstrip', { hint: { kind: 'goto', at: STRIP, radius: 60, vehicle: 'duster', land: RUNWAY } });
-    m.marker(STRIP, { color: '#7aff8a', r: 28 });
-    yield Object.assign(m.waitUntil(mm => { const v = mm.one('duster'); return !!v && mm.vehicle === v && v.body.landed && v.speed < 8 && onStrip(v); }), { nav: () => STRIP });
+    m.objective('Land the Duster on the airstrip', { hint: { kind: 'goto', at: LAND, radius: 60, vehicle: 'duster', land: LAND_H } });
+    m.marker(LAND, { color: '#7aff8a', r: 28 });
+    yield Object.assign(m.waitUntil(mm => { const v = mm.one('duster'); return !!v && mm.vehicle === v && v.body.landed && v.speed < 8 && onStrip(v); }), { nav: () => LAND });
     m.objective('Taxi into the hangar', { hint: { kind: 'goto', at: HANGAR, radius: 48, vehicle: 'duster', taxi: true } });
     m.marker(HANGAR, { color: '#7aff8a', r: 24 });
     yield Object.assign(m.waitUntil(mm => { const v = mm.one('duster'); return !!v && mm.vehicle === v && v.body.landed && v.speed < 8 && Math.hypot(v.x - HANGAR[0], v.y - HANGAR[1]) < 48; }), { nav: () => HANGAR });

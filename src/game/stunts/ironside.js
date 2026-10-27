@@ -26,4 +26,4 @@ def('landmarks', 'stunt-ramps-ironside', {
 
 def('stunts', 'flyover-end', { name: 'The Flyover\'s End', district: 'ironside', takeoff: [752, 1200], r: 44, minDist: 55, minAir: .38, reward: 750, approach: [984, 1200, 64] });
 def('stunts', 'slag-heap', { name: 'The Slag Heap', district: 'ironside', takeoff: [1272, 336], r: 40, minDist: 45, minAir: .3, reward: 500, approach: [1272, 488] });
-def('stunts', 'crusher-yard', { name: 'The Crusher Yard', district: 'ironside', takeoff: [376, 1440], r: 40, minDist: 45, minAir: .3, reward: 500, approach: [376, 1288] });
+def('stunts', 'crusher-yard', { name: 'The Crusher Yard', district: 'ironside', takeoff: [376, 1440], r: 40, minDist: 45, minAir: .3, reward: 500, approach: [376, 1336] });   // (the run-up from Crusher Lane's south walk, the kicker's own climb the rest: from the lane's middle, its traffic had stopped the car short each try)

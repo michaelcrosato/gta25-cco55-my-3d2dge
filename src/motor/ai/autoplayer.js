@@ -572,12 +572,12 @@ export class AutoPlayer {
     const C = this.city, X = C.w * C.T, Y = C.h * C.T, inside = (q, m) => q[0] >= m && q[0] <= X - m && q[1] >= m && q[1] <= Y - m;
     if (!g.appr) { let L = 700; while (L > 440 && !inside([g.x - cx * L, g.y - cy * L], 40)) L -= 20; g.appr = L; }
     const L = g.appr, AZ = 150 * Math.min(1, (L - 300) / 400);
-    if (g.leg !== 'final') {   // (near the approach point but not lined up: on out 300 farther back first, to come round onto the line)
+    if (g.leg !== 'final') {   // (near the approach point but not lined up: on out 600 farther back first, to come round onto the line: at 300, its own turning circle, Blackout's Duster had come back over the point still turning, and circled it till the police shot it down)
       const A = [g.x - cx * L, g.y - cy * L], dA = Math.hypot(v.x - A[0], v.y - A[1]), lined = Math.abs(ang(hd - v.heading)) < .5;
       if (dA < 160 && lined && Math.abs(cross) < 60) { g.leg = 'final'; return I; }
       if (dA < 200) g.wide = true; else if (dA > 500) g.wide = false;
       const keep = q => [Math.max(100, Math.min(X - 100, q[0])), Math.max(100, Math.min(Y - 100, q[1]))];   // (the turn point kept inside the world's edge)
-      const B = g.wide ? keep([A[0] - cx * 300, A[1] - cy * 300]) : A; steerTo(B[0], B[1]); fly(dA > 450 && !g.wide ? cruise : 150, .6);   // (at the cruise's height till near it: at 150 the Gull had flown into a tower of Glass Heights' on the way)
+      const B = g.wide ? keep([A[0] - cx * 600, A[1] - cy * 600]) : A; steerTo(B[0], B[1]); fly(dA > 450 && !g.wide ? cruise : 150, .6);   // (at the cruise's height till near it: at 150 the Gull had flown into a tower of Glass Heights' on the way)
       if (g.wide && Math.hypot(v.x - B[0], v.y - B[1]) < 120) g.wide = false;
       return I;
     }

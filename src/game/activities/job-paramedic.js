@@ -16,7 +16,7 @@ const CALLS = [
 ].map(([id, name]) => ({ id, name }));
 const MAX = 4;   // (level 3's patients; level n takes n + 1)
 const count = m => Math.min(MAX, 1 + m.level);
-const SLACK = [0, 2.9, 2.6, 2.4], GRACE = [0, 32, 28, 26];   // (as the courier's clocks: the road's time stretched, and a grace)
+const SLACK = [0, 3.2, 2.9, 2.7], GRACE = [0, 34, 31, 29];   // (as the courier's clocks: the road's time stretched, and a grace; an ambulance driven with a patient aboard is careful, at 2.4 and 26 s level 3's patients couldn't wait two calls a run, the campaign's three tries running)
 const clock = (m, at) => Math.round(GRACE[m.level] + (m.eta(at) ?? m.dist(at) * 1.4 / 150) * SLACK[m.level]);
 const R = 40;   // (how near the stop the Medic must come to)
 const ETA = [6, 14];   // (a call's ride from where the Medic stands, at the streets' limits)

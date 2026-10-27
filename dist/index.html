@@ -32599,7 +32599,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (dA < 200) g.wide = true;
         else if (dA > 500) g.wide = false;
         const keep = (q) => [Math.max(100, Math.min(X2 - 100, q[0])), Math.max(100, Math.min(Y3 - 100, q[1]))];
-        const B2 = g.wide ? keep([A[0] - cx6 * 300, A[1] - cy * 300]) : A;
+        const B2 = g.wide ? keep([A[0] - cx6 * 600, A[1] - cy * 600]) : A;
         steerTo(B2[0], B2[1]);
         fly2(dA > 450 && !g.wide ? cruise : 150, 0.6);
         if (g.wide && Math.hypot(v.x - B2[0], v.y - B2[1]) < 120) g.wide = false;
@@ -34497,7 +34497,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // a vehicle rammed: at it flat out; pressed against it at a crawl (a push does no harm), backed off for another run
     _ram(dt, p, v, t, d, w12, hold3 = false) {
-      if (d > 140) {
+      if (d > 140 && !this._headOn(v, t, d)) {
         if (this.ramS) this.ramS.back = this.ramS.round = this.ramS.slow = this.ramS.held = 0;
         return this._go(dt, p, t.x, t.y, { stay: true, style: "race", slack: 50, hold: hold3 }, w12);
       }
@@ -34544,6 +34544,21 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       I.steer = Math.max(-1, Math.min(1, da * 2.5));
       I.throttle = 1;
       return I;
+    }
+    // a target coming at the car, or standing, along open road (within 700, the line between them all road at their
+    // level): met head on, straight at it, not by the GPS's way round to its lane (Scab Labour's Brute, the first bus
+    // rammed, had gone round Ironside's one-way blocks to the next one's stop while it drove on to the gates; and queued
+    // in its own lane while a bus stood in the other)
+    _headOn(v, t, d) {
+      if (d > 700 || Math.abs((t.z || 0) - (v.z || 0)) > 8) return false;
+      const ux = (v.x - t.x) / d, uy = (v.y - t.y) / d;
+      if ((t.speed || 0) >= 8 && Math.cos(t.heading) * ux + Math.sin(t.heading) * uy < 0.8) return false;
+      const C27 = this.city;
+      for (let s = 16; s < d; s += 16) {
+        const x = t.x + ux * s, y = t.y + uy * s, k = C27.surfaceAtPoint(x, y);
+        if (k !== "road" && k !== "bridge" || C27.map.heightAt(x, y) > (v.z || 0) + 4) return false;
+      }
+      return true;
     }
     // on foot against one target: the fighter brain with the player's own weapons (a vehicle beaten with a bat, or shot)
     _fight(dt, p, t, w12) {
@@ -40750,8 +40765,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   ].map(([id, name]) => ({ id, name }));
   var MAX5 = 4;
   var count4 = (m) => Math.min(MAX5, 1 + m.level);
-  var SLACK5 = [0, 2.9, 2.6, 2.4];
-  var GRACE5 = [0, 32, 28, 26];
+  var SLACK5 = [0, 3.2, 2.9, 2.7];
+  var GRACE5 = [0, 34, 31, 29];
   var clock5 = (m, at) => Math.round(GRACE5[m.level] + (m.eta(at) ?? m.dist(at) * 1.4 / 150) * SLACK5[m.level]);
   var R4 = 40;
   var ETA4 = [6, 14];
@@ -48057,9 +48072,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var TO_DOOR2 = [C19(14, 17), C19(9, 19), C19(7, 19), C19(3, 20)];
   var APRON = [1616, 1472];
   var PAYROLL = [1656, 1440];
-  var STRIP = [1160, 1480];
   var RUNWAY = Math.PI;
   var HANGAR = [1640, 1472];
+  var LAND2 = [1600, 1480];
+  var LAND_H = 0;
   var CUT = [304, 768];
   var CUT_R = 110;
   var LOW2 = 260;
@@ -48234,12 +48250,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         return !!v && v === mm.one("duster") && !v.body.landed && v.body.z < LOW2 && Math.hypot(v.x - CUT[0], v.y - CUT[1]) < CUT_R;
       }), { nav: () => CUT });
       yield m.say(["Strike fund, delivered. Bring her home, lad. The hangar door's open."], BRAMBLE3);
-      m.objective("Land the Duster on the airstrip", { hint: { kind: "goto", at: STRIP, radius: 60, vehicle: "duster", land: RUNWAY } });
-      m.marker(STRIP, { color: "#7aff8a", r: 28 });
+      m.objective("Land the Duster on the airstrip", { hint: { kind: "goto", at: LAND2, radius: 60, vehicle: "duster", land: LAND_H } });
+      m.marker(LAND2, { color: "#7aff8a", r: 28 });
       yield Object.assign(m.waitUntil((mm) => {
         const v = mm.one("duster");
         return !!v && mm.vehicle === v && v.body.landed && v.speed < 8 && onStrip(v);
-      }), { nav: () => STRIP });
+      }), { nav: () => LAND2 });
       m.objective("Taxi into the hangar", { hint: { kind: "goto", at: HANGAR, radius: 48, vehicle: "duster", taxi: true } });
       m.marker(HANGAR, { color: "#7aff8a", r: 24 });
       yield Object.assign(m.waitUntil((mm) => {
@@ -48515,7 +48531,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var SPARKY2 = { name: "Sparky", color: "#ffd23a" };
   var DEX8 = { name: "Dex", color: "#ff5a4a" };
   var APRON2 = [1616, 1472];
-  var STRIP2 = [1160, 1480];
+  var STRIP = [1160, 1480];
   var RUNWAY2 = Math.PI;
   var MARKS = [
     { at: [848, 672], name: "the Smelting Co.'s gates" },
@@ -48593,12 +48609,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             if (i < MARKS.length - 1) yield m.say([["Leaflets away!", "Bombs away. Paper ones."][i]], DEX8);
           }
           yield m.say(["That's the rally papered. Bring her home."], SPARKY2);
-          m.objective("Land the Duster on the airstrip", { hint: { kind: "goto", at: STRIP2, radius: 60, vehicle: "duster", land: RUNWAY2 } });
-          m.marker(STRIP2, { color: "#7aff8a", r: 28 });
+          m.objective("Land the Duster on the airstrip", { hint: { kind: "goto", at: STRIP, radius: 60, vehicle: "duster", land: RUNWAY2 } });
+          m.marker(STRIP, { color: "#7aff8a", r: 28 });
           yield Object.assign(m.waitUntil((mm) => {
             const v = mm.one("duster");
             return !!v && mm.vehicle === v && v.body.landed && v.speed < 8 && onStrip2(v);
-          }), { nav: () => STRIP2 });
+          }), { nav: () => STRIP });
           const d = m.one("duster");
           m.data.clean = !!d && d.damage.share >= 0.999;
           yield m.say(["Smooth. The Gnomes will be picking paper out of their beards for a week."], SPARKY2);
@@ -54416,7 +54432,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var T29 = 16;
   var C25 = (x, y) => [x * T29 + 8, y * T29 + 8];
   var START3 = C25(62, 61);
-  var STRIP3 = [C25(62, 75)];
+  var STRIP2 = [C25(62, 75)];
   var ROW2 = [C25(80, 80), C25(104, 80)];
   var DOWN3 = [C25(117, 92), C25(110, 100), C25(88, 100)];
   defReel("strip_night", {
@@ -54442,7 +54458,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         },
         *run(m) {
           yield m.wait(2.5);
-          yield* drive(m, STRIP3, "Down the Strip");
+          yield* drive(m, STRIP2, "Down the Strip");
         }
       },
       // (a moment at the light under the casino's neon, then off)
@@ -55131,7 +55147,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   });
   def("stunts", "flyover-end", { name: "The Flyover's End", district: "ironside", takeoff: [752, 1200], r: 44, minDist: 55, minAir: 0.38, reward: 750, approach: [984, 1200, 64] });
   def("stunts", "slag-heap", { name: "The Slag Heap", district: "ironside", takeoff: [1272, 336], r: 40, minDist: 45, minAir: 0.3, reward: 500, approach: [1272, 488] });
-  def("stunts", "crusher-yard", { name: "The Crusher Yard", district: "ironside", takeoff: [376, 1440], r: 40, minDist: 45, minAir: 0.3, reward: 500, approach: [376, 1288] });
+  def("stunts", "crusher-yard", { name: "The Crusher Yard", district: "ironside", takeoff: [376, 1440], r: 40, minDist: 45, minAir: 0.3, reward: 500, approach: [376, 1336] });
 
   // src/game/stunts/jumps.js
   def("landmarks", "stunt-ramps", {
