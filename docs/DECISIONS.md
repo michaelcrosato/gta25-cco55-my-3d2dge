@@ -2116,6 +2116,9 @@ and where it landed.
         by the follow's mark and shot its Saint to a wreck beside the bot). **Its tow fixture's car has its spot
         cleared**, as the Tow job's has (`m.clearSpot`): one parked nose to its front, on a one-way street, had left
         the truck no end to hook. The gym had last passed whole at L4's close; seed 3's tow failed from X6's close on.
+      - **The Heights Regatta lines a boat up on its start, bow south, when it comes to the line turned the other way**
+        (as a retry and a deep link always were): the campaign's Splash, sailed in from the north, had turned round at
+        the green and finished off the podium five times (with it, 27.2 s, first, against the board's 28, 32 and 38).
       - **The soak's own measures:** a crossing of the stop line under a siren is no calm red run when the call ends
         before the box (as a panic that ends there, `soak-red-run.test.mjs`), and the line is crossed by the car's
         front, as the driver reads it (where a line stands at a lane's start straight out of another box, j3's, a car

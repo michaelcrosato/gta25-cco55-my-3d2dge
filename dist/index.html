@@ -41939,7 +41939,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       id: "race",
       setup(m) {
         const b = ride8(m);
-        if (Math.hypot(b.x - LINE.x, b.y - LINE.y) > 80) m.place(b, [LINE.x, LINE.y], { heading: LINE.heading });
+        const turned = Math.abs(Math.atan2(Math.sin(b.heading - LINE.heading), Math.cos(b.heading - LINE.heading))) > 0.5;
+        if (Math.hypot(b.x - LINE.x, b.y - LINE.y) > 80 || turned) m.place(b, [LINE.x, LINE.y], { heading: LINE.heading });
         m.failIf((mm) => !inBoat(mm) && !mm.one("ride"), "the boat's gone");
       },
       *run(m) {

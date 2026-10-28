@@ -36,7 +36,8 @@ defActivity('race_heights_regatta', {
     id: 'race',
     setup(m) {
       const b = ride(m);
-      if (Math.hypot(b.x - LINE.x, b.y - LINE.y) > 80) m.place(b, [LINE.x, LINE.y], { heading: LINE.heading });   // (a retry, a deep link: on the line, bow south)
+      const turned = Math.abs(Math.atan2(Math.sin(b.heading - LINE.heading), Math.cos(b.heading - LINE.heading))) > .5;
+      if (Math.hypot(b.x - LINE.x, b.y - LINE.y) > 80 || turned) m.place(b, [LINE.x, LINE.y], { heading: LINE.heading });   // (a retry, a deep link, a boat come to the line bow north: on the line, bow south; one turned round at the green had lost the podium in the turn)
       m.failIf(mm => !inBoat(mm) && !mm.one('ride'), 'the boat\'s gone');
     },
     *run(m) {
