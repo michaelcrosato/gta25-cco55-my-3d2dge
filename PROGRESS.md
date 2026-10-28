@@ -48,6 +48,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | X6 Boats, Glass Heights' gangs and missions | done | the Velvet Syndicate (the Velvet Casino, the Velvet limo) and the Yacht Club (the Club's pier, the Regatta, the Flare Gun), the Saints uptown at St. Chrome's; the Splash, the Regatta and Moneybags on the water, the AutoPlayer sailing round what lies moored; nine missions (Communion, High Mass, The Comp, Loaded Dice, Overboard, Flare Up, and House Edge's Floor Plan, The Gull and finale) with the Velvet Casino, an interior whose vault opens (D43) · each mission through the bot on seeds 1-3 and through a pad, the casino's validation and sim tests, the gangs', boats', planes' and mission verbs' tests, the gym's `boat` fixture on seeds 1-3 and through a pad, all merged content again (D21) · the look read (docs/media/x6) |
 | X7 Glass Heights' side content | done | Limo (fares to the Heights' doors, smoothly: three levels), the Heights Regatta (ten buoys round the Heights by sea, against the Yacht Club's board), MAYHEM: Flare the Limos, three stunts (the Villa Pool, the Velvet Fountain, the Palms Newsstand), 15 Moto Tokens, two properties (the Glass Tower penthouse, the Marina berth), the Strip's Kwik-Lux's hold-up, Villa Marisol, the attract reel THE STRIP; the AutoPlayer's `smooth` style, TOP's sea past Glass Heights' edge (D44) · each activity through the bot on seeds 1-3 and a pad, Glass Heights' side-content sim test, the campaign over its tokens, stunts and properties, all merged content again (D21) · the look read (docs/media/x7) |
 | X8 The full game, verified | done | the bot campaign across the three districts to 100% from the title's NEW GAME; the perf gate in each district and each view; the screenshot matrix in every district (the ten neighbourhoods by day, dusk and night in ISO, TOP-DOWN and MODE 7); the HUD's words on plates; what the campaign, test:full's soaks and D21 found, mended where it lives (traffic round wrecks and in boxes, a panicking driver seen in the box, the tyres at a crawl, the gangs' fights, the crowd's spawns, an ally's drive-by, the bot's way past dead ends; D45); the bot gym at peace, its tow's spot cleared · test:full alone on d9542e1: the campaign at 100.0% (5.63 h of game), D21 219 of 219 and through a pad 73 of 73, the gym 60 of 60 and 20 of 20, the soaks, the perf gate, the cross-runtime and UI checks · the look read (docs/media/x8) |
+| L7 Platforms | done | a desktop wrapper (`desktop/`, Electron, its own package and lock: the page loaded unchanged from its file, full screen, sandboxed, the network shut, a DualSense granted to WebHID with no chooser) and the DualSense's own output report by WebHID (`input/dualsense-hid.js`, by USB and by Bluetooth) played from the game (`input/haptics.js`: R2 and L2 by the gun or the vehicle in hand, the light bar the character's colour and the stars, the rumble in the same report; the Gamepad API's rumble the fallback); SETTINGS, CONTROLS, DualSense haptics; QA-DUALSENSE 6-7 for the owner (D46) · CI's `desktop` job on 9890e8f: Electron under a virtual display, the game up, WebHID there, the network shut, a popup refused; the Linux build packed (an artifact) · test:full alone on 9890e8f · the look read (docs/media/l7) |
 
 ## Acceptance log
 
@@ -1857,3 +1858,38 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     the four city soaks, the audio, attract and gang soaks, determinism across Node and Chromium, the UI audits, the
     screenshot matrix, the mission bot on seeds 1-3 and through a pad, the bot gym both ways, the campaign at 100.0%),
     and CI is green on the PR's head.
+
+- **L7 · platforms: a desktop wrapper, and the DualSense's own haptics by WebHID (D46), done:**
+  - **The wrapper:** Electron, not Tauri (Tauri's Linux webview, WebKitGTK, has no WebHID and numbers a DualSense's
+    buttons otherwise: D46). `desktop/` is a package of its own (Electron 44.7.0 and `@electron/packager` 20.3.0 its dev
+    dependencies, its own lock), so the game's install, CI's `npm test` job and a session's setup never fetch it;
+    `npm run desktop` runs it in the tree and `npm run desktop:build` packs it into `desktop/out/` (ignored). The page
+    is `dist/index.html`, unchanged, beside the app once packed.
+  - **The DualSense by WebHID:** its output report as the Linux driver writes it, by USB (0x02) and by Bluetooth (0x31,
+    with its sequence and CRC-32), each part behind its own valid flag, at most one report a frame of what changed;
+    the triggers in Sony's zone forms. Opened where the page has one granted: in the desktop app at once; in Chrome and
+    Edge by SETTINGS, CONTROLS, DualSense haptics, switched on with a key or a click.
+  - **What it plays** (presentation only, never headless): a gun's break by its kick, an automatic's buzz at its rate,
+    slack when empty; a car's throttle and brake by its weight, a cough when it smokes, slack in the air; a plane's
+    stall; the light bar the character's colour (Dex red, Viv teal, Gus orange), red and blue under stars, a red pulse
+    badly hurt; the player lights the stars; the pause, the map and the menus free the triggers, the attract mode rests
+    them.
+  - **Tests** (in `npm test`): `tests/unit/dualsense-hid.test.mjs` (6: the CRC is zlib's, the trigger forms, the common
+    report's layout, the USB and Bluetooth reports, the device opened, written and let go), `haptics.test.mjs` (3: the
+    triggers by what is held, the light bar, the presenter at rest and headless), `desktop.test.mjs` (4: the wrapper
+    against a stand-in Electron: the page found, the session's rules, the window's, the app's life).
+  - **Electron itself** in CI's `desktop` job (its binary from Electron's releases, which this container's network
+    policy doesn't reach): `xvfb-run electron desktop/smoke.cjs` reported `{"scene":"title","hid":true,
+    "gamepads":true,"net":"shut","popup":"refused","url":"file:","fullscreen":true}`, then the Linux x64 build was
+    packed and uploaded (72 files, 125 MB; on `9890e8f`, run 40677846081).
+  - **The 10-foot UI:** the haptics row is in CONTROLS, between VIBRATION and BUTTON SYMBOLS; the audit walks past it
+    (`tools/ui-audit.mjs`: 238 of 238 stops by pad, keys and mouse at 1080p and 720p). The look, read at 1080p and
+    720p (`docs/media/l7`): the row and its two-line help in the frame, the focus on it; no note.
+  - **The owner's:** how it feels (QA-DUALSENSE 6, the triggers and the light bar, by USB and Bluetooth; 7, the
+    desktop app on a desktop and the Steam Deck).
+  - **Closed on `9890e8f`:** `npm run test:full` passed every one of its 34 steps, alone, in 2 h 46 min. The perf gate
+    (five rounds; ISO, TOP-DOWN, MODE 7 against 10.4, 12.7 and 12.7 ms): Lowtown 10.01, 9.10 and 12.27; Ironside 8.78,
+    7.72 and 10.60; Glass Heights 9.76, 8.94 and 11.91; the update at most 1.08 ms a step (1.5). The mission bot 219 of
+    219 on seeds 1-3 (151 gold, 51 silver, 17 bronze) and 73 of 73 through a pad, the gym 60 of 60 and 20 of 20, the
+    UI audits 238 of 238 and 51 of 51 (HUD Huge), the campaign at 100.0% after 5.63 h of game: the same as on
+    `d9542e1`, since L7 moves no run. CI's `test` and `desktop` jobs are green on the same head.

@@ -88,7 +88,7 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
   - the content packs: planes, more boats, more weapons.
 - [x] **L6 · The expansion, built** (done, D38-D45) milestone by milestone as `EXPANSION.md` lays it out, with the campaign reaching
   100% across all the districts.
-- [ ] **L7 · Platforms:**
+- [x] **L7 · Platforms** (done, D46):
   - a desktop wrapper (Electron or Tauri, for desktops and the Steam Deck) around the one-file page, which stays
     unchanged. The wrapper is a dev dependency with its own build output.
   - real DualSense haptics and adaptive triggers through WebHID on desktop Chrome, with the rumble as the fallback.
