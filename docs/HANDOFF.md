@@ -37,7 +37,8 @@ so a session that stops anywhere can resume from it: the work in flight is liste
   with `npm run test:full` passing alone on its last commit, L7's on `9890e8f`; it passed again on the PR's head with
   L8's fix (`5b55a08`), and CI is green there.
 - **Done after L8, the owner's request: the camera turns in every view** (D48): a tap of the turn buttons a quarter,
-  held a spin; ISO settles on one of eight angles, TOP-DOWN and MODE 7 stay at any angle.
+  held a spin; ISO settles on one of eight angles, TOP-DOWN and MODE 7 stay at any angle. Closed with test:full
+  passing alone on `6600f53`.
 - **L8, with the owner** (nothing has left the repository): the offer upstream (the seven patches' issue texts in
   `vendor/my-3d2dge/PATCHES.md` and the feedback F7 in `docs/FEEDBACK-FOR-ENGINE.md`, brought up to date with L1-L7),
   the DualSense checklist (`docs/QA-DUALSENSE.md`, sections 1-7, for a person with the pad and a TV) and that PR's
