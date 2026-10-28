@@ -11920,6 +11920,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     Director: () => Director,
     Drawbridge: () => Drawbridge,
     DriverBrain: () => DriverBrain,
+    DualSenseHID: () => DualSenseHID,
     E: () => E,
     EVENTS: () => EVENTS,
     Economy: () => Economy,
@@ -11939,6 +11940,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     HELI_HANDLING: () => HELI_HANDLING,
     HINTS: () => HINTS,
     HOLDS: () => HOLDS,
+    Haptics: () => Haptics,
     HeliBody: () => HeliBody,
     Holdups: () => Holdups,
     HumanController: () => HumanController,
@@ -23652,8 +23654,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     };
     const taken4 = [];
     const free = (x, y, h, hl6, hw6) => !taken4.some((q) => {
-      const c = Math.cos(q.h), s = Math.sin(q.h), dx = x - q.x, dy = y - q.y, a = Math.abs(dx * c + dy * s), b = Math.abs(-dx * s + dy * c), same = Math.abs(Math.sin(h - q.h)) < 0.5;
-      return same ? a < q.hl + hl6 + 6 && b < q.hw + hw6 + 2 : a < q.hl + hw6 + 6 && b < q.hw + hl6 + 6;
+      const c = Math.cos(q.h), s = Math.sin(q.h), dx = x - q.x, dy = y - q.y, a = Math.abs(dx * c + dy * s), b = Math.abs(-dx * s + dy * c), same2 = Math.abs(Math.sin(h - q.h)) < 0.5;
+      return same2 ? a < q.hl + hl6 + 6 && b < q.hw + hw6 + 2 : a < q.hl + hw6 + 6 && b < q.hw + hl6 + 6;
     });
     const size = (d) => {
       const m = get("vehicleModels", d.model);
@@ -26795,7 +26797,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
 
   // src/motor/ui/settings.js
   var SETTING_TABS = [
-    { id: "controls", label: "CONTROLS", keys: ["deadzone", "invertY", "rumble", "promptStyle"] },
+    { id: "controls", label: "CONTROLS", keys: ["deadzone", "invertY", "rumble", "haptics", "promptStyle"] },
     { id: "display", label: "DISPLAY", keys: ["defaultView", "quality", "autoRail", "sharpSide7", "hudSize", "subtitles", "colorblind", "speedometer", "shake", "flashes", "motion"] },
     { id: "audio", label: "AUDIO", keys: ["sound", "volume", "music", "radio", "effects", "djChatter"] },
     { id: "game", label: "GAME", keys: ["difficulty", "aimAssist", "autosave"] },
@@ -26833,6 +26835,20 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       apply: (g, v) => {
         PROMPTS.keys = v === "keyboard";
         if (g.input) g.input.glyphs = v === "keyboard" ? "auto" : v;
+      }
+    });
+    def2({
+      key: "haptics",
+      group: "Controller",
+      label: "DualSense haptics",
+      type: "toggle",
+      value: true,
+      help: "A DualSense's triggers and light bar (in Chrome or Edge, the first time: a key or a click, and the browser asks which)",
+      apply: (g, v) => {
+        const H24 = g.haptics;
+        if (!H24) return;
+        if (v) H24.connect(true);
+        else H24.close();
       }
     });
     def2({ key: "defaultView", group: "Display", label: "Default view", type: "select", value: "iso", options: [["iso", "ISO"], ["top", "Top-down"], ["side7", "Mode 7"], ["chase", "Chase"]], help: "The view a game starts in" });
@@ -38821,6 +38837,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (G2.headless || this.off() || !G2.input || !G2.input.rumble || !(k > 0)) return false;
       this.played.push([+k.toFixed(2), +secs.toFixed(2)]);
       if (this.played.length > 16) this.played.shift();
+      const H24 = G2.haptics;
+      if (H24 && H24.connected) {
+        const q = Math.min(1, k) * Math.max(0, Math.min(1, G2.input.rumbleScale ?? 0.6));
+        return q > 0 && H24.motors(q, Math.min(1, q * 1.25), secs);
+      }
       return G2.input.rumble(Math.min(1, k), secs);
     }
     /** listen to the game's events (the scene's scope: gone with the scene) */
@@ -38882,6 +38903,356 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     dispose() {
       for (const u of this.unsub) u();
       this.unsub = [];
+    }
+  };
+
+  // src/motor/input/dualsense-hid.js
+  var SONY = 1356;
+  var PRODUCTS = [3302, 3570];
+  var FILTERS = PRODUCTS.map((productId) => ({ vendorId: SONY, productId }));
+  var OFF = Object.freeze({ mode: "off" });
+  var USB = 2;
+  var BT = 49;
+  var PLAYERS = [0, 4, 10, 21, 27, 31];
+  var int = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v || 0)));
+  var byte = (k) => int(k * 255, 0, 255);
+  var isDualSense = (d) => !!d && d.vendorId === SONY && PRODUCTS.includes(d.productId);
+  function triggerBytes(e = OFF) {
+    const b = new Uint8Array(11), k = int(e.k, 0, 8);
+    const zones = (from, f) => {
+      let on = 0, force = 0;
+      for (let i = int(from, 0, 9); i < 10; i++) {
+        on |= 1 << i;
+        force |= f << 3 * i;
+      }
+      return [on, force >>> 0];
+    };
+    const put3 = (on, force) => {
+      b[1] = on & 255;
+      b[2] = on >> 8 & 255;
+      b[3] = force & 255;
+      b[4] = force >>> 8 & 255;
+      b[5] = force >>> 16 & 255;
+      b[6] = force >>> 24 & 255;
+    };
+    if (e.mode === "feedback" && k > 0) {
+      b[0] = 33;
+      put3(...zones(e.from, k - 1));
+    } else if (e.mode === "weapon" && k > 0) {
+      const from = int(e.from, 2, 7), to = int(e.to, from + 1, 8), z = 1 << from | 1 << to;
+      b[0] = 37;
+      b[1] = z & 255;
+      b[2] = z >> 8 & 255;
+      b[3] = k - 1;
+    } else if (e.mode === "vibration" && k > 0 && e.hz > 0) {
+      b[0] = 38;
+      put3(...zones(e.from, k - 1));
+      b[9] = int(e.hz, 1, 255);
+    } else b[0] = 5;
+    return b;
+  }
+  function commonReport(s, parts3 = {}) {
+    const c = new Uint8Array(47);
+    if (parts3.motors) {
+      c[0] |= 3;
+      c[2] = byte(s.weak);
+      c[3] = byte(s.strong);
+    }
+    if (parts3.right) {
+      c[0] |= 4;
+      c.set(triggerBytes(s.right), 10);
+    }
+    if (parts3.left) {
+      c[0] |= 8;
+      c.set(triggerBytes(s.left), 21);
+    }
+    if (parts3.light && s.light) {
+      c[1] |= 4;
+      c[44] = int(s.light[0], 0, 255);
+      c[45] = int(s.light[1], 0, 255);
+      c[46] = int(s.light[2], 0, 255);
+    }
+    if (parts3.players) {
+      c[1] |= 16;
+      c[43] = PLAYERS[int(s.players, 0, 5)];
+    }
+    if (parts3.init) {
+      c[38] |= 2;
+      c[41] = 2;
+    }
+    return c;
+  }
+  var TABLE = null;
+  function crc32(bytes) {
+    if (!TABLE) {
+      TABLE = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+        TABLE[n] = c >>> 0;
+      }
+    }
+    let crc = 4294967295;
+    for (let i = 0; i < bytes.length; i++) crc = TABLE[(crc ^ bytes[i]) & 255] ^ crc >>> 8;
+    return (crc ^ 4294967295) >>> 0;
+  }
+  function usbReport(c, size = 47) {
+    const d = new Uint8Array(Math.max(47, size));
+    d.set(c);
+    return { id: USB, data: d };
+  }
+  function btReport(c, seq = 0) {
+    const r7 = new Uint8Array(78);
+    r7[0] = BT;
+    r7[1] = (seq & 15) << 4;
+    r7[2] = 16;
+    r7.set(c, 3);
+    const u = new Uint8Array(75);
+    u[0] = 162;
+    u.set(r7.subarray(0, 74), 1);
+    const crc = crc32(u);
+    r7[74] = crc & 255;
+    r7[75] = crc >>> 8 & 255;
+    r7[76] = crc >>> 16 & 255;
+    r7[77] = crc >>> 24 & 255;
+    return { id: BT, data: r7.subarray(1) };
+  }
+  var outputs = (d) => (d.collections || []).flatMap((c) => c.outputReports || []);
+  var sizeOf = (d, id) => {
+    const r7 = outputs(d).find((o) => o.reportId === id);
+    return r7 ? (r7.items || []).reduce((n, i) => n + (i.reportSize || 0) * (i.reportCount || 0), 0) / 8 : 0;
+  };
+  var same = (a, b) => a === b || !!a && !!b && a.mode === b.mode && a.from === b.from && a.to === b.to && a.k === b.k && a.hz === b.hz;
+  var DualSenseHID = class {
+    /** hid: navigator.hid (or a stand-in); o.now(): seconds, for the motors' stop */
+    constructor(hid, o = {}) {
+      this.hid = hid || null;
+      this.dev = null;
+      this.bt = false;
+      this.size = 47;
+      this.seq = 0;
+      this.busy = null;
+      this.until = 0;
+      this.now = o.now || (() => performance.now() / 1e3);
+      this.s = { strong: 0, weak: 0, right: OFF, left: OFF, light: null, players: 0 };
+      this.dirty = {};
+      this.sent = 0;
+    }
+    static supported(nav = globalThis.navigator) {
+      return !!(nav && nav.hid && nav.hid.getDevices);
+    }
+    get connected() {
+      return !!this.dev;
+    }
+    /** open a DualSense already granted to the page (no prompt); ask: prompt for one (it needs a click or a key) */
+    async connect(ask = false) {
+      this.want = true;
+      if (this.dev) return true;
+      if (!this.hid) return false;
+      if (!this._back && this.hid.addEventListener) {
+        this._back = (e) => {
+          if (this.want && !this.dev && isDualSense(e.device)) this.connect();
+        };
+        this.hid.addEventListener("connect", this._back);
+      }
+      let list;
+      try {
+        list = (await this.hid.getDevices()).filter(isDualSense);
+        if (!list.length && ask) list = (await this.hid.requestDevice({ filters: FILTERS })).filter(isDualSense);
+      } catch (e) {
+        return false;
+      }
+      const d = list[0];
+      if (!d) return false;
+      try {
+        if (!d.opened) await d.open();
+      } catch (e) {
+        return false;
+      }
+      this.dev = d;
+      this.bt = outputs(d).some((r7) => r7.reportId === BT) && !outputs(d).some((r7) => r7.reportId === USB);
+      this.size = sizeOf(d, USB) || 47;
+      if (!this._gone) {
+        this._gone = (e) => {
+          if (e.device === this.dev) {
+            this.dev = null;
+            this.busy = null;
+          }
+        };
+        if (this.hid.addEventListener) this.hid.addEventListener("disconnect", this._gone);
+      }
+      this.dirty = { init: true, motors: true, right: true, left: true, light: !!this.s.light, players: true };
+      return true;
+    }
+    /** the motors: strong (the left, the heavy one) and weak (the right) 0..1, for secs */
+    motors(strong, weak, secs = 0.15) {
+      this.s.strong = Math.max(0, Math.min(1, +strong || 0));
+      this.s.weak = Math.max(0, Math.min(1, +weak || 0));
+      this.dirty.motors = true;
+      this.until = this.s.strong > 0 || this.s.weak > 0 ? this.now() + Math.max(0.02, secs) : 0;
+      return !!this.dev;
+    }
+    /** a trigger's effect ('right' or 'left'; see above); a change only when it is another */
+    trigger(side, e = OFF) {
+      if (side !== "right" && side !== "left") return;
+      if (same(this.s[side], e)) return;
+      this.s[side] = e;
+      this.dirty[side] = true;
+    }
+    /** the light bar, r g b 0..255 */
+    light(r7, g, b) {
+      const L28 = this.s.light;
+      if (L28 && L28[0] === r7 && L28[1] === g && L28[2] === b) return;
+      this.s.light = [r7, g, b];
+      this.dirty.light = true;
+    }
+    /** the player lights: n of the five lit (0..5) */
+    players(n) {
+      n = int(n, 0, 5);
+      if (n === this.s.players) return;
+      this.s.players = n;
+      this.dirty.players = true;
+    }
+    /** each frame: one report of what changed (none when nothing did; while the last is still going, after it) */
+    flush() {
+      if (!this.dev || this.busy) return false;
+      if (this.until && this.now() >= this.until) {
+        this.until = 0;
+        this.s.strong = this.s.weak = 0;
+        this.dirty.motors = true;
+      }
+      const parts3 = this.dirty;
+      if (!Object.keys(parts3).some((k) => parts3[k])) return false;
+      this.dirty = {};
+      const c = commonReport(this.s, parts3), r7 = this.bt ? btReport(c, this.seq++) : usbReport(c, this.size);
+      let p;
+      try {
+        p = this.dev.sendReport(r7.id, r7.data);
+      } catch (e) {
+        p = null;
+      }
+      this.sent++;
+      this.busy = p && p.then ? p.then(() => {
+      }, () => {
+      }).then(() => {
+        this.busy = null;
+        this.flush();
+      }) : null;
+      return true;
+    }
+    /** the triggers free (a menu over the game) */
+    rest() {
+      this.trigger("right", OFF);
+      this.trigger("left", OFF);
+      return this.flush();
+    }
+    /** everything let go: the triggers free, the motors still, the light and the player lights off; the device closed */
+    async close() {
+      this.want = false;
+      const d = this.dev;
+      if (!d) return;
+      if (this.busy) await this.busy;
+      this.s = { strong: 0, weak: 0, right: OFF, left: OFF, light: [0, 0, 0], players: 0 };
+      this.until = 0;
+      const c = commonReport(this.s, { motors: true, right: true, left: true, light: true, players: true }), r7 = this.bt ? btReport(c, this.seq++) : usbReport(c, this.size);
+      try {
+        await d.sendReport(r7.id, r7.data);
+      } catch (e) {
+      }
+      try {
+        await d.close();
+      } catch (e) {
+      }
+      this.dev = null;
+    }
+  };
+
+  // src/motor/input/haptics.js
+  var hexRgb = (h) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(h || "");
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return [n >> 16 & 255, n >> 8 & 255, n & 255];
+  };
+  var DIM = [16, 16, 28];
+  function triggersFor(p) {
+    if (!p || p.dead || p.vitals && p.vitals.dead) return { right: OFF, left: OFF };
+    const v = p.seat && p.seat.vehicle;
+    if (v) {
+      if (v.driver !== p || !v.body || v.damage && v.damage.wrecked) return { right: OFF, left: OFF };
+      const b = v.body, cls = v.cls, mass = v.def && v.def.handling && v.def.handling.mass || 1200;
+      if (cls === "plane") {
+        if (b.stalled) return { right: { mode: "vibration", from: 0, k: 6, hz: 18 }, left: OFF };
+        return { right: { mode: "feedback", from: 3, k: 3 }, left: { mode: "feedback", from: 2, k: 3 } };
+      }
+      if (cls === "heli" || cls === "boat") return { right: { mode: "feedback", from: 2, k: 2 }, left: { mode: "feedback", from: 2, k: 2 } };
+      if (b.airborne) return { right: OFF, left: OFF };
+      const heavy = Math.max(0, Math.min(3, Math.round((mass - 900) / 400)));
+      const right = v.damage && v.damage.smoking ? { mode: "vibration", from: 1, k: 3, hz: 11 } : { mode: "feedback", from: 1, k: 2 + heavy };
+      return { right, left: { mode: "feedback", from: 3, k: 4 + heavy } };
+    }
+    const inv = p.inv, s = inv && inv.spec && inv.spec();
+    if (!s || s.slot === "melee" || s.slot === "thrown" || s.projectile === "photo") return { right: OFF, left: OFF };
+    const id = inv.current, inMag = s.mag ? inv.mag && inv.mag[id] || 0 : inv.ammo && inv.ammo[id] || 0;
+    const left3 = { mode: "feedback", from: 2, k: 2 };
+    if (inMag <= 0 || inv.reloading > 0) return { right: OFF, left: left3 };
+    const kick = Math.max(s.recoil || 0, s.rumble || 0);
+    if (s.slot === "heavy" && s.projectile !== "stream" && s.projectile !== "zap") return { right: { mode: "weapon", from: 4, to: 8, k: 8 }, left: left3 };
+    if (s.rate > 4 || s.projectile === "stream" || s.projectile === "zap") return { right: { mode: "vibration", from: 3, k: Math.max(2, Math.min(6, Math.round(2 + kick * 6))), hz: Math.max(8, Math.min(40, Math.round(s.rate * 2.5))) }, left: left3 };
+    return { right: { mode: "weapon", from: 3, to: 6, k: Math.max(2, Math.min(8, Math.round(3 + kick * 6))) }, left: left3 };
+  }
+  function lightFor2(p, stars, color, t) {
+    if (stars > 0) return Math.floor(t * 4) % 2 ? [0, 40, 255] : [255, 0, 24];
+    const V = p && p.vitals, rgb = hexRgb(color) || [255, 255, 255];
+    if (V && !V.dead && V.health > 0 && V.health / (V.maxHealth || 100) < 0.25) {
+      const k = 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(t * 7));
+      return [Math.round(255 * k), 0, 0];
+    }
+    return rgb;
+  }
+  var Haptics = class {
+    /** game: the E.Game; o.hid: a DualSenseHID; o.player(): the possessed ped; o.off(): true while the triggers rest (the
+     *  attract mode, a menu); o.stars(): the wanted level; o.color(): the character's colour (#rrggbb) */
+    constructor(game2, o = {}) {
+      this.game = game2;
+      this.hid = o.hid || null;
+      this.player = o.player || (() => null);
+      this.off = o.off || (() => false);
+      this.stars = o.stars || (() => 0);
+      this.color = o.color || (() => null);
+      this.t = 0;
+    }
+    get live() {
+      return !!this.hid && this.hid.connected && !this.game.headless;
+    }
+    frame(dt) {
+      const H24 = this.hid;
+      if (!this.live) return;
+      this.t += dt || 0;
+      if (this.off()) {
+        H24.trigger("right", OFF);
+        H24.trigger("left", OFF);
+        H24.light(...DIM);
+        H24.players(0);
+        H24.flush();
+        return;
+      }
+      const p = this.player(), T33 = triggersFor(p), n = Math.max(0, Math.min(5, this.stars() | 0));
+      H24.trigger("right", T33.right);
+      H24.trigger("left", T33.left);
+      H24.light(...lightFor2(p, n, this.color(), this.t));
+      H24.players(n);
+      H24.flush();
+    }
+    /** everything let go (the scene left) */
+    dispose() {
+      const H24 = this.hid;
+      if (!this.live) return;
+      H24.trigger("right", OFF);
+      H24.trigger("left", OFF);
+      H24.light(...DIM);
+      H24.players(0);
+      H24.flush();
     }
   };
 
@@ -40150,6 +40521,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     RNG.seed(seed);
     syncMouseButtons(game2);
     const app2 = { game: game2, links: links2, views, bindings, activity, human: new HumanController(bindings, views, game2), footprint: new Footprint(), kiosk: kioskWanted(links2), seed, stage: new Stage(game2, views) };
+    game2.haptics = !game2.headless && DualSenseHID.supported() ? new DualSenseHID(navigator.hid) : null;
     defineSettings(game2);
     if (game2.input) {
       game2.input.touchEnabled = false;
@@ -40181,7 +40553,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           } catch (e) {
           }
         }
-        if (held) return;
+        if (held) {
+          if (app2.game.haptics) app2.game.haptics.rest();
+          return;
+        }
         if (update) update(dt);
       };
       s.draw = (r7) => {
@@ -44412,7 +44787,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var AWAY = 260;
   var PARK_R = 30;
   var LEAN = 22;
-  var OFF = 24;
+  var OFF2 = 24;
   var AHEAD2 = [100, 80, 60];
   var dry2 = (city, x, y) => {
     const cx6 = Math.floor(x / city.T), cy = Math.floor(y / city.T), s = city.inside(cx6, cy) && city.surfaceAt(cx6, cy);
@@ -44447,7 +44822,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       const a = AHEAD2.find((k) => !inJunction2(m.city, L28.x + ax * k, L28.y + ay * k)) ?? AHEAD2[AHEAD2.length - 1];
       m.data.side = [sx, sy];
-      m.data.kerb = Math.round(Math.max(OFF + 8, (c.x - L28.x) * sx + (c.y - L28.y) * sy));
+      m.data.kerb = Math.round(Math.max(OFF2 + 8, (c.x - L28.x) * sx + (c.y - L28.y) * sy));
       m.data.marker = [Math.round(L28.x + ax * a + sx * LEAN), Math.round(L28.y + ay * a + sy * LEAN)];
     }
     return m.data.lane;
@@ -44462,7 +44837,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
   function pushedAside(m) {
     const v = m.one("stalled"), L28 = m.data.lane, [sx, sy] = m.data.side;
-    return !!v && (v.speed || 0) < 10 && Math.hypot(v.x - L28.x, v.y - L28.y) < AWAY && (v.x - L28.x) * sx + (v.y - L28.y) * sy >= OFF;
+    return !!v && (v.speed || 0) < 10 && Math.hypot(v.x - L28.x, v.y - L28.y) < AWAY && (v.x - L28.x) * sx + (v.y - L28.y) * sy >= OFF2;
   }
   var quiet4 = (m) => Object.assign(m.waitUntil(() => false), {
     start: (mm) => {
@@ -45116,7 +45491,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var TIME = 120;
   var WORN = 0.75;
   var AT3 = 10;
-  var OFF2 = 24;
+  var OFF3 = 24;
   var standing = (v) => !v.out && !v.wrecked && !(v.damage && v.damage.burning);
   var left = (m) => m.tagged("saints").filter(standing).length;
   var aim = (n) => `Smash the Saints' cars about Palm Terraces with the bat: ${n} to go`;
@@ -45133,7 +45508,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
       }
       if (!t) return false;
-      const walk3 = key && !key.walk ? td > OFF2 : td > AT3, n = left(mm), k = walk3 + ":" + t.id + ":" + n;
+      const walk3 = key && !key.walk ? td > OFF3 : td > AT3, n = left(mm), k = walk3 + ":" + t.id + ":" + n;
       if (key && key.k === k) return false;
       key = { k, walk: walk3 };
       mm.objective(aim(n), { hint: walk3 ? { kind: "goto", at: [Math.round(t.x), Math.round(t.y)], radius: 8, foot: true } : { kind: "kill", targets: "saints" } });
@@ -46604,7 +46979,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var T20 = 16;
   var BERTH = { x: 98.5 * T20, y: 106.5 * T20, heading: Math.PI / 2 };
   var ANCHOR = { x: 124.5 * T20, y: 88 * T20, heading: -Math.PI / 2 };
-  var OFF3 = [124.5 * T20, 99 * T20];
+  var OFF4 = [124.5 * T20, 99 * T20];
   var PIER2 = "club-pier";
   var FLARES = { range: 0.8, burst: 0.2, pause: 1.6, aimOff: 0.03 };
   var HOODS4 = { range: 0.55, burst: 0.4, pause: 2.2, aimOff: 0.28 };
@@ -46677,7 +47052,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         // the Regatta (at its berth on a deep link or a retry from far off), Gus at its wheel, Moneybags at anchor
         setup(m) {
           let v = m.one("regatta");
-          if (v && (v.damage.share < 0.6 || Math.hypot(v.x - OFF3[0], v.y - OFF3[1]) > 1400)) m.remove(v);
+          if (v && (v.damage.share < 0.6 || Math.hypot(v.x - OFF4[0], v.y - OFF4[1]) > 1400)) m.remove(v);
           v = regatta(m);
           if (m.vehicle !== v) m.place("player", { in: v });
           moneybags(m);
@@ -46687,7 +47062,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             const c = mm.one("commodore");
             return !c || c.dead;
           }, "the Commodore is overboard");
-          const boat3 = m.one("moneybags"), off2 = OFF3;
+          const boat3 = m.one("moneybags"), off2 = OFF4;
           yield m.first([quiet5(m), m.sequence([
             m.say(["There she is. Get me in close astern and hold her steady."], COMMODORE2),
             Object.assign(
@@ -51991,7 +52366,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       });
       const tips = new Onboarding(game2, TIPS2);
       let playT = 0, wheelT = 0;
-      let radio = null, sound = null, sfx = null, rumble = null, crowdNear = 0, crowdT = 0, lastF = 0;
+      let radio = null, sound = null, sfx = null, rumble = null, haptics = null, crowdNear = 0, crowdT = 0, lastF = 0;
       let pilot = null;
       let slow = 1;
       const saves = makeSaves();
@@ -52289,10 +52664,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         game2.cam.bounds = (v) => map.bounds(v);
         game2.cam.snap = true;
         if (d) {
-          const same = d.from === I0.back.poi, q = same ? I0.back : city.poi(d.from) || I0.back;
-          p.place(q.x, q.y, same ? I0.back.z : 0);
+          const same2 = d.from === I0.back.poi, q = same2 ? I0.back : city.poi(d.from) || I0.back;
+          p.place(q.x, q.y, same2 ? I0.back.z : 0);
           p.mover.vx = p.mover.vy = 0;
-          p.mover.facing = same ? I0.back.facing + Math.PI : Math.PI / 2;
+          p.mover.facing = same2 ? I0.back.facing + Math.PI : Math.PI / 2;
           if (p.inv.current === "fists" && I0.back.weapon && p.inv.has(I0.back.weapon)) p.inv.select(I0.back.weapon);
         }
         if (!game2.headless) floor.warm(p.x, p.y, 420);
@@ -52557,6 +52932,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         } });
         const T33 = city.T, sp = Math.hypot(p.mover.vx, p.mover.vy);
         rumble.frame(dt);
+        haptics.frame(dt);
         sfx.frame(dt, {
           steps: !pv && !p.dead && !inside ? { speed: sp, surface: city.surfaceAt(Math.floor(p.x / T33), Math.floor(p.y / T33)), wet: weather.wet > 0.3 } : !pv && inside ? { speed: sp, surface: "plaza" } : null,
           horns: near4.filter((v) => v.horn).map((v) => ({ id: v.id, x: v.x, y: v.y, kind: v.def.horn })),
@@ -52716,6 +53092,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           } }).attach();
           if (rumble) rumble.dispose();
           rumble = new Rumble(game2, { player: () => crew && crew.ped, off: () => !!demo }).attach();
+          if (haptics) haptics.dispose();
+          haptics = new Haptics(game2, { hid: game2.haptics, player: () => crew && crew.ped, off: () => !!demo, stars, color: () => {
+            const c = crew && chOf(crew.active);
+            return c && c.color;
+          } });
           career.start({ loaded: !!loaded || !!carry, newGame: !carry && (!!(data && data.newGame) || !!broke), mission: route2[0] === "mission" ? route2[1] : null, stage: route2[0] === "mission" ? route2[2] : void 0, level: +links2.query.get("level") || void 0 });
           if (carry) arrive(carry);
           expose("career", career);
@@ -52813,6 +53194,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (rumble) {
             rumble.dispose();
             rumble = null;
+          }
+          if (haptics) {
+            haptics.dispose();
+            haptics = null;
           }
           if (career) {
             career.dispose();

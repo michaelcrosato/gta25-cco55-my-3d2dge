@@ -101,6 +101,10 @@ The defaults; every one can be rebound per context in SETTINGS, CONTROLS. The fu
 | Photo mode | Create | B |
 | Pause | Options | Esc |
 
+A DualSense's adaptive triggers and light bar answer in Chrome and Edge (SETTINGS, CONTROLS, DualSense haptics, switched
+on with a key or a click the first time, and the browser asks which device) and in the desktop app at once: R2 and L2
+by the gun or the car in hand, the light bar the character's colour, red and blue under stars.
+
 ## Source Information
 
 | Item | Value |
@@ -145,6 +149,10 @@ and the feedback for the engine's maintainers is [`docs/FEEDBACK-FOR-ENGINE.md`]
   `tools/botgym.mjs`) both ways, the bot campaign to 100% across the three districts (the bot invulnerable there:
   `--god`) and the rest (`PROGRESS.md` has each run's evidence). In a Claude Code cloud session the SessionStart hook installs everything;
   elsewhere, run `npx playwright install chromium` once.
+- **Desktop:** `npm run desktop` opens the built page in a window of its own (Electron, full screen, a DualSense's
+  WebHID granted with no prompt, nothing let off the machine); `npm run desktop:build` packs it for this platform into
+  `desktop/out/` (Windows, macOS, Linux and the Steam Deck). `desktop/` is a package of its own: the game's install and
+  its gate never fetch Electron.
 - **Deep links:** `#title`, `#play` (or `#play/<spawn>`), `#interior/<id>` (`bank`, `club-chrome`, `power-station`,
   `velvet-casino`), `#attract` (or `#attract/<reel>`), `#mission/<id>/<stage>`,
   `#proving/<zone>`. Options: `?view=iso|top|side7`, `?time=day|dusk|night`, `?weather=`, `?seed=`, `?dev=1` (the dev
@@ -162,6 +170,7 @@ and the feedback for the engine's maintainers is [`docs/FEEDBACK-FOR-ENGINE.md`]
 | `src/motor/`, `src/game/` | MOTOR (the open-city engine layer) and the game's content |
 | `vendor/my-3d2dge/` | the pinned engine, its tools and docs, and its patches |
 | `tools/`, `tests/` | the build, the dev server, the bots, the checks and the test suites |
+| `desktop/` | the desktop wrapper (Electron, a package of its own: `npm run desktop`, `npm run desktop:build`) |
 | `docs/` | `ARCHITECTURE.md`, `CONTENT-GUIDE.md` (a recipe per content type), `CONTROLS.md`, `TUNING.md`, `DECISIONS.md`, `ENGINE-ANALYSIS.md`, `FEEDBACK-FOR-ENGINE.md`, `QA-DUALSENSE.md`, `media/` |
 
 ## Credits

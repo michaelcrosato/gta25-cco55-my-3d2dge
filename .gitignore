@@ -10,3 +10,6 @@ tools/_*.mjs
 
 # workers' git worktrees (Claude Code workflows): never part of the tree
 .claude/worktrees/
+
+# the desktop wrapper's build (L7)
+desktop/out/

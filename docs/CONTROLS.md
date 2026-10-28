@@ -126,4 +126,7 @@ Stand at the cabinet (Club Chrome's VIP lounge) and press △ / E to play; its t
 - The mouse in menus: hover focuses, a click confirms, the wheel scrolls, a right click goes back.
 - Aim with the right stick, or the mouse (the ground under the pointer).
 - Never Ctrl or Alt chords: Ctrl+W closes the tab and Alt opens the browser's menus.
+- A DualSense's triggers and light bar (SETTINGS, CONTROLS, DualSense haptics): in Chrome or Edge switched on with a key
+  or a click (the browser asks which device; a pad's button can't open its prompt), in the desktop app at once.
+- The desktop app: F11 out of full screen and back; Esc stays the pause.
 

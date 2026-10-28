@@ -2147,3 +2147,44 @@ and where it landed.
     Gilded Lily's, Zappo Cola's, a white crossing or a pale wall they had not read.
   - **The docs:** README for the full game; ARCHITECTURE's proofs; this.
 - **Answered:** no. **Landed in:** X8.
+
+## D46 · 2026-10-27 · L7: a desktop wrapper, and the DualSense's own haptics by WebHID
+
+- **Asked:** HANDOFF L7: a desktop wrapper (Electron or Tauri, for desktops and the Steam Deck) round the one-file page,
+  which stays unchanged, the wrapper a dev dependency with its own build output; and real DualSense haptics and
+  adaptive triggers through WebHID on desktop Chrome, with the rumble as the fallback.
+- **Decided:**
+  - **Electron, not Tauri:** Tauri's Linux webview is WebKitGTK, which has no WebHID and reports a DualSense with other
+    button numbers (QA-DUALSENSE 6): on Linux and the Steam Deck the triggers would never answer, and the pad would read
+    as Firefox's and Safari's do. Electron is Chromium: the page plays as it does in Chrome, WebHID and the Gamepad API
+    alike.
+  - **`desktop/`, a package of its own** (`desktop/package.json`: Electron and `@electron/packager` its dev
+    dependencies, its own lock): the game's own install, CI's `npm test` job and a session's setup never fetch it.
+    `npm run desktop` runs it in the tree, `npm run desktop:build` packs it (`desktop/out/`, ignored). Electron fetches
+    its binary on first use, not at install.
+  - **The wrapper** (`desktop/main.cjs`) loads `dist/index.html` unchanged from the file it is (packed beside it), full
+    screen with no browser round it (F11 out and in; Esc stays the game's pause); the page's process sandboxed with no
+    Node; a DualSense or DualSense Edge granted to the page's WebHID with no chooser and nothing else granted; every
+    request off the machine cancelled (the page needs none); no other window and no navigation off the page; a photo
+    saved into Pictures. macOS keeps an app menu for ⌘Q.
+  - **The DualSense by WebHID** (`src/motor/input/dualsense-hid.js`): its output report as the Linux driver
+    (hid-playstation) writes it, by USB (report 0x02) and by Bluetooth (0x31, its sequence tag and CRC-32 seeded 0xA2);
+    each part behind its own valid flag, so a report for the motors leaves the triggers and the light as they were; one
+    report a frame at most, of what changed. The triggers in Sony's zone forms (feedback, weapon, vibration). Opened
+    where the page has one granted (the desktop app: at once; Chrome and Edge: SETTINGS, CONTROLS, DualSense haptics,
+    switched on with a key or a click, the browser's prompt needing one, a pad's button can't); opened again when it is
+    plugged in again.
+  - **What it plays** (`src/motor/input/haptics.js`, presentation only, never headless): R2 and L2 by what the player
+    holds (a gun's break by its kick, an automatic's buzz at its rate, a heavy one's long pull, slack when empty or
+    reloading; a car's throttle and brake by its weight, the engine coughing when it smokes, slack in the air; a plane's
+    stall shaking R2; boats and the helicopter light); the light bar the character's colour (Dex red, Viv teal, Gus
+    orange), the police's red and blue under stars, a red pulse badly hurt; the player lights the stars. The pause, the
+    map and the menus free the triggers; the attract mode rests them and dims the light. The rumble goes out in the same
+    report while a DualSense is open, else by the Gamepad API as before.
+  - **Proved** by tests of the report's bytes against the driver's layout (and the CRC), of the effects by state, and of
+    the wrapper against a stand-in Electron (in `npm test`); Electron itself by CI's `desktop` job (its binary from
+    Electron's releases: the page loaded under a virtual display, the game up, WebHID there, the network shut, a
+    window.open refused; the Linux build packed, an artifact). How it feels is the owner's: QA-DUALSENSE 6 and 7.
+  - **Not here:** this container can't fetch Electron's binary from its releases (github.com is outside its network
+    policy), and a mirror's copy was not run: the wrapper's run of record is CI's.
+- **Answered:** no. **Landed in:** L7.

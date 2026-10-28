@@ -6,13 +6,14 @@ const DET = 'Determinism: take time from dt / game.time and randomness from MOTO
 const SIM = ['src/motor/{core,sim,nav,ai,play,mission,save,combat,actors}/**/*.js', 'src/game/**/*.js'];
 
 export default [
-  { ignores: ['vendor/**', 'dist/**', 'node_modules/**', 'check-output/**', '.cache/**', '.claude/**', 'docs/handoff/**', 'tools/_*.mjs'] },   // (tools/_*.mjs: local probes, git-ignored)
+  { ignores: ['vendor/**', 'dist/**', 'node_modules/**', 'check-output/**', '.cache/**', '.claude/**', 'docs/handoff/**', 'tools/_*.mjs', 'desktop/out/**'] },   // (tools/_*.mjs: local probes, git-ignored)
   js.configs.recommended,
   { files: ['src/**/*.js'], languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.browser } } },
-  { files: ['tools/**/*.mjs', 'tools/**/*.js', 'tests/**/*.mjs', 'eslint.config.js'], languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.node } } },
+  { files: ['tools/**/*.mjs', 'tools/**/*.js', 'tests/**/*.mjs', 'eslint.config.js', 'desktop/**/*.mjs'], languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.node } } },
+  { files: ['desktop/**/*.cjs'], languageOptions: { ecmaVersion: 2022, sourceType: 'commonjs', globals: { ...globals.node } } },   // (the desktop wrapper's main, L7)
   // browser-side callbacks (page.evaluate) live in the e2e scripts and the tools that drive a page
   { files: ['tests/e2e/**/*.mjs', 'tests/review/**/*.mjs', 'tools/**/*.mjs'], languageOptions: { globals: { ...globals.browser, ...globals.node } } },   // (FAN-OUT B's browser repros too)
-  { files: ['**/*.{js,mjs}'], rules: { 'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', varsIgnorePattern: '^_' }], 'no-empty': ['error', { allowEmptyCatch: true }] } },
+  { files: ['**/*.{js,mjs,cjs}'], rules: { 'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', varsIgnorePattern: '^_' }], 'no-empty': ['error', { allowEmptyCatch: true }] } },
   // ** is pow without Math.pow, so it would bypass MOTOR's deterministic Math (D33): src writes Math.pow
   { files: ['src/**/*.js'], rules: { 'no-restricted-syntax': ['error', ...['BinaryExpression', 'AssignmentExpression'].map(t => ({ selector: `${t}[operator=/^\\*\\*/]`, message: 'Determinism across runtimes: write Math.pow, not ** (D33)' }))] } },
   { files: SIM, rules: {

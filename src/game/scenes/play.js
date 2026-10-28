@@ -28,7 +28,7 @@
 import { E, def, get, all, expose, BUS, RNG, TUNE, knob, FloorChunks, WorldClock, Weather, Drawbridge, Transit, Crossings, Arcade, skyAt, indoorSky, InteriorRun, drawBoxModel, carModel,
   Ped, Crew, Combat, CombatFX, Wheel, WeaponWheel, wheelPointer, drawPedHud, drawAimMarks, losClear, clearIntent, makeIntent,
   Fleet, VehicleFX, drawVehicle, drawTrain, drawVehicleHud, spawnFleet, boardingFor, inReach, exitFor, standable, boxDistance, stationLabel, modelOf, SpeedZoom, CityLife, AutoPlayer, roadsOf, flyer, aloft,
-  Radar, drawWanted, hudLayout, drawSubtitle, setting, toggled, flashScale, resetActorIds, DIFFICULTY, Onboarding, Radio, AudioDirector, SfxMap, Rumble, PhotoMode, Overlays, devScreen, WEATHERS } from '../../motor/index.js';
+  Radar, drawWanted, hudLayout, drawSubtitle, setting, toggled, flashScale, resetActorIds, DIFFICULTY, Onboarding, Radio, AudioDirector, SfxMap, Rumble, Haptics, PhotoMode, Overlays, devScreen, WEATHERS } from '../../motor/index.js';
 import { VIGNETTE_PROPS } from '../characters/vignette-props.js';
 import { Career } from './career.js';
 import { cityFor, citySeed } from './lowtown.js';
@@ -78,7 +78,7 @@ export const PLAY = {
     const tips = new Onboarding(game, TIPS); let playT = 0, wheelT = 0;   // (the first-time hints; seconds of play, and at the wheel)
     // the sound (M10, presentation): the radio's stations as timelines (the same each seed), the director playing what
     // the possessed one's vehicle is tuned to and a job's score, the continuous voices and the SFX map; fed each frame
-    let radio = null, sound = null, sfx = null, rumble = null, crowdNear = 0, crowdT = 0, lastF = 0;
+    let radio = null, sound = null, sfx = null, rumble = null, haptics = null, crowdNear = 0, crowdT = 0, lastF = 0;
     let pilot = null;   // (tests and tools: a function (dt, ped) -> Intent in place of the player's controller)
     let slow = 1;   // (a job's slow motion: m.slowmo)
     const saves = makeSaves();
@@ -374,7 +374,7 @@ export const PLAY = {
         vehicles: near.filter(v => v.speed > 5 || v === mine).map(v => ({ id: v.id, x: v.x, y: v.y, speed: v.speed, slip: v.body && v.body.felt ? Math.abs(v.body.felt.slip) * (v.speed > 60 ? 1 : 0) : 0, mine: v === mine })),
         sirens: near.filter(v => v.siren).map(v => ({ id: v.id, x: v.x, y: v.y, vx: v.body ? v.body.vx : 0, vy: v.body ? v.body.vy : 0, kind: v.def.role === 'police' ? 'two' : 'wail' })) } });
       const T = city.T, sp = Math.hypot(p.mover.vx, p.mover.vy);
-      rumble.frame(dt);
+      rumble.frame(dt); haptics.frame(dt);
       sfx.frame(dt, { steps: !pv && !p.dead && !inside ? { speed: sp, surface: city.surfaceAt(Math.floor(p.x / T), Math.floor(p.y / T)), wet: weather.wet > .3 } : !pv && inside ? { speed: sp, surface: 'plaza' } : null,
         horns: near.filter(v => v.horn).map(v => ({ id: v.id, x: v.x, y: v.y, kind: v.def.horn })),
         rings: inside || career.R.active ? [] : career.available().filter(m => m.giver && m.giver.phone).map(m => { const at = career.giverOf(m); return at && Math.hypot(at[0] - fx0, at[1] - fy0) < 320 ? { x: at[0], y: at[1], gang: m.giver.phone } : null; }).filter(Boolean) });
@@ -447,6 +447,7 @@ export const PLAY = {
         if (sound) sound.dispose(); sound = new AudioDirector(game, { radio });
         if (sfx) sfx.dispose(); sfx = new SfxMap(game, () => { const q = hero(), v = q.seat && q.seat.vehicle; return v ? [v.x, v.y] : [q.x, q.y]; }, { isPlayer: id => !!crew.ped && crew.ped.id === id, where: id => { const v = fleet.vehicles.find(q => q.id === id); return v ? [v.x, v.y] : null; } }).attach();
         if (rumble) rumble.dispose(); rumble = new Rumble(game, { player: () => crew && crew.ped, off: () => !!demo }).attach();   // (the controller's: never in the demo)
+        if (haptics) haptics.dispose(); haptics = new Haptics(game, { hid: game.haptics, player: () => crew && crew.ped, off: () => !!demo, stars, color: () => { const c = crew && chOf(crew.active); return c && c.color; } });   // (a DualSense's triggers and light, L7)
         career.start({ loaded: !!loaded || !!carry, newGame: !carry && (!!(data && data.newGame) || !!broke), mission: route[0] === 'mission' ? route[1] : null, stage: route[0] === 'mission' ? route[2] : undefined, level: +links.query.get('level') || undefined });
         if (carry) arrive(carry);
         expose('career', career); expose('pilot', f => { pilot = f || null; }); expose('context', () => (cab ? 'arcade' : hero().seat ? 'vehicle' : 'onFoot')); expose('sound', sound); expose('radio', radio);   // (context: the controls in use, for a pad pilot)
@@ -465,7 +466,7 @@ export const PLAY = {
         game.stateHash = () => [...crew.order.flatMap(id => { const p = crew.member(id).ped, at = inside && inside.run.player === p ? inside.back : p; return [Math.round(at.x * 8), Math.round(at.y * 8), Math.round(at.z * 8), Math.round(p.health * 10)]; }),
           crew.order.indexOf(crew.active), Math.round(clock.hour * 60), weather.index, Math.round(weather.wet * 100), ...bridges.map(b => Math.round(b.lift * 100)), combat.hash(), fleet.hash(), ...(life ? life.hash() : []), ...(inside ? inside.run.hash() : []), crew.fund, ...(career ? career.hash() : [])];
       },
-      exit() { closeCabinet(); photo.exit(); if (sound) { sound.dispose(); sound = null; } if (sfx) { sfx.dispose(); sfx = null; } if (rumble) { rumble.dispose(); rumble = null; } if (career) { career.dispose(); career = null; } game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (inside) { inside.run.dispose(); inside = null; BUS.unmute('world'); } if (life) { life.dispose(); life = null; } if (auto) { auto.dispose(); auto = null; } for (const u of unsub) u(); unsub = []; },
+      exit() { closeCabinet(); photo.exit(); if (sound) { sound.dispose(); sound = null; } if (sfx) { sfx.dispose(); sfx = null; } if (rumble) { rumble.dispose(); rumble = null; } if (haptics) { haptics.dispose(); haptics = null; } if (career) { career.dispose(); career = null; } game.lights.enabled = false; game.timeScale = 1; stage.top.hold = null; game.setZoom(1); if (inside) { inside.run.dispose(); inside = null; BUS.unmute('world'); } if (life) { life.dispose(); life = null; } if (auto) { auto.dispose(); auto = null; } for (const u of unsub) u(); unsub = []; },
       update(dt) {
         const real = dt / Math.max(.05, game.timeScale);
         if (photo.active) {   // photo mode: the world held still, the camera free (nothing below runs: no clock, no traffic, no job)

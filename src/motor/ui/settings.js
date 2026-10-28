@@ -1,6 +1,6 @@
 // The player's settings (PLAN.md 8.18): the engine's own store (game.settings: saved under the game's id, apart from the
 // save and the tuning, and applied as they load) with MOTOR's added to it. The settings screen shows them in five tabs:
-//   CONTROLS: the stick's dead zone, invert, vibration, the button symbols, then the layout and each context's bindings;
+//   CONTROLS: the stick's dead zone, invert, vibration, a DualSense's haptics, the button symbols, then the layout and each context's bindings;
 //   DISPLAY: the default view, Auto-rail, Sharp MODE 7, the HUD size, subtitles, colourblind markers, and the engine's
 //            screen shake, flashes and reduced motion;
 //   AUDIO: the engine's sound, master volume, music and effects, and the radio's volume and its DJ chatter;
@@ -13,7 +13,7 @@ import { PROMPTS } from '../input/prompts.js';
 import { MARKERS } from './radar.js';
 
 export const SETTING_TABS = [
-  { id: 'controls', label: 'CONTROLS', keys: ['deadzone', 'invertY', 'rumble', 'promptStyle'] },
+  { id: 'controls', label: 'CONTROLS', keys: ['deadzone', 'invertY', 'rumble', 'haptics', 'promptStyle'] },
   { id: 'display', label: 'DISPLAY', keys: ['defaultView', 'quality', 'autoRail', 'sharpSide7', 'hudSize', 'subtitles', 'colorblind', 'speedometer', 'shake', 'flashes', 'motion'] },
   { id: 'audio', label: 'AUDIO', keys: ['sound', 'volume', 'music', 'radio', 'effects', 'djChatter'] },
   { id: 'game', label: 'GAME', keys: ['difficulty', 'aimAssist', 'autosave'] },
@@ -37,6 +37,8 @@ export function defineSettings(game) {
   const def = sp => { if (!S.spec(sp.key)) S.define(sp); };
   def({ key: 'promptStyle', group: 'Controller', label: 'Button symbols', type: 'select', value: 'auto', options: [['auto', 'Auto'], ['playstation', 'PlayStation'], ['xbox', 'Xbox'], ['nintendo', 'Nintendo'], ['keyboard', 'Keyboard']],
     help: 'Auto: the symbols of the controller in use, or the keys', apply: (g, v) => { PROMPTS.keys = v === 'keyboard'; if (g.input) g.input.glyphs = v === 'keyboard' ? 'auto' : v; } });
+  def({ key: 'haptics', group: 'Controller', label: 'DualSense haptics', type: 'toggle', value: true, help: 'A DualSense\'s triggers and light bar (in Chrome or Edge, the first time: a key or a click, and the browser asks which)',
+    apply: (g, v) => { const H = g.haptics; if (!H) return; if (v) H.connect(true); else H.close(); } });   // (a key or a click grants the browser's prompt; a pad's button can't)
   def({ key: 'defaultView', group: 'Display', label: 'Default view', type: 'select', value: 'iso', options: [['iso', 'ISO'], ['top', 'Top-down'], ['side7', 'Mode 7'], ['chase', 'Chase']], help: 'The view a game starts in' });
   def({ key: 'autoRail', group: 'Display', label: 'Auto-rail', type: 'toggle', value: true, help: 'MODE 7 in a vehicle: the rail turns to the way you have held', apply: (g, v) => tuneSet('autoRail', v ? 1 : 0) });
   def({ key: 'quality', group: 'Display', label: 'Graphics', type: 'select', value: 'full', options: [['full', 'Full'], ['fast', 'Fast']], help: 'Fast, for a slower machine: a coarser light, the crowd animated less often, half the rain', apply: (g, v) => { for (const [k, full, fast] of QUALITY) tuneSet(k, v === 'fast' ? fast : full); } });

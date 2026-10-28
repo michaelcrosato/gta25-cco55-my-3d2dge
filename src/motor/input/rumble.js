@@ -1,5 +1,6 @@
 // The controller's rumble (PLAN.md 8.1): the profiles, from the BUS and the frame, played through the engine's
-// input.rumble (scaled by the Vibration setting; nothing without a pad). Presentation only: it listens and shakes,
+// input.rumble (scaled by the Vibration setting; nothing without a pad), or, while a DualSense is open by WebHID
+// (input/dualsense-hid.js, L7), through that controller's own report with its triggers and light. Presentation only: it listens and shakes,
 // nothing reads it back, a headless game never rumbles, and neither does the attract mode (a demo would buzz a
 // controller left on the table).
 //   - crash: the player's vehicle hit, by how hard;
@@ -20,6 +21,7 @@ export class Rumble {
   shake(k, secs) {
     const G = this.game; if (G.headless || this.off() || !G.input || !G.input.rumble || !(k > 0)) return false;
     this.played.push([+k.toFixed(2), +secs.toFixed(2)]); if (this.played.length > 16) this.played.shift();   // (the last few, for the tests)
+    const H = G.haptics; if (H && H.connected) { const q = Math.min(1, k) * Math.max(0, Math.min(1, G.input.rumbleScale ?? .6)); return q > 0 && H.motors(q, Math.min(1, q * 1.25), secs); }   // (a DualSense opened by WebHID: its own report, L7)
     return G.input.rumble(Math.min(1, k), secs);
   }
   /** listen to the game's events (the scene's scope: gone with the scene) */

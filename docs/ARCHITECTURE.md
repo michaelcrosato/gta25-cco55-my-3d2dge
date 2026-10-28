@@ -41,6 +41,8 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | Deep links, the console handle `__gtm`, `game.debug.snapshot` | `src/motor/debug/` | M0 |
 | Per-context bindings over raw devices (GTM-PATCH 4), the activity monitor, glyphs, `{action}` prompts | `src/motor/input/` | M1 |
 | The HumanController (bindings → a world-space Intent) | `src/motor/input/human.js` | M1 |
+| The DualSense by WebHID (its output report by USB and by Bluetooth: the adaptive triggers, the motors, the light bar, the player lights) and what plays on it (R2 and L2 by what the player holds, the light bar the character's colour and the stars); the rumble by it while it is open, else by the Gamepad API | `src/motor/input/dualsense-hid.js`, `haptics.js`, `rumble.js` | L7 |
+| The desktop wrapper (Electron: the page unchanged, full screen, a DualSense granted with no chooser, nothing let off the machine; packed per platform) | `desktop/` | L7 |
 | Actor, Intent, the footprint rings | `src/motor/sim/actor.js`, `intent.js`, `footprint.js` | M1 |
 | The view manager (`iso`, `top`, `side7`; emits `view`) | `src/motor/render/view-manager.js` | M0, M1 |
 | The floor chunks (world-space bakes, LRU, one affine blit per chunk in ISO) | `src/motor/render/floor-chunks.js` | M1 (S2) |

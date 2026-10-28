@@ -1,0 +1,16 @@
+{
+  "name": "grand-theft-moto-desktop",
+  "productName": "GRAND THEFT MOTO",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The desktop wrapper (L7): dist/index.html in a window of its own, for desktops and the Steam Deck.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "44.7.0"
+  }
+}
