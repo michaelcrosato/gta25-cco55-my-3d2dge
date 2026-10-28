@@ -34,7 +34,8 @@ so a session that stops anywhere can resume from it: the work in flight is liste
   back in test:full (L3, superseding D29's first call), PLAN.md 19's backlog on Lowtown (L4), `docs/EXPANSION.md`
   (L5) and the full game it plans, built (L6: Ironside and Glass Heights, seven gangs, 32 missions, planes and boats,
   the campaign at 100% across the three districts), the desktop wrapper and the DualSense by WebHID (L7). Each closed
-  with `npm run test:full` passing alone on its last commit, L7's on `9890e8f`.
+  with `npm run test:full` passing alone on its last commit, L7's on `9890e8f`; it passed again on the PR's head with
+  L8's fix (`5b55a08`), and CI is green there.
 - **L8, with the owner** (nothing has left the repository): the offer upstream (the seven patches' issue texts in
   `vendor/my-3d2dge/PATCHES.md` and the feedback F7 in `docs/FEEDBACK-FOR-ENGINE.md`, brought up to date with L1-L7),
   the DualSense checklist (`docs/QA-DUALSENSE.md`, sections 1-7, for a person with the pad and a TV) and that PR's
