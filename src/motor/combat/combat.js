@@ -75,7 +75,11 @@ export class Combat {
     }
     let spread = spec.spread * p.stats.spread() * (ab ? ab.spread : 1) * (moving ? TUNE.moveSpread : 1) * (p.crouching ? TUNE.crouchSpread : 1);
     // the shot's line: from the muzzle to what is aimed at (a lock, the assist, the mouse from a roof), or level along the aim
-    const damage = spec.damage * (ab ? ab.damage : 1), at = A.pitchTo;
+    const damage = spec.damage * (ab ? ab.damage : 1); let at = A.pitchTo;
+    if (!A.target) {   // (no lock: a car under the point, or one in the line before what the assist pulled to, takes the shot)
+      const car = this._atCar(p, muzzle, A, spec, seat), far = q => Math.hypot(q[0] - muzzle[0], q[1] - muzzle[1]);
+      if (car && (!at || A.point || far(car) + 24 < far(at))) at = car;
+    }
     let base = at ? [at[0] - muzzle[0], at[1] - muzzle[1], at[2] - muzzle[2]] : [A.dir[0], A.dir[1], 0];
     if (at) { const l = Math.hypot(...base); if (l > 12) base = base.map(v => v / l); else base = shotFrom(p, A.dir, at); }
     if (spec.projectile === 'photo') { this._photo(p, spec); return; }   // (the Snap: a picture, no muzzle and no crime)
@@ -86,17 +90,17 @@ export class Combat {
       this._sfx('boom', { vol: .5 }); return;
     }
     if (spec.projectile === 'zap') { this._zap(p, spec, muzzle, A.dir, damage); this._sfx('laser'); return; }
-    const pellets = spec.projectile === 'pellets' ? spec.pellets : 1, flame = spec.projectile === 'stream';
+    const pellets = spec.projectile === 'pellets' ? spec.pellets : 1, flame = spec.projectile === 'stream', flare = spec.projectile === 'flare';
     for (let i = 0; i < pellets; i++) {
       const a = (this.rs.next() * 2 - 1) * spread * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
       const dir = [base[0] * c - base[1] * s, base[0] * s + base[1] * c, base[2] + (flame ? (this.rs.next() - .5) * .08 : 0)];
-      const pb = !flame && !seat ? this._pointBlank(p, muzzle) : null;   // (one nearer than the muzzle: the shot can't start past it)
+      const pb = !flame && !flare && !seat ? this._pointBlank(p, muzzle) : null;   // (one nearer than the muzzle: the shot can't start past it)
       if (pb) { this.hurt(pb.t, { amount: damage, kind: pellets > 1 ? 'pellet' : 'bullet', by: p.id, at: pb.at, dir: [dir[0], dir[1]] }); continue; }
       this.shots.fire({ x: muzzle[0], y: muzzle[1], z: muzzle[2], dir, speed: spec.speed, range: spec.range * (flame ? .7 + this.rs.next() * .3 : 1), damage, by: p.id, team: p.faction, weapon: spec.id, vehicle: seat ? seat.body.id : null,
-        kind: flame ? 'flame' : pellets > 1 ? 'pellet' : 'bullet', tracer: !flame && (pellets > 1 ? i % 3 === 0 : spec.rate < 6 || p.inv.fired % 2 === 0),
-        casing: !flame && i === 0 && spec.projectile === 'bullet' ? [muzzle[0], muzzle[1], muzzle[2], 1] : null });
+        kind: flame ? 'flame' : flare ? 'flare' : pellets > 1 ? 'pellet' : 'bullet', tracer: !flame && !flare && (pellets > 1 ? i % 3 === 0 : spec.rate < 6 || p.inv.fired % 2 === 0),
+        casing: !flame && i === 0 && spec.projectile === 'bullet' ? [muzzle[0], muzzle[1], muzzle[2], 1] : null, burn: spec.burn || 0 });
     }
-    if (!flame) this._sfx(spec.sound === 'shotgun' ? 'explode' : 'shoot', { vol: spec.sound === 'smg' ? .45 : .6, pitch: spec.sound === 'smg' ? 1.25 : spec.sound === 'shotgun' ? .7 : 1 });
+    if (!flame) this._sfx(spec.sound === 'shotgun' ? 'explode' : 'shoot', { vol: spec.sound === 'smg' ? .45 : .6, pitch: spec.sound === 'smg' ? 1.25 : spec.sound === 'shotgun' || flare ? .7 : 1 });
   }
   // point blank: the muzzle is a gun's length out (a posed hand's, 18 u), so a body between the shooter's chest and it (a
   // bat swung in the face) takes the shot where the line meets it: { t, at } or null
@@ -168,6 +172,35 @@ export class Combat {
     if (r.killed) { this.kills++; BUS.emit('kill', { target: t.id, by: o.by, kind: o.kind, gang: t.gang || null, faction: t.faction || null }); BUS.emit('crime', { type: 'murder', x: at[0], y: at[1], by: o.by, victim: t.id, victimFaction: t.faction || null, severity: 3, lawful: by ? by.faction === 'police' : false }); }   // (who the victim was rides with the news: one in a car is no Combat body)
     return r;
   }
+  // a level shot at a car lower than the muzzle (a posed rig's, at the shoulder): at its flank, not along the aim, which
+  // flew over its roof (the Flare Gun's flares at the Velvet limos had sailed on past them, or to a passer-by the assist
+  // found beyond). The car aimed at: the one under the mouse's point (or a bot's), else, the aim free (a stick's), the
+  // first along its line within the range. A
+  // body posed only when drawn (the crowd's, the police's, the gangs') holds its gun lower, under a roof already; a
+  // bike's rider sits in the open, a body to aim at. Null where there is none
+  _atCar(p, m, A, spec, seat) {
+    if (seat || p.lazyRig) return null;
+    const q = A.point, dir = A.dir, range = (spec && spec.range) || 300;
+    let best = q ? 0 : range, hit = null;
+    for (const t of this.boxes) {
+      if (!t.hurt || !t.hl || t.cls === 'bike' || Math.abs((t.z || 0) - (p.z || 0)) > 20 || (t.z || 0) + (typeof t.height === 'number' ? t.height : 20) >= m[2]) continue;
+      const c = Math.cos(-(t.heading || 0)), s = Math.sin(-(t.heading || 0));
+      if (q) { const ox = q[0] - t.x, oy = q[1] - t.y; if (Math.abs(ox * c - oy * s) <= t.hl + 4 && Math.abs(ox * s + oy * c) <= t.hw + 4) { hit = t; break; } continue; }
+      if (Math.abs(t.x - m[0]) > range + 80 || Math.abs(t.y - m[1]) > range + 80) continue;
+      const ox = m[0] - t.x, oy = m[1] - t.y, lx = ox * c - oy * s, ly = ox * s + oy * c, dx = dir[0] * c - dir[1] * s, dy = dir[0] * s + dir[1] * c;
+      let t0 = 0, t1 = best;   // (the line's entry into the box, in the box's frame)
+      for (const [o, d, h] of [[lx, dx, t.hl], [ly, dy, t.hw]]) {
+        if (Math.abs(d) < 1e-9) { if (Math.abs(o) > h) t0 = Infinity; continue; }
+        let ta = (-h - o) / d, tb = (h - o) / d; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb);
+      }
+      if (t0 <= t1 && t0 < best) { best = t0; hit = t; }
+    }
+    if (!hit) return null;
+    const z = (hit.z || 0) + Math.min(14, (typeof hit.height === 'number' ? hit.height : 20) * .55);
+    return q ? [q[0], q[1], z] : [m[0] + dir[0] * (best + 6), m[1] + dir[1] * (best + 6), z];
+  }
+  // a flare's end (EXPANSION.md 6, X6): the Molotov's fire, as a shot: a pool of burning phosphor where it lands
+  _flarePool(x, y, d) { if (this.fire) this.fire.add(x, y, 12, 1, Math.min(3, d.burn || 3), .8, d.by); this._sfx('hurt', { pitch: 1.8, vol: .35 }); }
   /** a body standing in fire, or burning itself: damage, and the cells it crosses catch */
   burnBody(p, dt) { this.hurt(p, { amount: TUNE.fireDps * dt, kind: 'fire', by: p.burnBy ?? null }); if (this.fire && !p.dead) this.fire.ignite(p.x, p.y, p.burnBy ?? null); }   // (in the name of whoever set them alight, as is the trail they leave)
   // clear sight between two points for a zap (cell heights, at the shooter's height)
@@ -184,12 +217,13 @@ export class Combat {
     const bodies = this.bodies.filter(b => !b.dead);
     this.shots.update(dt, { map: this.map, city: this.city, bodies, boxes: this.boxes, ground: this.map && this.map.groundAt ? (x, y, z) => this.map.groundAt(x, y, 1, z) : null,
       onHit: (b, t, at) => {
-        const flame = b.data.kind === 'flame';
+        const flame = b.data.kind === 'flame', flare = b.data.kind === 'flare';
         this.hurt(t, { amount: b.dmg, kind: flame ? 'fire' : b.data.kind === 'pellet' ? 'pellet' : 'bullet', by: b.data.by, at, dir: [b.vx, b.vy].map(v => v / (Math.hypot(b.vx, b.vy) || 1)) });
         if (flame && t.ignite) t.ignite(3, b.data.by);
+        if (flare) { if (t.ignite) t.ignite(b.data.burn || 4, b.data.by); else if (t.catchFire) t.catchFire(b.data.by); this._flarePool(at[0], at[1], b.data); }   // (it sets what it hits burning: a body, a vehicle)
       },
-      onWall: (b, at) => { if (b.data.kind === 'flame' && this.fire) this.fire.add(at[0], at[1], 4, .8, 1.5, .5, b.data.by); else this._fx('spark', at[0], at[1], at[2]); },
-      onEnd: b => { if (b.data.kind === 'flame' && this.fire) this.fire.add(b.x, b.y, 4, .8, 1.5, .5, b.data.by); } });
+      onWall: (b, at) => { if (b.data.kind === 'flame' && this.fire) this.fire.add(at[0], at[1], 4, .8, 1.5, .5, b.data.by); else if (b.data.kind === 'flare') this._flarePool(at[0], at[1], b.data); else this._fx('spark', at[0], at[1], at[2]); },
+      onEnd: b => { if (b.data.kind === 'flame' && this.fire) this.fire.add(b.x, b.y, 4, .8, 1.5, .5, b.data.by); else if (b.data.kind === 'flare') this._flarePool(b.x, b.y, b.data); } });
     this.explosives.update(dt, { map: this.map, city: this.city, bodies, boxes: this.boxes, explosive: this.explosive,
       hurt: (t, amount, b, o) => this.hurt(t, { amount, kind: b.source === 'molotov' ? 'fire' : 'explosion', by: b.by, knock: o.knock, dir: o.dir, knockdown: b.source !== 'molotov' && amount > 8 }),
       onBlast: b => {

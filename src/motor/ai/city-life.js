@@ -46,7 +46,7 @@ export class CityLife {
     this.t += dt; this.player = ctx.ped || null;
     const pedsNear = this.crowd ? (x, y, r) => this.crowd.pedsNear(x, y, r) : null, B = ctx.bridges || [];
     const closed = B.length ? id => B.some(b => b.id === id && b.closed) : null, closedAt = B.length ? (x, y) => B.some(b => b.closed && b.contains(x, y)) : null;
-    if (this.crowd) this.crowd.update(dt, { t: this.t, night: !!ctx.night, wet: ctx.wet || 0, closedAt, player: ctx.ped || null, others: [...(ctx.others || []), ...(this.services ? this.services.bodies : []), ...(this.police ? this.police.bodies : []), ...(this.gangs ? this.gangs.bodies : [])] });
+    if (this.crowd) this.crowd.update(dt, { t: this.t, night: !!ctx.night, wet: ctx.wet || 0, closedAt, player: ctx.ped || null, truce: this.gangs ? this.gangs.allies : null, others: [...(ctx.others || []), ...(this.services ? this.services.bodies : []), ...(this.police ? this.police.bodies : []), ...(this.gangs ? this.gangs.bodies : [])] });
     const sirens = this.fleet.vehicles.filter(v => v.siren && !(v.duty && v.duty.out)), W = { fleet: this.fleet, t: this.t, pedsNear, wet: ctx.wet || 0, sirens, closed };
     if (this.traffic) this.traffic.update(dt, { t: this.t, night: !!ctx.night, wet: ctx.wet || 0, player: ctx.player || null, pedsNear, sirens, closed, bridgeUp: closed });
     if (this.services) this.services.update(dt, { t: this.t });

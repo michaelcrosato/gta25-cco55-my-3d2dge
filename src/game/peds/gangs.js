@@ -1,4 +1,4 @@
-// The gangs' members (PLAN.md 9.8): a grunt and an enforcer for each of the three, in their gang's colours (every one
+// The gangs' members (PLAN.md 9.8): a grunt and an enforcer for each, in their gang's colours (every one
 // its own mix of them), carrying its weapons (src/game/gangs.js). Never picked by the crowd's civilian spawner: the
 // gangs put them down themselves (gangs.js).
 import { def } from '../../motor/index.js';
@@ -16,3 +16,23 @@ G('gnome-grunt', { name: 'Lawn Gnome', faction: 'gnomes', builds: ['chibi'], out
   palettes: { cloth: ['#ff8ac8', '#8affc8'], coat: ['#8affc8', '#5ad8a0'], pants: ['#4a6a5a', '#5a4a6a'] }, weapons: ['slugger'], health: 100 });
 G('gnome-enforcer', { name: 'Gnome enforcer', faction: 'gnomes', builds: ['bulky'], outfits: ['coat'], sleeves: ['long'], hairs: ['long'], hats: [{ style: 'pointed', color: '#ff4a8a' }],
   palettes: { cloth: ['#ff8ac8'], coat: ['#8affc8'], pants: ['#4a6a5a'], hair: ['#e8e8ec', '#d8d8dc'] }, weapons: ['slugger', 'pineapple'], health: 140, armor: 30 });
+// Ironside's (EXPANSION.md 3): the Rust Monks in brown robes under welding masks, the bronze of their trim; the Volt Boys
+// in safety-yellow coats and hard hats over black
+G('monk-grunt', { name: 'Rust Monk', faction: 'monks', builds: ['heroic', 'bulky'], outfits: ['robe'], sleeves: ['long'], hairs: ['bald', 'short'], hats: [{ style: 'helmet', color: '#3a3a40' }, { style: 'helmet', color: '#5a4a3a' }, null],
+  palettes: { cloth: ['#6a4028', '#7a4a2a', '#5a3a26'], coat: ['#c8642a', '#a85a2a'], pants: ['#3a2a20', '#2a2420'], belt: ['#d8b060'] }, weapons: ['fists', 'nailgun'], health: 100 });
+G('monk-enforcer', { name: 'Monk enforcer', faction: 'monks', builds: ['bulky'], outfits: ['robe'], sleeves: ['long'], hairs: ['bald'], hats: [{ style: 'helmet', color: '#2a2a30' }],
+  palettes: { cloth: ['#5a3420'], coat: ['#c8642a'], pants: ['#2a2420'], belt: ['#d8b060'] }, weapons: ['fists', 'slugger', 'nailgun'], health: 140, armor: 30 });
+G('volt-grunt', { name: 'Volt Boy', faction: 'volts', builds: ['heroic', 'chibi'], outfits: ['coat', 'shirt'], hairs: ['short', 'spiky'], hats: [{ style: 'helmet', color: '#ffd23a' }, { style: 'cap', color: '#26262c' }],
+  palettes: { cloth: ['#26262c', '#ffd23a'], coat: ['#ffd23a', '#e8c020', '#f0d840'], pants: ['#26262c', '#3a3a40'] }, weapons: ['fists', 'zapomatic'], health: 100 });
+G('volt-enforcer', { name: 'Volt enforcer', faction: 'volts', builds: ['bulky'], outfits: ['coat'], sleeves: ['long'], hairs: ['short', 'bald'], hats: [{ style: 'helmet', color: '#ffd23a' }],
+  palettes: { cloth: ['#26262c'], coat: ['#ffd23a'], pants: ['#1e1e24'] }, weapons: ['fists', 'zapomatic', 'teslacoil'], health: 140, armor: 30 });
+// Glass Heights' (EXPANSION.md 3, X6): the Velvet Syndicate in plum suits over gold shirts, gold chains at the belt; the
+// Yacht Club in navy blazers over white, white trousers, a captain's cap on some
+G('velvet-grunt', { name: 'Velvet hood', faction: 'velvet', builds: ['heroic', 'chibi'], outfits: ['coat'], sleeves: ['long'], hairs: ['short', 'ponytail', 'long'], hats: [null, null, { style: 'band', color: '#d8b04a' }],
+  palettes: { cloth: ['#d8b04a', '#1c1820', '#e8c860'], coat: ['#8a3a9a', '#6a2a7a', '#5a2a5e'], pants: ['#3a1a40', '#1c1820'], belt: ['#d8b04a'] }, weapons: ['fists', 'buzzsaw'], health: 100 });
+G('velvet-enforcer', { name: 'Velvet enforcer', faction: 'velvet', builds: ['bulky'], outfits: ['coat'], sleeves: ['long'], hairs: ['bald', 'short'], hats: [null],
+  palettes: { cloth: ['#1c1820'], coat: ['#5a2a5e', '#6a2a7a'], pants: ['#1c1820'], belt: ['#d8b04a'] }, weapons: ['fists', 'persuader'], health: 140, armor: 30 });
+G('yacht-grunt', { name: 'Yacht Club member', faction: 'yacht', builds: ['heroic', 'chibi'], outfits: ['coat', 'shirt'], sleeves: ['long', 'short'], hairs: ['short', 'ponytail', 'spiky'], hats: [null, { style: 'cap', color: '#f0f0f4' }],
+  palettes: { cloth: ['#f0f0f4', '#e8eef8', '#c8d8f0'], coat: ['#2a3a7a', '#1e2a5c'], pants: ['#f0eee6', '#e8e4d8'], belt: ['#8a5a32'] }, weapons: ['fists', 'snub38'], health: 100 });
+G('yacht-enforcer', { name: 'Club commodore', faction: 'yacht', builds: ['bulky'], outfits: ['coat'], sleeves: ['long'], hairs: ['short', 'bald'], hats: [{ style: 'cap', color: '#f0f0f4' }],
+  palettes: { cloth: ['#f0f0f4'], coat: ['#1e2a5c'], pants: ['#f0eee6'], belt: ['#d8b04a'] }, weapons: ['fists', 'snub38', 'flaregun'], health: 140, armor: 30 });

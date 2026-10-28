@@ -1,7 +1,8 @@
 // Gangs and respect (PLAN.md 8.14): the city's gangs, what each thinks of the player, and what they do about it.
 //   - data: def('gangs', id, { name, colors, icon, pattern, turf (neighbourhood ids), hq and phone (points of
 //     interest), rival, vehicles, weapons, peds: { grunt, enforcer } (archetypes), thresholds: { hostile, friendly },
-//     chain (its missions) }) (content: src/game/gangs.js);
+//     chain (its missions), beats, and in a district other than Lowtown (EXPANSION.md) hqs and rivals by district })
+//     (content: src/game/gangs.js);
 //   - respect runs -100..100 a gang (the save's, kept here): a mission's ±, a member killed TUNE.respectKill (-5), a
 //     member of a gang's rival killed TUNE.respectRival (+1), one of a gang's cars damaged TUNE.respectCar (-2, once a
 //     car a while). At or below its hostile threshold a gang is hostile, at or above its friendly one friendly;
@@ -26,11 +27,13 @@ import { classOf } from '../sim/vehicle/defs.js';
 import { Fighter, sameLevel } from '../ai/fighter.js';
 
 declare('gangs', shape({
-  name: { type: 'string', req: true }, colors: { type: 'array', req: true }, icon: { type: 'string', def: 'circle', oneOf: ['diamond', 'triangle', 'circle'] },
-  pattern: { type: 'string', def: 'stripes', oneOf: ['stripes', 'dots', 'checks'] }, turf: { type: 'array', req: true }, hq: { type: 'string', def: '' }, phone: { type: 'string', def: '' },
+  name: { type: 'string', req: true }, colors: { type: 'array', req: true }, icon: { type: 'string', def: 'circle', oneOf: ['diamond', 'triangle', 'circle', 'cross', 'bolt', 'spade', 'anchor'] },
+  pattern: { type: 'string', def: 'stripes', oneOf: ['stripes', 'dots', 'checks', 'rivets', 'chevrons', 'damask', 'bands'] }, turf: { type: 'array', req: true }, hq: { type: 'string', def: '' }, phone: { type: 'string', def: '' },
   rival: { type: 'string', def: '' }, vehicles: { type: 'array', def: [] }, weapons: { type: 'array', def: [] }, peds: { type: 'object', req: true },
   thresholds: { type: 'object', def: { hostile: -20, friendly: 40 } }, chain: { type: 'array', def: [] },
-  beats: { type: 'array', def: [] },   // ([x, y] tiles: where its patrols walk, by its borders)
+  beats: { type: 'array', def: [] },   // ([x, y] tiles: where its patrols walk, by its borders; [x, y, district]: another district's than Lowtown, EXPANSION.md)
+  hqs: { type: 'object', def: {} },   // (its HQ in another district: { district: poi }, the Gnomes' Union Hall in Ironside)
+  rivals: { type: 'object', def: {} },   // (its rival in another district: { district: gang }, the Gnomes' Rust Monks in Ironside)
 }));
 
 knob('Gangs', 'respectKill', 'Respect for a member killed', -5, -50, 0, 1, 'What killing one of a gang\'s members costs with that gang');
@@ -55,12 +58,12 @@ export class Gangs {
     this.groups = []; this.fighters = []; this.wars = []; this.lastWar = new Map(); this.carHits = new Map(); this.small = new Map();
     /** a mission's allies and truces (gang ids: m.ally, m.truce): while a gang is in it, the player's strays on its members
      *  and cars rally no one and cost no respect, and its members never go for the player on sight */
-    this.allies = new Set();
+    this.allies = new Set(); this.peace = false;   // (peace: no turf war starts, a job's hold on the city's gangs)
     this.t = 0; this._senseT = 0; this._keepT = 0; this.warCount = 0; this.player = null; this.idle = makeIntent();
-    for (const g of all('gangs')) {   // (its hangout by the HQ, a patrol a beat)
-      const hq = this.city.poi(g.hq), T = this.city.T;
+    for (const g of all('gangs')) {   // (its hangout by the HQ, a patrol a beat: the district's own)
+      const hq = this.city.poi(g.hqs[this.city.id] || g.hq), T = this.city.T;
       if (hq) this.groups.push({ gang: g.id, kind: 'hangout', at: { x: hq.x, y: hq.y }, r: 70, n: () => TUNE.gangHangout, members: [] });
-      for (const [bx, by] of g.beats) this.groups.push({ gang: g.id, kind: 'patrol', at: { x: (bx + .5) * T, y: (by + .5) * T }, r: 220, n: () => TUNE.gangPatrol, members: [] });
+      for (const [bx, by, district = 'lowtown'] of g.beats) if (district === (this.city.id || 'lowtown')) this.groups.push({ gang: g.id, kind: 'patrol', at: { x: (bx + .5) * T, y: (by + .5) * T }, r: 220, n: () => TUNE.gangPatrol, members: [] });
     }
     const T = this.life.traffic; if (T) T.pick = (p, hood, rng) => this._pickCar(p, hood, rng);
     this._unsub = [
@@ -82,6 +85,8 @@ export class Gangs {
   }
   /** 'hostile' | 'neutral' | 'friendly' by its thresholds */
   stance(id) { const g = get('gangs', id); if (!g) return 'neutral'; const r = this.get(id), T = g.thresholds || {}; return r <= (T.hostile ?? -20) ? 'hostile' : r >= (T.friendly ?? 40) ? 'friendly' : 'neutral'; }
+  /** a gang's rival here (its district's own, else the one it has everywhere) */
+  rival(id) { const g = get('gangs', id); return g ? (g.rivals && g.rivals[this.city.id]) || g.rival : ''; }
   /** the gang whose turf holds a point (null: no one's) */
   turfAt(x, y) { const h = this.city.hoodAtPoint(x, y); if (!h) return null; for (const g of all('gangs')) if (g.turf.includes(h.id)) return g.id; return null; }
   // a killing: the player's of a gang's member costs that gang's respect and earns its rivals'
@@ -90,7 +95,7 @@ export class Gangs {
     const t = this.combat.bodies.find(b => b.id === e.target), gang = t ? t.gang : e.gang;   // (one at the wheel of the gang's car is no Combat body: the kill says whose)
     if (!gang || this.allies.has(gang)) return;
     this.add(gang, TUNE.respectKill, 'kill');
-    for (const g of all('gangs')) if (g.rival === gang) this.add(g.id, TUNE.respectRival, 'rival');
+    for (const g of all('gangs')) if (this.rival(g.id) === gang) this.add(g.id, TUNE.respectRival, 'rival');
   }
   // a hit: on one of a gang's cars by the player (respect), on a member (it and its mates go for whoever did it), on the
   // player (a friendly gang's members go for whoever did it)
@@ -160,7 +165,7 @@ export class Gangs {
       if (c.homing && !c.brain.route) c.homing = false;   // (its way home driven to the end: let it wander, sent again if still out)
       if (home && c.homing) { c.homing = false; c.brain.setRoute(null); }
       // (sent on a lane with room to stop: a new way taken at a light had run its red)
-      else if (!home && !c.homing && !c.brain.route && c.brain.here && c.brain.here.k === 'lane' && c.brain.here.len - c.brain.s > 60) { const hq = this.city.poi(g.hq), r = hq && gps.routeTo(c.v.x, c.v.y, c.v.heading, hq.x, hq.y, { z: c.v.z }); if (r) { c.homing = true; c.brain.setRoute(r.lanes, null); } }
+      else if (!home && !c.homing && !c.brain.route && c.brain.here && c.brain.here.k === 'lane' && c.brain.here.len - c.brain.s > 60) { const hq = this.city.poi(g.hqs[this.city.id] || g.hq), way = (o = {}) => gps.routeTo(c.v.x, c.v.y, c.v.heading, hq.x, hq.y, { z: c.v.z, ...o }), r = hq && (way({ noDeadEnds: true }) || way()); if (r) { c.homing = true; c.brain.setRoute(r.lanes, null); } }
     }
     const C = this.life.crowd; if (!C) return;
     for (const q of this.groups) {
@@ -178,7 +183,7 @@ export class Gangs {
     for (const m of members) {
       const p = m.ped, g = p.gang; if (p.seat) continue;
       if (P && !P.dead && !this.allies.has(g) && this.stance(g) === 'hostile' && this.turfAt(p.x, p.y) === g && sameLevel(p, P) && E.sees(p, P, { map, range: TUNE.gangSight, fov: 3.2, facing: p.mover.facing }).seen) { this._rally({ gang: g, x: p.x, y: p.y }, P); continue; }
-      const rival = get('gangs', g).rival; if (!rival) continue;
+      const rival = this.rival(g); if (!rival) continue;
       for (const o of members) {
         if (o.ped.gang !== rival || o.ped.seat || Math.abs(o.ped.x - p.x) > TUNE.gangSight || Math.abs(o.ped.y - p.y) > TUNE.gangSight) continue;
         if (E.sees(p, o.ped, { map, range: TUNE.gangSight * .8, fov: 3.2, facing: p.mover.facing }).seen) { this._war(g, rival, (p.x + o.ped.x) / 2, (p.y + o.ped.y) / 2); break; }
@@ -194,6 +199,7 @@ export class Gangs {
   }
   // two rival gangs' members meet: a turf war, everyone of both sides near joining in
   _war(a, b, x, y) {
+    if (this.peace) return;
     const key = [a, b].sort().join(':');
     if (this.wars.some(w => w.key === key && Math.hypot(w.x - x, w.y - y) < WAR_R * 1.5) || (this.lastWar.get(key) ?? -1e9) > this.t) return;
     const w = { key, gangs: [a, b], x, y, t: this.t, dead: 0 };
@@ -207,7 +213,10 @@ export class Gangs {
   _warsStep() {
     for (const w of this.wars) {
       const sides = w.gangs.map(g => this.fighters.filter(f => f.war === w && f.gang === g && !f.ped.dead));
-      if (sides.some(s => !s.length) || this.t - w.t > TUNE.turfWarTime) {
+      // (over when a side is gone, when it has gone on long enough, or when the focus has left it behind, its middle out
+      // past the crowd's ring: its fighters walk off and the crowd takes them as it takes anyone that far. One out there
+      // went on unseen, three of its fighters stood in a junction, and the traffic waited on them)
+      if (sides.some(s => !s.length) || this.t - w.t > TUNE.turfWarTime || this.fp.d(w.x, w.y) > TUNE.crowdOut) {
         w.over = true; this.lastWar.set(w.key, this.t + WAR_AGAIN);
         for (const f of this.fighters) if (f.war === w) { f.war = null; f.done = !f.ped.dead; }
         BUS.emit('turfWarEnd', { gangs: w.gangs, x: Math.round(w.x), y: Math.round(w.y), dead: w.dead });
@@ -218,6 +227,9 @@ export class Gangs {
   // each fighter: at its target (another enemy near when it falls), back to the sidewalks when the fight is over
   _fightersStep(dt, P) {
     const PW = { map: this.city.map, city: this.city, combat: this.combat, fleet: this.fleet, aim: NOAIM }, C = this.life.crowd;
+    // (one the world has let go of, put away out past the crowd's ring, is no one to fight: a member had stood two minutes
+    // shooting at one, the shots meeting nothing)
+    const here = q => (q.seat ? this.fleet.vehicles.includes(q.seat.vehicle) : !this.combat || this.combat.bodies.includes(q));
     for (const f of this.fighters) {
       const p = f.ped;
       if (p.dead) {
@@ -227,12 +239,13 @@ export class Gangs {
       }
       if (p.seat) continue;
       let tg = f.target;
-      if (f.war && (!tg || tg.dead)) { const foes = this.fighters.filter(q => q.war === f.war && q.gang !== f.gang && !q.ped.dead).map(q => q.ped); tg = f.target = foes.length ? nearest(p, foes) : null; }
-      if (!tg || tg.dead || (!f.war && tg === P && this.allies.has(f.gang))) f.done = true;   // (a truce: one going for the player stands down)
+      if (f.war && (!tg || tg.dead || !here(tg))) { const foes = this.fighters.filter(q => q.war === f.war && q.gang !== f.gang && !q.ped.dead).map(q => q.ped); tg = f.target = foes.length ? nearest(p, foes) : null; }
+      if (!tg || tg.dead || !here(tg) || (!f.war && tg === P && this.allies.has(f.gang))) f.done = true;   // (a truce: one going for the player stands down)
       else {
         const far = Math.hypot(tg.x - p.x, tg.y - p.y) > LOSE_R || !sameLevel(p, tg);
         f.lostT = far ? f.lostT + dt : 0; if (f.lostT > GIVE_UP) f.done = true;
       }
+      p.hostile = !f.done && !!P && tg === P;   // (going for the player: the player's enemy, as a job's are: aimed at first, and no driver of theirs waits for it in the road)
       if (f.done) { if (C) C.adopt(p, 'calm', { arch: f.arch ? get('peds', f.arch) : null }); else if (this.combat) this.combat.remove(p); f.gone = true; continue; }
       const I = f.brain.attack(dt, clearIntent(f.brain.I), tg.seat && tg.seat.vehicle ? tg.seat.vehicle : tg);
       p.update(dt, I, PW);
@@ -246,7 +259,7 @@ export class Gangs {
   _pickCar(p, hood, rng) {
     for (const g of all('gangs')) {
       if (!g.turf.includes(hood) || rng.next() >= TUNE.gangCars) continue;
-      const defs = g.vehicles.filter(id => { const d = get('vehicles', id); return d && classOf(d) !== 'boat' && classOf(d) !== 'heli' && classOf(d) !== 'rail'; }); if (!defs.length) return null;
+      const defs = g.vehicles.filter(id => { const d = get('vehicles', id); return d && classOf(d) !== 'boat' && classOf(d) !== 'heli' && classOf(d) !== 'plane' && classOf(d) !== 'rail'; }); if (!defs.length) return null;
       const keep = this._turfKeep(g); if (keep(p.lane) < 1) return null;   // (one put down heading out of the turf: an ordinary car)
       return { def: defs[Math.floor(rng.next() * defs.length)], arch: g.peds.grunt, gang: g.id, color: g.colors[0], keep };
     }

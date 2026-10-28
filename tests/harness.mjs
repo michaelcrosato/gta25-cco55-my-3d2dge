@@ -3,7 +3,7 @@
 // pattern as the engine's handoff test (vendor/my-3d2dge/reference/handoff-test.mjs). Draw never runs headless.
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { bundle, ENGINE, MOCAP } from '../tools/build.mjs';
+import { bundle, prelude, ENGINE, MOCAP } from '../tools/build.mjs';
 
 const codes = new Map();
 /** a fresh game: { E, game, gtm, input, snap(), warns (the quiet console's warnings) }. hash and query stand in for
@@ -18,6 +18,7 @@ export async function loadGame({ hash = '', query = {}, quiet = true, pads = nul
   const ctx = vm.createContext(vm.constants.DONT_CONTEXTIFY);
   ctx.console = con; ctx.__GTM_OPTIONS__ = { hash, query };
   if (pads) ctx.navigator = { getGamepads: () => pads };   // fake gamepads: tests change the array in place
+  vm.runInContext(prelude(), ctx, { filename: 'prelude.js' });   // (first, as in the page: the deterministic Math, D33)
   vm.runInContext(readFileSync(ENGINE, 'utf8'), ctx, { filename: 'my-3d2dge.js' });
   // (the mocap scripts as the page loads them; a clip set writes window.MOCAP, which here is the context's global)
   for (const f of MOCAP) { const src = readFileSync(f, 'utf8'); vm.runInContext(f.includes('/sets/') ? '(function (window) {\n' + src + '\n})(globalThis);' : src, ctx, { filename: f.split('/').pop() }); }
@@ -28,7 +29,7 @@ export async function loadGame({ hash = '', query = {}, quiet = true, pads = nul
 
 /** the engine on this process's global, for unit tests that import MOTOR modules directly */
 export function engineGlobal() {
-  if (!globalThis.My3D2dge) vm.runInThisContext(readFileSync(ENGINE, 'utf8'), { filename: 'my-3d2dge.js' });
+  if (!globalThis.My3D2dge) { vm.runInThisContext(prelude(), { filename: 'prelude.js' }); vm.runInThisContext(readFileSync(ENGINE, 'utf8'), { filename: 'my-3d2dge.js' }); }
   return globalThis.My3D2dge;
 }
 

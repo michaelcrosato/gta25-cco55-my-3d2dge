@@ -35,7 +35,7 @@ test('switching views mid-run (R3\'s cycle) and turning the camera leave the sim
     const { game, gtm, snap } = await loadGame({ hash: '#play/safehouse', query: { seed: '1999', time: 'day', weather: 'clear', auto: 'rats-hq' } });
     const p0 = [gtm.crew.ped.x, gtm.crew.ped.y];
     for (let t = 0; t < 24; t += .5) {
-      if (switches && t % 4 === 2) seen.add(gtm.views.next());   // (ISO, TOP-DOWN, MODE 7, ISO...)
+      if (switches && t % 4 === 2) seen.add(gtm.views.next());   // (ISO, TOP-DOWN, MODE 7, CHASE, ISO...)
       if (switches && t % 6 === 3) gtm.stage.turn(1);   // (ISO's yaw, MODE 7's rail)
       game.advance(.5);
     }
@@ -44,7 +44,7 @@ test('switching views mid-run (R3\'s cycle) and turning the camera leave the sim
     return [...game.stateHash()];
   };
   assert.deepEqual(await run(true), await run(false));
-  assert.deepEqual([...seen].sort(), ['iso', 'side7', 'top'], 'every view was switched to');
+  assert.deepEqual([...seen].sort(), ['chase', 'iso', 'side7', 'top'], 'every view was switched to');
 });
 
 test('a shot: the peds round it run away from it (of ten on the sidewalks 30-110 u off, those that flee are all farther off 2 s later, on average by 60 u and more)', async () => {
@@ -243,4 +243,20 @@ test('a traffic car despawned takes its crew with it: none left standing as a bo
   CB.add(c.driver);   // (as a released unit's crew are: combat bodies riding in it)
   assert.equal(T.clear(c.v.x, c.v.y, 4), 1, 'despawned');
   assert.ok(!CB.bodies.includes(c.driver), 'its driver gone with it');
+});
+
+test('a car its driver left on the drawbridge\'s span is towed, in sight too, once the gate has shut for a lift and it has stood there a minute; one the player left is not (one left there had held the bridge down for good, a stunt over it waiting)', async () => {
+  const { game, gtm } = await play('greasy-spoke'), F = gtm.fleet, T = gtm.life.traffic, M = gtm.motor, B = gtm.bridges[0], BUS = gtm.BUS, P = gtm.crew.ped;
+  const cx = (B.rect[0] + B.rect[2] + 1) * 8, cy = (B.rect[1] + B.rect[3] + 1) * 8, n = M.roadsOf(gtm.city).walks.nearestNode(cx + 160, cy + 160, 400);
+  gtm.teleport(n.x, n.y); game.advance(1);
+  assert.ok(Math.hypot(P.x - cx, P.y - cy) < 400, 'the bridge in sight');
+  const mine = F.spawn('cortez', cx, cy, 0); BUS.emit('vehicleExit', { vehicle: mine.id, actor: P.id, seat: 0 });
+  B.wait = 0; game.advance(80);
+  assert.ok(F.vehicles.includes(mine) && B.phase === 'down' && B.gate, 'the player\'s own: left there, the bridge waiting on it');
+  F.remove(mine);
+  const left = F.spawn('cortez', cx, cy, 0); left.abandonT = T.t;   // (as traffic leaves one whose driver ran)
+  game.advance(30); assert.ok(F.vehicles.includes(left) && B.phase === 'down', 'not yet a minute: there still');
+  game.advance(40); assert.ok(!F.vehicles.includes(left), 'a minute on, the gate shut: towed');
+  let t = 0; while (t < 30 && B.phase === 'down') { game.advance(1); t++; }
+  assert.notEqual(B.phase, 'down', 'the span clear: the bridge lifts');
 });

@@ -9,11 +9,12 @@ import { facePattern } from './textures.js';
 const MAX_LEVEL = 3, TOL = 2;
 
 /** fill face P (s, t) -> [x, y] (s along the texture's u from u0 to u0 + tw, t down its v from v0 to v0 + th; null
- *  behind the camera) with texture cv, or colour where cv is null or the face is tiny. Returns the quads filled */
-export function texturedFace(g, P, cv, u0, v0, tw, th, color, fog = null) {
-  return part(g, P, cv, u0, v0, tw, th, color, fog, 0, 0, 1, 0, 1);
+ *  behind the camera) with texture cv, or colour where cv is null or the face is tiny; nothing below buffer row yMax
+ *  (what nearer walls are known to hide there); extra: split that many more times at most. Returns the quads filled */
+export function texturedFace(g, P, cv, u0, v0, tw, th, color, fog = null, yMax = Infinity, extra = 0) {
+  return part(g, P, cv, u0, v0, tw, th, color, fog, -extra, 0, 1, 0, 1, yMax);   // (extra: more splits allowed, a face many tiles long)
 }
-function part(g, P, cv, u0, v0, tw, th, color, fog, level, s0, s1, t0, t1) {
+function part(g, P, cv, u0, v0, tw, th, color, fog, level, s0, s1, t0, t1, yMax) {
   const a = P(s0, t0), b = P(s1, t0), c = P(s1, t1), d = P(s0, t1); if (!a || !b || !c || !d) return 0;
   if (cv && level < MAX_LEVEL) {   // (a flat colour needs no splitting: the outline is exact)
     const sm = (s0 + s1) / 2, tm = (t0 + t1) / 2, ms = P(sm, t0), mt = P(s0, tm);
@@ -22,15 +23,16 @@ function part(g, P, cv, u0, v0, tw, th, color, fog, level, s0, s1, t0, t1) {
       const eC = Math.hypot(c[0] - (b[0] + d[0] - a[0]), c[1] - (b[1] + d[1] - a[1]));
       if (Math.max(eS, eT, eC) > TOL) {
         const splitS = eS > eT || (eS === eT && Math.hypot(b[0] - a[0], b[1] - a[1]) >= Math.hypot(d[0] - a[0], d[1] - a[1]));
-        return splitS ? part(g, P, cv, u0, v0, tw, th, color, fog, level + 1, s0, sm, t0, t1) + part(g, P, cv, u0, v0, tw, th, color, fog, level + 1, sm, s1, t0, t1)
-          : part(g, P, cv, u0, v0, tw, th, color, fog, level + 1, s0, s1, t0, tm) + part(g, P, cv, u0, v0, tw, th, color, fog, level + 1, s0, s1, tm, t1);
+        return splitS ? part(g, P, cv, u0, v0, tw, th, color, fog, level + 1, s0, sm, t0, t1, yMax) + part(g, P, cv, u0, v0, tw, th, color, fog, level + 1, sm, s1, t0, t1, yMax)
+          : part(g, P, cv, u0, v0, tw, th, color, fog, level + 1, s0, s1, t0, tm, yMax) + part(g, P, cv, u0, v0, tw, th, color, fog, level + 1, s0, s1, tm, t1, yMax);
       }
     }
   }
-  const cv0 = g.canvas, W = cv0 && cv0.width, H = cv0 && cv0.height;
+  const cv0 = g.canvas, W = cv0 && cv0.width, H = cv0 && cv0.height, Y1 = Math.min(H + 1, yMax);
+  if (Math.min(a[1], b[1], c[1], d[1]) >= Y1) return 0;   // (wholly under nearer walls, or below the canvas)
   g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath();
-  if (W > 0 && H > 0 && (Math.min(a[0], b[0], c[0], d[0]) < -1 || Math.max(a[0], b[0], c[0], d[0]) > W + 1 || Math.min(a[1], b[1], c[1], d[1]) < -1 || Math.max(a[1], b[1], c[1], d[1]) > H + 1)) {
-    const q = clipRect([a, b, c, d], -1, -1, W + 1, H + 1); if (q.length < 3) return 0;   // (wholly off the canvas)
+  if (W > 0 && H > 0 && (Math.min(a[0], b[0], c[0], d[0]) < -1 || Math.max(a[0], b[0], c[0], d[0]) > W + 1 || Math.min(a[1], b[1], c[1], d[1]) < -1 || Math.max(a[1], b[1], c[1], d[1]) > Y1)) {
+    const q = clipRect([a, b, c, d], -1, -1, W + 1, Y1); if (q.length < 3) return 0;   // (wholly off the canvas)
     g.moveTo(q[0][0], q[0][1]); for (let i = 1; i < q.length; i++) g.lineTo(q[i][0], q[i][1]);
   } else { g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); }
   g.closePath();

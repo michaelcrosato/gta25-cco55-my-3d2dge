@@ -12,11 +12,12 @@
 // a last stretch off the road (a yard, a plaza) driven straight at the goal, slowly. Deterministic: it reads only the
 // simulation.
 //   const A = new AutoPlayer({ city, roads: roadsOf(city), fleet, junctions });  A.goto(x, y)  ·  A.board(vehicle)
-//   each step: I = A.update(dt, ped, { t, pedsNear, wanted, police })  ·  A.state: 'idle' | 'walk' | 'board' | 'drive' | 'escape' | 'final' | 'exit' | 'arrived'
+//   each step: I = A.update(dt, ped, { t, pedsNear, wanted, police })  ·  A.state: 'idle' | 'walk' | 'board' | 'drive' | 'escape' | 'final' | 'fly' | 'land' | 'exit' | 'arrived'
 import { TUNE, knob } from '../core/tune.js';
 import { makeIntent, clearIntent } from '../sim/intent.js';
 import { DriverBrain } from './driver.js';
 import { inReach, boardingFor } from '../actors/boarding.js';
+import { flyer } from '../sim/vehicle/defs.js';
 
 knob('AutoPlayer', 'autoDriveFrom', 'Drives beyond', 420, 0, 3000, 10, 'The AutoPlayer takes a vehicle for a trip longer than this (u)');
 knob('AutoPlayer', 'autoArrive', 'Arrives within', 14, 2, 80, 1, 'How near its goal the AutoPlayer stops (u)');
@@ -25,7 +26,7 @@ const occupied = v => v.seats.some(q => q && !q.dead);
 const OFF_LIMITS = new Set(['police', 'medic', 'fire', 'service']);
 /** a vehicle a player would take for a ride: on the road (no helicopter, boat or train), not locked or wrecked, not the
  *  city's (a works van) or the emergency services' (a cruiser, an ambulance, a fire engine: a crime of its own) */
-export const pickable = v => !v.wrecked && !v.locked && v.cls !== 'heli' && v.cls !== 'boat' && v.cls !== 'rail' && v.owner !== 'service' && !OFF_LIMITS.has(v.def.role);
+export const pickable = v => !v.wrecked && !v.locked && !flyer(v) && v.cls !== 'boat' && v.cls !== 'rail' && v.owner !== 'service' && !OFF_LIMITS.has(v.def.role);
 // does the segment (x0, y0)-(x1, y1) cross the box centred at (bx, by) with half-sizes (hx, hy)?
 function segBox(x0, y0, x1, y1, bx, by, hx, hy) {
   let t0 = 0, t1 = 1; const dx = x1 - x0, dy = y1 - y0;
@@ -35,10 +36,34 @@ function segBox(x0, y0, x1, y1, bx, by, hx, hy) {
   }
   return true;
 }
+// a course over water from cell (x0, y0) to the water cell nearest goal cell g (a pier's end, a quay: the water by it),
+// eight ways, a cell beside the shore dearer than open water: [[cx, cy]...], or [] with no way
+function seaPath(x0, y0, g, wet, W, H) {
+  const ring = (cx, cy, ok) => { for (let r = 0; r <= 10; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; if (ok(cx + dx, cy + dy)) return [cx + dx, cy + dy]; } return null; };
+  const s = ring(x0, y0, wet), e = ring(g[0], g[1], wet); if (!s || !e) return [];
+  const I = (x, y) => y * W + x, cost = new Float64Array(W * H).fill(Infinity), from = new Int32Array(W * H).fill(-1), open = [[0, s[0], s[1]]];
+  const shore = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !wet(x + dx, y + dy));
+  cost[I(s[0], s[1])] = 0;
+  while (open.length) {
+    let bi = 0; for (let k = 1; k < open.length; k++) if (open[k][0] < open[bi][0]) bi = k;
+    const [, x, y] = open[bi]; open[bi] = open[open.length - 1]; open.pop();
+    if (x === e[0] && y === e[1]) break;
+    const c = cost[I(x, y)];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const nx = x + dx, ny = y + dy; if (!wet(nx, ny) || (dx && dy && (!wet(x + dx, y) || !wet(x, y + dy)))) continue;
+      const nc = c + (dx && dy ? 1.414 : 1) + (shore(nx, ny) ? 3 : 0); if (nc >= cost[I(nx, ny)]) continue;
+      cost[I(nx, ny)] = nc; from[I(nx, ny)] = I(x, y); open.push([nc + Math.hypot(e[0] - nx, e[1] - ny), nx, ny]);
+    }
+  }
+  if (from[I(e[0], e[1])] < 0 && (e[0] !== s[0] || e[1] !== s[1])) return [];
+  const out = []; for (let k = I(e[0], e[1]); k >= 0; k = from[k]) out.push([k % W, Math.floor(k / W)]);
+  return out.reverse();
+}
 // (player and race drive as a player does: through the lights and the stop signs, first into a junction's box, round
 // what stands in the lane at once: the brain's siren mode, with no siren sounding; and round a queue that has not
-// moved for a few seconds: its squeeze. Calm keeps to the rules)
-const STYLES = { calm: { speed: 1, gap: 1, patience: 1, calm: true }, careful: { speed: .95, gap: 1.2, patience: .6, calm: true, assertive: true, squeeze: 6 }, player: { speed: 1.25, gap: .75, patience: .5, calm: true, assertive: true, squeeze: 4 }, race: { speed: 1.6, gap: .6, patience: .15, calm: true, assertive: true, squeeze: 2.5 } };
+// moved for a few seconds: its squeeze. Calm keeps to the rules. Smooth, a chauffeur's: through the lights and round
+// what stands as a player, never squeezing round a queue: a limo on the walk past a jam had wedged against the sea wall)
+const STYLES = { calm: { speed: 1, gap: 1, patience: 1, calm: true }, smooth: { speed: 1.1, gap: 1, patience: .6, calm: true, assertive: true }, careful: { speed: .95, gap: 1.2, patience: .6, calm: true, assertive: true, squeeze: 6 }, player: { speed: 1.25, gap: .75, patience: .5, calm: true, assertive: true, squeeze: 4 }, race: { speed: 1.6, gap: .6, patience: .15, calm: true, assertive: true, squeeze: 2.5 } };
 
 export class AutoPlayer {
   /** o: { city, roads ({ graph, gps, walks }), fleet, junctions } */
@@ -53,24 +78,25 @@ export class AutoPlayer {
   /** is the vehicle with this id one not to take (given up on for this goal, or a moment ago)? */
   shuns(id) { return this.tried.has(id) || (this.gaveUp.has(id) && this.t - this.gaveUp.get(id) < SHUN); }
   /** go to (x, y): o.foot keeps it on foot (out of a vehicle first); o.car: drive there in this vehicle; o.stay: stop
-   *  there seated; o.style: 'calm' | 'careful' | 'player' | 'race'; o.radius: near enough; o.z: the goal's height (a
+   *  there seated; o.style: 'calm' | 'smooth' | 'careful' | 'player' | 'race'; o.radius: near enough; o.z: the goal's height (a
    *  deck: driven to the lane up there); o.hold: never give up the vehicle it drives (a job's own: a jam it can't drive
-   *  out of is backed and driven round, again and again, never left); o.keep: the same trip to a
+   *  out of is backed and driven round, again and again, never left); o.heading: come in along a lane running that way
+   *  (a tow truck to stand facing it); o.hover: in a helicopter, held over it (not landed); o.keep: the same trip to a
    *  goal that moved (what it learned on the way kept: the car it is taking, the cars it gave up on, the lanes it keeps
    *  off, how long it has been stuck) */
   goto(x, y, o = {}) {
-    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold }; this.state = 'idle'; this.path = null; this._dropBrain();
+    this.goal = { x, y, z: o.z ?? null, foot: !!o.foot, stay: !!o.stay, style: o.style || 'player', radius: o.radius || 0, hold: !!o.hold, heading: o.heading ?? null, hover: !!o.hover, land: o.land ?? null, taxi: !!o.taxi, speed: o.speed ?? null }; this.state = 'idle'; this.path = null; this._dropBrain();   // (heading: the route's last lane one running that way; hover: a helicopter held over it, not landed)
     // (a new trip's counts start at nothing: they had run on from trip to trip, so a long-lived AutoPlayer (the campaign's,
     // the career's mission bot's) got out of the car at its first box once three were behind it anywhere, gave up a car
     // at a glance once 20 s of walks to doors were, and after its first hop anywhere never walked straight again, each
     // walk begun from a node farther off)
-    if (!o.keep) { this.car = o.car || null; this.tried.clear(); this.prog = null; this.avoid = null; this.esc = null; this.wedge = null; this.round = null; this.boxed = this.boxT = this.exitHeld = 0; this._jam = null; this._boardT = 0; this.skip = 0; }
+    if (!o.keep) { this.car = o.car || null; this.tried.clear(); this.prog = null; this.avoid = null; this.esc = null; this.wedge = null; this.round = null; this.boxed = this.boxT = this.exitHeld = 0; this.shoveNext = false; this._jam = null; this._boardT = 0; this.skip = 0; }
     return this;
   }
   /** get into this vehicle (out of another first) */
   board(v) { this.goal = { x: v.x, y: v.y, board: v }; this.state = 'board'; this.path = null; this.car = v; this.esc = null; this.wedge = null; this._dropBrain(); return this; }   // (the cars given up on are kept: the mission bot's, one it could not reach, had come back after the next and the next, round and round)
   /** a new goal point for the trip under way (a moving target): re-routed only when it moved more than o.slack (24) */
-  retarget(x, y, o = {}) { const g = this.goal; if (!g || g.board || Math.hypot(g.x - x, g.y - y) > (o.slack ?? 24)) return this.goto(x, y, { foot: g ? g.foot : false, stay: g ? g.stay : false, style: g ? g.style : 'player', radius: g ? g.radius : 0, hold: g ? g.hold : false, keep: !!g && !g.board, ...o }); return this; }
+  retarget(x, y, o = {}) { const g = this.goal; if (!g || g.board || Math.hypot(g.x - x, g.y - y) > (o.slack ?? 24)) return this.goto(x, y, { foot: g ? g.foot : false, stay: g ? g.stay : false, style: g ? g.style : 'player', radius: g ? g.radius : 0, hold: g ? g.hold : false, hover: g ? g.hover : false, keep: !!g && !g.board, ...o }); return this; }
   get arrived() { return this.state === 'arrived'; }
   /** one step for the possessed ped: its Intent (on foot or at the wheel). w: { t (the signals' clock), pedsNear } */
   update(dt, p, w = {}) {
@@ -85,6 +111,9 @@ export class AutoPlayer {
       if (v) return this._exit(v);
       this.car = g.board; this.state = 'board'; return this._board(dt, p, true);
     }
+    if (v && v.cls === 'heli') return this._fly(dt, p, v, g, d);
+    if (v && v.cls === 'plane') return this._plane(dt, p, v, g, d);
+    if (v && v.cls === 'boat') return this._boat(dt, p, v, g);
     if (v) return g.foot ? this._exit(v) : this._drive(dt, p, v, w);
     if (d < Math.max(TUNE.autoArrive, g.radius ? g.radius * .6 : 0)) { this.state = 'arrived'; return I; }
     // a long way on foot: a vehicle near enough to take?
@@ -93,7 +122,16 @@ export class AutoPlayer {
     return this._walk(dt, p);
   }
   // ---- on foot
-  _walk(dt, p) { this.state = 'walk'; return this._walkTo(dt, p, this.goal.x, this.goal.y, 'goal'); }
+  // pinned (a pocket: the cars near it all given up on, one it left parked, a wall, peds in the gap) and within 40 of one
+  // spot for 20 s: the cars given up on are taken again, and the walk starts over from the nearest node (it had cycled
+  // its start nodes round and round there, D31)
+  _walk(dt, p) {
+    this.state = 'walk';
+    const K = this.pin && this.pin.goal === this.goal ? this.pin : (this.pin = { goal: this.goal, at: [p.x, p.y], t: 0 });
+    if (Math.hypot(p.x - K.at[0], p.y - K.at[1]) > 40) { K.at = [p.x, p.y]; K.t = 0; }
+    else if ((K.t += dt) > 20) { K.t = 0; this.tried.clear(); this.gaveUp.clear(); this.car = null; this.skip = 0; this.path = null; }
+    return this._walkTo(dt, p, this.goal.x, this.goal.y, 'goal');
+  }
   // to (tx, ty) on foot: the sidewalk graph's shortest way between the nodes nearest each end, then straight there;
   // stuck against something, a hop, then the way again from the next-nearest node
   _walkTo(dt, p, tx, ty, key) {
@@ -182,6 +220,17 @@ export class AutoPlayer {
   // another vehicle in reach with a door nearer than d (the one the scene would board)
   _nearer(p, v, d) { for (const o of this.fleet.near(p.x, p.y, 80)) { if (o === v || !inReach(p, o)) continue; const q = boardingFor(p, o, 0); if (q && q.dist < d) return true; } return false; }
   // ---- at the wheel
+  // the route to the goal: along the lane it faces, after a U-turn, else from the nearest lane whichever way it runs;
+  // the way round a jammed exit (avoid) when that costs not much more
+  _plan(v, g) {
+    // (never round by a dead end's stub, turning back in it, unless nothing else goes: the one at the Harbor's sea turns
+    // back through the sea, and a bot had driven a job's Saint into it)
+    const via = o => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
+    const plan = o => via({ ...o, noDeadEnds: true }) || via(o);
+    const av = this.avoid, tz = g.z || 0, toHeading = g.heading, base = plan({ z: v.z, tz, toHeading });
+    const alt = av && av.size ? plan({ z: v.z, tz, toHeading, avoid: L => av.has(L.id) }) : null;
+    return alt && (!base || alt.cost <= base.cost * 1.6 + 10) ? alt : base;
+  }
   _drive(dt, p, v, w) {
     const g = this.goal, level = g.z == null || Math.abs((v.z || 0) - g.z) < 24, d = Math.hypot(g.x - v.x, g.y - v.y) + (level ? 0 : 400); this._tries = 0; this._bfails = 0; this._boardT = 0;   // (a goal on a deck: not there from the road under it)
     if (v.driver !== p) { this.state = 'exit'; this.I.tap.interact = true; return this.I; }   // (a passenger seat: out)
@@ -190,19 +239,24 @@ export class AutoPlayer {
     if (!this.brain || this.brain.v !== v) {
       this._dropBrain();
       const st = STYLES[g.style] || STYLES.player;
-      this.brain = new DriverBrain(v, this.G, { junctions: this.J, personality: st, siren: !!st.assertive });
+      this.brain = new DriverBrain(v, this.G, { junctions: this.J, personality: st, siren: !!st.assertive }); this.brainNew = true;
       // (round a jammed exit only when that way costs not much more: else it waits, as a U-turn at the map's edge in a
       // lorry is worse than the jam)
       // (no way there along the lane it faces, a one-way that leads off it: after a U-turn, else from the nearest lane
       // whichever way it runs; a car left with no route at all wanders the lanes, and that's how a short trip went round
       // the city)
-      const plan = o => this.gps.routeTo(v.x, v.y, v.heading, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, v.heading + Math.PI, g.x, g.y, o) || this.gps.routeTo(v.x, v.y, null, g.x, g.y, o);
-      const av = this.avoid, tz = g.z || 0, base = plan({ z: v.z, tz });
-      const alt = av && av.size ? plan({ z: v.z, tz, avoid: L => av.has(L.id) }) : null, r = alt && (!base || alt.cost <= base.cost * 1.6 + 10) ? alt : base;
-      if (r) this.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s });
-      this.state = 'drive';
+      const r = this._plan(v, g); if (r) this.brain.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s });
+      this.state = 'drive'; this.offT = 0;
     }
     const b = this.brain;
+    // off its route a moment (a turn missed, a pass round a wreck onto the next lane): a fresh route from where it is,
+    // the brain kept (with the old route it wanders, and Communion's chrome Saint, past its turn, had gone round Glass
+    // Heights' ring of one-way streets for good; waited longer, a Medic past its turn was up the Loop's ramp and stuck on
+    // its deck). Not near the goal, nor to a goal to be faced a way: there the last lanes are the approach's to work out
+    // (Holy Scrap's tow truck, re-routed as it went, came at its last wreck where it couldn't face it, and a Tow job's
+    // owner got to its car first)
+    const here = b.here; this.offT = here && here.k === 'lane' && b.route && b.goal && d > 300 && g.heading == null && !b.route.includes(here.id) ? (this.offT || 0) + dt : 0;
+    if (this.offT > .6) { this.offT = 0; const r = this._plan(v, g); if (r) b.setRoute(r.lanes, { lane: r.to.lane.id, s: r.to.s }); }
     // stalled (a jam, a gridlocked box): a fresh route from here; three times, out (at street level). An exit jammed
     // past the brain's wait: a fresh route that keeps off that lane
     const jam = b.cause === 'exit' && v.speed < 3; this.exitHeld = jam ? (this.exitHeld || 0) + dt : Math.max(0, (this.exitHeld || 0) - dt * .5);
@@ -219,7 +273,7 @@ export class AutoPlayer {
       const n = this.G.nearestLane(v.x, v.y, null, v.z || 0, 300), q = n && this.G.pointOn(n.lane, n.s);
       if (q) { this.esc = { to: [q[0], q[1]], t: 0, slow: 0, back: 0, side: 1 }; this._dropBrain(); return this._escape(dt, v); }
     }
-    if (g.stay) { if (b.lost || b.arrived || (d < 70 && v.speed < 8)) return this._final(v, g, d); }   // (the last stretch: off the road, straight at it)
+    if (g.stay) { if (b.lost || b.arrived || (d < 70 && v.speed < 8)) return this._final(dt, v, g, d); }   // (the last stretch: off the road, straight at it)
     else if (b.lost || ((b.arrived || d < 70) && v.speed < 8) || (d < TUNE.autoArrive * 3 && v.speed < 20)) {   // there (or as near as the road goes): out, and on foot the rest
       if (v.speed > 6) { const I = clearIntent(this.I); I.brake = 1; return I; }
       this.state = 'exit'; this._dropBrain(); const I = clearIntent(this.I); I.tap.interact = true; I.down.interact = true; return I;
@@ -236,23 +290,47 @@ export class AutoPlayer {
       this.round = { t: dx * c + dy * s > 0 ? 0 : 1.1, side: c * dy - s * dx > 0 ? -1 : 1 }; return this._round(dt, v);
     }
     if (this._wedged(dt, v, b)) { this.esc = { to: this._ahead(b, 180) || [g.x, g.y], t: 0, slow: 0, back: 0, side: this.wedge.n % 2 ? 1 : -1 }; this._dropBrain(); return this._escape(dt, v); }   // (off the road round it, as the second try does)
-    const L = b.leader, waits = L && L.v && L.v.brain && !L.v.brain.parked && ['signal', 'queue', 'yield'].includes(L.v.brain.cause), held = (L && L.gap < 14 && L.speed < 2 && !waits) || b.cause === 'ped';   // (a leader waiting at a light, in a queue: traffic, not a box)
-    this.boxT = held && v.speed < 3 && !b.pass && b.cause !== 'signal' && b.cause !== 'arrived' ? (this.boxT || 0) + dt : 0;
-    if (this.boxT > (b.cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
-    const I = b.update(dt, { fleet: this.fleet, t: w.t || this.t, pedsNear: w.pedsNear || null, wet: w.wet || 0, sirens: null });
+    // (a leader waiting at a light, in a queue: traffic, not a box; a job's car too, by its driver's brain: a race's rival
+    // stopped at a red, taken for a box, was swung round and the fresh route from the swerve went round the block)
+    // (a brain made this step has seen nothing yet: the last one's cause stands for it, so a body standing in the lane
+    // still holds the box's clock. A chase's goal moves every few seconds, each move a new brain, and the clock had
+    // started again each time: IM2's Brute stood behind a hostile Volt Boy in the lane, the Bucket gone, to the job's end.
+    // A queue's leader it hasn't seen yet: that clock starts again, as it did)
+    const fresh = this.brainNew; this.brainNew = false; const cause = fresh ? this.lastCause : b.cause; this.lastCause = cause;
+    const L = b.leader, LB = L && L.v && (L.v.brain || L.v.drivenBy), waits = !!LB && !LB.parked && ['signal', 'queue', 'yield'].includes(LB.cause), held = (L && L.gap < 14 && L.speed < 2 && !waits) || cause === 'ped';
+    this.boxT = held && v.speed < 3 && !b.pass && cause !== 'signal' && cause !== 'arrived' ? (this.boxT || 0) + dt : 0;
+    // (a car nobody drives in the way: pushed on, as the brain's gridlock shove does, sooner, every other time it boxes
+    // us in (a round the times between); a car on the hook never rounds, backing folds the rig and a slant can't take
+    // the two past: it pushes, and waits out anything else (a long jam is a stall's). Each round had dropped the brain
+    // before its shove came: a tow stood at a turf war's wreck, rocking, to the clock's end, and a Medic behind an
+    // ambulance its crew had left in the lane rocked there through four retries)
+    const dead = !!L && !!L.v && !L.v.brain && !L.v.driver && L.v.owner !== 'mission';
+    if (this.boxT > 5 && (v.towing || (dead && this.shoveNext))) { this.boxT = 0; this.shoveNext = false; if (dead) b.blocked = Math.max(b.blocked, TUNE.gridlock * 4 + .01); }
+    if (this.boxT > (cause === 'ped' ? 8 : 5)) { this.boxT = 0; this.shoveNext = dead; this.boxed = (this.boxed || 0) + 1; if (this.boxed > 3 && !g.hold && (v.z || 0) < 10) { this.boxed = 0; return this._bail(v); } this.round = { t: 0, side: this.boxed % 2 ? 1 : -1 }; return this._round(dt, v); }
+    const Bs = this.fleet && this.fleet.bridges, closed = Bs && Bs.length ? id => Bs.some(q => q.id === id && q.closed) : null;   // (a drawbridge's gates shut: stopped short as traffic is; unwatched, a job's truck had met a rising leaf at full tilt and flown past its turn)
+    // (the player's enemies in the road aren't waited for: Volt Boys going for the player had stood round IM2's Brute in
+    // their turf, and it waited on them to the job's end, rounding and rounding)
+    const pedsNear = w.pedsNear ? (x, y, r) => w.pedsNear(x, y, r).filter(q => !q.hostile) : null;
+    const I = b.update(dt, { fleet: this.fleet, t: w.t || this.t, pedsNear, wet: w.wet || 0, sirens: null, closed });
     return I;
   }
   // out of a jam the player's way: off the road (a sidewalk, a plaza, the wrong side) toward a point farther along the
   // route, backing off whatever it runs into, for a few seconds; then the route again from there
   _escape(dt, v) {
     const X = this.esc, I = clearIntent(this.I); X.t += dt; this.state = 'escape';
+    // (a truck with a car on its hook backs only a moment, pinned: reversing folds the rig; it pulls on along its own
+    // heading, the car swinging in behind it, then the route again: jackknifed at a corner it had sawn back and forth to
+    // the job's end, and never backing at all, its nose on a kerb's bench, it had pushed at it for minutes)
+    if (v.towing && !X.tow) {   // (to the lane ahead of it, the road's middle: straight on, its corner had met the kerb's lamp)
+      const a = [v.x + Math.cos(v.heading) * 120, v.y + Math.sin(v.heading) * 120], n = this.G.nearestLane(a[0], a[1], v.heading, v.z || 0, 120), q = n && this.G.pointOn(n.lane, n.s); X.tow = true; X.to = q ? [q[0], q[1]] : a; X.t = Math.min(X.t, 3); X.back = 0; X.slow = 0;
+    }
     if (X.back > 0) { X.back -= dt; if (this._footIn(v, -1)) { X.back = 0; return this._hold(v, I); } I.brake = .8; I.steer = -X.side; return I; }   // (backing: the nose swings toward it; never into someone behind)
     const d = Math.hypot(X.to[0] - v.x, X.to[1] - v.y);
     if (X.t > 9 || d < 40) { this.esc = null; this._dropBrain(); return I; }
     if (this._footIn(v, 1)) return this._hold(v, I);   // (someone ahead: held till they are by)
     let da = Math.atan2(X.to[1] - v.y, X.to[0] - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
     X.slow = v.speed < 3 ? X.slow + dt : 0;
-    if (X.slow > 1.2) { X.slow = 0; X.back = 1; X.side = da > 0 ? 1 : -1; return I; }
+    if (X.slow > 1.2) { X.slow = 0; X.back = v.towing ? .7 : 1 + Math.max(0, v.hl - 30) / 20; X.side = da > 0 ? 1 : -1; return I; }   // (a long truck backs farther: a second's reverse turned it a hair, and it sawed at a kerb for minutes)
     I.steer = Math.max(-1, Math.min(1, da * 2)); if (v.speed < 35) I.throttle = .6; return I;
   }
   // no nearer the goal (d) and no farther on for 15 s: a stall (true once, then the clock starts again), counted in
@@ -336,14 +414,185 @@ export class AutoPlayer {
   // it on), the handbrake once still
   _hold(v, I) { if (v.speed > 3) { if (this._fwd(v)) I.brake = 1; else I.throttle = 1; } else I.down.handbrake = true; return I; }
   // straight at the goal at a crawl (a yard, a plaza, the rest of the way past the road's end); reversing when it lies
-  // behind and close
-  _final(v, g, d) {
+  // behind and close. Held still for 1.5 s (a long truck's tail swung into a deck's pillar as it turned off the lane):
+  // backed off and on round it, as the way out of a jam goes (it had sat there till the stall's 15 s, then gone round
+  // the block to the same pillar, five times)
+  _final(dt, v, g, d) {
     const I = clearIntent(this.I); this.state = 'final';
     let da = Math.atan2(g.y - v.y, g.x - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
-    if (Math.abs(da) > 2.1 && d < 60) { I.steer = da > 0 ? -1 : 1; I.brake = v.speed > 4 && this._fwd(v) ? 1 : .7; return I; }
+    if (Math.abs(da) > 2.1 && d < 60) { I.steer = da > 0 ? -1 : 1; I.brake = v.speed > 4 && this._fwd(v) ? 1 : .7; this.finSlow = 0; return I; }
+    this.finSlow = v.speed < 3 ? (this.finSlow || 0) + dt : 0;
+    if (this.finSlow > 1.5) { this.finSlow = 0; this.esc = { to: [g.x, g.y], t: 0, slow: 0, back: 1, side: da > 0 ? 1 : -1 }; this._dropBrain(); return this._escape(dt, v); }
     const want = Math.min(FINAL * .6, 25 + d * .5);
     I.steer = Math.max(-1, Math.min(1, da * 2));
     if (v.speed < want) I.throttle = .7; else if (v.speed > want + 25) I.brake = .6;
+    return I;
+  }
+  // ---- on the water (a boat, EXPANSION.md X6): a course over the water's cells to the one nearest the goal (a pier's
+  // end, a mooring, a point out at sea), kept off the shore where it can be (a cell beside land costs more), sailed at
+  // the farthest of its corners in plain water ahead, at a speed it can turn at, slowing as it comes in. There it holds
+  // (stay: stopped, seated) or steps off (not stay: onto what it came in against). Stuck against a pier or the shore:
+  // astern a moment, the helm the other way, then on
+  _boat(dt, p, v, g) {
+    const I = clearIntent(this.I), C = this.city, T = C.T, W = this.fleet.world, b = v.body; this.state = 'sail'; this._dropBrain();
+    const sea = (cx, cy) => cx >= 0 && cy >= 0 && cx < C.w && cy < C.h && !!W.water(cx, cy), sx = Math.floor(v.x / T), sy = Math.floor(v.y / T);
+    // (what lies moored, stopped on the water, the cells under it, looked for every few seconds: sailed round as the
+    // shore is; the Regatta had pushed at the Gull's tail along the Club's pier for good, and burned)
+    if (!this.moored || this.t - this.moored.t > 5) {
+      const set = new Set();
+      for (const q of this.fleet.vehicles) {
+        if (q === v || q.wrecked || q.speed > 5 || !sea(Math.floor(q.x / T), Math.floor(q.y / T))) continue;
+        for (let u = -q.hl; u <= q.hl + .1; u += Math.max(4, q.hl / 3)) for (let s = -q.hw; s <= q.hw + .1; s += Math.max(4, q.hw)) { const [x, y] = q.toWorld(u, s); set.add(Math.floor(y / T) * C.w + Math.floor(x / T)); }
+      }
+      this.moored = { t: this.t, set };
+    }
+    const M = this.moored.set, wet = (cx, cy) => sea(cx, cy) && (!M.has(cy * C.w + cx) || (cx === sx && cy === sy));
+    const near = Math.max(TUNE.autoArrive * 2, g.radius || 0), d = Math.hypot(g.x - v.x, g.y - v.y);
+    if (d < near) { if (g.foot || !g.stay) return v.speed > 6 ? (I.brake = 1, I) : this._exit(v); this.state = 'arrived'; if (v.speed > 3) I.brake = 1; return I; }
+    // the course: planned again for a goal that moved a cell, and every few seconds (what drifted in the way)
+    const gc = [Math.floor(g.x / T), Math.floor(g.y / T)], key = gc[0] + ',' + gc[1];
+    if (!this.sea || this.sea.key !== key || this.t - this.sea.t > 5) this.sea = { key, t: this.t, path: seaPath(Math.floor(v.x / T), Math.floor(v.y / T), gc, wet, C.w, C.h).map(([cx, cy]) => [(cx + .5) * T, (cy + .5) * T]), i: 0 };
+    const S = this.sea, P = S.path;
+    while (S.i < P.length - 1 && Math.hypot(P[S.i][0] - v.x, P[S.i][1] - v.y) < T * 1.5) S.i++;
+    // (a goal ashore, a quay or a pier: there once at the water nearest it)
+    const end = P.length ? P[P.length - 1] : null;
+    if (end && !wet(gc[0], gc[1]) && S.i >= P.length - 1 && Math.hypot(end[0] - v.x, end[1] - v.y) < T * 1.6) { if (g.foot || !g.stay) return v.speed > 6 ? (I.brake = 1, I) : this._exit(v); this.state = 'arrived'; if (v.speed > 3) I.brake = 1; return I; }
+    // (aimed at the farthest corner ahead it can sail to in a straight line over water, a few cells' clearance of its beam)
+    const open = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(L / 8); for (let k = 1; k <= n; k++) { const x = x0 + (x1 - x0) * k / n, y = y0 + (y1 - y0) * k / n; if (!wet(Math.floor(x / T), Math.floor(y / T))) return false; } return true; };
+    let to = P.length ? P[Math.min(S.i, P.length - 1)] : [g.x, g.y];
+    for (let k = Math.min(P.length - 1, S.i + 12); k > S.i; k--) if (open(v.x, v.y, P[k][0], P[k][1])) { to = P[k]; break; }
+    if (S.i >= P.length - 1 && open(v.x, v.y, g.x, g.y)) to = [g.x, g.y];
+    const ang = a => Math.atan2(Math.sin(a), Math.cos(a)), a = ang(Math.atan2(to[1] - v.y, to[0] - v.x) - v.heading);
+    // (stuck against something: astern a moment with the helm reversed)
+    const moved = this.lastSea ? Math.hypot(v.x - this.lastSea[0], v.y - this.lastSea[1]) : 1; this.lastSea = [v.x, v.y];
+    this.seaStuck = moved < dt * 6 && !(this.astern > 0) ? (this.seaStuck || 0) + dt : 0;
+    if (this.seaStuck > 1.5) { this.seaStuck = 0; this.astern = 1.4; }
+    if (this.astern > 0) { this.astern -= dt; I.brake = 1; I.steer = -Math.sign(a || 1); return I; }
+    // (a sharp turn with no room ahead, the shore or the world's edge a length or two off its bow: backed round, the helm
+    // the other way, till it faces the course; it had driven on at the edge, no way on yet for its rudder to bite)
+    const room = k => wet(Math.floor((v.x + Math.cos(v.heading) * k) / T), Math.floor((v.y + Math.sin(v.heading) * k) / T)), L = b.h.length;
+    if (Math.abs(a) > .9 && !(room(L * .8) && room(L * 1.4))) {
+      if ((this.backT || 0) < 3 && room(-L * .9)) { this.backT = (this.backT || 0) + dt; I.brake = v.speed > 30 && b.u > 0 ? .8 : 1; I.steer = -Math.sign(a); return I; }   // (water astern, three seconds at most: else round ahead under full helm)
+    } else if (Math.abs(a) < .6) this.backT = 0;
+    I.steer = Math.max(-1, Math.min(1, a * 2.2));
+    const want = Math.min(b.h.top * (g.style === 'race' ? .95 : .8), Math.abs(a) > 1 ? 45 : Math.abs(a) > .5 ? 90 : 1e9, 30 + Math.max(0, d - near) * .8);   // (slow to turn, and slower as it comes in: a walking pace at the goal, stopped short of what lies past it)
+    if (v.speed < want) I.throttle = 1; else if (v.speed > want + 20) I.brake = .6;
+    return I;
+  }
+  // ---- in the air (a helicopter: no lanes): lifted off, up to a cruising height clear of what stands below, turned to
+  // the goal and flown at it straight, slowed as it nears; there (within its radius, slow), held where it is (o.hover),
+  // else let down to land, and out of it if the rest is on foot. Its height kept clear of the roofs: the body never
+  // flies into them, but it brakes against a tower's side
+  _fly(dt, p, v, g, d) {
+    const I = clearIntent(this.I), b = v.body; this.state = 'fly'; this._dropBrain();
+    const near = Math.max(TUNE.autoArrive * 2, (g.radius || 0) * .6), there = d < near;
+    if (b.landed) {
+      if (there || (g.foot && d < 200)) { if (g.foot || !g.stay) return this._exit(v); this.state = 'arrived'; return I; }
+      I.down.handbrake = true; return I;   // (lift off)
+    }
+    let da = Math.atan2(g.y - v.y, g.x - v.x) - v.heading; da = Math.atan2(Math.sin(da), Math.cos(da));
+    const u = b.u || 0, cruise = Math.max(110, (b.pad ? (b.pad(this.fleet.world, g.x, g.y) ?? 0) : 0) + 60);   // (a roof at the goal: over it)
+    if (there && v.speed < 40) {   // there: held (hover), or down
+      this.state = g.hover ? 'arrived' : 'land';
+      if (u > 8) I.brake = 1; else if (u < -8) I.throttle = .4;
+      if (!g.hover) I.down.nitro = true;
+      return I;
+    }
+    // (what stands ahead taller than it flies, a tower on the way: up over it first, held where it is)
+    const W = this.fleet.world, ah = b.pad ? b.pad(W, v.x + Math.cos(v.heading) * 90, v.y + Math.sin(v.heading) * 90) : null;
+    if ((ah !== null && ah + 24 > v.z) || (this.flyUp && v.z < this.flyUp)) { I.down.handbrake = true; I.steer = Math.max(-1, Math.min(1, da * 2.5)); if (u > 10) I.brake = 1; return I; }
+    this.flyUp = 0;
+    if (v.z < cruise - 10) I.down.handbrake = true; else if (v.z > cruise + 40 && d > 300) I.down.nitro = true;
+    I.steer = Math.max(-1, Math.min(1, da * 2.5));
+    const want = Math.min(b.h.top, 20 + d * .9);
+    if (Math.abs(da) > .9 || v.z < 60) { if (u > 20) I.brake = 1; return I; }   // (turned, or still climbing: hanging there)
+    if (u < want) I.throttle = Math.min(1, (want - u) / 40 + .3); else if (u > want + 15) I.brake = 1;
+    // (pushing on and going nowhere a second, against what the look ahead missed: up 48 before on again. A tower's
+    // corner under a skid, the point 90 on clear beyond it, had held a SkyCam against its side till the story was lost)
+    this.flyStall = I.throttle > .3 && v.speed < 6 ? (this.flyStall || 0) + dt : 0;
+    if (this.flyStall > 1) { this.flyStall = 0; this.flyUp = v.z + 48; }
+    return I;
+  }
+  // a plane (X2): off the ground along a clear run (turned at a taxi onto the longest clear one, toward the goal); in the
+  // air at a cruising height clear of what stands below and ahead, banked toward the goal; over it, there (held circling
+  // with stay). goal.land (the strip's heading, radians): down on the strip ending at the goal: a point 700 back along it
+  // at 150, then the glide in (lined up, slow, a gentle sink) to touch down 300 short of the goal, down and stopped;
+  // lined up wrong, too fast near the ground or not down 60 short of the goal, round again (a circuit: the approach
+  // point once more), never a stall
+  _plane(dt, p, v, g, d) {
+    const I = clearIntent(this.I), b = v.body, h = b.h, W = this.fleet.world; this.state = 'fly'; this._dropBrain();
+    const near = Math.max(TUNE.autoArrive * 2, g.radius || 0), ang = a => Math.atan2(Math.sin(a), Math.cos(a));
+    const steerTo = (x, y, k = 2) => { const a = ang(Math.atan2(y - v.y, x - v.x) - v.heading); I.steer = Math.max(-1, Math.min(1, a * k)); return a; };
+    const gnd = (x, y) => b.ground(W, x, y);
+    if (b.landed) {
+      d = Math.hypot(g.x - v.x, g.y - v.y);   // (on the ground, how far the plane is, not its cockpit: Blackout's Duster had stopped 2 short of the hangar's apron, arrived by its pilot's seat)
+      if (g.air) { g.air = false; if (g.land !== null && g.land !== undefined) g.down = true; }   // (touched down)
+      if (g.down) { I.brake = 1; if (v.speed < 4) { g.down = false; g.done = true; } return I; }   // (down: stopped)
+      const up = g.z !== null && g.z !== undefined && (g.land === null || g.land === undefined) && g.z > (gnd(g.x, g.y) ?? 0) + 20;   // (a goal up in the air, a ring: never reached from the ground under it; Crop Duster's Duster, left on the runway under the first ring, had sat there arrived to the job's end)
+      if (g.done || (!up && d < near && v.speed < 8)) { if (g.foot || !g.stay) return this._exit(v); this.state = 'arrived'; return I; }
+      if (g.taxi) {   // (taxi: along the ground to it, never off it: a hangar's door off the strip's end, flown to and circled for good)
+        const a = steerTo(g.x, g.y, 2.5); I.throttle = d >= near && v.speed < (Math.abs(a) > .6 ? 14 : 36) ? .5 : 0;
+        // (a goal behind it: turned round the way there is room for its wings, held till it faces the goal; landed
+        // west on the strip, Blackout's Duster had turned for the hangar toward the strip's edge and stood against the
+        // wall there till the police shot it to a wreck)
+        const room = s => { const hd = v.heading + s * Math.PI / 2; for (let r = 16; r <= 96; r += 8) { const q = gnd(v.x + Math.cos(hd) * r, v.y + Math.sin(hd) * r); if (q === null || q > 3) return r; } return 96; };
+        if (Math.abs(a) > 1.2) { if (!g.turn) g.turn = room(1) >= room(-1) ? 1 : -1; I.steer = g.turn; } else g.turn = 0;
+        if (v.speed > 44 || (d < near * 2 && v.speed > 16) || d < near) I.brake = 1; return I;   // (within reach: braked there, whichever way it faces; it had circled the Air Race's start for good, the line inside its turn)
+      }
+      // the run: the way it faces if clear for its roll, else the longest clear one of the compass's eight (and the
+      // goal's way), the nearer the goal's the better
+      const clear = (hd, len) => { for (let s2 = 24; s2 <= len; s2 += 16) { const x = v.x + Math.cos(hd) * s2, y = v.y + Math.sin(hd) * s2, gr = gnd(x, y); if (gr === null || gr > 3 || (h.water && W.water && !W.water(Math.floor(x / 16), Math.floor(y / 16)))) return s2; } return len; };
+      const need = h.vr * h.vr / (2 * h.accel) * 1.6 + 40, toward = Math.atan2(g.y - v.y, g.x - v.x);
+      if (g.run === undefined) {
+        if (clear(v.heading, need) >= need) g.run = v.heading;
+        else { let best = null; for (const hd of [toward, ...Array.from({ length: 8 }, (_, k) => k * Math.PI / 4)]) { const len = clear(hd, need); if (len < need) continue; const sc = -Math.abs(ang(hd - toward)); if (!best || sc > best.sc) best = { hd, sc }; } g.run = best ? best.hd : v.heading; }
+      }
+      const da = ang(g.run - v.heading);
+      if (Math.abs(da) > .08) { I.throttle = v.speed < 18 ? .5 : 0; I.steer = Math.sign(da); if (v.speed > 25) I.brake = 1; return I; }   // (turned onto it at a taxi)
+      I.throttle = 1; I.steer = Math.max(-1, Math.min(1, da * 3)); if (b.u >= h.vr) I.down.handbrake = true;
+      return I;
+    }
+    g.air = true; g.run = undefined;
+    const look = (s2, z) => { const gr = gnd(v.x + Math.cos(v.heading) * s2, v.y + Math.sin(v.heading) * s2); return gr !== null && gr + 30 > z; };
+    const fly = (alt, thr = .85) => {   // (to alt: climbed or let down, kept clear of what stands ahead)
+      if (look(120, v.z) || look(260, v.z) || v.z < alt - 8) I.down.handbrake = true; else if (v.z > alt + 15) I.down.nitro = true;
+      I.throttle = b.stalled || b.u < h.stall * 1.3 ? 1 : thr;   // (slow: full power, never a stall)
+    };
+    const cruise = Math.max(h.cruiseZ || 200, (gnd(g.x, g.y) ?? 0) + 70);
+    // a goal with a height (a ring, a race's gate: EXPANSION.md X4): flown through at it (kept 40 over what stands
+    // there), never circled
+    const at = g.z !== null && g.z !== undefined && (g.land === null || g.land === undefined) ? Math.max(g.z, (gnd(g.x, g.y) ?? 0) + 40) : null;
+    if (at !== null) { if (d < near) this.state = 'arrived'; steerTo(g.x, g.y); fly(at, g.speed ? Math.max(.35, Math.min(1, g.speed / h.top)) : .85); if (g.speed && b.u > g.speed + 20 && !b.stalled) I.brake = .5; return I; }   // (speed: held at it, a Crop Duster's dusting pace: the turns tighter)
+    if (g.land === null || g.land === undefined) {   // over the goal (stay: circling it)
+      if (d < near) { this.state = 'arrived'; if (g.stay) I.steer = .6; else steerTo(g.x, g.y); } else steerTo(g.x, g.y);
+      fly(cruise); return I;
+    }
+    // the landing: to the approach point, up to 700 back along the strip (less where the world's edge is nearer: water
+    // runs along Glass Heights' edges, X6) at 150; then the glide in. The approach point itself is the one aimed at
+    // (kept inside the edge by its distance, never moved off the line: moved, it was never reached lined up, and the
+    // Gull circled the bay for good); the turn point out beyond it is kept a margin inside the edge
+    const hd = g.land, cx = Math.cos(hd), cy = Math.sin(hd), along = (v.x - g.x) * cx + (v.y - g.y) * cy, cross = -(v.x - g.x) * cy + (v.y - g.y) * cx;
+    const C = this.city, X = C.w * C.T, Y = C.h * C.T, inside = (q, m) => q[0] >= m && q[0] <= X - m && q[1] >= m && q[1] <= Y - m;
+    if (!g.appr) { let L = 700; while (L > 440 && !inside([g.x - cx * L, g.y - cy * L], 40)) L -= 20; g.appr = L; }
+    const L = g.appr, AZ = 150 * Math.min(1, (L - 300) / 400);
+    if (g.leg !== 'final') {   // (near the approach point but not lined up: on out 600 farther back first, to come round onto the line: at 300, its own turning circle, Blackout's Duster had come back over the point still turning, and circled it till the police shot it down)
+      const A = [g.x - cx * L, g.y - cy * L], dA = Math.hypot(v.x - A[0], v.y - A[1]), lined = Math.abs(ang(hd - v.heading)) < .5;
+      if (dA < 160 && lined && Math.abs(cross) < 60) { g.leg = 'final'; return I; }
+      if (dA < 200) g.wide = true; else if (dA > 500) g.wide = false;
+      const keep = q => [Math.max(100, Math.min(X - 100, q[0])), Math.max(100, Math.min(Y - 100, q[1]))];   // (the turn point kept inside the world's edge)
+      const B = g.wide ? keep([A[0] - cx * 600, A[1] - cy * 600]) : A; steerTo(B[0], B[1]); fly(dA > 450 && !g.wide ? cruise : 150, .6);   // (at the cruise's height till near it: at 150 the Gull had flown into a tower of Glass Heights' on the way)
+      if (g.wide && Math.hypot(v.x - B[0], v.y - B[1]) < 120) g.wide = false;
+      return I;
+    }
+    // final: lined up (the line's error steered out), on the glide (150 at the approach point, less on a shorter one,
+    // down to the ground 300 short of the goal: the rest of the strip to stop in), slow and never stalled
+    const ha = ang(hd - v.heading), ground = gnd(v.x, v.y) ?? 0, gz = ground + Math.max(0, Math.min(AZ, (-300 - along) / (L - 300) * AZ));
+    I.steer = Math.max(-1, Math.min(1, ha * 2.2 - cross * .012));
+    if (v.z > gz + 6) I.down.nitro = true; else if (v.z < gz - 6) I.down.handbrake = true;
+    I.throttle = b.u > h.landSpeed * .8 ? 0 : b.u < h.stall * 1.3 ? .7 : .2; if (b.u > h.landSpeed * .9) I.brake = .6;
+    if (b.stalled) { I.throttle = 1; I.down.nitro = false; }
+    // round again: off the line, turned away, past the goal still flying, or coming in too fast near the ground
+    if (Math.abs(cross) > 90 || Math.abs(ha) > .7 || along > -60 || (v.z - ground < 25 && b.u > h.landSpeed * .97)) { g.leg = null; g.rounds = (g.rounds || 0) + 1; }
     return I;
   }
   _fwd(v) { const b = v.body; return b ? b.vx * Math.cos(b.heading) + b.vy * Math.sin(b.heading) > 0 : true; }

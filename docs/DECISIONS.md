@@ -1312,3 +1312,945 @@ and where it landed.
   - **The page itself plays the missions through** (from file://, in Chromium, the mission bot at the browser's own
     frame rate: `?bot=1#mission/<id>`), as evidence beside the headless campaign, which stays 15.4's proof.
 - **Landed in:** M13 (its acceptance).
+
+## D32 · 2026-10-24 · After the merge: the container's Chromium 153, and what is left as one list
+- **Principle:** PLAN.md 6.1 (the stack: Playwright pinned for the container's Chromium), 0 (scope changes only here)
+  and 19 (the expansion path); HANDOFF's rule that a paused run resumes exactly.
+- **Calls:**
+  - **Playwright stays at 1.56.1.** The cloud container's Chromium is now 153 (build 1243) at the same path, where D6
+    pinned 1.56.1 for 141 (build 1194). Driven through `CHROMIUM_PATH`, it passed every step of `npm test` on
+    `1a1f955` (2026-10-24), and the mission bot and `tools/perf.mjs` run on it. So the pin holds; a bump waits for a
+    failure that needs one. D31's drift holds against 153 too (in a probe of 20,000 arguments each, `pow` differed on
+    2,022, `sin` on 711 and `cos` on 660), so a seed played headless and in the page still drifts apart.
+  - **What is left is one ordered list,** `docs/HANDOFF.md`'s L1-L8, and its `/goal` finishes it:
+    - determinism across runtimes comes first, because it moves every bot run, and that is cheapest before more
+      content exists;
+    - then the known limits, whose bot fixes move the runs too;
+    - then performance, D29's later: the budgets met (or the owner's targets), a quality setting, and the perf step
+      back in test:full, superseding D29's first call when it lands;
+    - then PLAN.md 19's backlog on Lowtown, and `docs/EXPANSION.md`, written and recorded here before any of the
+      expansion is built, then built;
+    - then the platforms;
+    - and last the owner's items (the upstream offer, the DualSense checklist, the merges), prepared and put to the
+      owner.
+  - `GOAL.md` and `docs/handoff/m8-a2/` are records now: each says so at its top, so neither is pasted or picked up
+    again.
+- **Answered:** no. The owner asked for one goal that finishes all the unfinished work and plans; the list and its
+  order are this entry's calls. **Landed in:** after M13 (docs only).
+
+## D33 · 2026-10-24 · L1: one seed, one game in every runtime: MOTOR's own Math, and drawing that never touches the clock
+- **Principle:** PLAN.md 7.3 (the same seed and Intents give the same hash, with or without drawing, in every view; a
+  recorded session replays exactly) and 12 (patch the engine only where an extension can't reach); D31's limit, which
+  HANDOFF's L1 is.
+- **Calls:**
+  - **The page computes with MOTOR's deterministic Math.** A probe of every Math function over 200,000 arguments each
+    (Node 22's V8 12.4 against Chromium 153) found all the transcendental ones differing in the last bit for some
+    arguments (`sin` 3%, `atan2` 18%, `pow` 10%...), and only `sqrt` and `hypot` alike. Node's V8 computes them with
+    fdlibm (its build has no libm trig), Chromium's with other libraries. `src/motor/core/dmath.js` ports V8 12.4's own
+    fdlibm (`src/base/ieee754.cc`: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `exp`, `pow`) and its `hypot`
+    builtin (`src/builtins/math.tq`) to plain arithmetic, which every engine rounds alike. So Node's results are exactly
+    what Node gave before: checked bit for bit over ten million arguments a function, random bit patterns and the
+    special values, and the same code gives the same bits in Chromium. The headless game is unchanged step for step
+    (the same hashes with and without it, 240 s of four scenarios), so no merged run moves.
+  - **Installed on `Math` before the engine, not threaded through the call sites.** `src/motor/core/prelude.js` is the
+    page's first script and the headless loaders' first step (`tools/build.mjs` `prelude()`; the bundle imports it too).
+    It puts the functions on `Math`, so the engine (its preset views compute `sin` and `cos` as it loads), its mocap
+    player, MOTOR and the content all compute alike with no engine patch and no edit at a thousand call sites. Drawing
+    computes with them too: the page makes about 3,000 such calls a frame, some 60 microseconds at JS speed.
+    `tests/unit/dmath.test.mjs` holds each function to Node's own, and every Math function the page's scripts call to
+    the exact ones or these. `src/` writes `Math.pow`, never `**` (pow without `Math.pow`; a lint rule and the same
+    test; four squares in the fleet, the driver and the junctions became `sq()`, two audio curves `Math.pow`, the scale
+    yard's storeys `Math.pow`: each the same number in Node). The engine's one `**` is in a light pool's drawing.
+  - **Drawing never touches the simulation's clock.** With the Math fixed, the bot's Holy Rollers on seed 2 still parted
+    at 65 s, and only when the page drew: `VehicleFX.draw` played a car's explosion through the engine's
+    `particles.explosion`, whose default hit-stop (`game.freeze(.042)`) stopped the simulation at the next frame drawn
+    near the wreck (within 600 u of the camera), while the headless game, which never draws, never stopped. In a
+    browser that made the game depend on its frame rate and its camera. The blast's own hit-stop is the simulation's
+    already (Combat's `onBlast` plays the explosion in the step); the drawn one is `freeze: false` now.
+  - **The proof is a step of the gate.** `tests/e2e/cross-runtime.mjs` plays free roam in the traffic and the crowd,
+    Holy Rollers by the mission bot and the attract mode's reels, headless and in the built page in Chromium (the
+    page's own loop held, every chunk run by `game.advance`, drawn every quarter second), and `game.stateHash()` must
+    match at every 5 s: 60 s in `npm test`, 600 s in `test:full`. Before these calls it failed at 20 s and 35 s.
+- **What it gives:** a bot run in the page plays the headless run's game, and a recording plays the same in another
+  runtime: checked against Node 22 in Chromium 153 here and, through CI's `npm test`, in the Chromium 141 that
+  Playwright 1.56.1 installs there. (Every JS engine rounds IEEE arithmetic alike; Firefox and Safari are not here to
+  run.) D31's limit is gone; HANDOFF's known limits drop it.
+- **Answered:** no. **Landed in:** after M13 (L1).
+
+## D34 · 2026-10-24 · L2: the known limits, each fixed where it lives or kept with its reason
+- **Principle:** HANDOFF's L2 (fix each limit where it lives, with a test, or keep it with an entry that says why);
+  D21's rule (a MOTOR change re-runs every merged mission both ways); D22's G5 and G7, which this revisits.
+- **Calls:**
+  - **A glow's halo is cut by the walls in front of it** (ISO, `Stage._frontTop`). A night light (a head, tail or
+    siren lamp, a streetlamp, a muzzle's flash) was drawn whole unless a wall hid its very point, so a lamp just behind
+    a roof showed its halo over that roof. Now each glow learns how far under its point the nearest wall in front tops
+    out: hidden at 0 or less, whole past the halo's reach (24 px), and in between clipped column by column along those
+    walls' tops (a roof's edge runs aslant on screen: one flat cut showed beside it). Only a glow that is cut pays for
+    the columns. A unit test walks a lamp back from a block (hidden, then cut, then whole) and checks the columns.
+  - **A rider sits at its own vehicle's height.** A model's seat may give `z` (the rider over the vehicle's base);
+    `seatHeight` (model.js) reads it, else the class's (7 on a bike, 6 in anything else), and getting on, riding and
+    getting off use the same. The Sparrow's rider sits at 7 on its 10.6 saddle, the Vandal's at 8.2 on its 11.8; the
+    `bikeParts` kit puts its seat at its saddle. A boat's rider had boarded at 4 and ridden at 6 (a jump as the scene
+    ended): 6 both now. A sim test holds each bike's rider, getting on and riding, to its saddle.
+  - **The bot's cover from the Eye is on the lanes under the decks, and it holds there.** Its cover points were the
+    centres of road cells under a deck's high cells; some lay past a lane's end, so the route ended short and the car
+    crawled in sight of the Eye (and of the units that came) till it was shot to a wreck. Now they are points every 24
+    along the ground lanes under a high stretch, 48 in from either end of it (a car stopped short is still under it),
+    chosen by the police's cars round them and the drive there (`GPS.costsFrom`, one search from the car to every
+    lane: by the crow's way a spot across a one-way street sent it a thousand units round). Under any deck on the way
+    (the police's own rule, `underDeck`, now exported from police.js) the car is hidden and held still while the
+    stars flash out; seen there for 3 s, or at all with a unit within 80 or a cop on foot within 100 (a unit sees 180
+    under a deck), it moves on to a spot 200 or more from there (within 100 of where it was seen it is not hidden),
+    a trip of its own (its stall clock afresh); a spot not reached in a minute, or one it stops short of in sight for
+    5 s, gives way to another. `bot-manners` tests the points, the hold and the move.
+  - **The last stretch backs off what holds it.** The AutoPlayer's crawl to a goal off the road had no unstick: the
+    gym's long Brute at the Gnomes' HQ swung its tail into a deck's pillar (or its nose into a parked car) as it turned
+    off the lane, sat out the 15 s stall, went round the block and met the same pillar, five times (316 s). Held still
+    1.5 s, it now backs off and goes round as the way out of a jam does (102 s on seed 1; 35 s and 39 s on 2 and 3, as
+    before).
+  - **Pinned on foot, the bot starts over.** Within 40 of one spot for 20 s on a walk, the cars it gave up on are taken
+    again and the walk restarts from the nearest node (D31's pocket cycled its start nodes for good). A unit test.
+  - **Kept: three stars are still content's to avoid (G7 stands).** The gym's `evade3` (a Zephyr at three stars from
+    the safehouse, the Eye up), seeds 1-5 within 900 s each, now passes on four (3, 3, 1 and 2 tries lost to a wreck
+    or a bust first) and misses one; on the L1 commit it passed three (1, 1 and 2 lost) and failed two. Played
+    invulnerable (`--god`, as the campaign plays between jobs), where only the hiding counts, it passes three where
+    it passed one. A mortal car is lost to bullets more than to the Eye:
+    cops on foot at 30-40 u shooting while it is stopped or crawling (a queue, a junction, the last stretch), 18 a hit.
+    Tried and not taken, each passing no more seeds: a quicker bolt from cover; driving away from a cop on foot at
+    once; a 6 s stall when chased with the off-road way round at the first (at one star its sidewalks earned a second
+    star and the police's guns: the Proving Ground bench's evade was shot to a wreck). Which seeds pass moves with any
+    change. So a stage the bot must get through stays below three stars, or drives its
+    three through to where the story drops them; the gym plays `evade3` and reports it, but its runs don't fail the
+    gym (`LIMITS`).
+  - **Kept: a passer-by who hits the bot is sent running, not fought (G5 stands).** The gym's `passerby` (a docker who
+    keeps swinging at it) has the bot walk on to the diner in 8 s on seeds 1-3: being hit costs it nothing it needs,
+    and a brawl with the street earns heat a stage would have to answer for.
+  - **A delivery kept free of stars, the pad's retries: no longer limits.** S1 (the long Brute's delivery) passed on
+    seeds 1-3 with no retry (gold, gold, silver), and the gym through the pad passed all 13 fixtures with none
+    retried on the L1 commit; both are steps of test:full, so a retry there shows.
+  - **The gym is a step of test:full, both ways** (`tools/botgym.mjs`, promoted from A2's probe): a fixture per hint
+    kind and per known limit (`evade3`, `haul`, `passerby`), on seeds 1-3 and through a pad on seed 1; `--god` plays
+    it invulnerable.
+  - **Kept: a long truck at a tight corner costs time.** A failing turn is kept off the next route, and the last
+    stretch's unstick (above) took the gym's `haul` from 316 s to 102 s on seed 1 and from 167 s to 38 s on seed 5
+    (35 s and 39 s on seeds 2 and 3, as before), but on seed 4 the Brute still loses minutes wedged at the corners west
+    of the HQ and takes 769 s, as it did. It gets there, slowly.
+  - **A tow truck lines up in the road, facing the way it must stand.** L2's closing run failed the gym's `tow` on
+    seed 3 (it had passed seeds 1 and 2; seeds 4 and 5 had never passed): the car at a kerb in a row of parked cars,
+    the bot staged the Hookline on the car's axis behind it, which on a one-way street meant turning an 80-unit truck
+    round to face up it; it drove wide, started backing while still rolling forward (the hook got farther, so it gave
+    up in 2.5 s), and on its second try wedged itself across the street at the corner for good. Now the truck stands
+    on the nearest lane running the way it must face, beside the car's end (`MissionBot._towStage`), and gets there
+    along a route that ends on such a lane (`GPS.routeTo`'s `toHeading`, the AutoPlayer's `heading`); it brakes to a
+    stop before it backs, turns at a crawl, gives a staging point it gets no nearer for 25 s up for the other end,
+    and a long vehicle wedged at a kerb backs half a second longer for each 10 units past 30 of its half length. The
+    gym's `tow`: seeds 1-5 pass but seed 4 (92, 93, 124 and 105 s); on seed 4 the Hookline, parked at a kerb by a
+    junction facing the map's edge with cars at both its ends, never gets out of its spot (as on the L1 commit),
+    which is the long truck's tight corner above.
+  - **The campaign sets out on a job from the middle of town.** Its next closing run passed every step but the
+    campaign, at 96%: the moto courier's level 3 failed three times at its first drop, its Sparrow the one nearest
+    where the last item had left the player, in a far corner at rush hour. The campaign now takes a job's vehicle
+    nearest the middle of town (`tools/bot-campaign.mjs`), as a player setting out on a job would; the whole campaign
+    reached 100% after 2.87 h of game.
+- **Answered:** no. **Landed in:** after M13 (L2).
+
+## D35 · 2026-10-25 · L3: every view inside its budget, the look kept, and the perf gate back in test:full
+- **Principle:** HANDOFF's L3 (the budgets met without cutting the look, a quality setting for slower machines, the perf
+  step back in test:full with an entry that supersedes D29's first call); D10's budgets read as D20 says (each view
+  against M2's build, measured in turn); PLAN.md 7.11 (budgets come from measurement) and 12 (extend before patching).
+- **Where it stood:** on L2's head the gate read ISO 10.43 ms (budget 10.4), TOP-DOWN 9.39 (12.7) and MODE 7 13.51
+  (12.7); L2's closing commit had read 10.60, 9.07 and 13.77.
+- **How the frame was read:** a frame's main-thread time is its JS and the raster of what it queued, paid when the
+  buffer is presented (`_present`'s drawImage was 3.5 of MODE 7's 9.3 ms). So each part was weighed by leaving it out
+  of every other frame in one page (the two halves see the same streets; the harness's own noise is about 2%), and
+  each change by builds measured in turn on fresh pages, the mean of four rounds. MODE 7: bodies about a quarter of
+  the frame, cars a ninth, the light pass a tenth, decks 8%, the floor 5%; ISO: the engine's light field a quarter,
+  the city's shapes a fifth (cars 8%), the crowd 16%, the walls 13%.
+- **Calls:**
+  - **A crowd body's redraw is drawn into a pixel array** (`render/pixel-ctx.js`): what a rig draws is opaque
+    whole-pixel rectangles in `#rrggbb`, a hundred-odd a redraw, so they are written straight into a Uint32Array and
+    put into the body's kept image with one putImageData, and only the box they cover is put and drawn on the frame.
+    Anything else a draw asks for (a path, an image, a transform, alpha, another colour form, a fractional edge) bails
+    to the canvas. The same pixels: every redraw in 8 s of each gate (2,438 in ISO, 1,404 in MODE 7) compared equal.
+    ISO about 3.5%, MODE 7 about 2%.
+  - **MODE 7 draws nothing nearer walls hide:** `_cull7` already knew where the faces wholly nearer than an item top
+    out over its columns; an item that shows above them now stops at the lowest of those tops (`clipY`): a wall face's
+    fill (`texturedFace`'s yMax), a body's or a car's image. The same pixels; about 1%.
+  - **MODE 7's decks a row at a time:** a deck's cells side by side across the rail at one height (the slope along
+    the rail) are one slab, its underside and its textured top one face each (`drawDeckRun`, the face split up to
+    log2 of its length more times), each cell's open edges and railings as before: 191 draw items a frame became 28.
+    About 2%.
+  - **MODE 7 gathers the city from its lens's wedge,** not the square round the focus (`Side7View.wedge`): what lies
+    outside it is off the screen. About 1.3%.
+  - **Bodies, cars, props and decks fade into MODE 7's haze as the walls do** (`Stage._haze`, `HAZE_GONE`, `HAZY`):
+    they had been drawn crisp to the far clip while the buildings round them faded into the fog, and those past 450
+    along the rail were a tenth of the frame. They now take the walls' fog as transparency, and past 85% (where a wall
+    goes flat into the fog) they are not drawn; a lamp's light, a glow, a sign and a marker still show through it. This
+    changes the look in the distance, toward the fog the scene already had; `HAZE_GONE = 1` and no fade put it back (one
+    constant, for the owner, L8). About 3%. (The gate's stand-in cars, which make up the 20 cars in view, are drawn as
+    the cars they stand in for: hidden by the walls, faded by the haze.)
+  - **A crowd body right by MODE 7's lens is kept at the largest size a body is kept at and enlarged smoothly** where it
+    stands: too big to keep, it had been drawn whole every frame (about five a frame in the gate, at four or five times
+    a body's size, a twentieth of the frame); now it is soft, as a thing too near a lens is. About 3.5%.
+  - **Kept from part 1 (`b7df89d`):** the depth views' light map scaled up only over the box its holes cover, and the
+    Graphics setting (Settings, Display): Full, the default and the whole look, or Fast for a slower machine (the light
+    maps at a third and a sixth, the crowd animated two thirds as often, half the rain).
+  - **Tried and not taken** (each measured, none kept): kept shapes redrawn by their skew instead of every 8 frames
+    (+2%), drawn directly (+7%); kept bodies drawn at a capped scale and enlarged (+1.6%), kept up to 400 px (noise,
+    and the review's 256 px bound); each pool's warmth straight onto the frame (+3%); the present's black fill skipped
+    (none); the engine's light field walked in row spans, composited over lit boxes, or with a tighter cell loop (0 to
+    +3.5%: its boxes cover the frame); a row's roof-only wall blocks as one image (+2.3%); a headlight's beam from a
+    sprite (noise); the browser's own Math in the drawing (none); a wall's side slices joined where nothing between
+    overlaps them (they seldom are: most lie in the fog, where joining would band it); props kept one image each in
+    the depth views (+1%); a body drawn this frame through a scratch pixel array (+1.9%); the light maps scaled without
+    smoothing (-3%, but MODE 7's light would turn blocky where ISO's is smooth: not taken). Left in ISO: the player's
+    own composite (outline, rim) and x-ray, 1.55 ms of its frame, are the engine's.
+- **The gate:** the "perf gates" step is back in test:full (superseding D29's first call), first, while the machine is
+  quiet, as the median of five rounds: one round's readings vary about ±1.5%, five rounds' medians far less (ISO read
+  10.08-10.25 over six runs on these builds). The reading of record (five rounds, alone): ISO 10.25 ms (budget 10.4),
+  TOP-DOWN 9.05 (12.7), MODE 7 12.13 (12.7); the update 0.81-0.97 ms a step (1.5).
+- **Answered:** no. **Landed in:** after M13 (L3).
+
+## D36 · 2026-10-25 · L4: PLAN.md 19's backlog on Lowtown
+- **Principle:** HANDOFF's L4 (each through the bot on seeds 1-3 and through the pad, a recipe if it is a new kind,
+  counted toward 100%); GOAL.md's rules (MOTOR in src/motor, content in src/game, no runtime dependency, network or
+  binary asset; a deterministic, view-independent, headless-testable simulation; the controller-first UI).
+- **Calls:**
+  - **The chase camera is a fourth view** (`render/depth/chase.js`, a MODE 7 lens): it swings behind what the player
+    drives or the way they walk, the swing turned in the simulation's step (`stage.update`, which maps the stick:
+    turned in the draw, a frame rate changed the run), pulled in short of a wall between it and the player, R3 cycles
+    to it and ] / [ swing it a quarter. Nothing simulated reads it.
+  - **Photo filters and two stations.** Photo mode's F / R1 cycles a look over the frame (noir, sepia, vapour, ARCADE,
+    postcard): the picture and its PNG. SURF CITY 97.3 (surf rock) and VELVET 92.1 (lounge) join the dial, two ads
+    with them: their genres are their own, a template each for the composer (`def('genres')`: surf rock's drive in
+    mixolydian, a lounge's brushed swing in dorian), and the composer gains the pentatonic and blues scales for others.
+  - **Paramedic and Tow Truck, three levels each** (jobs four and five). A tow's car is impounded when it comes within
+    130 of the precinct's gate on the hook; the stage's own check stops watching it then (removed at the gate, it had
+    read as a wreck and failed the stage). A ticket's car is left in the traffic lane, square to it; its clock is the
+    road's time to the car and then the car's to the impound (it had been the truck's own to the impound: a ticket
+    across town from both ran out on the way back); a retry gives a fresh Hookline a block short of the car (the last
+    one could be wedged at a kerb, or in the jam that ran the clock out). The bot's staging is L2's (D34), a truck's
+    length farther out; a missed hook pulls forward along the car's axis and backs again, twice, before staging anew
+    (a re-route at each miss had sent it round the block for a hair's offset at the hook); a rig pinned at a kerb with
+    a car on its hook backs a moment (never backing at all, it had pushed at a bench for minutes). The bot on seeds
+    1-3 at each level: 9 of 9 (8 gold); before these, 3 of 9.
+  - **The player flies a helicopter** (`HeliBody`'s pilot mode): Channel 6's SkyCam on its pad on Marquee Plaza. The
+    stick yaws, R2 / L2 push on and back, R1 climbs, L1 descends, and it holds its height between; let down slow over
+    flat ground or a roof it settles, and only on the ground is it boarded or left (SET DOWN FIRST otherwise). With
+    nobody at the controls it sinks and settles; the AI's (the Eye) flies as before. A landed one is met by cars. Its
+    job, SkyCam (job six): stories to get on camera, a smash's wreck or a chase, held over steadily for 5-7 s. The bot
+    flies it straight at a cruising height clear of the roofs (`AutoPlayer._fly`), held over a point (`hover`) or a
+    mover (`follow`), set down to land.
+  - **The L is boarded** (`world/transit.js`): each station's stairs on either side (the sidewalk's foot, the
+    platform's top; △, a fade), a stopped train's doors from the platform (△ boards; the rider is hidden, carried with
+    its car, never run over by it), and off at any later stop (△). Its job, L Courier (job seven, started on foot at
+    Palm station): parcels to stations by train. The bot climbs to the side whose train reaches the stop sooner, waits
+    at the platform's edge, boards, and gets off there (a `rail` hint). A parcel's clock is the longest wait for a
+    train (the loop's time, its run, dwells and the slowing round each stop, over the trains on it: about 43 s), the
+    ride stretched by the level, and a grace: the wait is most of a parcel's time (the stops are 2-19 s apart by
+    train), and a clock of the ride and a grace alone ran out at level 3 whenever a train had just left (2 retries on
+    seeds 1 and 2). The bot on seeds 1-3 at each level: 9 of 9, no retries.
+  - **Club Chrome has an inside** (`interiors/club-chrome.js`): the hall, the bar, the dance floor (a lit-tile surface,
+    `dance`) under the DJ's stage, the VIP lounge, Father Fender's office; the Saints' bouncers mind the office, a gun
+    and a wanted face; dancers (an interior's `patrons`, a mocap clip each); VELVET plays inside (an interior's `music`
+    names a station). An interior may have several public rooms, and spots (a marked cell to act at).
+  - **An arcade cabinet runs an engine starter kit** (`play/arcade.js`): CHROME RAIDERS in the club's lounge is the
+    engine's shooter slice, vendored and verbatim (`vendor/my-3d2dge/reference/starter-30-shooter.js`, bundled as text),
+    run as a second engine game that never loops: the play scene steps it while the player stands at it and draws it
+    into a bezel; the five names the starter file shares with its slices are given (a best score, prompts, the corner,
+    a padded score, no touch); the kit's dice are its own (seeded per play, swapped in for Math.random while it runs, so
+    the game's stream is untouched and the same steps make the same play). Its controls are an `arcade` context (the
+    stick, ✕, ○; △ steps away), so a person, the bot and the bot through a pad play it alike. Its high score (10,000
+    in a play) is a new activity kind, `arcade`, and a checklist category, Arcade high scores (2%: MAYHEM's 9% to 8%,
+    the stunts' 10% to 9%).
+  - **The cabinet, seen.** Its screen is drawn over an interior's frame as well as the street's (it had been drawn in
+    the street's branch only: never in the club), from the kit's own buffer at the kit's resolution (the engine sizes
+    a canvas to where it sits on the page, and the cabinet's sits nowhere: it had shown one grey pixel, stretched); the
+    kit is given the engine's `lerp` too (a sixth name its starter file shares, read only in its drawing: the headless
+    tests never drew it; ESLint's no-undef over the kit with the cabinet's names now finds none missing). At the
+    cabinet the street's HUD is off, as a menu has it (its screen and the way back, STEP AWAY, under the bezel).
+    Photo mode's look is drawn indoors too (the same branch had kept it from interiors).
+  - **The camera at the focus's height.** ISO and TOP centre on the focus where it is, up in the air, on a platform of
+    the L or on a deck's road (they had centred on the street under it: a helicopter at 120 sat cut off at the top of
+    the frame); MODE 7's and the chase camera's lens rides that much higher, eased, still behind and above it. In
+    MODE 7 and the chase camera the objective's band is at the top, over the skyline (their lens holds the player's
+    vehicle where the band had been). Presentation only: the views' sim-hash tests still hold.
+  - **Found through the pad** (its runs take other lines through the traffic, so they met what the bot's had not):
+    the bot's driving sees a drawbridge's gates shut, as traffic does (it had not: a job's fresh truck met a rising
+    leaf at full tilt, flew past its turn and into a dead end at the map's edge); a driver held at a stop sign behind a
+    car nobody drives goes round it, as it would anywhere (the halt it waited for never came: a car left on a stop line
+    held the street behind it for good, a Hookline sent for that very car in the queue); the tow bot tries a car's
+    other end only when a lane runs that way by it (on a one-way street the far end faced the wrong way up it: no route
+    came in that way, and the truck arrived on the cross street at speed and drove off to the map's edge to turn).
+    (Tried and not taken: a ticket's car left mid-block, shoved along by the traffic going round it and staged for from
+    places the truck could not reach; staging again whenever the car had been nudged, which sent the truck off on
+    fresh routes for a car's length; and a towing rig kept off the decks, where Lowtown's one-way streets leave no way
+    to the impound without the Loop's ramp, which a rig climbs at 60-100 u/s straight on.)
+  - **Found by the campaign** (its runs set out the way a player does, so it met what the deep links had not): the
+    SkyCam's pad had been laid on Marquee Plaza's fountain, its skids up on the rim and its doors over the basin, out
+    of a ped's reach; it stands south of the fountain now. The campaign counts the helicopter the player flies as the
+    next level's (only a landed one had counted, and the last level ends in the air). The Car Park Roof's run-up starts
+    in the building site's frontage, off Chapel Street (a car parked at the kerb had stood across a run-up from the
+    street: the stunt had passed in earlier campaigns only on the cars and the parking it happened to meet). And an
+    activity that fails waits behind the rest before it is tried again, as the campaign's TRIES always said (it had
+    been tried back to back: the Paramedic's first level met the same jam on Harborfront's streets three times over;
+    an ambulance's siren run on a call, to part it, was tried and not taken: the traffic pulling over held it up as
+    often as it let it by). The landmarks' own vehicles (a spot's, a pad's: the Medic at Lowtown General, the SkyCam,
+    the precinct's cruisers, the Hookline) are kept: once one is wrecked, sunk or towed off, the tow puts a fresh one
+    at its home, out of sight (`fleet.keep`; a wrecked SkyCam had taken its job with it for good, and the campaign had
+    found no Medic left to start the Paramedic's in). Loop Avenue's east end, run out to the bay with nothing between
+    the road and the water, has a sea wall across it (the Causeway's place): a Medic driven on past the end of the
+    road had gone into the harbour, and the one lent where it went in after it; a Paramedic's retry with no Medic to
+    drive is lent one at Lowtown General's bay. The bot's helicopter, pushing on and going nowhere for a second, climbs
+    48 before going on (a tower's corner under a skid, the point its look ahead sampled clear beyond it, had held the
+    SkyCam against the tower's side till the story was lost: building heights aren't cell-aligned, so no fixed set of
+    sample points is sure).
+  - **The recipes.** The new kinds each have one in docs/CONTENT-GUIDE.md: a helicopter a player flies, an L line's
+    stations, an interior's patrons and spots, an arcade kit, an arcade high score, and a station's genre of its own
+    (`def('genres')`, the station recipe's fixture now bringing one).
+  - **What test:full found.** A car holding a junction whose nose is over the line but short of the box obeys a red as
+    one still before the line does (it had gone on its old green once the box ahead cleared); a turf war whose middle
+    the focus has left beyond the crowd's ring is over, its fighters walking off (one out there had gone on unseen and
+    stood three of them in a junction, the traffic waiting on them). The controls screens' fourth tab is ARCADE, a tab
+    strip closes up where it would leave the safe area, and BUTTON LAYOUT pages what doesn't fit. A job's driving car
+    carries its driver's brain (`drivenBy`), so the bot behind a race's rival at a red waits as it waits in traffic; a
+    Firefighter retry keeps the engine on its own way. Traffic shoves a wreck in its way after TUNE.gridlock s (a car
+    nobody drives, 4 x that: its driver may come back), so a turf war's wrecks at a junction's mouth no longer stand the
+    streets round it; the bot with a car on its hook never goes round (a car nobody drives ahead is pushed on), and any
+    bot boxed in by a car nobody drives shoves it every other time; a mission car that stops driving drops its
+    `drivenBy`. A car its driver left on a drawbridge's span is towed, in sight too, once the gate has shut for a lift
+    and it has stood a minute (the bridge waits for its span to clear; the player's own car it waits on as before).
+- **Answered:** no. **Landed in:** after M13 (L4).
+
+## D37 · 2026-10-26 · L5: the expansion's plan, `docs/EXPANSION.md`, and its scope
+- **Principle:** HANDOFF's L5 (`docs/EXPANSION.md` in PLAN.md's form, its scope recorded here before any of it is built)
+  and PLAN.md 19's shape for the full game (3 districts x 3 gangs plus 3 heists, the bridges opening with the story, one
+  map at a time, the content packs: planes, more boats, more weapons). PLAN.md stays the contract for what EXPANSION.md
+  does not change, and section 0's rule holds for it: scope changes come here, never cut silently.
+- **Calls:**
+  - **Two districts more, three gangs each.** Ironside (District 2, grown from its stub west across the canal: the
+    works) holds the Lawn Gnomes' union turf, the Rust Monks and the Volt Boys; Glass Heights (District 3, east across
+    the bay at the end of the Loop Causeway: the money) holds the Velvet Syndicate, the Yacht Club and the Chrome Saints
+    uptown. A gang in two districts keeps one respect.
+  - **18 missions:** each new gang's two, and each district's heist in two setups and a finale (Blackout at the Ironside
+    Power Station, House Edge at the Velvet Casino), each finale played by all three protagonists. With the slice's 14:
+    32. Each district's heist opens once two of its gangs' first jobs are done.
+  - **The bridges open with the story:** Loop Avenue's west bridge (the Gnomes' strike) when The Big Withdrawal is done;
+    the Loop Causeway, Loop Avenue carried east from the sea wall, when Blackout is done. **One map at a time:** a
+    crossing fades out, loads the other district and carries the player, the vehicle, the crew, the time, the weather
+    and the stars over (`save.district`). The career is per district (a mission, an activity, a token set and a stunt
+    name theirs); only a job holds a bridge. Streaming two districts at once stays left for later, as PLAN.md 19 leaves
+    it, until a profiler says the fade is the only seam left and both fit the budgets.
+  - **The content packs:** planes (a `plane` class: the Duster, the Gull seaplane), boats (the Splash, Moneybags, the
+    Yacht Club's Regatta), weapons (the Nail Gun, the Flare Gun, the Tesla Coil), and the gangs' and the jobs' vehicles
+    (the Scrapper, the Bucket, the Velvet limo, the Limo).
+  - **Side content a district:** a job at three levels (Crop Duster; Limo), a race (the Ironside Air Race; the Heights
+    Regatta), a MAYHEM, 3 stunt jumps, 15 Moto Tokens, 2 properties, a hold-up, an attract reel; the slice's random
+    events in each. The checklist's categories count every district; their weights stay.
+  - **Milestones X1-X8,** each closed as PLAN.md's are (its acceptance, the page building and playing, committed and
+    pushed, PROGRESS.md's evidence): districts in play and Ironside's map; planes; Ironside's gangs and missions;
+    Ironside's side content; Glass Heights' map and the Causeway; boats, and Glass Heights' gangs and missions; its side
+    content; the full game verified. Planes come before the missions that fly them (Short Circuit, Blackout) and boats
+    with the ones that sail (Overboard, Flare Up): the bot learns each first. The Definition of Done: a headless bot
+    campaign at 100% across the three districts, every view in every district, the perf gate in each.
+  - **Not in it:** more arcade cabinets or radio stations (the slice's stay as they are), streaming, and any change to
+    the engine beyond PLAN.md 12's process.
+- **Answered:** no. **Landed in:** L5.
+
+## D38 · 2026-10-26 · X1: districts in play, and Ironside's map
+- **Principle:** EXPANSION.md 2.1 and 2.2, and X1's acceptance; PLAN.md 19 (one map at a time across a bridge fade); D21
+  (after a map change, the merged content again).
+- **Calls:**
+  - **A crossing is content.** A district names its crossings (`crossings`: a gate of cells at a road's end at the map's
+    edge, the way out, the district beyond and the crossing one comes in by there, where one is set down, and the
+    mission that opens it). **A closed crossing is the city built without it:** `buildCity(id, seed, { open })` cuts a
+    crossing's `openings` out of the walls (after everything else is laid out) and leaves out the signs and props that
+    bar it (`gate: <its id>`) only while it is open, so a district whose bridges are shut is the one it was before they
+    were drawn. MOTOR's `Crossings` (`world/crossing.js`) answers which open crossing a point stands in and where one
+    comes in. The play scene, finding the possessed one in an open gate on foot or at the wheel, enters again with the
+    district beyond (the engine's scene fade: the old scene stands still under it); and when the story opens a bridge
+    (the job that opens it done, the career idle), it enters again where it stands, its city built with the way through.
+  - **What crosses:** the career's snapshot (the save as it stands, its district the new one), the view, the stars and
+    the vehicle driven (its definition, paint, mods, damage, station and speed, up to 120: it rolls off the bridge onto
+    the nearest lane running in). The rest of the crew stand at their own spots in the new district (its safehouse where
+    theirs isn't there). The scene reseeds on entering, as on every entry, so a crossing replays the same.
+  - **Only a job holds a bridge** ("NOT DURING THIS JOB"): the stars cross, and the chase goes on.
+  - **The career is per district.** A mission, an activity, a set of Moto Tokens and a stunt jump name their district
+    (Lowtown's when unsaid) and are offered, laid out and counted there alone; a district with `career: true` plays the
+    career (one without, a Proving Ground lab, is free roam). A save records its district (`save.district`) and loads
+    there; a protagonist saved in another district stands at their own spot. The dev menu's GO carries the game to a
+    district's safehouse. Random events happen in any district (theirs are relative to the player).
+  - **Ironside is District 2, grown from its stub** (the stub's `district2` retired): 128 x 112, the Foundry, Scrapyard
+    Flats and Voltage Row, the canal and the river, Ironside Avenue carried over the works on the Flyover, Loop Avenue
+    over the canal on the east bridge; its doors (the flat over Sudsy's, St. Sooty's Clinic, the 9th Precinct), its
+    landmarks (Union Hall, the rail yard, the smelting works, the Scrap Cathedral, the crusher yard, Spray & Pray West,
+    the Power Station, Substation 9, the Airstrip), its fleet, traffic and crowd, its signs and billboards. Its gangs,
+    missions and side content are X3's and X4's.
+  - **Lowtown plays as it did.** Its embankment and the strike's notice stand across Loop Avenue's west end as before
+    until The Big Withdrawal is done; open, the embankment's two columns there are cut back out (`openings`) and the
+    notice taken down. A run on the closed Lowtown hashes the same as before X1, step for step (a first try ran the
+    avenue to the edge through a gap in the embankment and laid a picket of barrels across it: the gap split the
+    embankment's strip of ground in two, which dealt every lot in Lowtown anew, the barrels on Gnome Row's sidewalk
+    moved where the crowd fills in, and a traffic car turning at the dead end met the barrels where the embankment had
+    been; the gang, property and camera tests read a different city). The Big Withdrawal's credits now say the strike is
+    off.
+  - **The map** shows the bridges, a closed one greyed and marked CLOSED.
+  - **The checks:** Ironside's 10-minute city soak joins test:full's; the screenshot matrix shoots its three
+    neighbourhoods. The random events' test now stands a player at the start of every ground lane rather than a sample
+    of 40 (the stalled car finds a spot from about one lane start in ten, before X1 as after: a sample's lanes move with
+    the road graph); two events no longer pick a spot on the cell past a lane's end in the sea.
+  - **PLAN.md 15.9's** "the District 2 stub loads" is now "Ironside loads": it is District 2.
+- **Answered:** no. **Landed in:** X1.
+
+## D39 · 2026-10-26 · X2: planes
+- **Principle:** EXPANSION.md X2 (the plane class, the Duster and the Gull, the AutoPlayer flying them) and section 6's
+  controls (a plane on the helicopter's buttons); GOAL.md's rules (a deterministic, view-independent simulation).
+- **Calls:**
+  - **A plane is a class of its own** (`sim/vehicle/plane.js`, `class: 'plane'`): on its gear it rolls as a slow car
+    (the throttle, the brake, a taxi's steering, never backwards) and past its rotation speed R1 lifts it off; in the
+    air the stick banks it and the bank turns it (the tighter the slower), the throttle sets its speed, a climb costs
+    speed and a dive gives it, and R1 / L1 climb and descend with the height held between (as the helicopter has it,
+    for the 10-foot pad). Under its stall speed its wings let go until it is 15% past it again: its nose drops and it
+    falls. It sets down level, slow and gently on what it can land on (a landplane the ground, a seaplane the water);
+    anything else, a wall flown into among it, is a crash, and a landplane on the water goes under.
+  - **It meets things with its fuselage** (the handling's width, 14 for the Duster): its wings pass over a lamp or a
+    car, and its doors are reachable (a wingspan's box had put them inside it, and the bot could never board).
+  - **It never leaves its district:** within 240 of the world's edge, flying out, it banks round hard toward the middle
+    whatever the stick says; an aircraft in the air crosses no bridge (a crossing is for what is on the bridge).
+  - **The bot flies it** (`AutoPlayer._plane`): off the ground along the run it faces if clear for its roll, else the
+    clearest of the compass's eight nearest the goal's way, turned onto it at a taxi; in the air at a cruising height
+    clear of what stands below and ahead, banked toward the goal; a `goto` hint's `land` (the strip's heading) brings
+    it down: an approach point 700 back along the strip at 150 (swung wide to come round onto the line), the glide in
+    lined up and slow to touch down 300 short of the strip's end, and stopped; off the line, too fast near the ground or
+    not down 60 short of the end, round again, and never a stall.
+  - **The Duster** stands on Ironside Airstrip's apron (a fleet `pads` entry, kept as the SkyCam is); the runway is a
+    lot that gets no clutter (laid as a yard, it had been strewn with the builder's crates, which held the plane on its
+    stand). **The Gull** is built and flown on the open sea (its moorings come with Glass Heights, X5).
+  - **The checks:** the handling suite's plane checks (its takeoff, its climb, its top speed, its height held, a banked
+    turn, a stall, a gentle landing); the planes' sim test; the gym's `plane` fixture (the Duster off the strip, over
+    Union Hall and down again) on seeds 1-3 and through a pad. A helicopter still counts as aloft wherever it stands,
+    as the slice has it, so Lowtown plays as before.
+- **Answered:** no. **Landed in:** X2.
+
+## D40 · 2026-10-26 · X3: Ironside's gangs and missions
+- **Principle:** EXPANSION.md 3, 4 and X3's acceptance (each mission through the bot on seeds 1-3 and through a pad, the
+  interior validated and tested, the recipes, the HQs and the interior read in every view); D21 after the MOTOR and bot
+  changes it needed.
+- **Calls:**
+  - **A gang can be in more than one district.** Its spec takes a district's HQ (`hqs: { district: poi }`) and rival
+    (`rivals: { district: gang }`), and its beats name their district; `gangs.rival(id)` answers for the district in
+    play. The Lawn Gnomes hold the Foundry and Palm Terraces' turf, their Ironside HQ the Union Hall, their rival there
+    the Rust Monks (in Lowtown still the Saints). A mission giver in another district names its gang and its phone (`{
+    phone: gang, at: poi }`).
+  - **The Rust Monks** (✚, rivets; the Scrap Cathedral; the Scrapper, a crane truck; the Nail Gun, the Slugger) and
+    **the Volt Boys** (⚡, chevrons; Substation 9; the Bucket, a cherry picker; the Zap-O-Matic, the Tesla Coil), each
+    with its grunt and enforcer, its payphone, its turf (Scrapyard Flats; Voltage Row), its rival (the Volt Boys; the
+    Gnomes). The Nail Gun and the Tesla Coil are Lead Farm's once each gang's first job is done.
+  - **Nine missions:** Picket Line and Scab Labour (the Gnomes), Holy Scrap and Sermon on the Mound (the Monks), Live
+    Wire and Short Circuit (the Volt Boys), and Blackout's two setups (Grid Map, The Lineman) and its finale, from the
+    planning board once two of Ironside's gangs' first jobs are done. Blackout is played by all three: Gus cuts the line
+    from the Bucket, Viv shuts the turbines inside the Power Station, Dex flies the payroll out in the Duster.
+  - **The Ironside Power Station,** an interior (36 x 22): the lobby (the public's), the corridor with a wall down its
+    middle, the control room under its camera, the turbine hall and the switchyard; three guards, four cameras; the
+    plans on the control room's wall; the turbines' three valves are spots with a verb (SHUT), △ at one told on the BUS
+    (`spot`).
+  - **MOTOR's part:** a mission car's driver can be given orders (`m.drive(v, { to, style })`, a `slow` style: a bus on
+    its round); a mission car that stops driving drops its `drivenBy`; the bot's ram backs off steering away, and a
+    back-off is over once the target is out of reach (D21's re-run of the slice: one left standing had braked the bot
+    the moment it caught The Big Withdrawal's Strongbox up again, on seed 3 till the police shot the Hookline); the
+    AutoPlayer's box clock reads a brain made that step by the last one's cause (a chase's goal moves every few seconds,
+    each move a new brain, and the clock had started again each time: Sermon on the Mound's Brute stood behind a hostile
+    Volt Boy in the lane to the job's end; held over every fresh brain, it had rounded queues in chases, and Scab
+    Labour's Brute missed its buses); a `chase`
+    names the car to chase in (`vehicle`); a `goto` takes waypoints (`path`, walked straight first: indoors no walk
+    graph runs) and, for a plane, `taxi` (along the ground to it, never off it).
+  - **Found by the bot** (each a fix in the mission, not a softer check): a sneak's path ran into a scrap pile in the
+    Cathedral's yard; the chase sent the bot on foot looking for a car of its own; the control room's camera gate
+    reckoned one walking speed and the bot walked faster into its cone (it reckons four now, 26-38 u/s); a retry still
+    inside the station kept the last try's alarm; leaving by the front door, the stage's end, had counted as leaving it;
+    the valves' and the door's hints stood a cell short of △'s reach; the way to the turbine hall runs through the lobby
+    (a path); the Duster was flown to the hangar instead of taxied; the Bucket, nose west in its yard, had a truck's
+    turn to make in four cells and sawed at the lamps till the police had it (nose to the road now).
+  - **The slice's checks, widened:** the mission lint knows Ironside's nine; respect starts at nothing for five gangs;
+    the Scrapper takes its model's class (tow); the weapon recipe's fixture is a Staple Gun (the Nail Gun is Ironside's
+    own).
+- **Answered:** no. **Landed in:** X3.
+
+## D41 · 2026-10-26 · X4: Ironside's side content
+- **Principle:** EXPANSION.md 5 and X4's acceptance (each activity through the bot on seeds 1-3 and a pad; the campaign
+  completes Lowtown and Ironside); D21 after the MOTOR and bot changes it needed.
+- **Calls:**
+  - **Crop Duster** (a job, three levels; the Duster from the phone's JOBS): rings hung over the allotments' rows and
+    round the runway, flown through in order against the clock, 12, 16 and 24 of them (one and a half, two and three
+    times round the field). A ring counts within 50 across and 30 of its height. The field is flown at a dusting pace
+    (the bot's 130 u/s): at the Duster's top speed its turns are too wide for the rings.
+  - **The Ironside Air Race** is flown against the board, not against rivals in the air: the Airstrip's three best
+    times (21, 24 and 28 s) are the racers, a podium beats the third, the purse pays by the place. There is no AI
+    pilot (the AutoPlayer flies the player's plane, and the slice's racers are road drivers); the board makes the race
+    the same each time. Twelve gates round the works, taxied to the line on the runway, a countdown, a false start
+    fails. The bot flies it in 21.8 s on every seed: second, behind Ace Malone.
+  - **MAYHEM: Nail the Scrappers:** the Nail Gun against ten of the Monks' Scrappers round the Scrap Cathedral; eight
+    in 1:30. All three of Ironside's gangs are out of it (a Gnome patrol walks its beat through the targets).
+  - **The stunts:** the Flyover's End (a spur off the Flyover's west side, over the Monks' yard: a road deck like the
+    Loop Gap, whose lanes join none of the Flyover's, so the road graph keeps none on it and the traffic never takes
+    it), the Slag Heap (a kicker and a landing on the slag tip, a new lot north of Substation 9) and the Crusher Yard (a
+    kicker in Monk & Sons' yard, beside the crusher); the slag tip, the allotments and the airstrip are lots of the
+    runway's kind (no trees, lamps or crates); a deck takes a `surface` (the Slag Heap's of dross, `'slag'`), and a
+    `noSpawn` zone keeps parked cars off each kicker's run-up (the look read found one at the Slag Heap's foot).
+  - **15 Moto Tokens** on what the map fixes; none on a deck: a body walking up a ramp's lane is knocked back down it
+    by the traffic (the spur's token is under its end).
+  - **The properties** (Sudsy's Launderette, the Airstrip's hangar) and **the hold-up** (the Ironside Kwik-Lux on
+    Crusher Lane); a property names its district (`district`, Lowtown's when unsaid).
+  - **The attract reel** CROP DUSTER plays in Ironside: a reel names its district (`district`), and the attract mode
+    enters it.
+  - **MOTOR's part:** the AutoPlayer flies a plane through a goal with a height (never circling it, kept 40 over what
+    stands there) and at a goal's speed (`goto`'s `speed`); a mission marker can be a hoop in the air (`hoop`); a plane
+    that flies into a wall or a lamp stops there and drops (it had hung stalled against a lamp for good); a crowd's
+    gang member a job has out of it never squares up to the player's aim; the campaign plays each district's own and
+    crosses an open bridge to the next.
+  - **Found by X4's runs** (D21 again, and the first campaign through both districts), each mended:
+    - **the save** kept the respect of the slice's three gangs alone: the Rust Monks' and the Volt Boys' went back to 0
+      at every entry of the play scene (a load, each crossing); it keeps every gang's now;
+    - **Sermon on the Mound's Bucket** (X3) runs rings round the crusher yard's block, a loop of its four streets, and
+      is caught on its tail with it stopped (72 between their middles, a truck's and a car's): free to flee anywhere, it
+      had wedged itself at the world's edge while the bot's Brute stood in the west bridge's jam, past the campaign's
+      limit three times running;
+    - **the player's enemies in the road:** a gang member going for the player is `hostile`, as a job's enemies are,
+      and the AutoPlayer's driving waits for none of them (Volt Boys in their turf had stood round the Brute for good);
+    - **a plane at a taxi** brakes within the goal's reach whichever way it faces (the Duster had circled the Air Race's
+      start for good), turns round for a goal behind it the side its wings have room (Blackout's Duster, landed west, had
+      turned for the hangar into the strip's edge and stood against the wall there till the police shot it to a wreck),
+      and on the ground counts the plane's distance, not its cockpit's;
+    - **The Lineman** clears the yard of a try's leftovers before the Bucket is set down, and its evade keeps the bot in
+      the Bucket (`evade`'s `vehicle`); **Scab Labour** clears Loop Avenue's traffic on the buses' way as the stage
+      starts;
+    - **the campaign** turns down an offer on its way to a token, a stunt or a property (it had taken Sermon on the
+      Mound's at the Monks' payphone with every step, and never reached the Flyover's End token by it);
+    - **a plane on the ground under a goal up in the air** (a ring) takes off for it: arrived by its distance alone,
+      Crop Duster's Duster, left on the runway under the first ring, had sat there to the job's end, and the Air Race
+      found no Duster after it;
+    - **Sermon on the Mound's heat** (the yard's and the chase's, held back while they lasted) is cleared with them:
+      lifted alone, it had come down on the crew as four stars, and Live Wire after it was played with the police on it.
+- **Answered:** no. **Landed in:** X4.
+
+## D42 · 2026-10-26 · X5: Glass Heights' map and the Loop Causeway
+- **Principle:** EXPANSION.md 2.1 and 2.3, and X5's acceptance (X1's, for the Causeway and Glass Heights); D38: a
+  closed crossing's city is the one built without it, one map at a time.
+- **Calls:**
+  - **Glass Heights, District 3** (128 x 112): Cathedral Hill along the north (the Glass Tower over the bay, the
+    Heights' tallest, its jetty out into the water across Bayshore Drive; St. Chrome's Cathedral; the Bellevue, whose
+    penthouse is the crew's safehouse; the Observatory), the Strip either side of Loop Avenue (the Velvet Casino behind
+    its fountain, the Hotel Riviera, the Grand Palms, Heights PD, Spray & Pray Heights), Marina Heights above the sea
+    along the south (Heights General, the Yacht Club and its pier, the marina's three piers). The bay down the west
+    edge, the open sea on the east and the south, an embankment along the north; Summit Road, Bluewater Drive, Marina
+    Drive and Bayshore Drive a clockwise ring of one-way streets, the streets inside it alternate, Heights Avenue and
+    Loop Avenue two-way. Glass, white marble and gold on the hill, plum, gold and neon on the Strip, stucco and sunset
+    pink by the sea.
+  - **The Loop Causeway:** Loop Avenue on east from Lowtown's sea wall over the bay. Lowtown keeps its side short: the
+    sea wall's column across the avenue's end, cut out as the Causeway's first span once it is open, is its gate (as
+    the west bridge's is the embankment's two columns), its deck going on over the water to the map's edge (the road
+    had stopped at the bay in the look read); the crossing of the bay is drawn in Glass Heights, Loop Avenue
+    over the water to the map's edge (a bridge, railed), its gate the first two columns. Shut on a new game (the sea
+    wall stands and CAUSEWAY CLOSED is on it), open once Blackout is done (its last card says so); shut, Lowtown is the
+    city it was. Glass Heights' end is always open: it is only reached over the Causeway. The notice is a board on
+    posts on the wall's top (on the wall's west face, the ISO camera from the south-east had seen half of it past the
+    wall), and Lowtown's span is railed as Glass Heights' is (MOTOR: an opening names its railings, `rails`, a deck cut
+    out over the water having had none: a road's railings come with its walks).
+  - **The Gull's moorings** (EXPANSION.md X2): alongside the Yacht Club's pier, afloat.
+  - **Its streets** have the slice's cars and people, their spawn zones naming the three neighbourhoods (Zephyrs and
+    Saints more often than across the bay); its gangs come in X6, with the Velvet Casino's interior and door, and its
+    side content (a lift span on the Causeway among it) in X7.
+  - **Landmark ids are one namespace** for every district (the registry's): Heights PD and the marina are
+    `heights-pd` and `heights-marina` (named as Lowtown's, they had taken those ones' places, the registry's warning
+    the only sign); Glass Heights' test holds that nothing registers twice.
+- **Answered:** no. **Landed in:** X5.
+
+## D43 · 2026-10-26 · X6: boats, and Glass Heights' gangs and missions
+- **Principle:** EXPANSION.md 3, 4, 6 and 7, and X6's acceptance (X3's, and the bot gym's `boat` fixture on seeds 1-3
+  and through a pad); D21: after a MOTOR, bot or map change every merged mission is played again.
+- **Calls:**
+  - **The gangs** (the gang recipe): the Velvet Syndicate (plum and gold, a spade, damask; the Strip; the Velvet
+    Casino; the Velvet limo; the Buzzsaw and the Persuader) and the Yacht Club (navy and white, an anchor, **bands**,
+    not EXPANSION's stripes: the Saints' are diagonal stripes, and two of a kind didn't read apart on the radar;
+    Marina Heights; the Club's pier; the Regatta and the Zephyr; the Snub and the Flare Gun). The Saints hold Cathedral
+    Hill as well, St. Chrome's their HQ there. Rivals by district: the Saints and the Club, the Club and the Syndicate,
+    the Syndicate and the Saints.
+  - **The vehicles:** the Splash (a jet-ski, the marina's for hire), the Regatta (the Club's launch, the gang's), and
+    Moneybags (the Syndicate's floating casino, boarded at its stern); the Velvet limo and a white one for hire,
+    **76 long**, not a stretch's 92: at 92 and 84 it stuck across the Heights' junctions on its turns.
+  - **The Flare Gun** (the Yacht Club's, Lead Farm's once Overboard is done): one slow flare that sets what it hits
+    burning (a body, a vehicle: MOTOR's `catchFire`), and a small pool of fire where it lands (the Molotov's fire).
+  - **The Velvet Casino** (the interior recipe): the entrance hall and the floor public, the staff corridor, the cage
+    and the vault behind it (sealed but by its door), the roof and its fire escape (a second door, from the
+    casino-back); three hoods with a snub each (MOTOR: an interior's guard may name its own `weapons`, the house's,
+    not its archetype's street guns), four cameras, patrons. **The vault opens** once cracked (MOTOR: `R.open(mark)`
+    clears a mark's walls for the run; the guards' flow fields find the way in).
+  - **The missions** as EXPANSION.md 4, with these changes:
+    - **GH2 The Gull** sets the seaplane down on the sea off the south shore, west of the marina, in along the shore
+      over its low roofs, not by the Glass Tower's jetty: the bay under the hill's towers has no room for the circuit
+      (the Gull circled it, or flew into a tower on the way), and the jetty's water lay at the world's edge, inside the
+      planes' turn-back band.
+    - **GH3 House Edge:** Viv in by night on a staff pass (Dolores's, GV2's croupier: a guard minds staff nowhere),
+      the vault cracked and the take bagged (its dye pack: the alarm), out up to the roof and down the fire escape;
+      Gus rams the Syndicate's cage van, pulled up under the fire escape, till it is wrecked past driving, and drives
+      her to Marina Drive; Dex flies the take low over Bilge's boat off the south-east point and sets the Gull down off
+      the south shore again, dark. **The heat:** none while the house handles its own vault (a mob casino doesn't call
+      the police), three stars from the rams on Casino Row, **four once the Gull is up**: at four on the drive the
+      police had shot the Brute alight and Gus down on the walk. The night of the job the Heights' gangs keep the peace
+      (below) and a truce: the Club's flares in a turf war on Casino Row had set the cars round the Brute alight.
+    - **GY2 Flare Up:** the Saints' meet is on the Observatory's paved forecourt (on the park its trees took the
+      flares), its Saints flee-role behind their cars, the Splash moored at the walk below.
+    - **GS1, GY1:** the Zephyrs that chase the chrome Saint keep their distance (a chase's `keep`), firing from the
+      seat; the Commodore's flares go from the Regatta's other seat (a seated rider's `driveBy`).
+  - **The map:** the marina's piers stop four rows short of the map's edge, the Club's three (the Gull alongside its
+    east side, its door on the pier): to row 110 they had walled the marina's west off from the Club's east. The
+    Observatory's lot is a paved forecourt (GY2). Two payphones (the Syndicate's, the Club's), the casino's doors.
+  - **MOTOR:** a seated rider's drive-by (`driveBy`, with an aim profile), a chase that keeps its distance (`keep`),
+    a guard that minds only its own hurt, a phone's camera that is no gun indoors, the Flare Gun's projectile and its
+    bystander band (the player's fighter holds a flare over people within its spread or just past its target), the
+    boat on the AutoPlayer's sea course **round what lies moored** (the cells under a vehicle stopped on the water the
+    shore's: the Regatta had pushed at the Gull's tail for good, and burned), a plane's approach point inside the
+    world's edge and its circuit at the cruise's height till near it, **the planes' world-edge guard on a predicted
+    exit** (within 1.5 s of 24 off the edge it banks round, as before till it no longer flies out; along the edge it
+    flies on), a seaplane afloat boarded from the shore, and `m.peace()`: no turf war starts while a job runs (one
+    under way runs its course), lifted when it ends.
+  - **The bot gym's `boat` fixture** starts on the quay by the Bilge Rat (the sail measured, not a drive across
+    Lowtown's jams: from the safehouse, seed 2 had been busted in one).
+  - **From X6's runs of all merged content** (D21 again after each):
+    - **The AutoPlayer's off-route replan** is for a car far from its goal (300 u), and never for a goal it must face
+      a way: there the last lanes are the approach's to work out (Holy Scrap's tow truck, re-routed as it went, came
+      at its last wreck where it couldn't face it; at Tow's level 3 an owner got to its car first). It still re-plans
+      after .6 s off its route: waited 2.5 s, a Medic past its turn was up the Loop's ramp and stuck on its deck.
+    - **A shot at a car lower than the shooter's muzzle** (a posed rig's, at the shoulder: the player's and the
+      crew's in hand) goes at its flank, not level along the aim over its roof. The car aimed at is the one under the
+      mouse's point, or with the aim free (a stick's) the first along its line within range, unless a lock is held;
+      it beats what the assist pulled to beyond it. **The assist with a point** never pulls to a target more than
+      `pointPast` (40 u) beyond it. A body posed only when drawn (the crowd's, the police's, the gangs') holds its gun
+      lower, under a roof already, and a bike's rider sits in the open, a body: neither changes. Flare Up's flares had
+      flown over the Saints' cars or to a passer-by the assist found past them, and a pad player's would have too.
+    - **The bot** shoots a car with the aim free: the lock is for bodies, and grabbed a passer-by beyond it.
+    - **GY2 Flare Up** keeps the peace and a truce with the Syndicate at the meet: a turf war on Cathedral Hill had
+      a Velvet hood's shotgun take Dex down among the cars.
+    - **The Snap aims free:** no lock and no assist (a camera, not a gun): through a pad, Floor Plan's photograph of
+      the vault's door had swung to a guard by it, every time.
+    - **GS1 Communion** keeps the peace on the hill (the city's Saints and Yacht hoods shooting it out round the chrome
+      had flared Dex down, through a pad), and the Club's two Zephyrs are armoured (Lugnut's Buzzsaw had blown one up
+      alongside the chrome, and Dex with it).
+    - **The services' crews get back in** past a parked car: a door against one, in by a clear door (`boardingFor`'s
+      `o.clear`, a slide across); a car between, round it first (the walk to a door a straight one); and a body pressed
+      against a car no longer finds every way out of there cut (the detour drew its side in to it). A Fed Sedan at the
+      Grand Palms' curb had stranded a Medic's crew and left the unit in Casino Row's one lane for good; a unit left so
+      on Observatory Lane had held Communion's chrome Saint in its queue past any clock.
+- **Answered:** no. **Landed in:** X6.
+
+## D44 · 2026-10-27 · X7: Glass Heights' side content
+
+- **Asked:** EXPANSION.md 5's side content for Glass Heights: Limo, the Heights Regatta, its MAYHEM, three stunts, 15
+  Moto Tokens, two properties, its hold-up and its attract reel (the Strip at night).
+- **Decided:**
+  - **Limo** (`job_limo`, three levels): Heights Limousines' fares, met at a door of the Heights (twelve: the hotels,
+    the casino, the Glass Tower, St. Chrome's, the Observatory, the Yacht Club, Heights General, the Bellevue, the
+    marina, Heights PD, Villa Marisol) and driven to the door they name, each leg a fair drive by the road from the last
+    (6 to 16 s of `m.eta`); two fares at level 1, three at 2, four at 3. Each ride runs against its own clock, the
+    road's time stretched (40 to 48 s and 3.8 to 4.4 times `m.eta`: a limo driven gently is slow, stopping at the reds,
+    a van's turning circle round the one-way blocks), and the fare's patience: every knock the car takes costs it
+    (260 to 400 for a whole car's worth), at none they get out; the tip by how smooth it was. In a limo: the Grand
+    Palms' white one for hire at its curb (the fleet's), the Syndicate's black; on foot (a deep link, a retry) Heights
+    Limousines lends one at the Grand Palms' curb, and one burning, a wreck or half gone is replaced. The bot drives it
+    in a new style, `smooth` (below).
+  - **The Heights Regatta** (`race_heights_regatta`): any boat, round the Heights by sea through ten buoys (out of the
+    bay, along the south shore clear of the piers, round the south-east point, up the east shore to the line off the
+    Strip), **against the Yacht Club's board**, its three best times (28, 32, 38 s), not boats on the course: the
+    racers MOTOR gives a race drive the road graph alone. A podium by the board; the purse by the place.
+  - **MAYHEM: Flare the Limos** (`mayhem_flare_limos`): the Flare Gun on nine Velvet limos parked round the Velvet
+    Casino; seven set alight in 1:30, the city's own counting too. It holds the peace while it runs (the rampage
+    helper's `peace`): where three gangs' turfs meet, a turf war had set the limos alight and shot the player down.
+  - **The three stunts:** **the Villa Pool** (EXPANSION.md's villa: Villa Marisol's garden on Heights Avenue, a kicker
+    off the avenue's east walk, over the pool onto a landing on the far lawn); **the Velvet Fountain** in place of the
+    Causeway's lift span (the bay is the Causeway's whole span, its west end the district's edge and its crossing: a
+    span raised would cut the district off, and a jump over it would end at the crossing), a kicker up the casino's
+    forecourt from Heights Avenue's west walk, over the fountain (from the avenue's middle, its traffic had stopped the
+    car short each try); **the Palms Newsstand** in place of the marina pier (no pier has room to land, each ending in
+    open sea a few rows out), a kicker up the Grand Palms' forecourt from Bluewater Drive, over the hotel's newsstand.
+  - **15 Moto Tokens** in Glass Heights alone; the marina's is `mt-heights-marina` (as `mt-marina-pier` it had been
+    Lowtown's too, the one counting both). **Two properties:** the Glass Tower penthouse ($60,000, $1,600 a night, its
+    till $8,000) and the Marina berth ($30,000, $900, $4,500). **The hold-up:** the Strip's Kwik-Lux, a new shop on
+    Casino Row's north side, on the Kwik-Lux loop. **The map:** Villa Marisol (its lawn, the villa, the pool), the
+    Kwik-Lux, the Grand Palms' newsstand, the three kickers and the landing (terrain decks, as Ironside's).
+  - **The reel THE STRIP:** night, a Zephyr GT south down Heights Avenue past the casino's neon in MODE 7, east along
+    Casino Row past the Grand Palms in ISO, down Bluewater Drive to the marina, TOP; out of the Loop's junction (north of
+    it, a queue at its lights had the watchdog cut it). The attract soak names every reel now, the districts' too
+    (Crop Duster had been left off its list).
+  - **TOP's ground beyond the map** takes a district's `beyond`, its sea (Glass Heights' bay had ended in a flat grey
+    at the map's edge): the sea's colour by day, the hour's dark by night.
+  - **MOTOR:**
+    - **The AutoPlayer's `smooth` style,** a chauffeur's: through the lights and round what stands as a player, never
+      squeezing round a queue (`player`'s squeeze had put the limo on the walk past a jam, wedged against the sea wall;
+      `calm`, stopped in the queues, was knocked about and wrecked).
+    - `m.deliver`'s `style` (how the bot drives it; `careful` when unsaid) and a `goto` hint's `style`.
+  - **From X7's runs of all merged content and the campaign:**
+    - **A plane's approach** goes out 600 past its approach point to come round onto the line, not 300 (its own
+      turning circle: Blackout's Duster came back over the point still turning, and circled it till the police shot it
+      down), and **Blackout's Duster lands east**, in over the open country west of the strip, stopped short of the
+      hangar: landing west, its approach lay out at Ironside's edge over the sea, with no room to come round.
+    - **The bot rams a target coming at it, or standing, along open road head on** (within 700, the line between
+      them all road at their level and no car on it), straight at it: by the GPS's way round to its lane, Scab Labour's
+      Brute had gone round Ironside's one-way blocks to the next bus while it drove on to the gates. With a car on the
+      line it takes the GPS's way still: straight on into a queue at the lights, Vigilante's cruiser had sat behind it
+      while the suspect got away (level 3, the second run).
+    - **The Big Withdrawal's standoff** clears the deck round it of traffic (200): a car stopped in the jam between the
+      getaway and the van had held the bot's fire for good, its line never clear (seed 2, the second run).
+    - **The campaign tool crosses by way of a district between:** with nothing left where it is and no open bridge
+      to a district with something left, it crosses to one whose own open bridges reach one (Ironside's way to Glass
+      Heights is by Lowtown); a campaign had stopped in Ironside with all of Glass Heights to play.
+    - **The Crusher Yard's run-up** starts on Crusher Lane's south walk, the kicker's climb the rest (from the lane's
+      middle, its traffic stopped the car short each try).
+    - **Paramedic's clocks** a little longer (3.2 to 2.7 times the road's time and 34 to 29 s): level 3's patients had
+      not waited two calls a run, and the campaign's three tries ran out on it.
+- **Answered:** no. **Landed in:** X7.
+
+## D45 · 2026-10-27 · X8: the full game, verified
+
+- **Asked:** EXPANSION.md X8: the campaign across three districts, the perf gate in each, the docs, the screenshot
+  matrix in every district; accepted by EXPANSION.md 9.
+- **Decided:**
+  - **The campaign across the three districts** (`tools/bot-campaign.mjs`): a new game played to 100%, each
+    district's items in it, crossing by the bridges the story opens (by way of a district between where no bridge from
+    here reaches one with something left, D44's addendum). Three things it met in Glass Heights, each the tool's:
+    - **A boat for a race:** its pick of a vehicle had passed boats over, so the Heights Regatta never started; a boat
+      is picked when one is asked for, and held still in the start once there, its way taken off it (astern while it
+      makes way, ahead while it drifts astern): on its handbrake, which holds no boat, the Splash had glided on out of
+      the start.
+    - **A landmark's own vehicle lost on the way** (the Grand Palms' limo, burnt): none about for a job that asks for
+      it, the campaign goes away from its home a while, as a player comes back to it later, and the city parks a fresh
+      one there (traffic's keepers: MOTOR's own since M4). It never had: a car burnt beside it stood within its home's
+      room, and **a wreck was never towed** (MOTOR, below).
+    - **A run-up's start never on the water:** backed off the Palms Newsstand's run-up for Bluewater Drive's traffic,
+      the car had been put in the sea past the drive's east side three tries running; with no room, a moment for the
+      traffic to pass.
+  - **MOTOR, from the runs:**
+    - **A wreck is towed as a car left is** (out of sight, after 10 s; a mission's own stay): one burnt by a
+      landmark's curb had kept its own vehicle from coming back for good, and with it a job (the Limo's).
+    - **The bot's evade picks another place when it gets no nearer the last in 20 s,** that one passed over from then
+      on: through a pad, the Lineman's Bucket had wedged at a curb short of the airstrip's hangar, between two parked
+      cars, for the run's whole 30 minutes (D21 on X7's last code, 72 of 73).
+  - **Two jobs' clocks** (D21 on 731bf12, 217 of 219, and the campaign): **Limo's** ride timed from the limo itself, the
+    way it faces (from the door with no heading, the GPS had timed the Bellevue to the Marina as 10 s of road, the limo
+    facing the other way down a one-way street with a loop of the east shore to drive first), its clocks a little looser
+    (4.8 to 4.2 times the road's time and 52 to 48 s; level 3's knocks 360 a car's worth, not 400): hours into the
+    campaign, in the evening's traffic, its level 3 had been late fare after fare. **Tow's** level 3 at 3.4 and 48 s (at
+    3.2 and 44, seed 2's fourth ticket had its owner there first every try).
+  - **The campaign's rescue** (a vehicle 120 s stuck, put back on its lane): stuck again where it was put, it tows the
+    wrecks round it too, in sight or not (a crash scene's wrecks across a junction had held its traffic, and the Limo's
+    limo in it, for good, the rescue putting it back in the same jam).
+  - **The city soaks in Ironside and Glass Heights** (test:full's: 10 minutes each by day, held to the 90-second soak's
+    bounds) had failed since X6 brought Glass Heights its gangs: their turf wars leave wrecks in the streets, and the
+    city around a wreck had not coped. Each mended in MOTOR's traffic and crowd:
+    - **A siren behind a car yielding to it with no room to pull over**, itself waiting in a queue, waits as the queue
+      does (its cause the queue): it had stood with no cause for half a minute behind a turf war's wreck at a junction.
+    - **A far car (kinematic) stuck behind a wreck it can't shove** hops past it along its own lane when the road past it
+      is clear, never past the lane's end into a junction's box (where it had met the cross traffic): with no bump to
+      shove with, it had crept through the wreck as if it weren't there, on into a unit parked at its scene.
+    - **A pass round something that moves off** keeps out of the lane while it is still alongside (a bike round a unit
+      whose crew had just got back in had swung back in onto the unit pulling away).
+    - **Pinned with no room behind to back off**, a car's nose on the corner of a wreck it goes round, the car behind
+      backs off a moment (when it has room) and the wreck gives as a car shoved aside does: two had stood there for good.
+    - **A ped kept off a crossing a car stands on**, the next few turns; on a stub of sidewalk with no other way, back the
+      way it came: it had come round to the same crossing again and again, waiting 40 s.
+    - **A ped on its feet just out of a line's reach walks to it:** `rejoin`'s reach half a unit shorter than the call
+      to it, it had stood still between them for good.
+    - **One Medic a death:** a body the Medic has been for and left lies its time out, never called for again (a second
+      Medic sent to it had marked it attended once more, and kept it).
+    - **The soak's red run** is a car over its stop line on red: one over it before the red, held up on the zebra past
+      it by the people crossing, clears the box after (a red run counted at the box, a bike's).
+    - **A gang fight with one the world has let go of ends:** a member whose target the crowd has put away out past
+      its ring (or whose car has gone) stands down, as one whose target is dead (the gang sim's: a Saint had stood two
+      minutes shooting at a Rat no longer in the world, the shots meeting nothing).
+    - **test:full's third run** (the gang fix moved every soak) found more, each mended where it lives:
+      - **A unit parked out of the physics stands when knocked:** its body's speed cleared once nothing pushes it (a
+        passing car's knock had left 55 u/s on a parked cruiser for good, and the Medic behind it waited on it to move
+        off; a car pushing it still pushes it, as the player in a stolen Medic does).
+      - **Traffic's GPS routes never turn back in a dead end's stub** (`gps.route`'s `noDeadEnds`, for the service units
+        and a gang's cars driven home): a stub at a district's edge turns back through the wall beyond it, and a limo
+        had stood there nose to the wall.
+      - **A far car that can't hop past a car nobody drives** (the lane full to its end, or in a junction's box) marks it,
+        and the tow takes a marked car where far cars go unseen, though nobody ever left it: a turf war's wrecks one
+        behind another, and a parked car knocked into a box (one with a home goes home).
+      - **A pass's obstacle knocked well on** (more than 30 from where the pass was planned, and not beside us) is a car
+        like any other, a leader once ahead, and the pass merges back over its next stretch as at any end, never at
+        once; scraped along a little as we go by, it is still what we go round (a Saint had stopped for good beside a
+        Tow job's car it brushed, the street behind it, and the owner got there first).
+      - **At a crawl the tyres never throw a car about** (`body.js`): a step of sideways grip that would reverse a slide
+        stops it (two parked cars knocked into a slow slide had swung side to side each step, never slow enough to
+        sleep, and crept into the lane), and a car held by its brake or handbrake never gathers speed (the front tyres
+        on a wheel left turned had crept one held at a red over its line).
+      - **An amber is no go from a stand at the line** (a far hauler halted there had taken the box on the last of it).
+      - **A far car breaks a gridlock's ring by hopping past** onto the lane beyond, where there is room (it has no bump
+        to shove with: it had driven on through a bike); from a junction's box, the whole of it onto that lane, a long
+        one's too (a Scrapper's hop had come up short of it, a ring in Ironside's j13 for 75 s), and a car parked at the
+        curb, clear of the lanes, is no car in the landing's way.
+      - **A squeezer goes into a box only when no holder of a crossing way stands in it** (`Junctions.occupied`), and
+        **a panicking driver**, through any light and the reservations still, **never into such a box, nor where
+        another as scared goes through crossing its way** (`Junctions.rush`: seen there by another as scared alone,
+        never by a grant or a squeezer; calm again short of the box, it asks as anyone does): a bike scared by shots
+        had locked itself nose to nose with a turning car, 27 s, and two cars scared by Drag Mass's racers, unseen by
+        each other, had locked so in c45 for good. (Panic taken as a siren's turn in the box instead had the Monks'
+        blockade queue Picket Line's soup van under their guns; a squeezer that waited on a scared car's rush had
+        stood 100 s at j28 behind one stuck in the box, a Tow ticket lost.)
+      - **A car wedged off its line is never put back into a junction's box but on its green** (one put down in it on
+        the red had gone on through it).
+      - **A ped fleeing on its feet into a wall or a ramp's side** runs along it a while, one way, then the other (one
+        had run at the Flyover's on-ramp for 15 s).
+      - **A troupe's file is put down with each follower's place on its leader's trail out of sight** too (a mime had
+        come in at 368 from the focus, past the edge's end).
+      - **An ally never shoots at a car beside the one it rides in** (`actors.js`, within a wreck's blast of it,
+        `fighter.js`'s `BLAST`): shot to a wreck there it blows up on its own (Lugnut's Buzzsaw had wrecked
+        Communion's chrome Saint so, a Zephyr burning alongside it in a queue).
+      - **The bot's way never turns back in a dead end's stub** unless nothing else goes (`autoplayer.js`, `noDeadEnds`
+        first): the Harbor's stub turns back through the sea, and the bot had driven Holy Rollers' Saint into it.
+      - **No long-vehicle rule in the boxes:** one this round had taken the box from every other lane for a long vehicle
+        turning (two left turns locked nose to nose, misread), and a limo turning had held Drag Mass's racers at the
+        Harbor for good. Boxes conflict by their curves alone.
+      - **The bot gym keeps the city's gangs at peace** (`tools/botgym.mjs`, as `m.peace()` does for a job): it measures
+        the bot at each hint, and the turf wars are the missions' and the campaign's to meet (on seed 3 one broke out
+        by the follow's mark and shot its Saint to a wreck beside the bot). **Its tow fixture's car has its spot
+        cleared**, as the Tow job's has (`m.clearSpot`): one parked nose to its front, on a one-way street, had left
+        the truck no end to hook. The gym had last passed whole at L4's close; seed 3's tow failed from X6's close on.
+      - **The Heights Regatta clears its course and lines a boat up on its start:** at the start the Club tows away
+        what was left standing on the line itself (`m.clearSpot` along each leg, 16 either side: the moorings, 24 off
+        it and more, stay), and a boat come to the line turned the other way is put on it bow south, as a retry and a
+        deep link always were. The campaign, test:full's last step, had stopped at 98.5% on it twice: a Splash sailed
+        in from the north had turned round at the green; then the two Gulls The Gull and House Edge set down in the bay,
+        across the south shore's line, had stranded it in the shallows swung round them (41 s, off the podium, five
+        times). With both: 27.2 s, first, against the board's 28, 32 and 38.
+      - **The campaign's stunt run waits for its run-up to clear** (`tools/bot-campaign.mjs`, up to 30 s, as a player
+        waits for the gap): a car queued at a light across the Villa Pool's line, its tail in it, had been shoved
+        along at 2 u/s for the run's whole 25 s, three tries running, and the campaign stopped at 99.2%.
+      - **The soak's own measures:** a crossing of the stop line under a siren is no calm red run when the call ends
+        before the box (as a panic that ends there, `soak-red-run.test.mjs`), and the line is crossed by the car's
+        front, as the driver reads it (where a line stands at a lane's start straight out of another box, j3's, a car
+        in on the green and queued there with its centre still in that box had been counted on the red); two bikes
+        side by side, closer than 14 and clear, are no overlap (the bound is the pair's widths when narrower). Two sim
+        tests read what they mean, not an instant: the Monks go for the player within 3 s (four of them can have shot
+        the player down by the third), and a gang car out of its turf counts only when nothing drives it home, a few
+        seconds on (one carried over the border a moment before the look is on its way back, or is sent at the gangs'
+        next look, every 2 s).
+  - **The perf gate in each district** (`tools/perf.mjs --gate`): Ironside's and Glass Heights' tours (night, rain,
+    the crowd at full, as Lowtown's) in each view, each read against M2's Lowtown view measured in the same round (M2
+    has neither district), within the same budgets.
+  - **The screenshot matrix in every district** (`tools/shot-matrix.mjs`): the ten neighbourhoods, each by day, at
+    dusk and at night, in ISO, TOP-DOWN and MODE 7 (90 shots), read one neighbourhood at a time
+    (`docs/media/x8/`). An interior is shot in its own district (the Power Station in Ironside, the Velvet Casino in
+    Glass Heights).
+  - **The HUD's words on plates** (the look read): the place line, the protagonist and the cash, the weapon's name and
+    the stars over a translucent dark plate, the weapon's box less see-through (.78): over the Glass Tower's sign, the
+    Gilded Lily's, Zappo Cola's, a white crossing or a pale wall they had not read.
+  - **The docs:** README for the full game; ARCHITECTURE's proofs; this.
+- **Answered:** no. **Landed in:** X8.
+
+## D46 · 2026-10-27 · L7: a desktop wrapper, and the DualSense's own haptics by WebHID
+
+- **Asked:** HANDOFF L7: a desktop wrapper (Electron or Tauri, for desktops and the Steam Deck) round the one-file page,
+  which stays unchanged, the wrapper a dev dependency with its own build output; and real DualSense haptics and
+  adaptive triggers through WebHID on desktop Chrome, with the rumble as the fallback.
+- **Decided:**
+  - **Electron, not Tauri:** Tauri's Linux webview is WebKitGTK, which has no WebHID and reports a DualSense with other
+    button numbers (QA-DUALSENSE 6): on Linux and the Steam Deck the triggers would never answer, and the pad would read
+    as Firefox's and Safari's do. Electron is Chromium: the page plays as it does in Chrome, WebHID and the Gamepad API
+    alike.
+  - **`desktop/`, a package of its own** (`desktop/package.json`: Electron and `@electron/packager` its dev
+    dependencies, its own lock): the game's own install, CI's `npm test` job and a session's setup never fetch it.
+    `npm run desktop` runs it in the tree, `npm run desktop:build` packs it (`desktop/out/`, ignored). Electron fetches
+    its binary on first use, not at install.
+  - **The wrapper** (`desktop/main.cjs`) loads `dist/index.html` unchanged from the file it is (packed beside it), full
+    screen with no browser round it (F11 out and in; Esc stays the game's pause); the page's process sandboxed with no
+    Node; a DualSense or DualSense Edge granted to the page's WebHID with no chooser and nothing else granted; every
+    request off the machine cancelled (the page needs none); no other window and no navigation off the page; a photo
+    saved into Pictures. macOS keeps an app menu for ⌘Q.
+  - **The DualSense by WebHID** (`src/motor/input/dualsense-hid.js`): its output report as the Linux driver
+    (hid-playstation) writes it, by USB (report 0x02) and by Bluetooth (0x31, its sequence tag and CRC-32 seeded 0xA2);
+    each part behind its own valid flag, so a report for the motors leaves the triggers and the light as they were; one
+    report a frame at most, of what changed. The triggers in Sony's zone forms (feedback, weapon, vibration). Opened
+    where the page has one granted (the desktop app: at once; Chrome and Edge: SETTINGS, CONTROLS, DualSense haptics,
+    switched on with a key or a click, the browser's prompt needing one, a pad's button can't); opened again when it is
+    plugged in again.
+  - **What it plays** (`src/motor/input/haptics.js`, presentation only, never headless): R2 and L2 by what the player
+    holds (a gun's break by its kick, an automatic's buzz at its rate, a heavy one's long pull, slack when empty or
+    reloading; a car's throttle and brake by its weight, the engine coughing when it smokes, slack in the air; a plane's
+    stall shaking R2; boats and the helicopter light); the light bar the character's colour (Dex red, Viv teal, Gus
+    orange), the police's red and blue under stars, a red pulse badly hurt; the player lights the stars. The pause, the
+    map and the menus free the triggers; the attract mode rests them and dims the light. The rumble goes out in the same
+    report while a DualSense is open, else by the Gamepad API as before.
+  - **Proved** by tests of the report's bytes against the driver's layout (and the CRC), of the effects by state, and of
+    the wrapper against a stand-in Electron (in `npm test`); Electron itself by CI's `desktop` job (its binary from
+    Electron's releases: the page loaded under a virtual display, the game up, WebHID there, the network shut, a
+    window.open refused; the Linux build packed, an artifact). How it feels is the owner's: QA-DUALSENSE 6 and 7.
+  - **Not here:** this container can't fetch Electron's binary from its releases (github.com is outside its network
+    policy), and a mirror's copy was not run: the wrapper's run of record is CI's.
+- **Answered:** no. **Landed in:** L7.
+
+## D47 · 2026-10-28 · L8: the owner's items, prepared and put to the owner
+
+- **Asked:** HANDOFF L8: the offer upstream (the seven patches' issue texts and the feedback F7, brought up to date with
+  L1-L7), the DualSense checklist for a person with the pad and a TV, and each PR's review and merge, each prepared,
+  with nothing leaving the repository without the owner's say-so.
+- **Decided:**
+  - **The offer upstream, brought up to date and not sent:** `vendor/my-3d2dge/PATCHES.md` keeps its seven issue texts
+    as written (no patch was added or changed after the slice; the engine's files last moved at M10) and says what the
+    later work put on them; `docs/FEEDBACK-FOR-ENGINE.md`'s F7 has a header for the full game and six new points,
+    F7.17-F7.22 (a second game inside the first, one map at a time, planes and boats, the DualSense past the Gamepad
+    API, the page in a desktop wrapper, performance at a city's size), each checked against the code and DECISIONS.
+    Filing them is the owner's.
+  - **The release docs final for the full game** (PLAN.md 15.10-11): `docs/ENGINE-ANALYSIS.md` (the districts, planes
+    and boats, the arcade's second `E.Game`, the DualSense by WebHID, the call-site counts again, the frame within its
+    budgets since D35), and the Source Information in `README.md` and `src/about.js` (the page's header and Credits &
+    About): Chromium 153 from L1 on, Electron in CI, and the effort as each session's metadata confirms it (max for
+    the slice, xhigh for L1-L8).
+  - **Credits & About's pages** (MOTOR's `docScreen`): a heading or a row's label is kept with the line after it, a
+    paragraph's last line never starts a page alone, and a gap that would end a page no longer opens an empty one
+    (`tests/unit/ui.test.mjs`, at every page height from 56 to 236 UI pixels). The UI audit now walks every page
+    (5 at 1080p, 6 at 720p, 12 at HUD Huge), not the first four.
+  - **The DualSense checklist** stays `docs/QA-DUALSENSE.md` (sections 1-7, about 20 minutes), the PR's review and
+    merge the owner's; HANDOFF's L8 box stays open until they are done.
+- **Answered:** no. **Landed in:** L8.
+
+## D48 · 2026-10-28 · The camera turns in every view: a tap a quarter, held a spin (the owner's request)
+
+- **Asked:** the owner, after L8: let the camera rotate, "just like it did in Final Fantasy Tactics and Xenogears on
+  PS1" for the isometric view, smoothly in TOP-DOWN, and smoothly to any angle in MODE 7; then commit, push and merge
+  (squash). Until now ISO turned a quarter on a tap, MODE 7's rail a quarter through the crossfade, and TOP-DOWN stayed
+  north up.
+- **Decided:**
+  - **One control for every view, the turn buttons as they were** ([ and ], or R3 held with the right stick pushed):
+    a tap (shorter than 0.2 s) turns a quarter, eased round; held, the camera spins (TUNE `spinRate`, 150° a second,
+    eased up to speed over a tenth of a second). Let go, **ISO settles on the next of its eight rests ahead** (every
+    45°: Final Fantasy Tactics' quarter turns and Xenogears' free spin coming to rest), **TOP-DOWN and MODE 7 stay where
+    they stop** (any heading; one within 4° of a quarter lands on it), and a tap from any heading goes on to the next
+    quarter. A landing eases in (at 9 times the turn left a second, never slower than 90° a second). The chase camera
+    keeps its own: a quarter swing a tap, its heading after the player's. ISO rests at 45° because its textured walls
+    bake per yaw: eight rests keep the bakes to a few, kept in the bounded cache (GTM-PATCH 2); a probe drew the walls
+    right at 30°, 45° and 135° first.
+  - **In the step, never in a frame drawn** (`Stage.turnInput`, called by the play scene and the Proving Ground's zones
+    each step): the heading maps the stick, so a turn moves the camera the same headless and in the page, and the
+    simulation never reads it (the same run hashes the same turned or not: `tests/sim/camera-turn.test.mjs`). ISO's
+    yaw moves in 3° steps while it turns, drawn with the flat blocks the old quarter turn used (nothing to bake), the
+    walls of the yaw it lands on baking meanwhile; landed, the bake-in finishes them.
+  - **TOP-DOWN at any heading** (`TopView.heading`): its projection, its inverse, the stick and the screen vectors, the
+    chunk range and the rigs' views (3° steps) turned about the screen's centre; the floor chunks drawn under the view's
+    own ground transform with their aprons (as ISO's, so no seam shows); a roof as its four corners with the north-up
+    bevel's lit and shaded edges by where they face on screen. North up is the old projection exactly.
+  - **MODE 7 at any heading** (`Side7View.aligned`): on a quarter it draws with the rail's own fast paths as before (its
+    floor raster along one axis, its slices, front faces and decks a row at a time); off one, with the chase camera's
+    drawing (the floor stepped in both axes, the four faces sliced a tile wide, the tops cut at the near plane, decks a
+    cell each), which moved from `ChaseView` into `Side7View` so both share it. A turn orbits the rail about the focus,
+    keeping it where it stands on screen. Auto-rail and a mission's set piece (`m.view('side7', { heading })`) still
+    turn it to a quarter through the crossfade; Auto-rail waits while the player turns it, and a set piece's rail holds
+    against a spin as against a tap.
+  - **Not changed:** the radar stays north up (its N), as it was through ISO's quarter turns; the perf gate's views are
+    all on a quarter, so their numbers stand.
+- **Proved** by `tests/sim/camera-turn.test.mjs` (in each view, through the keys: a tap a quarter, a spin and where it
+  lands, the stick and the screen by the heading, a set piece's rail holding, the hash untouched) and
+  `tests/unit/depth.test.mjs` (TOP-DOWN's floor inverting at any heading and north up unchanged; MODE 7's axes, inverse
+  and orbit off a quarter, its own drawing back on one), and shots read in each view by day, at night in the rain and in
+  the bank.
+- **Answered:** the owner asked. **Landed in:** after L8, before the merge.

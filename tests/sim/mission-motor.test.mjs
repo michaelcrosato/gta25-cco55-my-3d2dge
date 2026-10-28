@@ -314,3 +314,21 @@ test('m.clearSpot: a car left standing on a spot (nobody in it, not the job\'s) 
   assert.equal(m.clearSpot(A, 10), 1, 'one towed'); assert.ok(!F.vehicles.includes(left), 'the one left on the spot: gone'); assert.ok(F.vehicles.includes(off), 'one off the spot: stays');
   assert.equal(m.clearSpot(B, 14), 0, 'none towed'); assert.ok(F.vehicles.includes(held), 'someone at the wheel: stays'); assert.ok(F.vehicles.includes(own), 'the job\'s own: stays');
 });
+
+test('a seated rider\'s drive-by (o.driveBy): its gun out of the window at its target in reach; a chase\'s keep holds the driver off at its distance; m.peace holds turf wars off till the job ends (X6)', async () => {
+  const g = await world(), { R } = g, P = g.P(), G = g.gtm.life.gangs;
+  const m = g.fixture('fx_driveby', mm => {
+    mm.peace();
+    const car = mm.spawn.vehicle('cortez', mm.curb([P.x + 200, P.y]), { tag: 'car' });
+    mm.place(mm.spawn.ped('rat-grunt', [car.x, car.y], { tag: 'gunman', role: 'ally', weapons: ['fists', 'snub38'], ammo: { snub38: 60 }, driveBy: 'target', profile: { range: .8, burst: .5, pause: .5, aimOff: .02 } }), { in: car, seat: 1 });
+    mm.spawn.ped('retiree', [car.x, car.y - 110], { tag: 'target', role: 'idle', health: 1000 });
+    mm.spawn.vehicle('cortez', mm.lane([P.x - 400, P.y], 0), { tag: 'chaser', driver: 'saint-grunt', drive: { chase: 'player', style: 'race', keep: 140 } });
+  });
+  assert.equal(G.peace, true, 'the peace held while the job runs');
+  const t = m.one('target'), h0 = t.vitals.health; g.game.advance(4);
+  assert.ok(t.vitals.health < h0, `the rider shot its target from the seat (${Math.round(h0 - t.vitals.health)} damage)`);
+  const c = m.one('chaser'); let near = 1e9; for (let s = 0; s < 10; s += .25) { g.game.advance(.25); near = Math.min(near, Math.hypot(c.x - P.x, c.y - P.y)); }
+  assert.ok(near > 70 && near < 400, `the chaser came up and held off (${Math.round(near)} u at its nearest)`);
+  R.quit(); g.game.advance(1 / 120);
+  assert.equal(G.peace, false, 'the peace lifted when the job ends');
+});

@@ -14,23 +14,37 @@ declare('districts', shape({
   tour: { type: 'array', def: [] }, drawbridges: { type: 'array', def: [] },
   /** pickups placed in the district: [{ kind, item, amount, at: [cx, cy], respawn }] (each lands on the nearest open cell) */
   pickups: { type: 'array', def: [] },
+  /** cells cut back out of its walls once everything else is laid out: [{ rect, surface, crossing }] (a crossing's way
+   *  through an embankment, cut only while that crossing is open) */
+  openings: { type: 'array', def: [] },
+  /** its crossings to other districts (world/crossing.js): [{ id, to, via, gate, dir, arrive, opens, label }] */
+  crossings: { type: 'array', def: [] },
+  /** the career plays here (EXPANSION.md 2.1: its missions, jobs, tokens and stunts by their district); false: free
+   *  roam alone (the Proving Ground's labs) */
+  career: { type: 'boolean', def: false },
 }));
 /** an interior (PLAN.md 5.4, 8.21): its rooms as block ASCII (builder.js buildInterior), the doors it is entered by
  *  (doors: [{ id, from (the city's door poi), at: [cx, cy] (the cell inside it, where one comes in) }]), its guards
  *  ([{ arch, at, route: [[cx, cy]...], facing }]), its CCTV ([{ at, z, facing, sweep, period, range, fov }]), its lights
- *  ([{ at, radius, color }]), its music */
+ *  ([{ at, radius, color }]), its music, its patrons (bodies posed where they stand: [{ arch, at, clip, pose, facing }]: a
+ *  club's dancers) and its spots (a marked cell the player does something at: [{ id, mark, label }]: a club's arcade
+ *  cabinet) */
 declare('interiors', shape({
   name: { type: 'string', req: true }, blocks: { type: 'array', req: true }, legend: { type: 'object', req: true }, types: { type: 'object', req: true },
   floor: { type: 'string', def: 'concrete' }, rooms: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, doors: { type: 'array', def: [] },
   guards: { type: 'array', def: [] }, cameras: { type: 'array', def: [] }, lights: { type: 'array', def: [] }, music: { type: 'string', def: '' }, seed: { type: 'number', def: 1 },
+  patrons: { type: 'array', def: [] }, spots: { type: 'array', def: [] },
 }));
 declare('landmarks', shape({ district: { type: 'string', req: true }, name: { type: 'string', req: true }, lots: { type: 'array', def: [] }, pois: { type: 'array', def: [] }, props: { type: 'array', def: [] }, decks: { type: 'array', def: [] } }));
 
-/** build district id (its landmarks folded in) with a seed: a CityMap, with city.painter (a SurfacePainter) */
-export function buildCity(id, seed) {
+/** build district id (its landmarks folded in) with a seed: a CityMap, with city.painter (a SurfacePainter). o.open:
+ *  the ids of its crossings that are open (world/crossing.js): their openings cut, the signs and props that bar them
+ *  (gate: <its id>) left out; a closed crossing's city is the one built without it */
+export function buildCity(id, seed, o = {}) {
   const spec = get('districts', id); if (!spec) throw new Error('MOTOR: unknown district "' + id + '"');
-  const marks = all('landmarks').filter(l => l.district === id);
-  const full = { ...spec, lots: [...spec.lots, ...marks.flatMap(m => m.lots.map(l => ({ landmark: m.id, ...l })))], pois: [...spec.pois, ...marks.flatMap(m => m.pois.map(p => ({ landmark: m.id, ...p })))], propList: [...spec.propList, ...marks.flatMap(m => m.props)], decks: [...spec.decks, ...marks.flatMap(m => m.decks || [])] };   // (a landmark's decks after the district's own: a stunt's ramps)
+  const marks = all('landmarks').filter(l => l.district === id), open = new Set(o.open || []), shut = q => !q.gate || !open.has(q.gate);
+  const full = { ...spec, lots: [...spec.lots, ...marks.flatMap(m => m.lots.map(l => ({ landmark: m.id, ...l })))], pois: [...spec.pois, ...marks.flatMap(m => m.pois.map(p => ({ landmark: m.id, ...p })))], propList: [...spec.propList, ...marks.flatMap(m => m.props)].filter(shut), decks: [...spec.decks, ...marks.flatMap(m => m.decks || [])],   // (a landmark's decks after the district's own: a stunt's ramps)
+    signs: (spec.signs || []).filter(shut), openings: spec.openings.filter(q => !q.crossing || open.has(q.crossing)) };
   const city = buildDistrict(full, { seed: seed ?? spec.seed });
   city.painter = new SurfacePainter(city);
   city.pickupSpots = spec.pickups.map(p => { const [cx, cy] = city.nearestWalkable(p.at[0], p.at[1]); return { ...p, x: (cx + .5) * city.T, y: (cy + .5) * city.T }; });

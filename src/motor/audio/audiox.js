@@ -46,7 +46,7 @@ export class AudioX {
   update(dt, o) {
     if (!this.ready) return;
     const L = o.listener, t = o.t || 0, pan = (x, y) => { const dx = x - L.x, dy = y - L.y, d = Math.hypot(dx, dy) || 1; return { d, pan: Math.max(-1, Math.min(1, dx / Math.max(160, d))) }; };
-    const fall = d => Math.max(0, 1 - d / FAR) ** 2, hush = o.paused ? 0 : 1;
+    const fall = d => Math.pow(Math.max(0, 1 - d / FAR), 2), hush = o.paused ? 0 : 1;
     // engines: the player's own and the nearest others, a voice each (the rest silent)
     const cars = (o.vehicles || []).map(v => ({ v, ...pan(v.x, v.y) })).filter(q => q.d < FAR || q.v.mine).sort((a, b) => (b.v.mine ? 1 : 0) - (a.v.mine ? 1 : 0) || a.d - b.d).slice(0, this.maxEngines);
     const keep = new Set(cars.map(q => q.v.id));

@@ -10,7 +10,7 @@
 //     the roadblock in the Hookline, hooks the cruiser across the lane and drags it off the Loop; Dex drives through,
 //     down, and home;
 //   - then the split of the take at the chapel (the cash to the crew fund), the JOB DONE card (the medal, the
-//     bonuses), and the credits: District 2 is coming.
+//     bonuses), and the credits: the Gnomes call their strike off, and the west bridge to Ironside opens.
 // Every stage's setup puts the world as it needs it (the crew where they are, the cars, the roadblock), so a retry and
 // #mission/heist_big_withdrawal/<stage> start it; a branch's stage started directly takes its plan (m.data.plan), and a
 // stage of the other branch is passed over. The bot plays LOUD (the choice's bot); each QUIET stage has its link.
@@ -390,6 +390,7 @@ const windowStage = {
   setup(m) {
     stayOut(m);
     const car = standoff(m);
+    m.clearTraffic([car.x, car.y], 200);   // (the deck round the standoff clear: a car stopped in the jam between the getaway and the van had held the bot's fire for good, the line never clear)
     m.view('side7', { heading: 'east' });   // (MODE 7 looking back along the deck: the car, and the van on its tail)
     if (!m.one('swat')) swatVan(m, car, true); m.music('chase');
   },
@@ -478,7 +479,7 @@ const split = {
     const q = m.at('safehouse');
     yield m.parallel([
       m.cutscene([{ at: 'bank-door', zoom: .8, secs: 3 }, { at: [1300, 1256], zoom: .6, secs: 3 }, { at: 'lighthouse', zoom: .7, secs: 3 }, { at: q, zoom: 1, secs: 2 }]),
-      m.say(['GRAND THEFT MOTO', 'Lowtown: done.', 'District 2: coming soon.'], { name: 'The End', color: '#ffe066', per: 3 }),
+      m.say(['GRAND THEFT MOTO', 'Lowtown: done.', 'The Gnomes call off their strike: the west bridge to Ironside is open.'], { name: 'The End', color: '#ffe066', per: 3 }),
     ]);
   },
 };

@@ -22,7 +22,7 @@ export async function botRun({ id, seed = 1, pad = false, stage = null, level = 
   const step = pilot ? 1 / 120 : .25;
   while (t < secs) {
     game.advance(step); t += step;
-    if (pilot) { const p = gtm.crew.ped; pilot.write(C.botI || M.clearIntent(idle), p.seat ? 'vehicle' : 'onFoot', p); }
+    if (pilot) { const p = gtm.crew.ped; pilot.write(C.botI || M.clearIntent(idle), gtm.context ? gtm.context() : p.seat ? 'vehicle' : 'onFoot', p); }
     if (R.stage) lastStage = R.stage.id;
     if (verbose) { const s = g.snap(), k = [s.career.state, s.career.stage, s.career.objective, s.vehicle].join(' | '), every = Math.floor(t / 10) !== Math.floor((t - step) / 10);
       if (k !== last || (verbose === 'all' && every)) { const A = C.bot && C.bot.auto; console.log(`  ${t.toFixed(1)}s ${k} @ ${s.hero}${A ? ' [' + A.state + (A.brain ? ' ' + (A.brain.cause && (A.brain.cause.kind || A.brain.cause) || '') : '') + '] sp ' + s.speed : ''}`); last = k; } }

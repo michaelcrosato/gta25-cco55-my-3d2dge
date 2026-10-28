@@ -22,6 +22,8 @@ import { TowJoint } from '../sim/vehicle/tow.js';
 import { RailLine, Train } from '../sim/vehicle/rail.js';
 import { Damage } from '../sim/vehicle/damage.js';
 import { Vehicle } from './vehicle.js';
+import { sq } from '../core/dmath.js';
+import { flyer, aloft } from '../sim/vehicle/defs.js';
 
 knob('Vehicles', 'carBlastDamage', 'Car blast damage', 160, 0, 600, 5, 'A vehicle\'s explosion: damage at its centre');
 knob('Vehicles', 'carBlastSplash', 'Car blast reach', 96, 20, 300, 2, 'A vehicle\'s explosion: its radius (u)');
@@ -45,6 +47,9 @@ export class Fleet {
     this.city = o.city || null; this.map = o.map || (this.city && this.city.map) || null; this.combat = o.combat || null;
     this.bridges = o.bridges || []; this.game = o.game || null;
     this.vehicles = []; this.trains = []; this.lines = []; this.tows = [];
+    /** keepers: the landmarks' own vehicles (a spot's, a pad's: { def, home, color, kit, locked, v }), which the tow
+     *  replaces at home once theirs is gone (traffic.js): a job's Medic or SkyCam is never lost for good */
+    this.keepers = [];
     this.skids = []; this.fx = []; this.slicks = []; this.mines = []; this.broken = []; this.jets = [];
     this.t = 0; this._n = 0; this._seen = new Set(); this.grid = new Map(); this.awake = 0; this._stamp = 0;
     // street furniture an earlier scene knocked over comes back (the city outlives scenes)
@@ -54,7 +59,7 @@ export class Fleet {
       map: this.map, wet: 0, night: false,
       /** the grip under a point: the surface's (a deck's above the street), an oil slick's */
       surface: (x, y, z = 0) => {
-        for (const s of this.slicks) if ((x - s.x) ** 2 + (y - s.y) ** 2 < s.r * s.r && Math.abs(z - s.z) < 6) return SURFACE_GRIP.oil;
+        for (const s of this.slicks) if (sq(x - s.x) + sq(y - s.y) < s.r * s.r && Math.abs(z - s.z) < 6) return SURFACE_GRIP.oil;
         if (z > 4) return 1;
         if (C) return SURFACE_GRIP[C.surfaceAtPoint(x, y)] ?? 1;
         const tag = this.map && this.map.floorAt ? this.map.floorAt(x, y) : null; return tag === null || tag === undefined ? 1 : SURFACE_GRIP[tag] ?? 1;   // (a map with no CityMap: its floor tags)
@@ -80,6 +85,8 @@ export class Fleet {
   add(v) { this.vehicles.push(v); if (this.combat && !this.combat.boxes.includes(v)) this.combat.boxes.push(v); return v; }
   /** a new vehicle of a definition at (x, y) facing heading; o: Vehicle's options */
   spawn(defId, x, y, heading = 0, o = {}) { return this.add(new Vehicle(defId, { x, y, heading, ...o })); }
+  /** a landmark's own vehicle, spawned at its home and kept (replaced there once it is gone: traffic.js) */
+  keep(defId, x, y, heading = 0, o = {}) { const v = this.spawn(defId, x, y, heading, { ...o, home: true }); this.keepers.push({ def: defId, home: { x, y, heading }, color: o.color, kit: o.kit, locked: o.locked, v }); return v; }
   remove(v) {
     const i = this.vehicles.indexOf(v); if (i >= 0) this.vehicles.splice(i, 1);
     v.asleep = false;   // (out of the sleepers' grid at once)
@@ -158,7 +165,7 @@ export class Fleet {
       if (I && v.bombArmed && v.mods.bomb !== 'remote' && I.throttle > .1 && v.driver.id !== v.bombBy && v.chainT < 0) { v.bombArmed = false; v.chainT = .6; v.chainBy = v.bombBy; }   // (the ignition: a moment, then up)
       v.update(dt, I, W);
       if (I && v.driver && !v.wrecked) this._tools(dt, v, I);
-      if (v.cls === 'heli' && v.wrecked) v.body.falling = true;
+      if (flyer(v) && v.wrecked) v.body.falling = true;
       // at rest with nobody at it: asleep after a second
       const b = v.body;
       if (b && !v.driver && !v.ai && !v.towing && !v.towedBy && !v.damage.burning && !v.sinking && v.chainT < 0 && b.speed < .5 && Math.abs(b.w) < .01 && !b.airborne && !(b.lifted) && Object.values(v.doors).every(d => d === 0)) { v._still = (v._still || 0) + dt; if (v._still > 1) v.asleep = true; }
@@ -167,14 +174,14 @@ export class Fleet {
     this.awake = awake;
     for (const j of [...this.tows]) { if (j.truck.wrecked || j.car.wrecked || j.length > j.rest * 4 + 40) this._untow(j); else { this.wake(j.truck); this.wake(j.car); j.update(dt); } }
     this._regrid();
-    // vehicles against vehicles (towing pairs aside; boats only meet boats; helis fly over it all): each awake one
+    // vehicles against vehicles (towing pairs aside; boats only meet boats; helis fly over it all, a landed one is met): each awake one
     // against its neighbours; a sleeper it touches wakes
     // (far traffic on its lanes meets nothing by itself: its brain keeps it off other cars and its lanes clear of the
     // parked ones; the physical vehicles meet it)
     for (const a of this.vehicles) {
-      if (a.asleep || !a.body || a.cls === 'heli' || a.kinematic) continue;
+      if (a.asleep || !a.body || (flyer(a) && !a.body.landed) || a.kinematic) continue;
       for (const b of this.around(a.x, a.y, a.hl + 8)) {
-        if (b === a || !b.body || b.cls === 'heli' || (!b.asleep && !b.kinematic && b._i < a._i)) continue;
+        if (b === a || !b.body || (flyer(b) && !b.body.landed) || (!b.asleep && !b.kinematic && b._i < a._i)) continue;
         if ((a.cls === 'boat') !== (b.cls === 'boat')) continue;
         if (a.towing && a.towing.car === b || b.towing && b.towing.car === a) continue;
         const imp = collideCars(a.body, b.body);
@@ -256,7 +263,7 @@ export class Fleet {
   _peds(dt, peds) {
     let p = null, m = null;
     const meet = v => {
-      if (!v.body || v.cls === 'heli' || v.cls === 'boat' || v.sunk || (p.boarding && p.boarding.v === v)) return;
+      if (!v.body || aloft(v) || v.cls === 'boat' || v.sunk || (p.boarding && p.boarding.v === v)) return;
       const b = v.body, reach = v.hl + 12;
       if (Math.abs(m.x - b.x) > reach || Math.abs(m.y - b.y) > reach || m.z > b.z + v.height || m.z + 30 < b.z) return;
       const hit = circleObb(v, m.x, m.y, p.r || 6); if (!hit) return;
@@ -282,7 +289,7 @@ export class Fleet {
       let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
       for (const c of tr.cars) { x0 = Math.min(x0, c.x - c.hl - 10); x1 = Math.max(x1, c.x + c.hl + 10); y0 = Math.min(y0, c.y - c.hl - 10); y1 = Math.max(y1, c.y + c.hl + 10); z0 = Math.min(z0, c.z - 10); z1 = Math.max(z1, c.z + 10); }
       for (const p of peds) {
-        if (p.seat || p.dead || p.coast) continue; const m = p.mover;
+        if (p.seat || p.dead || p.coast || p.onTrain) continue; const m = p.mover;   // (onTrain: riding in it)
         if (m.z < z0 || m.z > z1 || m.x < x0 || m.x > x1 || m.y < y0 || m.y > y1) continue;
         for (const c of tr.cars) {
           if (Math.abs(m.z - c.z) > 10 || Math.abs(m.x - c.x) > c.hl + 10 || Math.abs(m.y - c.y) > c.hl + 10) continue;

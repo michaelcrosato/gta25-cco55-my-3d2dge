@@ -2,14 +2,15 @@
 
 This is the final analysis, written after the build. It replaces the preliminary one in `PLAN.md` section 18, which
 was written from planning research. `README.md`, the built page's header and the Credits & About screen carry its
-summary (`src/about.js`).
+summary (`src/about.js`). It was written at the slice's end (M13) and brought up to date with the work after it
+(HANDOFF's L1-L7): the three districts, planes and boats, the desktop wrapper and the DualSense by WebHID.
 
 - **The engine:** my-3D2dge v0.46.1, commit `cfa866aa45474868350cad1a7fc015e612f9305f` (2026-10-15),
   <https://github.com/michaelcrosato/my-3d2dge>, MIT. It is vendored whole at `vendor/my-3d2dge/` (the 742 KB
   `engine/my-3d2dge.js`, its tools, docs and mocap), checked against its SHA by `tools/vendor-check.mjs` on every
   `npm test`, and changed only by the seven patches in `vendor/my-3d2dge/PATCHES.md`.
-- **What sits on it:** MOTOR (`src/motor/`, about 16,100 lines), an open-city layer, and the game's content
-  (`src/game/`, about 8,500 lines), which imports MOTOR's public API alone (`tools/boundary-check.mjs` enforces it).
+- **What sits on it:** MOTOR (`src/motor/`, about 18,700 lines), an open-city layer, and the game's content
+  (`src/game/`, about 12,500 lines), which imports MOTOR's public API alone (`tools/boundary-check.mjs` enforces it).
   MOTOR reaches the engine through one global, `E`, and its game object.
 - **How this was worked out:** a census of every `E.*` name MOTOR and the content use (counts below are call sites),
   the decisions that chose against a piece (`docs/DECISIONS.md`), and the patches.
@@ -20,27 +21,30 @@ summary (`src/about.js`).
 scenes and `game.go` fades (title, play, the interior, attract, the Proving Ground's zones), the boot screen and the
 `expand` resolution (`res: 'ps1'`: a 480 × 270 buffer at 1080p). Headless, the same game runs in `node:vm` and steps
 with `game.advance`: every sim test, the mission bot, the campaign and the soaks run the real game without a browser.
-That one property carried the whole verification plan.
+That one property carried the whole verification plan. A second `E.Game`, never looped, runs one of the engine's own
+starter kits (the shooter) in Club Chrome's arcade cabinet, stepped and drawn by the outer game (L4).
 
-**Pixels.** The primitives everywhere MOTOR draws for itself: `E.px` (84 call sites), `E.mkCanvas` and `E.ctx2d`
-(38), the colour helpers `E.shade`, `E.hex` and `E.tones` (34), `E.tex` textures (13), the pixel font `E.font` with
-its title face (35), `E.ui` boxes (4), and `E.hash2`, `E.noise2` and `E.rng` for procedural detail (31): every car,
+**Pixels.** The primitives everywhere MOTOR draws for itself: `E.px` (87 call sites), `E.mkCanvas` and `E.ctx2d`
+(39), the colour helpers `E.shade`, `E.hex` and `E.tones` (34), `E.tex` textures (13), the pixel font `E.font` with
+its title face (41), `E.ui` boxes (4), and `E.hash2`, `E.noise2` and `E.rng` for procedural detail (33): every car,
 facade, sign, floor tile, HUD glyph and card is drawn with them at run time, with no image files.
 
-**The world.** `E.TileMap` holds Lowtown's buildings and the bank's rooms: walls, roofs, facades, materials and
-heights, `ray` and `sight` for lines of sight, and the solids street furniture and the Loop's deck pillars are made of
-(GTM-PATCH 1 and 3 made it city-sized). `E.Backdrop` paints ISO's sky by the hour; the props registry (`E.prop`,
-`E.PROPS`, `E.HEIGHTS`) supplies street furniture.
+**The world.** `E.TileMap` holds each district's buildings (Lowtown, Ironside and Glass Heights, one built at a time
+across the bridges, D38) and the rooms of the four interiors (the bank, Club Chrome, the Power Station, the Velvet
+Casino): walls, roofs, facades, materials and heights, `ray` and `sight` for lines of sight, and the solids street
+furniture and the Loop's deck pillars are made of (GTM-PATCH 1 and 3 made it city-sized). `E.Backdrop` paints ISO's sky
+by the hour; the props registry (`E.prop`, `E.PROPS`, `E.HEIGHTS`) supplies street furniture.
 
 **Rendering.** The depth-sorted renderer (`r.queue`, `r.box`, `r.actor`) draws every body in ISO through MOTOR's
-Stage; `E.View`'s `iso` view is ISO's projection and the model for the other two. Canvas lighting (`game.lights`,
+Stage; `E.View`'s `iso` view is ISO's projection and the model for the others. Canvas lighting (`game.lights`,
 made affordable at city scale by GTM-PATCH 7) lights the night in ISO. The particles and `hitFx` give every hit its
 spark.
 
 **The engine's two perspective tricks, generalized.** The stress test's side scrolling with depth (its `proj`,
 `rowDepth`, `floor7`, `face7`, `view7`, `wall7`, `pool7`, `depthCut`) became SIDE-SCROLL MODE 7, a view the player
-switches to anywhere, outdoors and in the bank (D4), with a level camera and a shifted lens so towers stand upright
-(D8). The shooter kit's one-point lean became TOP-DOWN: GTA2's perspective, the camera climbing with speed.
+switches to anywhere, outdoors and indoors (D4), with a level camera and a shifted lens so towers stand upright (D8);
+the chase camera (L4) is the same lens let off its rail, behind the player at any heading. The shooter kit's one-point
+lean became TOP-DOWN: GTA2's perspective, the camera climbing with speed.
 
 **Characters.** `E.Humanoid`, subclassed for the crew, the crowd, the police, the gangs and the guards, in both its
 styles (the classic rig kept as images for far crowds, D13), with `drawPortrait` on the phone and its weapons drawn
@@ -49,8 +53,8 @@ animate them. `E.Mover` walks, climbs and vaults every ped; `E.ACTIONS` and `E.A
 carjacks and takedowns (D15); `E.ik3` reaches for a door.
 
 **Perception and AI.** `E.sees` (14 call sites), `E.hears` (4) and `E.Suspicion` (6) are how the police see a crime,
-how a gang spots a hostile on its turf and how the bank's guards and cameras notice the player. `E.FlowField` walks the
-guards' rounds inside the bank.
+how a gang spots a hostile on its turf and how the guards and cameras indoors notice the player. `E.FlowField` walks
+the guards' rounds inside the interiors.
 
 **Combat.** `E.Bullets` as the one pool every gun fires into, `E.Attack` for melee hits and `E.Combo` for the fists'
 and the bat's chains.
@@ -60,7 +64,8 @@ zones, `rumble` (one call site: MOTOR's `Rumble` plays its five profiles through
 device state GTM-PATCH 4 adds (analog triggers, the active pad, the activity clock the attract mode's idle timer
 reads). `ChipAudio`'s effects and presets for the SFX map (14 call sites), and its buses (GTM-PATCH 5) for MOTOR's own
 sequencer, radio and engine voices. `E.store` keeps the three save slots; `game.settings` holds the settings the
-10-foot screens edit.
+10-foot screens edit. The DualSense's adaptive triggers and light bar go past the engine by WebHID (L7, D46), with
+its rumble the fallback.
 
 **Determinism and tools.** The engine's session recorder (`?record=1`) and `replay.mjs` prove a recorded drive replays
 checksum for checksum (`tests/e2e/replay.mjs`). `check.mjs` (look lint, no external requests, frame times) runs on the
@@ -69,8 +74,8 @@ city and the bank in every `npm test`; `filmstrip.mjs` took the animation strips
 ## What we built on top, because the engine has no such piece
 
 These are MOTOR's, each with its tests (`docs/ARCHITECTURE.md` has the map):
-- **vehicles:** a 2D rigid body with bicycle-model tyre forces for seven classes (cars, trucks, the tow truck, bikes,
-  boats, the police helicopter, the L), box models in a painter's order, damage, fire and a fleet that sleeps and
+- **vehicles:** a 2D rigid body with bicycle-model tyre forces for eight classes (cars, trucks, the tow truck, bikes,
+  boats, helicopters, planes, the L), box models in a painter's order, damage, fire and a fleet that sleeps and
   wakes (D15, D16);
 - **the city's floor and decks:** floor chunks baked per view on demand (D9), decks with space under them (the Loop's
   elevated avenue, the drawbridge);
@@ -80,8 +85,14 @@ These are MOTOR's, each with its tests (`docs/ARCHITECTURE.md` has the map):
   wanted level, the gangs with respect and turf;
 - **the mission runtime and its DSL,** the mission bot that plays any mission from its hints, the bot campaign;
 - **the 10-foot UI** on its own canvas layer (D2, D23), our own pause;
-- **audio:** a look-ahead sequencer, a composer and four radio stations on the play clock (D24);
-- **the attract mode's Director,** the Proving Ground, photo mode and the dev tools.
+- **audio:** a look-ahead sequencer, a composer and six radio stations on the play clock (D24, D36);
+- **the attract mode's Director,** the Proving Ground, photo mode and the dev tools;
+- **the districts,** one built at a time behind a crossing's fade, with the player, the vehicle, the crew, the time,
+  the weather and the stars carried over (D38);
+- **the DualSense by WebHID** (its output report by USB and Bluetooth, the triggers' effects, the light bar) and the
+  **desktop wrapper** (Electron, `desktop/`) round the unchanged page (D46);
+- **a deterministic Math** installed before the engine loads, so a seed plays the same game in Node and in every
+  browser, the engine's own movement included (D33; the browsers' transcendental functions differ in the last bit).
 
 ## What we did not use, and why
 
@@ -128,11 +139,12 @@ Patch 6 (a `floor: false` flag) was planned and never needed: the city never cal
 - Layered cells, so a bridge, an elevated road or a tunnel has space under it.
 
 **Why this one.** The build bears out what planning guessed. Four of the seven patches (1, 2, 3, 7) exist only because
-Lowtown is a city and not a level. MOTOR's floor chunks and its decks are the rest of the same gap, written outside the
-engine. And the frame time that still runs over its budget in MODE 7 and ISO (D20; the owner left performance for later,
-D29) is spent mostly on drawing a big world, not on simulating it. Every other gap a GTA-style game met could be built
-on top in game code: vehicles, the perspective views, the TV-scale UI, analog triggers, the radio. This one sits inside
-the engine and holds back every open-world game made with it: city sandboxes, overworlds, large towns.
+the districts are cities and not levels, and they carried Ironside and Glass Heights unchanged. MOTOR's floor chunks and
+its decks are the rest of the same gap, written outside the engine. And the frame time, inside its budgets only after
+L3's work on the drawing (D35), is spent mostly on drawing a big world, not on simulating it: a step's update is about a
+millisecond, against a budget of 1.5. Every other gap a GTA-style game met could be built on top in game code: vehicles,
+the perspective views, the TV-scale UI, analog triggers, the radio, the DualSense's own report. This one sits inside the
+engine and holds back every open-world game made with it: city sandboxes, overworlds, large towns.
 
 **A close second:** promote the stress test's side scrolling with depth from page code to a view any game can switch
 to. MOTOR had to lift it out of a demo page and make it general (a level camera, any heading, textured faces,

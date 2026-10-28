@@ -10,6 +10,9 @@ import { CHEST } from '../combat/aim.js';
 import { ABILITIES } from '../combat/abilities.js';
 
 const CORNERS = new Map(), OUT = '#05030c';
+/** a plate behind a run of the HUD's words: over a neon sign, a white crossing or a pale wall they still read (X8's look) */
+export const PLATE = 'rgba(5,3,12,.55)';
+export function plate(g, x, y, w, h) { g.fillStyle = PLATE; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
 /** a cached corner drawn at (x, y): draw(g, text) paints it, text(s, x, y, color, o) its words (recorded) */
 function corner(P, key, sig, w, h, x, y, draw) {
   let c = CORNERS.get(key);
@@ -39,7 +42,7 @@ export function drawPedHud(P, p, o = {}) {
   corner(P, 'bars', bars, 230, 34, L.bars[0], L.bars[1], (g, T) => {
     const x = 0, y = 12, w = 92, X = E.px;   // (low: the health bar blinks red)
     const bar = (yy, frac, col, back) => { X.rect(g, x, yy - 1, w + 2, 6, OUT); X.rect(g, x + 1, yy, w, 4, back); X.rect(g, x + 1, yy, Math.round(w * Math.max(0, Math.min(1, frac))), 4, col); };
-    if (o.name) T(o.name, x, 0, o.color || '#ffe066');
+    if (o.name) { plate(g, x, 0, E.font.width(o.name) + 4, 9); T(o.name, x + 1, 1, o.color || '#ffe066'); }
     bar(y, v.health / 100, low ? '#ff3a3a' : '#5ad84a', '#1e3a1a');
     bar(y + 7, v.armor / 100, '#5ab0ff', '#1a2a3e');
     if (a) { const on = a.active; bar(y + 14, a.meter, on ? '#ffffff' : (o.color || '#ffe066'), '#2a2438'); if (named) T(ABILITIES[a.id].name.toUpperCase() + (on ? '  ON' : ''), x + w + 8, y + 11, on ? '#ffffff' : (o.color || '#ffe066')); }
@@ -47,8 +50,8 @@ export function drawPedHud(P, p, o = {}) {
   const label = !rd ? '' : p.inv.reloading > 0 ? 'RELOAD' : spec.mag ? `${rd.mag} / ${Math.max(0, rd.total - rd.mag)}` : `${rd.total}`;
   corner(P, 'weapon', [spec && spec.id, label].join('|'), 100, 56, L.weapon[0] - 100, L.weapon[1], (g, T) => {
     const rx = 100;   // (thrown and special weapons show how many; magazines, what is loaded and what is left)
-    if (spec) T(spec.name.toUpperCase(), rx, 0, '#c8c0e8', { align: 'right' });
-    E.ui.box(g, rx - 84, 10, 84, 36, { alpha: .6 });
+    if (spec) { const s = spec.name.toUpperCase(); plate(g, rx - E.font.width(s) - 4, 0, E.font.width(s) + 4, 9); T(s, rx - 1, 1, '#c8c0e8', { align: 'right' }); }
+    E.ui.box(g, rx - 84, 10, 84, 36, { alpha: .78 });   // (.6 had shown a sign behind it as plainly as the gun)
     if (spec && spec.model) drawWeaponIcon(g, spec.model, rx - 42, 26, 2.2); else drawFistIcon(g, rx - 42, 26, 2.4);
     if (label) T(label, rx - 4, 37, p.inv.reloading > 0 ? '#ffd23a' : rd.total ? '#f0ecff' : '#ff5a5a', { align: 'right' });
   });

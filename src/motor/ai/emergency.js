@@ -16,6 +16,7 @@ import { RNG } from '../core/rng.js';
 import { BUS } from '../core/bus.js';
 import { makeIntent, clearIntent } from '../sim/intent.js';
 import { boardingFor, exitFor } from '../actors/boarding.js';
+import { aloft } from '../sim/vehicle/defs.js';
 
 knob('Services', 'reviveChance', 'Paramedics revive', .6, 0, 1, .05, 'The chance the Medic\'s crew brings a dead non-story ped back');
 knob('Services', 'medicAfter', 'Medic called after', 6, 0, 60, 1, 'Seconds after a death before the Medic is sent');
@@ -78,7 +79,7 @@ export class Emergency {
     if (this.step % 30) return;   // (four times a second)
     const C = this.life.crowd, fp = this.fp;
     if (C) for (const m of C.members) {
-      if (!m.deadT || m.attended || this.t < 1 || C.t - m.deadT < TUNE.medicAfter || fp.d(m.ped.x, m.ped.y) > TUNE.fpActivity) continue;
+      if (!m.deadT || m.attended || m.served === m.deadT || this.t < 1 || C.t - m.deadT < TUNE.medicAfter || fp.d(m.ped.x, m.ped.y) > TUNE.fpActivity) continue;   // (served: a Medic has been for this death; a body it left lies its time out, never called for again and kept)
       const c = this.call('medic', m.ped.x, m.ped.y, { target: m }); if (c) { c.target = m; m.attended = true; }
     }
     const F = this.combat && this.combat.fire;   // (a burning car goes up long before a unit could come: what it lights is the call)
@@ -111,7 +112,7 @@ export class Emergency {
       if (c.crew.every(f => f.task === 'aboard' || f.ped.dead)) this._back(c);
       return;
     }
-    if (c.state === 'leaving' && c.crew.every(f => f.task === 'aboard' || f.ped.dead)) { this.onFoot = this.onFoot.filter(f => !c.crew.includes(f)); if (this._driver(u)) this.life.traffic.release(u); c.state = 'done'; c.done = c.done || 'answered'; this.answered++; if (c.target && c.target.attended !== undefined) c.target.attended = false; }   // (a body not brought back lies its time out and goes, as any)
+    if (c.state === 'leaving' && c.crew.every(f => f.task === 'aboard' || f.ped.dead)) { this.onFoot = this.onFoot.filter(f => !c.crew.includes(f)); if (this._driver(u)) this.life.traffic.release(u); c.state = 'done'; c.done = c.done || 'answered'; this.answered++; if (c.target && c.target.attended !== undefined) { c.target.attended = false; c.target.served = c.target.deadT; } }   // (a body not brought back lies its time out and goes, as any)
   }
   // on the scene: the crew gets out (the Pumper's stays at its cannon)
   _arrive(c) {
@@ -155,35 +156,47 @@ export class Emergency {
   _steer(f, dt) {
     const I = clearIntent(f.I || (f.I = makeIntent())), p = f.ped, c = f.call, u = c.unit; f.t += dt;
     if (p.dead || p.floored || p.held) return I;
-    let to = null;
+    let to = null, via = null;
     switch (f.task) {
       case 'out': if (!p.boarding && !p.seat) { f.task = 'go'; f.t = 0; f.to = this._post(f); } break;
       case 'go': to = f.to; if (Math.hypot(to[0] - p.x, to[1] - p.y) < 10 || f.t > 12) { f.task = 'work'; f.t = 0; to = null; this._startWork(f); } break;
       case 'work': this._work(f, dt); break;
       case 'back':
         if (p.seat) { f.task = 'aboard'; p.clip = null; p.posing = null; if (this.combat) this.combat.remove(p); if (c.crew.every(q => q.task === 'aboard' || q.ped.dead)) this._resume(u); break; }
-        if (!p.boarding) { p.clip = null; p.posing = null; const plan = boardingFor(p, u.v, f.seat); if (plan && !u.v.seats[f.seat] && f.t < 15) p.board(plan); else if (f.t >= 15) this._strand(f); }
+        if (!p.boarding) {
+          p.clip = null; p.posing = null; const plan = boardingFor(p, u.v, f.seat, { clear: (x, y) => this._clear(x, y, u.v) });
+          if (plan && !u.v.seats[f.seat] && f.t < 15) {   // (its door against a parked car: in by a clear one; a car between it and the door: round it first, the walk to a door a straight one. X7: a Fed Sedan at the Grand Palms' curb had stranded a Medic's crew and left the unit in Casino Row's lane for good)
+            const c = Math.cos(u.v.heading), s = Math.sin(u.v.heading), door = [u.v.x + plan.door.x * c - plan.door.y * s, u.v.y + plan.door.x * s + plan.door.y * c];
+            if (this._detour(p, door, u.v) === door) p.board(plan); else { to = door; via = u.v; }
+          } else if (f.t >= 15) this._strand(f);
+        }
         break;
       default: break;
     }
-    if (to) { const g = this._detour(p, to), dx = g[0] - p.x, dy = g[1] - p.y, l = Math.hypot(dx, dy) || 1; I.move[0] = dx / l * .5; I.move[1] = dy / l * .5; }
+    if (to) { const g = this._detour(p, to, via), dx = g[0] - p.x, dy = g[1] - p.y, l = Math.hypot(dx, dy) || 1; I.move[0] = dx / l * .5; I.move[1] = dy / l * .5; }
     return I;
   }
   // the way to a point with vehicles in between (its own unit, most often): the shortest way round their boxes (widened
-  // by a body) by their corners, a visibility graph over the few near it; its next corner, or straight there
-  _detour(p, to) {
+  // by a body) by their corners, a visibility graph over the few near it; its next corner, or straight there (skip: one
+  // left out, the unit whose door it walks to)
+  _detour(p, to, skip = null) {
     const boxes = [];
     for (const v of this.fleet.near(p.x, p.y, 110)) {
-      if (!v.body || v.cls === 'heli' || Math.abs(v.z - p.z) > 12) continue;
+      if (!v.body || v === skip || aloft(v) || Math.abs(v.z - p.z) > 12) continue;
       const c = Math.cos(v.heading), s = Math.sin(v.heading);
       boxes.push({ v, c, s, L: v.hl + 9, W: v.hw + 9, loc: q => [(q[0] - v.x) * c + (q[1] - v.y) * s, -(q[0] - v.x) * s + (q[1] - v.y) * c] });
     }
-    const P = [p.x, p.y], cut = (a, b) => boxes.some(B => segBox(B.loc(a), B.loc(b), B.L - 3, B.W - 3));
+    const P = [p.x, p.y];
+    for (const B of boxes) {   // (a body pressed against a car stands inside its margin: that side drawn in to it, or every way out of there was cut)
+      B.l = B.L - 3; B.w = B.W - 3; const [lx, ly] = B.loc(P), ix = B.l - Math.abs(lx), iy = B.w - Math.abs(ly);
+      if (ix > 0 && iy > 0) { if (iy < ix) B.w = Math.abs(ly) - .5; else B.l = Math.abs(lx) - .5; }
+    }
+    const cut = (a, b) => boxes.some(B => segBox(B.loc(a), B.loc(b), B.l, B.w));
     if (!cut(P, to)) return to;
     const nodes = [P, to];
     for (const B of boxes) for (const [lx, ly] of [[B.L, B.W], [B.L, -B.W], [-B.L, B.W], [-B.L, -B.W]]) {
       const q = [B.v.x + lx * B.c - ly * B.s, B.v.y + lx * B.s + ly * B.c];
-      if (!boxes.some(o => { const l = o.loc(q); return Math.abs(l[0]) < o.L - 3 && Math.abs(l[1]) < o.W - 3; })) nodes.push(q);
+      if (!boxes.some(o => { const l = o.loc(q); return Math.abs(l[0]) < o.l && Math.abs(l[1]) < o.w; })) nodes.push(q);
     }
     const n = nodes.length, D = new Array(n).fill(Infinity), prev = new Array(n).fill(-1), done = new Array(n).fill(false); D[0] = 0;
     for (;;) {   // (Dijkstra; a sight line is checked only when it would shorten the way)
@@ -194,6 +207,10 @@ export class Emergency {
     if (prev[1] < 0) return to;
     const way = []; for (let k = 1; k > 0; k = prev[k]) way.unshift(nodes[k]);
     return way.find(q => Math.hypot(q[0] - p.x, q[1] - p.y) > 4) || to;   // (the next corner it is not already at)
+  }
+  // whether a body can stand at (x, y): no vehicle but v's there (a door's spot, a car parked against it)
+  _clear(x, y, v) {
+    return !this.fleet.near(x, y, 60).some(o => { if (o === v || aloft(o) || Math.abs(o.z - v.z) > 12) return false; const c = Math.cos(o.heading), s = Math.sin(o.heading), lx = (x - o.x) * c + (y - o.y) * s, ly = -(x - o.x) * s + (y - o.y) * c; return Math.abs(lx) < o.hl + 6 && Math.abs(ly) < o.hw + 6; });
   }
   // where a crew member goes on the scene: the body (the paramedics, either side of it), round the report (the officers)
   _post(f) {

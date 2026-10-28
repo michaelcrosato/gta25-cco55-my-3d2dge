@@ -75,6 +75,18 @@ test('A* finds what Dijkstra finds on 1,000 random pairs, and a route across the
   times.sort((p, q) => p - q); assert.ok(times[100] < 2, `median ${times[100].toFixed(3)} ms`);
 });
 
+test('the costs from one lane to every lane (gps.costsFrom) are what Dijkstra finds lane by lane, Infinity where none goes', () => {
+  const n = G.lanes.length;
+  for (let k = 0; k < 20; k++) {
+    const a = Math.floor(rand() * n), s = rand() * G.lanes[a].len, D = gps.costsFrom(a, s);
+    for (let m = 0; m < 10; m++) {
+      const b = Math.floor(rand() * n), y = gps.dijkstra(a, b, { s });
+      if (!y) { assert.equal(D[b], Infinity, `${a} -> ${b}: none`); continue; }
+      assert.ok(Math.abs(D[b] - y.cost) < 1e-6, `${a} -> ${b}: ${D[b]} against Dijkstra ${y.cost}`);
+    }
+  }
+});
+
 test('the signals: NS and EW are never open together; each phase lasts its time; junctions are offset; stop signs stay stop', () => {
   const sig = G.regions.filter(r => r.signals === 'signal'), stop = G.regions.find(r => r.signals === 'stop');
   assert.ok(sig.length >= 4, 'signalled junctions: ' + sig.length);
@@ -97,4 +109,37 @@ test('a goal behind on the lane the car is on: the route leaves it and comes rou
   assert.ok(r && r.lanes.length > 2, 'round the block: ' + (r && r.lanes.join(' ')));
   assert.equal(r.lanes[0], L.id); assert.equal(r.lanes[r.lanes.length - 1], L.id);
   assert.ok(r.to.s < r.from.s, 'the goal behind where it starts');
+});
+
+test('noDeadEnds: a route never into a dead end\'s stub to turn back in it (one at the map\'s edge turns through the wall), but the goal\'s own', () => {
+  const stubs = G.lanes.filter(l => l.deadEnd === 'uturn'); assert.ok(stubs.length, 'Lowtown has stubs at its edges');
+  let via = 0;
+  for (const D of stubs) {
+    const back = G.conns[D.out[0]].to, feed = G.conns.filter(c => c.to === D.id).map(c => c.from);
+    for (const F of feed) {
+      const plain = gps.route(F, back), r = gps.route(F, back, { noDeadEnds: true });
+      if (plain && plain.lanes.includes(D.id)) via++;
+      if (r) assert.ok(r.lanes.every(id => G.lanes[id].deadEnd !== 'uturn'), `from ${F} to ${back}: round, not by a stub (${r.lanes.join(' ')})`);
+      const into = gps.route(F, D.id, { noDeadEnds: true }); assert.ok(into && into.lanes[into.lanes.length - 1] === D.id, `into the stub ${D.id} itself, when it is the goal`);
+    }
+  }
+  assert.ok(via > 0, 'without it, the quickest way back is by a stub\'s turn');
+});
+
+
+test('junctions: a panicking driver\'s rush through a box is seen there by another as scared, never by a grant or a squeezer; gone with its release', () => {
+  const J = new Junctions(G);
+  let pair = null;
+  for (const R of J.regions.values()) { for (const a of R.conns) for (const b of R.conns) if (!pair && J.conflict(a, b)) pair = [G.conns[a], G.conns[b]]; if (pair) break; }
+  assert.ok(pair, 'two connectors crossing in one box');
+  const [mine, theirs] = pair;
+  let at = null, best = Infinity;   // (the scared car where its way comes nearest to ours)
+  for (let k = 0; k <= 20; k++) { const p = G.pointOnConn(theirs, k / 20); for (const q of mine.pts) { const d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < best) { best = d; at = p; } } }
+  const scared = { id: 1, v: { x: at[0], y: at[1], hl: 29 } }, calm = { id: 2, v: { x: 0, y: 0, hl: 29 } };
+  assert.equal(J.occupied(calm, mine, 0, true), false, 'nobody there');
+  J.rush(scared, theirs, 0);
+  assert.equal(J.occupied(calm, mine, .1, true), true, 'the scared car on a crossing way in the box: occupied, to another as scared');
+  assert.equal(J.occupied(calm, mine, .1), false, 'not to a squeezer (it waits on holders alone)');
+  assert.equal(J.ask(calm, mine, .1, true), true, 'and no grant waits on it');
+  J.release(calm); J.release(scared); assert.equal(J.occupied(calm, mine, .2, true), false, 'released: gone');
 });

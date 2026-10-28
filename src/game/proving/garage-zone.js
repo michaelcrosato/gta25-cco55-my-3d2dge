@@ -12,13 +12,14 @@ def('provingZones', 'garage', {
   make(app) {
     const { game, views, human, links, stage, bindings: B } = app;
     let map, floor, city, combat, fleet, fx, shown, sel, bench, trains, night, sheet;
-    // where each definition parks: land vehicles in the bays (trucks at the back), boats in the basin, the heli over its
+    // where each definition parks: land vehicles in the bays (trucks at the back; planes too), boats and seaplanes in the basin, the heli over its
     // pad, the L's cars on the track; alone (?only=one), at the centre (a boat in the basin, the L on the track)
     function park(defs) {
-      const out = [], land = defs.filter(d => !['boat', 'heli', 'rail'].includes(classOf(d))).sort((a, b) => (classOf(a) === 'truck' || classOf(a) === 'tow') - (classOf(b) === 'truck' || classOf(b) === 'tow'));
+      const sea = d => classOf(d) === 'boat' || (classOf(d) === 'plane' && !!(d.handling || {}).water);   // (a seaplane floats in the basin with the boats)
+      const out = [], land = defs.filter(d => !['boat', 'heli', 'rail'].includes(classOf(d)) && !sea(d)).sort((a, b) => (classOf(a) === 'truck' || classOf(a) === 'tow') - (classOf(b) === 'truck' || classOf(b) === 'tow'));
       const one = defs.length === 1;
       land.forEach((d, i) => { const c = i % 6, r = Math.floor(i / 6); out.push({ d, at: one ? map.center : [(4 + c * 6 + 3) * T, (5 + r * 9 + 2.5) * T + (classOf(d) === 'truck' || classOf(d) === 'tow' ? 8 : 0)], heading: -Math.PI / 2 }); });
-      defs.filter(d => classOf(d) === 'boat').forEach((d, i) => out.push({ d, at: [map.boatSpot[0] - i * 40, map.boatSpot[1]], heading: Math.PI }));
+      defs.filter(sea).forEach((d, i) => out.push({ d, at: [map.boatSpot[0] - i * 40, map.boatSpot[1]], heading: Math.PI }));
       defs.filter(d => classOf(d) === 'heli').forEach((d, i) => out.push({ d, at: one ? map.center : [map.heliPad[0] - i * 80, map.heliPad[1]], heading: -Math.PI / 2, z: 30 }));
       defs.filter(d => classOf(d) === 'rail').forEach(d => out.push({ d, at: [(map.track[0][0] + map.track[1][0]) / 2, map.track[0][1]], heading: 0 }));
       return out;
@@ -57,7 +58,7 @@ def('provingZones', 'garage', {
         if (B.tap('right', 'onFoot') || I.tap.weaponNext) sel = (sel + 1) % shown.length;
         if (B.tap('left', 'onFoot') || I.tap.weaponPrev) sel = (sel - 1 + shown.length) % shown.length;
         if (I.tap.view) views.next();
-        if (I.tap.turnLeft || I.tap.turnRight) stage.turn(I.tap.turnRight ? 1 : -1);
+        stage.turnInput(dt, I);
         fleet.update(dt, { intent: () => null, peds: [], night });
         const s = shown[sel]; if (s) game.focus(s.v ? s.v.x : s.x, s.v ? s.v.y : s.y, (s.v ? s.v.z : 0) + 8);   // (a heli is framed where it hovers)
       },

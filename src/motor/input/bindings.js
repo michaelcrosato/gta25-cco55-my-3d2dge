@@ -26,8 +26,11 @@ export const DEFAULT_BINDINGS = {
     secondary: ['Pad3', 'KeyR'], tertiary: ['Pad2', 'KeyF'], close: ['Pad9'], zoomIn: ['Pad7', 'Equal', 'NumpadAdd'], zoomOut: ['Pad6', 'Minus', 'NumpadSubtract'] },
   wheel: { ...NAV, wheel: ['Pad4', 'KeyQ'], confirm: ['Pad0', 'Enter'], back: ['Pad1', 'Escape'] },
   phone: { ...NAV, confirm: ['Pad0', 'Enter', 'Space'], back: ['Pad1', 'Escape', 'Backspace', 'KeyT'] },
+  // an arcade cabinet (play/arcade.js): the stick or WASD or the arrows fly, ✕ fires, ○ bombs, △ steps away from it
+  arcade: { up: ['KeyW', 'ArrowUp', 'Pad12'], down: ['KeyS', 'ArrowDown', 'Pad13'], left: ['KeyA', 'ArrowLeft', 'Pad14'], right: ['KeyD', 'ArrowRight', 'Pad15'],
+    fire: ['Pad0', 'KeyZ', 'Space'], roll: ['Pad1', 'KeyX'], interact: ['Pad3', 'KeyE'], pause: ['Pad9', 'Escape'] },
   photo: { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], zoomIn: ['Pad7', 'KeyE'], zoomOut: ['Pad6', 'KeyQ'],
-    view: ['Pad11^', 'KeyV'], snap: ['Pad0', 'Space', 'Enter'], back: ['Pad1', 'Escape', 'Pad8', 'KeyB'] },
+    view: ['Pad11^', 'KeyV'], snap: ['Pad0', 'Space', 'Enter'], back: ['Pad1', 'Escape', 'Pad8', 'KeyB'], look: ['Pad5', 'KeyF'] },
 };
 /** codes that may not be rebound: the menus and the browser keep them (the engine's BINDABLE rule, ENG:1047) */
 const LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt|KeyP$)/;

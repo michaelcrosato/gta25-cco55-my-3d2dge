@@ -3,7 +3,10 @@
 // lands as a splash ring. Wet streets darken (the Stage draws that over the floor, before anything stands on it) and
 // take smears of light under the lamps (the Stage's glows). Cosmetic only: Math.random is fine here, nothing is
 // simulated.
+import { TUNE, knob } from '../core/tune.js';
+
 const BOX = 300, TOP = 220, FALL = 520, WIND = 70;
+knob('Graphics', 'rainDrops', 'Raindrops', 1, .25, 1, .05, 'How many raindrops fall round the camera, of the full 340 in a downpour (the Fast quality: half)');
 
 export class WeatherFX {
   constructor() { this.drops = []; this.splashes = []; this.cx = 0; this.cy = 0; }
@@ -15,7 +18,7 @@ export class WeatherFX {
   /** step the drops round the focus [x, y] by dt seconds, as hard as the sky's rain (0..1) */
   update(dt, sky, focus) {
     if (focus) { this.cx = focus[0]; this.cy = focus[1]; }
-    const want = Math.round(340 * (sky.rain || 0)), D = this.drops;
+    const want = Math.round(340 * (sky.rain || 0) * TUNE.rainDrops), D = this.drops;
     while (D.length < want) D.push(this._drop({}, true));
     if (D.length > want) D.length = want;
     for (const d of D) {

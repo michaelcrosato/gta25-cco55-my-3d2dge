@@ -34,7 +34,7 @@ export class Career {
    *  too), saves (a SaveStore), bot, demo (the attract mode's: the reels its bot plays, no offers, no random events, no
    *  hold-ups, no cards, nothing ever written) } */
   constructor(o) {
-    this.app = o.app; this.W = o.world; this.save = o.save || normalizeSave(blankSave()); this.saves = o.saves || makeSaves(); this.demo = !!o.demo; this.lab = !!o.lab;   // (lab: a district not Lowtown's, the Proving Ground's lab or District 2: free roam alone, no tokens, hold-ups or random events)
+    this.app = o.app; this.W = o.world; this.save = o.save || normalizeSave(blankSave()); this.saves = o.saves || makeSaves(); this.demo = !!o.demo; this.lab = !!o.lab;   // (lab: a district the career doesn't play, the Proving Ground's: free roam alone, no tokens, hold-ups or random events)
     this.saves.locked = this.demo || this.lab;   // (neither the demo nor a lab ever writes: PLAN.md 7.8, 8.19)
     /** god (?god=1, the bot tools' --god: D29): the crew take no harm, nor what they drive, and their guns never run dry */
     this.god = !!o.god; this._godRides = new Set();
@@ -42,7 +42,8 @@ export class Career {
     this.econ = new Economy({ save: this.save, fund });
     this.R = new MissionRuntime({ world: () => W, save: this.save, onEnd: r => this._ended(r) });
     this.events = new AmbientEvents({ world: () => W, save: this.save, onEnd: r => this._eventEnded(r) });
-    this.stunts = new StuntJumps({ save: this.save }); this.holdups = null; this.tokens = null;
+    this.district = (W.city && W.city.id) || 'lowtown';   // (EXPANSION.md 2.1: its missions, jobs, tokens and stunts alone)
+    this.stunts = new StuntJumps({ save: this.save, district: this.district }); this.holdups = null; this.tokens = null;
     this.bot = o.bot ? new MissionBot({ city: W.city, roads: roadsOf(W.city), fleet: W.fleet, junctions: W.junctions, pad: o.bot === 'pad' }) : null;
     this.padMode = o.bot === 'pad'; this.botI = null;   // (the pad pilot's: the bot's Intent kept for a tool to press on a pad, the player's controller read instead)
     this.card = null; this.prompt = null; this.pops = []; this.waypoint = null; this.visited = null; this.t = 0; this.hours = 0; this.botTries = 0; this.unsub = [];
@@ -53,7 +54,7 @@ export class Career {
   start(o = {}) {
     const W = this.W, S = this.save;
     W.crew.fund = S.crewFund;
-    this.tokens = this.lab ? null : new Collectibles({ combat: W.combat, save: S }).place();
+    this.tokens = this.lab ? null : new Collectibles({ combat: W.combat, save: S, district: this.district }).place();
     this.garage = {};   // (the stashed vehicles: back where they were left)
     for (const q of S.garage) { if (!q || !q.id || !q.def || !Array.isArray(q.at)) continue; const v = W.fleet.spawn(q.def, q.at[0], q.at[1], q.at[2] || 0, { color: q.color, mods: q.mods, owner: 'world' }); v.stashed = q.id; this.garage[q.id] = v; }
     this.holdups = this.lab ? null : new Holdups({ city: W.city, combat: W.combat, rng: RNG.stream('shops') });
@@ -81,15 +82,15 @@ export class Career {
   }
   /** the missions on offer: requirements met, not done (in the registry's order) */
   available() {
-    const S = this.save, done = S.missions.done; if (this.lab) return [];   // (another district: free roam alone, no job on offer)
-    return all('missions').filter(m => !done.includes(m.id) && (m.requires || []).every(r => done.includes(r)) && (!m.unlock || m.unlock(S, this.W)) && giverAt(this.W.city, m));
+    const S = this.save, done = S.missions.done; if (this.lab) return [];   // (a lab: free roam alone, no job on offer)
+    return all('missions').filter(m => m.district === this.district && !done.includes(m.id) && (m.requires || []).every(r => done.includes(r)) && (!m.unlock || m.unlock(S, this.W)) && giverAt(this.W.city, m));
   }
   // Spray & Pray's bay while the player can pay for a respray (the bot's way to lose the stars), else null
   _respray() { const q = this.W.sprayBay ? this.W.sprayBay() : null; return q && this.W.crew.fund >= (TUNE.resprayFee ?? 100) ? q : null; }
   /** where a mission's giver stands: [x, y] (its marker), or null */
   giverOf(m) { return giverAt(this.W.city, m); }
   /** the activities with a place to start: [{ spec, at }] (jobs start from the phone) */
-  startable() { if (this.lab) return []; return all('activities').filter(a => a.start && a.start.at && a.kind !== 'event').map(a => ({ spec: a, at: this.W.city.poi(a.start.at) ? [this.W.city.poi(a.start.at).x, this.W.city.poi(a.start.at).y] : a.start.at })); }
+  startable() { if (this.lab) return []; return all('activities').filter(a => a.start && a.start.at && a.kind !== 'event' && a.district === this.district).map(a => ({ spec: a, at: this.W.city.poi(a.start.at) ? [this.W.city.poi(a.start.at).x, this.W.city.poi(a.start.at).y] : a.start.at })); }
   // ---- each step
   /** ctx: { p (the possessed ped), I (its intent), inside, busy (a wheel, the switch camera, a door's fade), down
    *  (WRECKED or NABBED playing), dt }. Returns the Intent to use: the bot's while it plays */
@@ -103,7 +104,7 @@ export class Career {
     let I = ctx.I;
     this.botI = null;
     if (this.god) this._god();
-    if (this.bot && this.R.state === 'running' && !ctx.busy && !ctx.down) { const B = this.bot.update(dt, p, this.R, { t: W.life ? W.life.t : 0, pedsNear: W.life ? (x, y, r) => W.life.pedsNear(x, y, r) : null, wet: W.weather.wet, wanted: W.wanted(), police: W.life && W.life.police, inside: ctx.inside, heat: W.combat && W.combat.fire ? (x, y) => W.combat.fire.heatAt(x, y) : null, respray: this._respray() }); if (this.padMode) this.botI = B; else I = B; }
+    if (this.bot && this.R.state === 'running' && !ctx.busy && !ctx.down) { const B = this.bot.update(dt, p, this.R, { t: W.life ? W.life.t : 0, pedsNear: W.life ? (x, y, r) => W.life.pedsNear(x, y, r) : null, wet: W.weather.wet, wanted: W.wanted(), police: W.life && W.life.police, inside: ctx.inside, heat: W.combat && W.combat.fire ? (x, y) => W.combat.fire.heatAt(x, y) : null, respray: this._respray(), arcade: W.arcade ? W.arcade() : null }); if (this.padMode) this.botI = B; else I = B; }
     if (this.card) I = clearIntent(I);   // (the card's own input is the screens': MOTOR's step wrapper gave it first)
     this.R.update(dt);   // (WRECKED or NABBED fails the job at once; JOB BLOWN waits for the card)
     if (this.demo) { const v = p.seat && p.seat.vehicle, st = this.stunts.update(dt, v && v.driver === p ? v : null); if (st && st.ok) this.pop('STUNT  ' + st.name.toUpperCase(), st.score + ' PTS', '#5af0ff'); return I; }   // (the attract mode: its director sees a reel's end; a stunt still shows)
@@ -130,6 +131,7 @@ export class Career {
   // once its card is answered (or not asked), the door under it answers again (the chapel's SAVE, the diner's SHOP). A
   // visit lasts till the player is twice the marker's reach away: stepping about a door under a giver asks nothing again
   _free(p, v, I) {
+    if (p.onTrain) return;   // (riding the L: the markers it passes over offer nothing)
     const W = this.W, C = W.city, R2 = TUNE.giverReach, quiet = !this.armed, P = v || p; this.armed = true;
     const visit = (id, at, r) => { this.visited = id; this.visitAt = [at[0], at[1], r * 2]; };
     if (!v && !p.boarding) for (const m of this.available()) { const at = giverAt(C, m); if (Math.hypot(at[0] - p.x, at[1] - p.y) < R2) { if (this.visited !== m.id) { visit(m.id, at, R2); if (!quiet) { this._jobCard(m); return; } } this._doors(p, null); return; } }
@@ -283,7 +285,7 @@ export class Career {
     const W = this.W, p = W.crew.ped, kinds = new Set(['safehouse', 'shop', 'property', 'gang', 'landmark', 'hospital', 'police', 'marina']), stars = W.wanted() ? W.wanted().stars : 0, v = p.seat && p.seat.vehicle;
     const dests = W.city.pois.filter(q => kinds.has(q.kind) && q.label).sort((a, b) => a.label.localeCompare(b.label));
     const why = stars ? 'NOT WHILE WANTED' : v ? 'ON FOOT ONLY' : '';
-    this._open({ id: 'cabs', style: 'phone', title: 'LOWTOWN CABS', color: '#ffd23a', body: [why || `CASH  $${W.crew.fund.toLocaleString('en-US')}`], back: () => this._contacts(),
+    this._open({ id: 'cabs', style: 'phone', title: ((W.city.spec && W.city.spec.name) || 'Lowtown').toUpperCase() + ' CABS', color: '#ffd23a', body: [why || `CASH  $${W.crew.fund.toLocaleString('en-US')}`], back: () => this._contacts(),
       items: dests.map(q => { const fee = this.cabFee(p, q); return { label: q.label.toUpperCase(), right: '$' + fee, icon: 'cab', disabled: !!why || fee > W.crew.fund, act: () => this.cab(q) }; }) });
   }
   phone_() { const sel = this._phoneSel || 0; this.close(); this.phone(); if (this.card) { this.card.sel = Math.min(sel, this.card.items.length - 1); this._phoneSel = sel; } }   // (back on the app it opened)
@@ -318,7 +320,7 @@ export class Career {
   }
   _jobs() {
     const W = this.W, p = W.crew.ped, v = p.seat && p.seat.vehicle;
-    const items = all('activities').filter(a => a.kind === 'job' && a.start && a.start.vehicle).map(a => {
+    const items = all('activities').filter(a => a.kind === 'job' && a.start && a.start.vehicle && a.district === this.district).map(a => {
       const next = Math.min(a.levels || 1, (this.save.activities[a.id] || 0) + 1), ok = !!v && v.driver === p && fits(a.start.vehicle, v), need = [].concat(a.start.vehicle)[0];
       if (ok) return { ...this._start(a.title.toUpperCase(), () => this.startMission(a.id, { activity: true, level: next }), `START  LEVEL ${next}/${a.levels || 1}`), label: a.title.toUpperCase(), icon: 'job' };
       return { label: a.title.toUpperCase(), sub: 'IN ' + ((get('vehicles', need) || {}).name || String(need)).toUpperCase(), icon: 'job', disabled: true, act: () => {} };
@@ -329,8 +331,8 @@ export class Career {
   /** the save from the live world */
   snapshot() {
     const W = this.W, S = this.save, out = JSON.parse(JSON.stringify(S));
-    out.crewFund = W.crew.fund; out.active = W.crew.active; out.clock = W.clock.hour; out.weather = W.weather.state;
-    for (const id of PROTAGONISTS) { const m = W.crew.member(id); if (!m) continue; const j = m.ped.toJSON(), q = out.protagonists[id]; q.pos = j.pos; q.health = j.health; q.armor = j.armor; q.weapons = j.weapons; q.ammo = j.ammo; q.current = j.current; q.ability = j.ability; q.outfit = m.outfit || 0; if (j.stats) q.stats = { ...q.stats, ...j.stats }; }
+    out.crewFund = W.crew.fund; out.active = W.crew.active; out.clock = W.clock.hour; out.weather = W.weather.state; out.district = this.district;
+    for (const id of PROTAGONISTS) { const m = W.crew.member(id); if (!m) continue; const j = m.ped.toJSON(), q = out.protagonists[id]; q.pos = j.pos; q.health = j.health; q.armor = j.armor; q.weapons = j.weapons; q.ammo = j.ammo; q.current = j.current; q.ability = j.ability; q.outfit = m.outfit || 0; q.map = this.district; if (j.stats) q.stats = { ...q.stats, ...j.stats }; }
     if (W.life && W.life.gangs) out.respect = { ...W.life.gangs.respect };
     out.completion = completion(S).pct;
     return out;
@@ -350,7 +352,7 @@ export class Career {
     const W = this.W;
     for (const id of PROTAGONISTS) {
       const m = W.crew.member(id), q = S.protagonists[id]; if (!m || !q) continue; const p = m.ped;
-      if (q.pos) p.place(q.pos[0], q.pos[1], q.pos[2] || 0);
+      if (q.pos && (q.map || 'lowtown') === this.district) p.place(q.pos[0], q.pos[1], q.pos[2] || 0);   // (one saved in another district stands at their start here)
       p.vitals.health = q.health; p.vitals.armor = q.armor;
       // (the guns as saved, and only those: the start kit's a confiscation took stays gone; each magazine full from its
       // rounds; the one in hand)
@@ -373,7 +375,11 @@ export class Career {
     if (this.events.R.actors && this.events.active) this.events.R.actors.draw(stage, fx, fy, reach);
     if (this.holdups) this.holdups.draw(stage, fx, fy, reach);
     const near = (x, y) => Math.abs(x - fx) < reach && Math.abs(y - fy) < reach;
-    for (const mk of this.R.markers) { if (mk.gone || !mk.ring) continue; const a = mk.actor, x = a ? a.x : mk.at[0], y = a ? a.y : mk.at[1]; if (near(x, y)) ring(x, y, mk.color, a ? Math.max(10, (a.hl || 8) + 4) : mk.r, t); }
+    for (const mk of this.R.markers) {
+      if (mk.gone) continue; const a = mk.actor, x = a ? a.x : mk.at[0], y = a ? a.y : mk.at[1]; if (!near(x, y)) continue;
+      if (mk.hoop && W.hoop) W.hoop(x, y, mk.at[2] || 0, mk.color, mk.r, mk.hoop.h || 0);   // (a ring in the air)
+      else if (mk.ring) ring(x, y, mk.color, a ? Math.max(10, (a.hl || 8) + 4) : mk.r, t);
+    }
     if (!this.R.active) {
       for (const m of this.available()) { const at = giverAt(W.city, m); if (near(at[0], at[1])) ring(at[0], at[1], (m.gang && get('gangs', m.gang) ? get('gangs', m.gang).colors[0] : '#ffe066'), 12, t); }
       for (const { at } of this.startable()) if (near(at[0], at[1])) ring(at[0], at[1], '#5af0ff', 22, t);
@@ -400,13 +406,16 @@ export class Career {
     return out;
   }
   /** the HUD's part, on the UI layer: the objective, the timer, the race's checkpoint, the subtitles (Settings: on by
-   *  default, the speaker's name in colour), the pops, a hold-up's bar, the prompt at a door (o.blocked: another's) */
+   *  default, the speaker's name in colour), the pops, a hold-up's bar, the prompt at a door (o.blocked: another's;
+   *  o.objective false: the objective off, a cabinet's screen in front of the street; o.high: the objective at the top,
+   *  over the skyline: MODE 7 and the chase camera hold the player's vehicle where its band would be; o.tip: the right edge
+   *  of a hint's box at the top left, the band below it) */
   hud(P, o = {}) {
     const R = this.R, t = this.W.game.real || 0, L = hudLayout(P), cx = P.W / 2, fw = footWidth(P);
-    if (R.state === 'running' && R.objective && !this.card && !this.demo) {   // (on a band of its own: over a busy street it had blurred into the scene)
+    if (R.state === 'running' && R.objective && !this.card && !this.demo && o.objective !== false) {   // (on a band of its own: over a busy street it had blurred into the scene)
       // (a control named in it, '{interact} to hop on': drawn in the player's own glyphs)
       const tok = r => /\{[a-zA-Z]+(:[a-zA-Z]+)?\}/.test(r), wd = r => (tok(r) ? P.promptWidth(r) : P.width(r));
-      const rows = wrapLines(P, R.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map(wd)) + 14), y = L.sy1 - 78;
+      const rows = wrapLines(P, R.objective.text, fw - 14).slice(0, 2), bw = Math.min(fw, Math.max(...rows.map(wd)) + 14), y = o.high ? (o.tip && o.tip + 6 > cx - bw / 2 ? L.sy0 + 37 : L.sy0 + 24) : L.sy1 - 78;   // (o.tip: the right edge of the hint's box at the top left; at the top the band goes below it where they would meet)
       P.fill(cx - bw / 2, y - 3, bw, rows.length * 10 + 5, '#05030c', .6);
       rows.forEach((r, i) => (tok(r) ? P.prompt(r, cx, y + i * 10, { align: 'center', color: '#f0ecff' }) : P.text(r, cx, y + i * 10, '#f0ecff', { align: 'center' })));
     }

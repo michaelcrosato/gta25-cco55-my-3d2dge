@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { withRecipe, specWarnings, boardParked, tap } from './kit.mjs';
 
-test('a station from one new file: its timeline laid out; on the dial in a car; its words on the radio', async () => {
+test('a station from one new file (a genre of its own): its timeline laid out; on the dial in a car; its words on the radio', async () => {
   const g = await withRecipe('station', 'radio/brick-fm.js', { hash: 'play', query: { seed: '1', time: 'day', traffic: '0' } });
   const { game, gtm, M } = g, st = M.get('stations', 'brickfm');
   assert.equal(specWarnings(g, ['brickfm', 'mortar-mart']).length, 0, specWarnings(g, ['brickfm', 'mortar-mart']).join('; '));
@@ -13,6 +13,7 @@ test('a station from one new file: its timeline laid out; on the dial in a car; 
   assert.equal(T.segs.filter(s => s.kind === 'song').length, 2, kinds.join(' '));
   assert.ok(['dj', 'ad', 'jingle'].every(k => kinds.includes(k)), 'a DJ\'s line, an ad and the jingle: ' + kinds.join(' '));
   assert.ok(T.segs.every(s => s.song && s.song.length > 0 && s.song.tracks.some(t => t.events.length)), 'music under every segment');
+  const tune = M.compose('shift-blues', 1); assert.ok(tune.bpm >= 96 && tune.bpm <= 104 && tune.tracks.length >= 3, 'its genre of its own composed: ' + tune.bpm);
   game.advance(.2);
   const v = boardParked(g, 'cortez'); assert.equal(gtm.crew.ped.seat && gtm.crew.ped.seat.vehicle, v, 'in the car');
   for (let i = 0; i < 8 && v.radio !== 'brickfm'; i++) tap(game, 'Period', .1);

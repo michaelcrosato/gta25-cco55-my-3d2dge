@@ -11,7 +11,9 @@
     "test": "node tools/test-run.mjs",
     "test:full": "node tools/test-run.mjs --full",
     "check": "node vendor/my-3d2dge/tools/check.mjs dist/index.html",
-    "vendor:sync": "node tools/vendor-sync.mjs"
+    "vendor:sync": "node tools/vendor-sync.mjs",
+    "desktop": "npm --prefix desktop start",
+    "desktop:build": "npm run build && npm --prefix desktop run build"
   },
   "engines": { "node": ">=22" },
   "devDependencies": {

@@ -23,6 +23,7 @@ import { BUS } from '../core/bus.js';
 import { makeIntent, clearIntent } from '../sim/intent.js';
 import { TRAITS } from '../actors/peds.js';
 import { boxDistance } from '../actors/fleet.js';
+import { aloft } from '../sim/vehicle/defs.js';
 
 knob('Crowd', 'fleeTime', 'Flees for', 7, 1, 30, .5, 'Seconds a scared ped runs before it calms down');
 knob('Crowd', 'callAfter', 'Call lasts', 2, .5, 10, .25, 'Seconds a witness spends on the phone before the police have the report (it can be stopped before then)');
@@ -189,6 +190,7 @@ export class PedBrain {
     if (w && this._stillBlock && this.curbT > 1.5) this.curbT = GIVE_UP;
     if ((this.curbT += dt) < GIVE_UP) return false;
     const S = this.S, here = this.node, N = S.nodes[here]; this.curbT = 0; this.curbAt = null; if (!N) return false;
+    if (this._stillBlock) this.skipCross = { id: e.id, n: 6 };   // (a car left standing on it: kept off it the next few turns, or it came round the corner to it again and again)
     let opts = N.edges.map(id => S.edges[id]).filter(q => q !== e); if (opts.some(q => q.kind !== 'cross')) opts = opts.filter(q => q.kind !== 'cross');
     if (!opts.length) return false;
     if (this.state === 'goto') { this._stopIdle(); this.goal = null; this.state = 'walk'; }
@@ -209,7 +211,7 @@ export class PedBrain {
     this._stillBlock = false; if (!e || !w.fleet) return true;
     const A = this.S.nodes[e.a], B = this.S.nodes[e.b], mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
     for (const v of w.fleet.around(mx, my, e.len / 2 + 90)) {
-      if (!v.body || v.wrecked || v.cls === 'heli') continue;
+      if (!v.body || v.wrecked || aloft(v)) continue;
       const dx = mx - v.x, dy = my - v.y, d = Math.hypot(dx, dy);
       let near = Infinity; if (d < v.hl + e.len / 2 + 50) for (const k of CROSS_K) near = Math.min(near, boxDistance(v, A.x + (B.x - A.x) * k, A.y + (B.y - A.y) * k));
       if (near < (v.speed < 2 ? 3 : 9)) { this._stillBlock = v.speed < 2; return false; }   // (a car on it, moving or not; one stopped short of it is yielding: it goes first)
@@ -268,6 +270,7 @@ export class PedBrain {
     let opts = n.edges.map(id => S.edges[id]).filter(e => S.other(e, here) !== this.from || n.edges.length === 1);
     if (this._closedAt) { const ok = opts.filter(e => { const B = S.nodes[S.other(e, here)]; return !this._closedAt((n.x + B.x) / 2, (n.y + B.y) / 2) && !this._closedAt(B.x, B.y); }); if (ok.length) opts = ok; }   // (never onto a drawbridge with its gates shut)
     if (noCross && opts.some(e => e.kind !== 'cross')) opts = opts.filter(e => e.kind !== 'cross');
+    const K = this.skipCross; if (K) { if (--K.n <= 0) this.skipCross = null; let ok = opts.filter(e => e.id !== K.id); if (!ok.length) ok = n.edges.map(id => S.edges[id]).filter(e => e.id !== K.id); if (ok.length) opts = ok; }   // (none but it: back the way it came, a corner on a stub of sidewalk)
     if (!opts.length) opts = n.edges.map(id => S.edges[id]);
     if (away) {
       let best = null, bd = -1;
@@ -329,7 +332,11 @@ export class PedBrain {
         if (this.t > this.until) { this.react('calm'); return this.feet ? this._join() : null; }
         if (!w.near && this.rejoin()) return null;   // (far from the focus: back to gliding, by the graph)
         const th = this.threat || { x: p.x - 1, y: p.y }, d = Math.hypot(p.x - th.x, p.y - th.y) || 1;
-        return { to: [p.x + (p.x - th.x) / d * 40, p.y + (p.y - th.y) / d * 40], run: true, sprint: this.traits.brave < .5 && d < 260 };
+        // (held still a second, into a wall or a ramp's side it can't climb: along it a while, one way, then the other.
+        // One had run at the Flyover's on-ramp for 15 s)
+        if (this.stuck > 1) { if (this.sideT > this.t) this.side = -this.side; else this.side ||= this._r() < .5 ? 1 : -1; this.sideT = this.t + 2; this.stuck = 0; }
+        let ux = (p.x - th.x) / d, uy = (p.y - th.y) / d; if (this.sideT > this.t) [ux, uy] = [-uy * this.side, ux * this.side];
+        return { to: [p.x + ux * 40, p.y + uy * 40], run: true, sprint: this.traits.brave < .5 && d < 260 };
       }
       case 'fight': {
         const tg = this.target;
@@ -364,7 +371,7 @@ export class PedBrain {
     }
     const n = this.S.nearestEdge(p.x, p.y, 300); if (!n) return null;
     const o = Math.round(Math.max(-W, Math.min(W, n.o)));
-    if (n.dist < NEAR_LINE || (Math.abs(n.o) < W && n.dist < JOIN && this.S.freeAt(n.e, n.d, o) === o)) { this.rejoin(); return null; }
+    if ((n.dist < NEAR_LINE || (Math.abs(n.o) < W && n.dist < JOIN && this.S.freeAt(n.e, n.d, o) === o)) && this.rejoin()) return null;   // (rejoin's own reach a little shorter: between them, it had stood still on its feet for good)
     const [x, y] = this.S.along(n.e, n.d, 0); return { to: [x, y] };
   }
 
@@ -378,10 +385,11 @@ export class PedBrain {
         if (d < 72 && toward > .75 && w.city) { const s = w.city.surfaceAtPoint(v.x, v.y); if (s !== 'road' && s !== 'bridge') { this.react('flee', { x: v.x, y: v.y, t: 2.5 + this._r() * 2 }); break; } }
       }
     }
-    // aimed at by the player: cower, or run (the brave and tough square up)
+    // aimed at by the player: cower, or run (the brave and tough square up; never a gang's member while a job has it out
+    // of it, w.truce: a MAYHEM's Nail Gun swung past the Monks at their own cathedral had them shooting the player down)
     const pl = w.player;
     if (near && pl && pl.aiming && !this.busy && pl.aimer && this._aimedAt(pl)) {
-      if (this.traits.tough > .6 && this.traits.brave > .5) this.react('fight', { target: pl });
+      if (this.traits.tough > .6 && this.traits.brave > .5 && !(p.gang && w.truce && w.truce.has(p.gang))) this.react('fight', { target: pl });
       else if (this._r() < .7) this.react('cower', { by: pl }); else this.react('flee', { x: pl.x, y: pl.y });
     }
     // rain: some go under cover, the rest hurry; dry again, out they come

@@ -84,3 +84,11 @@ test('deterministic: the same inputs give the same body, to the bit', () => {
   assert.deepEqual(drive(.35), drive(.35));
   assert.notDeepEqual(drive(.35), drive(.36));
 });
+test('at rest the tyres hold: a slow sideways slide stops, never swings side to side; held with the wheel turned, it never creeps (D45)', () => {
+  const s = makeBody('cortez', 0, 0, 0); s.v = .35; let flips = 0, last = s.v;
+  run(s, 1, { handbrake: true }, {}, c => { if (c.v !== 0 && Math.sign(c.v) !== Math.sign(last)) flips++; if (c.v !== 0) last = c.v; });
+  assert.equal(flips, 0, 'the slide never thrown the other way'); assert.ok(Math.hypot(s.u, s.v) < .05, `at rest (${s.u.toFixed(3)}, ${s.v.toFixed(3)})`);
+  const h = makeBody('cortez', 0, 0, 0); h.u = .8; h.steerAngle = .2; let top = 0;
+  run(h, 3, { handbrake: true, steer: .2 }, {}, c => { top = Math.max(top, c.u); });
+  assert.ok(top <= .8 + 1e-9 && Math.abs(h.u) < .05 && Math.abs(h.x) < 2, `held at a red with the wheel turned: it stops where it is (top ${top.toFixed(3)}, ${h.x.toFixed(2)} on)`);
+});

@@ -1,5 +1,10 @@
 # M8, FAN-OUT A2: where it stopped, and how to pick it up
 
+**Closed at M8** (D22, D27): every group below was finished and merged into `src/game/`, and every request in
+`motor-requests.md` was done or settled. Nothing here is open. The folder is kept as the fan-out's record and for its
+probes in `tools/`, which `docs/HANDOFF.md` lists. The files in `wip/` are the copies the workers left, not the shipped
+ones.
+
 The run paused mid-M8 at the session's weekly limit (D21, the last bullet). Everything here is what the next session
 needs to finish M8's content and its acceptance. The scratchpad it came from is gone; this folder is the copy.
 

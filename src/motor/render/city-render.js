@@ -13,7 +13,8 @@ import { drawBoxModel } from './box-model.js';
 const T = 16, CH = 256;
 // ISO's shared kept images: a key object by its words; a model's number and its reach round its anchor (r across, h
 // up); a deck cell's open edges (a bit an edge of EDGES), worked out once
-const SHARED = new Map(), MODELS = new WeakMap(), OPEN = new WeakMap(); let modelN = 0;
+const SHARED = new Map(), MODELS = new WeakMap(), OPEN = new WeakMap(), DECKS = new WeakMap(); let modelN = 0;
+const deckN = d => { let n = DECKS.get(d); if (n === undefined) DECKS.set(d, n = DECKS.n = (DECKS.n || 0) + 1); return n; };   // (a deck's number: MODE 7's rows are a deck's own)
 const shared = k => { let o = SHARED.get(k); if (!o) SHARED.set(k, o = {}); return o; };
 function modelOf(m) {
   let M = MODELS.get(m);
@@ -38,6 +39,17 @@ export const PROP_MODELS = {
   scaffold: { parts: [box(-14, -4, 0, -12, 4, 44, '#8a8a92'), box(12, -4, 0, 14, 4, 44, '#8a8a92'), box(-14, -4, 20, 14, 4, 22, '#c8a03a', 'cabin'), box(-14, -4, 42, 14, 4, 44, '#c8a03a', 'cabin')] },
   crusher: { parts: [box(-20, -14, 0, 20, 14, 8, '#5a5a62'), box(-18, -12, 22, 18, 12, 30, '#c8a03a', 'cabin'), box(-20, -14, 8, -16, 14, 30, '#4a4a52'), box(16, -14, 8, 20, 14, 30, '#4a4a52')] },
   crane: { parts: [box(-6, -6, 0, 6, 6, 110, '#e0b020'), box(-6, -60, 104, 6, 30, 114, '#e0b020', 'cabin'), box(-8, 22, 96, 8, 32, 104, '#5a5a62', 'cabin')] },
+  // (EXPANSION.md X3: Voltage Row's) a power pylon, its four legs drawn in, narrower each stage up, cross-arms with
+  // their insulators across the line it carries (y); a transformer, finned, three bushings on its top
+  pylon: { parts: [
+    ...[[-9, -9], [7, -9], [-9, 7], [7, 7]].map(([x, y]) => box(x, y, 0, x + 2, y + 2, 34, '#8a8e96')),
+    ...[[-7, -7], [5, -7], [-7, 5], [5, 5]].map(([x, y]) => box(x, y, 34, x + 2, y + 2, 70, '#8a8e96')),
+    ...[[-5, -5], [3, -5], [-5, 3], [3, 3]].map(([x, y]) => box(x, y, 70, x + 2, y + 2, 112, '#8a8e96')),
+    box(-9, -9, 33, 9, 9, 35, '#6a6e76'), box(-7, -7, 69, 7, 7, 71, '#6a6e76'),
+    box(-2, -26, 86, 2, 26, 89, '#8a8e96', 'cabin'), box(-2, -18, 104, 2, 18, 107, '#8a8e96', 'cabin'), box(-4, -4, 112, 4, 4, 116, '#6a6e76', 'cabin'),
+    ...[-24, -12, 12, 24].map(y => box(-1, y - 1, 80, 1, y + 1, 86, '#c8c0a8', 'trim')), ...[-16, 16].map(y => box(-1, y - 1, 98, 1, y + 1, 104, '#c8c0a8', 'trim'))] },
+  transformer: { parts: [box(-9, -7, 0, 9, 7, 3, '#4a4e54'), box(-8, -6, 3, 8, 6, 18, '#7a8088'), ...[-6, -2, 2, 6].map(x => box(x - .8, -7, 4, x + .8, 7, 16, '#5a5e66', 'trim')),
+    box(-8.5, -6.5, 18, 8.5, 6.5, 19.5, '#5a5e66', 'cabin'), ...[-5, 0, 5].map(x => box(x - 1, -1, 19.5, x + 1, 1, 25, '#a85a3a', 'cabin'))] },
   // roofs: an AC unit, a water tank on legs, a vent
   ac: { parts: [box(-6, -5, 0, 6, 5, 7, '#8a8e94'), box(-4.5, -3.5, 7, 4.5, 3.5, 7.6, '#4a4e54', 'cabin')] },
   tank: { parts: [box(-6, -6, 0, -4.5, -4.5, 8, '#3a3028'), box(4.5, -6, 0, 6, -4.5, 8, '#3a3028'), box(-6, 4.5, 0, -4.5, 6, 8, '#3a3028'), box(4.5, 4.5, 0, 6, 6, 8, '#3a3028'),
@@ -114,17 +126,21 @@ export class CityRenderer {
   /** queue what stands within radius (world units) of (fx, fy) */
   queue(stage, fx, fy, radius = 640, night = true, player = null) {
     const ci = Math.floor(fx / CH), cj = Math.floor(fy / CH), n = Math.ceil(radius / CH);
+    // (MODE 7 sees a wedge ahead of its lens, not the square round the focus: only the chunks under it)
+    const wd = stage.depth === stage.side7 && stage.side7.P ? stage.side7.wedge(CH) : null, I0 = wd ? Math.max(ci - n, wd[0]) : ci - n, J0 = wd ? Math.max(cj - n, wd[1]) : cj - n, I1 = wd ? Math.min(ci + n, wd[2]) : ci + n, J1 = wd ? Math.min(cj + n, wd[3]) : cj + n;
     const under = player && this.city.deckAt(player[0], player[1], 1e9); const fade = under && under.z > (player[2] || 0) + 24 ? player : null;
-    const cut7 = stage.depth === stage.side7 && player ? stage.side7 : null, pz = player ? player[2] || 0 : 0, fd = cut7 ? cut7.depth(player[0], player[1]) : 0, fl = cut7 ? cut7.lateral(player[0], player[1]) : 0;
-    for (let j = cj - n; j <= cj + n; j++) for (let i = ci - n; i <= ci + n; i++) {
+    const cut7 = stage.mode7 && player ? stage.mode7 : null, pz = player ? player[2] || 0 : 0, fd = cut7 ? cut7.depth(player[0], player[1]) : 0, fl = cut7 ? cut7.lateral(player[0], player[1]) : 0;
+    const rows = stage.depth === stage.side7 && stage.side7.aligned ? (this._rows || (this._rows = new Map())) : null; if (rows) rows.clear();   // (MODE 7 on a quarter: a deck's cells by their row across the rail; turned off one, a cell each, as the chase camera's)
+    for (let j = J0; j <= J1; j++) for (let i = I0; i <= I1; i++) {
       const k = j * 64 + i;
       for (const p of this.props.get(k) || []) if (stage.onScreen(p.x, p.y, p.z || 0, (p.z || 0) + (p.top || 60), 24) && !(p.roof && cut7 && this._cut7(cut7, p.lot, fd, fl))) this._prop(stage, p, night);
       for (const dc of this.deckCells.get(k) || []) {
         const c = dc.c, z = Math.max(c.z0, c.z1), x = (c.cx + .5) * T, y = (c.cy + .5) * T;
         if (cut7 && z > pz + 24 && cut7.depth(x, y) < fd - 8) continue;   // (MODE 7: a deck overhead between the camera and the player is cut away)
-        if (stage.onScreen(x, y, z - dc.d.thickness, z + 8, 12)) this._deck(stage, dc, fade);
+        if (stage.onScreen(x, y, z - dc.d.thickness, z + 8, 12)) { if (rows) this._row7(rows, stage.side7, dc, fade); else this._deck(stage, dc, fade); }
       }
     }
+    if (rows) this._runs7(stage, rows);
     // drawbridges: each leaf a slab turning on its hinge, its top painted as the road; the gates while it is not down
     for (const b of this.bridges) {
       const T = this.city.T, [x0, y0, x1, y1] = b.rect, mx = (x0 + x1 + 1) / 2 * T, my = (y0 + y1 + 1) / 2 * T;
@@ -181,18 +197,48 @@ export class CityRenderer {
     }
     const m = p.kind === 'container' ? containerModel(p.color) : p.paint ? tinted(p.kind, p.paint) : PROP_MODELS[p.kind]; if (m) stage.shape(p.x, p.y, p.z || 0, (g, P) => drawBoxModel(g, P, m, p.x, p.y, p.z || 0, p.facing || 0), { kind: 'prop3d', kept: keptProp(stage, m, p.facing), reach: reachOf(m, p.z || 0) });
   }
+  // MODE 7: a deck cell into its row across the rail (cells side by side at one depth, at one height and slope, the
+  // slope along the rail; its railings queued with its run, each on its own)
+  _row7(rows, D, dc, fade) {
+    const { d, c } = dc, ns = D.heading === 0 || D.heading === 180, x = (c.cx + .5) * T, y = (c.cy + .5) * T;
+    const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72, flat = c.z0 === c.z1, along = c.axis === (ns ? 'y' : 'x');
+    const key = flat || along ? deckN(d) + '|' + (ns ? c.cy : c.cx) + '|' + c.z0 + '|' + c.z1 + '|' + (flat ? '' : c.axis) + '|' + (near ? 1 : 0) : dc;   // (a slope across the rail: a run of its own)
+    let r = rows.get(key); if (!r) rows.set(key, r = { d, map: dc.map, near, ns, cells: [] }); r.cells.push(c);
+  }
+  // MODE 7: each row's runs of side-by-side cells queued as one slab each (a draw item a cell had been a fifth of the
+  // frame's items: their tops one textured face each), with each cell's railings as before
+  _runs7(stage, rows) {
+    const D = stage.side7;
+    for (const r of rows.values()) {
+      const { d, map, near, ns } = r, a = near ? .3 : 1, cells = r.cells.sort((p, q) => ns ? p.cx - q.cx : p.cy - q.cy);
+      for (let i = 0; i < cells.length;) {
+        let j = i + 1; while (j < cells.length && (ns ? cells[j].cx - cells[j - 1].cx : cells[j].cy - cells[j - 1].cy) === 1) j++;
+        const run = cells.slice(i, j), c0 = run[0], c1 = run[run.length - 1]; i = j;
+        const X0 = c0.cx * T, Y0 = c0.cy * T, X1 = (c1.cx + 1) * T, Y1 = (c1.cy + 1) * T, x = (X0 + X1) / 2, y = (Y0 + Y1) / 2, z = Math.max(c0.z0, c0.z1);
+        const q = D.proj(x, y, z), small = !!(q && q[2] * T < DECK_SMALL), zl = Math.min(c0.z0, c0.z1) - d.thickness;
+        stage.shape(x, y, z, (g, P) => drawDeckRun(g, P, d, run, map, a, small), { hides: true, kind: 'deck', extent: [X0, Y0, X1, Y1, zl, z + 8] });
+        if (d.railing !== false && !small) for (const c of run) this._rails(stage, d, c, map, a, z, zl, null, OPEN.get(c) ?? this._open(c, map));
+      }
+    }
+  }
+  _open(c, map) { let open = OPEN.get(c); if (open === undefined) OPEN.set(c, open = EDGES.reduce((b, e, i) => b | (map.has((c.cx + e[0]) + ',' + (c.cy + e[1])) ? 0 : 1 << i), 0)); return open; }
+  // a cell's railings along its open edges, each sorting on its own just outside its edge
+  _rails(stage, d, c, map, a, z, zl, v, open) {
+    const x = (c.cx + .5) * T, y = (c.cy + .5) * T, dz = z - zl + 1;
+    EDGES.forEach((e, i) => { if (open & 1 << i) stage.shape(x + e[0] * T * 1.1, y + e[1] * T * 1.1, z, (g, P) => drawDeckRail(g, P, d, c, e, a), { hides: true, kind: 'rail', reach: [T * .7, zl, z + 8], kept: v && { key: shared('rail:' + v + ':' + i), r: T, h: 9, d: dz } }); });
+  }
   _deck(stage, { d, c, map }, fade) {
     const x = (c.cx + .5) * T, y = (c.cy + .5) * T, z = Math.max(c.z0, c.z1);
     const near = fade && Math.abs(fade[0] - x) < 72 && Math.abs(fade[1] - y) < 72, a = near ? .3 : 1;
     // (far down a depth view a cell is a few pixels across: its top flat, no railings; ISO's are all near)
     const D = stage.depth, q = D && D.proj(x, y, z), small = !!(q && q[2] * T < DECK_SMALL);
-    let open = OPEN.get(c); if (open === undefined) OPEN.set(c, open = EDGES.reduce((b, e, i) => b | (map.has((c.cx + e[0]) + ',' + (c.cy + e[1])) ? 0 : 1 << i), 0));
+    const open = this._open(c, map);
     const zl = Math.min(c.z0, c.z1) - d.thickness;   // (its reach, for MODE 7's walls to hide it)
-    // (ISO: one kept image a variant: the deck, its slope, the texture's phase, its open edges and its fade)
-    const v = D ? null : `${d.kind}:${d.thickness}:${c.z1 - c.z0}:${c.axis}:${c.cx & 3}:${c.cy & 3}:${a}`, dz = z - zl + 1;
+    // (ISO: one kept image a variant: the deck (its surface), its slope, the texture's phase, its open edges and its fade)
+    const v = D ? null : `${d.surface || d.kind}:${d.thickness}:${c.z1 - c.z0}:${c.axis}:${c.cx & 3}:${c.cy & 3}:${a}`, dz = z - zl + 1;
     stage.shape(x, y, z, (g, P) => drawDeckCell(g, P, d, c, map, a, small), { hides: true, kind: 'deck', reach: [T / 2, zl, z + 8], kept: v && { key: shared('deck:' + v + ':' + open), r: T * .75, h: 2, d: dz } });   // (the player shows through it, x-rayed)
     // its railings sort on their own, just outside their edge: drawn with the cell, the next cell's top cut them to teeth
-    if (d.railing !== false && !small) EDGES.forEach((e, i) => { if (open & 1 << i) stage.shape(x + e[0] * T * 1.1, y + e[1] * T * 1.1, z, (g, P) => drawDeckRail(g, P, d, c, e, a), { hides: true, kind: 'rail', reach: [T * .7, zl, z + 8], kept: v && { key: shared('rail:' + v + ':' + i), r: T, h: 9, d: dz } }); });
+    if (d.railing !== false && !small) this._rails(stage, d, c, map, a, z, zl, v, open);
   }
 }
 const WALL_IN = { s: [0, -10], n: [0, 10], e: [-10, 0], w: [10, 0] };   // (from a sign on a building's side to inside its wall)
@@ -273,14 +319,16 @@ const PILLARS = new Map();
 function PILLAR(top) { let m = PILLARS.get(top); if (!m) { m = { parts: [box(-3, -3, 0, 3, 3, top, '#7a7a82')] }; PILLARS.set(top, m); } return m; }
 
 const deckTex = new Map();
-/** the deck's top: concrete-grey asphalt with expansion joints (a road) or ballast and rails (the L) */
+/** the deck's top: concrete-grey asphalt with expansion joints (a road), ballast and rails (the L), or black dross
+ *  flecked with rust (a ramp's surface: 'slag', Ironside's Slag Heap) */
 function deckTexture(kind) {
   let cv = deckTex.get(kind); if (cv) return cv;
   cv = E.mkCanvas(64, 64); const g = E.ctx2d(cv), img = g.createImageData(64, 64), d = img.data;
   for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
     const n = (E.noise2(x * .3, y * .3) + 1) * 4 + (E.hash2(x, y) < .06 ? -6 : 0), k = (y * 64 + x) * 4;
-    let c = kind === 'rail' ? [72 + n, 64 + n, 58 + n] : [56 + n, 56 + n, 62 + n];
-    if (kind !== 'rail' && (x % 16 === 0)) c = [44, 44, 50];   // a joint every tile
+    let c = kind === 'rail' ? [72 + n, 64 + n, 58 + n] : kind === 'slag' ? [40 + n * 1.5, 34 + n, 32 + n] : [56 + n, 56 + n, 62 + n];
+    if (kind === 'slag' && E.hash2(x + 7, y * 3) < .08) c = [118 + n, 62 + n, 34];   // (rust in the dross)
+    else if (kind !== 'rail' && kind !== 'slag' && (x % 16 === 0)) c = [44, 44, 50];   // a joint every tile
     if (kind === 'rail' && (y % 8 < 2)) c = [96 + n, 74 + n, 52 + n];   // sleepers
     d[k] = c[0]; d[k + 1] = c[1]; d[k + 2] = c[2]; d[k + 3] = 255;
   }
@@ -311,7 +359,31 @@ export function drawDeckCell(g, P, d, c, map, alpha = 1, small = false) {
   // the top
   const top = (s, t) => { const x = x0 + s * T, y = y0 + t * T; return P.proj(x, y, zAt(x, y)); };
   const corners = [top(0, 0), top(0, 1), top(1, 1), top(1, 0)];   // (wound to face up)
-  if (corners.every(Boolean) && cross(corners) < 0) { if (small) quad(g, corners, '#3a3a42'); else texturedFace(g, top, deckTexture(d.kind), (c.cx * T) % 64, (c.cy * T) % 64, T, T, '#3a3a42'); }
+  if (corners.every(Boolean) && cross(corners) < 0) { if (small) quad(g, corners, '#3a3a42'); else texturedFace(g, top, deckTexture(d.surface || d.kind), (c.cx * T) % 64, (c.cy * T) % 64, T, T, '#3a3a42'); }
+  g.globalAlpha = 1; g._c = null;
+}
+/** a run of deck cells side by side (one row across MODE 7's rail: one height, the slope along the rail) as one slab:
+ *  its underside and top one face each, each cell's open edges as drawDeckCell's */
+export function drawDeckRun(g, P, d, run, map, alpha = 1, small = false) {
+  if (run.length === 1) { drawDeckCell(g, P, d, run[0], map, alpha, small); return; }
+  const c = run[0], e = run[run.length - 1], X0 = c.cx * T, Y0 = c.cy * T, X1 = (e.cx + 1) * T, Y1 = (e.cy + 1) * T, th = d.thickness;
+  const zAt = (x, y) => c.z0 + (c.z1 - c.z0) * (c.axis === 'x' ? (x - X0) / T : (y - Y0) / T);   // (the slope along the rail: the run's cells share it)
+  if (alpha < 1) g.globalAlpha = alpha;
+  const u = small ? null : [P.proj(X0, Y0, zAt(X0, Y0) - th), P.proj(X1, Y0, zAt(X1, Y0) - th), P.proj(X1, Y1, zAt(X1, Y1) - th), P.proj(X0, Y1, zAt(X0, Y1) - th)];
+  if (u && u.every(Boolean) && cross(u) < 0) quad(g, u, '#2a2a32');
+  for (const k of run) {
+    const x0 = k.cx * T, y0 = k.cy * T;
+    for (const [dx, dy, ea, eb] of EDGES) {
+      if (map.has((k.cx + dx) + ',' + (k.cy + dy))) continue;
+      const A = [x0 + ea[0] * T, y0 + ea[1] * T], B = [x0 + eb[0] * T, y0 + eb[1] * T], za = zAt(...A), zb = zAt(...B), f = [P.proj(A[0], A[1], za - th), P.proj(B[0], B[1], zb - th), P.proj(B[0], B[1], zb), P.proj(A[0], A[1], za)];
+      if (!f.every(Boolean) || cross(f) >= 0) continue;
+      quad(g, f, dy > 0 || dx > 0 ? '#5a5a64' : '#6e6e78');
+    }
+  }
+  const top = (s, t) => { const x = X0 + s * (X1 - X0), y = Y0 + t * (Y1 - Y0); return P.proj(x, y, zAt(x, y)); };
+  const corners = [top(0, 0), top(0, 1), top(1, 1), top(1, 0)];
+  let more = 0; while ((1 << more) < run.length) more++;   // (log2 of its length, rounded up: as many more splits)
+  if (corners.every(Boolean) && cross(corners) < 0) { if (small) quad(g, corners, '#3a3a42'); else texturedFace(g, top, deckTexture(d.surface || d.kind), X0 % 64, Y0 % 64, X1 - X0, Y1 - Y0, '#3a3a42', null, Infinity, more); }
   g.globalAlpha = 1; g._c = null;
 }
 const cross = q => (q[1][0] - q[0][0]) * (q[3][1] - q[0][1]) - (q[1][1] - q[0][1]) * (q[3][0] - q[0][0]);

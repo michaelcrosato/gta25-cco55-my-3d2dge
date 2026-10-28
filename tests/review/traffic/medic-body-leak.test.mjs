@@ -28,7 +28,7 @@ test('a body the Medic attended and did not revive goes after TUNE.bodyTime, and
     if (call.done === 'answered' && S.revived === rev0 && m.ped.dead) { body = m; tDeath = t0; }
   }
   assert.ok(body, `a Medic call ended without a revive within ${tries} bodies`);
-  assert.equal(body.attended, true, 'the unrevived body is still marked attended');
+  assert.equal(body.attended, false, 'the call over, the unrevived body no longer attended, nor called for again (served)');   // (the fix: emergency.js clears it at the call's end; a second Medic sent to the same body had kept it marked)
   for (let t = 0; t < 70; t += .5) game.advance(.5);
   const afterTime = { member: C.members.includes(body), combat: gtm.combat.bodies.includes(body.ped), age: Math.round(C.t - tDeath) };
   gtm.teleport(2200, 1848); game.advance(10);

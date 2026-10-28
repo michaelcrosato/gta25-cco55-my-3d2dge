@@ -35,9 +35,15 @@ export const SCENARIOS = {
   'lowtown-tour-side7': { hash: '#play', query: 'perf=1&tour=1&time=night&weather=rain&view=side7', what: 'the Lowtown tour at night in the rain in SIDE-SCROLL MODE 7' },
   'pad-iso-speedzoom': { hash: '#proving/pad', query: 'perf=1&mode=auto', what: 'the vehicle pad lap with the speed zoom stepping between .8 and .65' },
 };
+// the gate in each district (EXPANSION.md X8): Ironside's and Glass Heights' tours as Lowtown's, each view
+for (const [d, name] of [['ironside', 'Ironside'], ['heights', 'Glass Heights']]) for (const [v, label] of [['', 'ISO'], ['-top', 'TOP-DOWN'], ['-side7', 'SIDE-SCROLL MODE 7']]) {
+  SCENARIOS[`${d}-gate${v}`] = { hash: '#play', query: `perf=1&tour=1&time=night&weather=rain&crowd=1&dev=1&district=${d === 'heights' ? 'glass-heights' : d}${v ? '&view=' + v.slice(1) : ''}`, what: `the gate in ${name}: its tour at night in the rain in ${label}, 40 walkers and 20 cars in view` };
+}
 /** the gates (D10, read as D20 says): a draw median per view on the gate's machine (render, ms) and the update a step
- *  (1.5 ms); M2's build (dist/index.html at base) is the yardstick, with its draw medians on the gate's machine (m2) */
-export const GATE = { base: '0c3d575', step: 1.5,
+ *  (1.5 ms); M2's build (dist/index.html at base) is the yardstick, with its draw medians on the gate's machine (m2).
+ *  Each view in each district (EXPANSION.md X8): Ironside's and Glass Heights' tours within the same budgets, read
+ *  against M2's Lowtown view measured in the same round (M2 has neither district) */
+export const GATE = { base: '0c3d575', step: 1.5, districts: ['ironside', 'heights'],
   views: { 'lowtown-gate': { render: 10.4, m2: 9.65 }, 'lowtown-gate-top': { render: 12.7, m2: 8.4 }, 'lowtown-gate-side7': { render: 12.7, m2: 15.2 } } };
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const q = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : 0; };
@@ -67,14 +73,15 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href && process.argv.incl
   let base = arg('base', null);
   if (!base) { mkdirSync('check-output/perf', { recursive: true }); base = 'check-output/perf/m2.html'; writeFileSync(base, execFileSync('git', ['show', GATE.base + ':dist/index.html'], { maxBuffer: 64 << 20 })); }
   for (let k = 0; k < rounds; k++) for (const n of Object.keys(GATE.views)) {   // (in turn, the first of the pair swapped each round: the machine's drift falls on both)
-    const pair = {}; for (const who of k % 2 ? ['build', 'm2'] : ['m2', 'build']) pair[who] = await measure(n, { seconds: +arg('seconds', 10), warm: +arg('warm', 3), dist: who === 'm2' ? base : dist });
+    const pair = {}, who = ['m2', 'build', ...GATE.districts]; if (k % 2) who.reverse();
+    for (const w of who) pair[w] = await measure(w === 'm2' || w === 'build' ? n : n.replace('lowtown', w), { seconds: +arg('seconds', 10), warm: +arg('warm', 3), dist: w === 'm2' ? base : dist });
     (res[n] ||= []).push(pair);
   }
   let over = 0;
-  for (const [n, G] of Object.entries(GATE.views)) {
-    const R = res[n], k = R.map(p => G.m2 / p.m2.renderMs.median), draw = med(R.map((p, i) => p.build.renderMs.median * k[i])), step = med(R.map((p, i) => (p.build.stepMs ?? p.build.updateMs.median) * k[i]));
+  for (const [n, G] of Object.entries(GATE.views)) for (const w of ['build', ...GATE.districts]) {
+    const R = res[n], k = R.map(p => G.m2 / p.m2.renderMs.median), draw = med(R.map((p, i) => p[w].renderMs.median * k[i])), step = med(R.map((p, i) => (p[w].stepMs ?? p[w].updateMs.median) * k[i]));
     const ok = draw <= G.render && step <= GATE.step; if (!ok) over++;
-    console.log(`${ok ? 'ok  ' : 'OVER'} ${n.padEnd(19)} draw ${draw.toFixed(2)} ms on the gate's machine (budget ${G.render}; here ${R.map(p => p.build.renderMs.median.toFixed(1)).join(' ')} against M2's ${R.map(p => p.m2.renderMs.median.toFixed(1)).join(' ')}; p99 ${med(R.map(p => p.build.renderMs.p99)).toFixed(1)})  update ${step.toFixed(2)} ms a step (budget ${GATE.step})`);
+    console.log(`${ok ? 'ok  ' : 'OVER'} ${(w === 'build' ? n : n.replace('lowtown', w)).padEnd(19)} draw ${draw.toFixed(2)} ms on the gate's machine (budget ${G.render}; here ${R.map(p => p[w].renderMs.median.toFixed(1)).join(' ')} against M2's ${R.map(p => p.m2.renderMs.median.toFixed(1)).join(' ')}; p99 ${med(R.map(p => p[w].renderMs.p99)).toFixed(1)})  update ${step.toFixed(2)} ms a step (budget ${GATE.step})`);
   }
   if (arg('json', null)) writeFileSync(arg('json'), JSON.stringify(res, null, 1) + '\n');
   process.exit(over ? 1 : 0);

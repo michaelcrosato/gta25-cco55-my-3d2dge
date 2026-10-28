@@ -1,4 +1,4 @@
-// The city soak (PLAN.md 8.9 and 8.10's acceptance): Lowtown in play, its traffic, crowd and services running round a
+// The city soak (PLAN.md 8.9 and 8.10's acceptance): Lowtown (or another district: EXPANSION.md X1) in play, its traffic, crowd and services running round a
 // focus that hops between the city's points of interest every `hop` seconds (as a drive would take it), watched every
 // step for:
 //   - cars inside each other (centres nearer than OVERLAP at the same level), and the longest any traffic car stands
@@ -17,8 +17,11 @@ import { loadGame } from './harness.mjs';
 const OVERLAP = 14, DT = 1 / 120;
 const LEGIT = new Set(['queue', 'ped', 'signal', 'stop', 'yield', 'exit', 'arrived', 'scene']);   // (DriverBrain's causes; 'crash' is no cause to stand; 'scene': behind a unit parked at its call, no way round: reported as its own longest wait)
 
-export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather = 'clear', hop = 20, log = null, watch = null } = {}) {
-  const { game, gtm } = await loadGame({ hash: '#play', query: { seed: String(seed), time, weather } });
+// where a driver's front is on its path: the element's index and how far along it
+const front = (b, hl) => { let j = b.i, s = b.s + hl; while (j < b.path.length - 1 && s > b.path[j].len) { s -= b.path[j].len; j++; } return { j, s }; };
+
+export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather = 'clear', hop = 20, log = null, watch = null, district = null } = {}) {
+  const { game, gtm } = await loadGame({ hash: '#play', query: { seed: String(seed), time, weather, ...(district ? { dev: '1', district } : {}) } });   // (district: another than Lowtown, EXPANSION.md: Ironside)
   const M = gtm.motor, L = gtm.life, T = L.traffic, C = L.crowd, G = L.graph, fp = T.fp, TUNE = M.TUNE;
   const pois = gtm.city.pois.filter(p => p.kind !== 'gang');
   const r = { secs, seed, time, weather, steps: 0, overlaps: 0, overlapAt: null, maxStall: 0, stallAt: null, redRuns: 0, redAt: null, speedSum: 0, speedN: 0,
@@ -47,10 +50,16 @@ export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather 
         if (!filledT && d < TUNE.fpSpawnIn - 10) { r.spawnsInside++; r.insideAt ||= { car: v.def.id, d: Math.round(d), t: +(step / 120).toFixed(2) }; }
       }
       if (c.duty && (c.duty.out || c.duty.arrived)) { w.still = 0; continue; }   // (a unit at its scene)
-      // a calm driver onto a signalled connector on red
+      // a calm driver onto a signalled connector on red, over its stop line on red (one over it before the red, held up on
+      // the zebra past it by the people crossing, clears the box after: no red run; nor one over it under its siren, its
+      // call over before it was through: a unit held up behind a car pulled over for it had). Over it by its front, as
+      // the driver reads its line: where a line stands at a lane's start, straight out of another box, the centre is
+      // still in that box when the nose is over (one in at j3 on the green, queued there, had been counted on the red)
       const e = b.here, key = e ? e.k + e.id : '';
       if (b.panic > 0) w.pan = step;
-      if (key !== w.el && e && e.k === 'conn' && !b.siren && !(b.panic > 0) && !(w.pan !== undefined && step - w.pan < 360) && v.body && v.body.u > 0) {
+      const f = front(b, v.hl), fe = b.path[f.j], fn = fe && fe.k === 'lane' ? b.path[f.j + 1] : fe, nc = fn && fn.k === 'conn' ? G.conns[fn.id] : null;
+      if (nc && nc.signals === 'signal' && !(w.line && w.line.id === nc.id) && (fe.k === 'conn' || f.s >= Math.min(G.lanes[nc.from].stopS, nc.fromS - 2))) w.line = { id: nc.id, red: !b.siren && M.lightFor(nc, G, L.t) === 'red' && M.lightFor(nc, G, L.t - .5) === 'red' };
+      if (key !== w.el && e && e.k === 'conn' && !(w.line && w.line.id === e.id && !w.line.red) && !b.siren && !(b.panic > 0) && !(w.pan !== undefined && step - w.pan < 360) && v.body && v.body.u > 0) {
         const cn = G.conns[e.id]; if (cn.signals === 'signal' && M.lightFor(cn, G, L.t) === 'red' && M.lightFor(cn, G, L.t - .5) === 'red') {   // (red for half a second: not one committed on amber)
           r.redRuns++; r.redAt ||= { car: v.def.id, at: cn.region, t: +(step / 120).toFixed(2) }; r.lastRed = { c, cn, step }; }
       }
@@ -65,7 +74,7 @@ export async function citySoak({ secs = 120, seed = 1999, time = 'day', weather 
       const a = c.v; if (!a.body) continue;
       for (const o of gtm.fleet.around(a.x, a.y, OVERLAP + 2)) {
         if (o === a || !o.body || o.cls === 'heli' || (o.traffic && o.id < a.id && T.cars.some(q => q.v === o)) || Math.abs(a.z - o.z) > 10) continue;
-        if (Math.hypot(a.x - o.x, a.y - o.y) < OVERLAP) { r.overlaps++; r.overlapAt ||= { a: a.def.id, b: o.def.id, x: Math.round(a.x), y: Math.round(a.y), t: +(step / 120).toFixed(2) }; }
+        if (Math.hypot(a.x - o.x, a.y - o.y) < Math.min(OVERLAP, a.hw + o.hw + 2)) { r.overlaps++; r.overlapAt ||= { a: a.def.id, b: o.def.id, x: Math.round(a.x), y: Math.round(a.y), t: +(step / 120).toFixed(2) }; }   // (two bikes side by side are less than 14 apart, and clear)
       }
     }
     if (step % 30 === 29) { const filledC = filledSince; filledSince = false; for (const m of C.members) {   // (four times a second: the peds; a fill since the last look aside)

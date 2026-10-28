@@ -10,20 +10,25 @@ const SERVICES = { safehouse: ['square', '#7af0ff'], hospital: ['circle', '#ff5a
 const clock = s => { s = Math.floor(s || 0); return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}`; };
 
 /** every blip on the big map: the career's (jobs, activities, a running job's markers), the shops, the properties, the
- *  safehouse, the hospital and the precinct; each with its kind for the filter */
+ *  safehouse, the hospital, the precinct and the bridges to the other districts; each with its kind for the filter */
 export function mapBlips(city, career) {
   const out = [];
   for (const b of career.blips({ waypoint: false })) out.push({ ...b, cat: b.shape === 'flag' ? 'activities' : 'jobs' });
   for (const s of all('shops')) { const q = city.poi(s.poi); if (q) out.push({ x: q.x, y: q.y, shape: 'square', color: s.color, cat: 'shops', label: s.name }); }
   for (const p of all('properties')) { const q = city.poi(p.poi); if (q) out.push({ x: q.x, y: q.y, shape: 'diamond', color: career.econ.owned(p.id) ? '#5aff8a' : '#2a8a4a', cat: 'property', label: p.name }); }
   for (const q of city.pois) { const s = SERVICES[q.kind]; if (s) out.push({ x: q.x, y: q.y, shape: s[0], color: s[1], cat: 'services', label: q.label }); }
+  // the bridges to the other districts (EXPANSION.md 2.1): a closed one greyed and said so
+  for (const c of (city.spec && city.spec.crossings) || []) {
+    const open = !c.opens || career.save.missions.done.includes(c.opens), T = city.T, g = c.gate;
+    out.push({ x: (g[0] + g[2] + 1) / 2 * T, y: (g[1] + g[3] + 1) / 2 * T, shape: 'square', color: open ? '#f0e8d0' : '#6a6a72', cat: 'services', label: c.label + (open ? '' : ' (CLOSED)') });
+  }
   return out;
 }
 /** the map's legend: each kind of blip as it looks */
 export function mapLegend() {
   return [{ shape: 'diamond', color: '#5af0ff', label: 'Saints job' }, { shape: 'triangle', color: '#ffd23a', label: 'Rats job' }, { shape: 'circle', color: '#ff8ac8', label: 'Gnomes job' },
     { shape: 'square', color: '#ffe066', label: 'Crew job' }, { shape: 'flag', color: '#5af0ff', label: 'Activity' }, { shape: 'square', color: '#ffa23a', label: 'Shop' },
-    { shape: 'diamond', color: '#5aff8a', label: 'Property' }, { shape: 'square', color: '#7af0ff', label: 'Safehouse' }];
+    { shape: 'diamond', color: '#5aff8a', label: 'Property' }, { shape: 'square', color: '#7af0ff', label: 'Safehouse' }, { shape: 'square', color: '#f0e8d0', label: 'Bridge to a district' }];
 }
 
 /** w: the play scene's game, as the pause reads it: { city, turf, career, crew, save, player() ({ x, y, facing }),

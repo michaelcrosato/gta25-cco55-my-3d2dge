@@ -8,7 +8,8 @@
 // Plain data and lookups: it runs headless, and the simulation may read all of it.
 export const SURFACES = ['lot', 'road', 'walk', 'curb', 'grass', 'dirt', 'water', 'deep', 'plaza', 'sand', 'alley', 'quay', 'pier', 'park', 'yard', 'rail', 'bridge',
   'marble', 'carpet', 'steel', 'concrete', 'sewer',   // (interiors' floors: PLAN.md 8.21)
-  'wet', 'oil', 'ice'];   // (the Proving Ground's handling strips: PLAN.md 8.23)
+  'wet', 'oil', 'ice',   // (the Proving Ground's handling strips: PLAN.md 8.23)
+  'dance'];   // (a club's dance floor: lit tiles, HANDOFF L4's Club Chrome)
 export const SURF = Object.fromEntries(SURFACES.map((s, i) => [s, i]));
 /** surfaces nobody walks on */
 export const BLOCKING = new Set(['water', 'deep', 'sewer']);

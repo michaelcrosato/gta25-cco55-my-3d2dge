@@ -84,7 +84,7 @@ async function walkTitle(S) {
   await S.act('down', 6); await S.stop('settings-controls-2', 'settings');
   for (const t of ['display', 'audio', 'game', 'access']) { await S.act('tabNext'); await S.stop('settings-' + t, 'settings'); }
   await S.act('tabPrev', 3); await S.act('down', 6); await S.stop('settings-display-2', 'settings');
-  await S.act('tabPrev'); await S.act('up', 6); await S.act('down', 4); await S.act('confirm'); await S.stop('layout-onfoot', 'layout');
+  await S.act('tabPrev'); await S.act('up', 6); await S.act('down', 5); await S.act('confirm'); await S.stop('layout-onfoot', 'layout');   // (the layout: below the dead zone, invert, vibration, DualSense haptics and the button symbols)
   await S.act('tabNext'); await S.stop('layout-vehicle', 'layout'); await S.act('back');
   await S.act('down'); await S.act('confirm'); await S.stop('rebind-onfoot', 'rebind');
   await S.act('down', 6); await S.stop('rebind-onfoot-2', 'rebind'); await S.act('down', 6); await S.stop('rebind-onfoot-3', 'rebind');
@@ -94,7 +94,8 @@ async function walkTitle(S) {
   await S.act('up', 1); await S.act('confirm'); await S.stop('load', 'slots-load'); await S.act('back');
   await S.act('down', 2); await S.act('confirm'); await S.stop('extras', 'extras');
   await S.act('down'); await S.act('confirm'); await S.stop('credits', 'credits');
-  for (let i = 2; i <= 4; i++) { await S.act('right'); await S.stop('credits-' + i, 'credits'); }
+  const creditPages = await S.gtm(() => window.__gtm.ui.screens.top.paging()[1]);   // (every page: 5 at 1080p, 6 at 720p)
+  for (let i = 2; i <= creditPages; i++) { await S.act('right'); await S.stop('credits-' + i, 'credits'); }
   await S.act('back'); await S.act('down'); await S.act('confirm'); await S.stop('help', 'help');
   await S.act('confirm'); await S.stop('help-page', 'guide-page'); await S.act('right'); await S.stop('help-page-2', 'guide-page');
   await S.act('back', 3); await S.stop('title-last', 'title');

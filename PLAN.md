@@ -1,6 +1,7 @@
 # GRAND THEFT MOTO: master plan
 
-**Unique ID:** `GrandTheftMoto-5S` · **Plan:** v1.1, 2026-10-17 · **Status:** planning complete, implementation not started
+**Unique ID:** `GrandTheftMoto-5S` · **Plan:** v1.1, 2026-10-17 · **Status:** the slice is built (M0-M13 done, merged
+into `main` on 2026-10-23). `PROGRESS.md` has the evidence, and `docs/HANDOFF.md` lists what is left.
 
 A vertical slice of an original spiritual successor to *Grand Theft Auto 2* (PC), with *Grand Theft Auto V*-depth systems,
 built on the my-3D2dge engine and on **MOTOR**, the open-city engine layer this repository adds to it. The slice is one

@@ -12,6 +12,9 @@ import { defActivity, laneNear, op } from '../../motor/index.js';
 const DISPATCH = { name: 'MPD dispatch', color: '#7ab0ff' }, CROOK = { name: 'Getaway driver', color: '#c8c8d0' };
 const ESCAPE = 900, REACH = 72, NEAR = 200, BEHIND = 56, AHEAD = 150;
 
+// is a world point on the map and on land? (a lane's point at its very end can lie on the cell past it: the sea's, at
+// the foot of Motor Avenue)
+const dry = (city, x, y) => { const cx = Math.floor(x / city.T), cy = Math.floor(y / city.T), s = city.inside(cx, cy) && city.surfaceAt(cx, cy); return !!s && s !== 'water' && s !== 'deep'; };
 // is a world point in (or within a cell of) a junction's box?
 const inJunction = (city, x, y) => city.intersections.some(n => x >= (n.rect[0] - 1) * city.T && x < (n.rect[2] + 2) * city.T && y >= (n.rect[1] - 1) * city.T && y < (n.rect[3] + 2) * city.T);
 /** where it happens: the ground lane nearest a point 220 u ahead of the player (or their car), clear of a junction and
@@ -19,7 +22,7 @@ const inJunction = (city, x, y) => city.intersections.some(n => x >= (n.rect[0] 
 function where(W, P) {
   const C = W.city, v = P.seat && P.seat.vehicle; if (!W.roads || (P.z || 0) > 4 || (v && v.z > 4)) return null;
   const f = v ? v.heading : P.facing, q = laneNear(C, W.roads, [(v || P).x + Math.cos(f) * 220, (v || P).y + Math.sin(f) * 220], null, 0);
-  if (!q || (q.z || 0) > 2 || inJunction(C, q.x, q.y)) return null;
+  if (!q || !dry(C, q.x, q.y) || (q.z || 0) > 2 || inJunction(C, q.x, q.y)) return null;
   const bx = q.x - Math.cos(q.heading) * BEHIND, by = q.y - Math.sin(q.heading) * BEHIND;
   if (W.fleet.near(q.x, q.y, 60).length || W.fleet.near(bx, by, 60).length) return null;
   const d = Math.hypot(q.x - P.x, q.y - P.y); return d > 140 && d < 320 ? [Math.round(q.x), Math.round(q.y)] : null;

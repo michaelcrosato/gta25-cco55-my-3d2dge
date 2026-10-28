@@ -20,3 +20,12 @@ The engine here is my-3D2dge v0.46.1 @ `cfa866aa45474868350cad1a7fc015e612f9305f
 | 8 | `engine/my-3d2dge.js` (Humanoid: `_drawHD`, `_drawClassic`, `_weaponApi`) | `o.weaponDraw(api)`: when a rig has it, the rig calls it where it would draw its own weapon and skips the built-in gun, staff or sword. `api` = `{ g, P(p, df, dr, dz), J, Q, u, view, rig, classic, push(depth, fn) }`: a rig-local point to the screen (the rig's own projection, squash, spin and 3/4 cheat included), the joints, the pixels a unit, and `push`, which draws `fn` at a depth among the limbs (a gun held on the far side is behind the body). `o.weapon` still sets the pose ('gun' points, 'sword' swings). | The engine has one weapon model a kind (a pistol, a sword, a staff); a game with eleven weapons (shotguns, a rocket tube, a bat) has to draw its own. Drawing over the rig afterwards can't put a gun behind the arm that holds it, and would mean copying the rig's private projection (`_cheat`, `sq`). | `tests/unit/engine-patches.test.mjs` (both styles: the hook replaces the built-in model; `P` of a joint is the joint on screen; parts pushed far and near draw first and last) | "Humanoid draws three built-in weapons only. Proposal: a weaponDraw(api) hook, given the rig's projection and a depth-sorted push, so games can draw any held model in place of the built-in one, sorted with the limbs." |
 
 6 (a `floor: false` flag) stays unneeded while the city never calls `drawFloor`. 7 was not in the plan: DECISIONS D11; nor was 8: DECISIONS D14.
+
+**Since the slice (L1-L7):** no patch added, none changed; each issue text stands as written. What the later work put on
+them: patches 1-3 carried two more city-sized districts (Ironside and Glass Heights, 128 × 112 cells each, one map built
+at a time across a bridge's fade); patch 7's `lights.res` is the Graphics setting's light (Full 2, Fast 3: D35) and the
+perf gate holds every district's views within the budgets with it; patch 4's `input.raw` (the active pad, its analog
+triggers, the activity clock) is still what the controls, the attract mode and the pad pilot read, and the DualSense's
+own report by WebHID (L7, D46) sits beside it, never in place of it. L1 (D33) needed no patch: MOTOR installs its
+deterministic Math before the engine loads, and turns an explosion's hit-stop off where one is drawn as an effect
+(F7.15, F7.16).

@@ -1,7 +1,8 @@
 // A vehicle in the world (PLAN.md 8.8): a definition's body (the class's physics), its model (the kit folded in), its
 // paint, damage, seats and the people in them, doors, lights, siren, horn, radio and mods. Its driver's Intent drives
 // it (throttle, brake, steer, handbrake; nitro, horn and siren, the radio); with nobody at the wheel it coasts to a
-// stop and sits on its handbrake. An AI-only class (the heli) takes its ctl from v.ai. The Fleet steps every vehicle
+// stop and sits on its handbrake. A heli takes its ctl from v.ai (the Eye's), or flies by its pilot's (the shoulders
+// climb and descend), or with nobody at the controls settles where it is. The Fleet steps every vehicle
 // and settles what they hit; Combat sees each one as a box (shots hit it, blasts hurt it).
 // Everything here is simulation (fixed steps, no drawing state read), except `look`, which the renderer eases.
 //   const v = new Vehicle('cortez', { x, y, heading, color });  fleet.add(v);  v.driver · v.seats · v.damage
@@ -9,8 +10,9 @@ import { E } from '../engine.js';
 import { TUNE, knob } from '../core/tune.js';
 import { all } from '../core/registry.js';
 import { Actor } from '../sim/actor.js';
-import { vehicleDef, classOf, modelOf, makeBody } from '../sim/vehicle/defs.js';
+import { vehicleDef, classOf, modelOf, makeBody, flyer } from '../sim/vehicle/defs.js';
 import { Damage } from '../sim/vehicle/damage.js';
+import { seatHeight } from '../sim/vehicle/model.js';
 
 knob('Vehicles', 'nitroTime', 'Nitro burst', 2.5, .5, 8, .25, 'Seconds a nitro charge lasts');
 knob('Vehicles', 'nitroBoost', 'Nitro power', 1.8, 1, 4, .05, 'A factor on power (and launch) while the nitro burns');
@@ -74,10 +76,14 @@ export class Vehicle {
   toLocal(x, y) { const c = Math.cos(this.heading), s = Math.sin(this.heading), dx = x - this.x, dy = y - this.y; return [dx * c + dy * s, -dx * s + dy * c]; }
   /** the seat's world spot and the door's for seat i (the nearest door to a point when several serve it) */
   seatAt(i) { const s = this.model.seats[Math.min(i, this.model.seats.length - 1)] || { x: 0, y: 0 }; return this.toWorld(s.x, s.y); }
+  /** the height a rider of seat i sits at (the seat's own z in the model, else its class's: SEAT_Z) */
+  seatZ(i) { return this.z + seatHeight(this.cls, this.model.seats[Math.min(i, this.model.seats.length - 1)]); }
   /** a ped sits down (boarding.js calls it once the beats have played) */
   sit(ped, i) { this.seats[i] = ped; ped.seat = { body: this, vehicle: this, index: i }; if (i === 0) this.ai = null; this.asleep = false; }
   /** a ped gets up out of its seat */
   unseat(ped) { const i = this.seats.indexOf(ped); if (i >= 0) this.seats[i] = null; if (ped.seat && ped.seat.vehicle === this) ped.seat = null; return i; }
+  /** a flare in it (Combat, X6): it catches fire, whatever its health (a ped's is ignite) */
+  catchFire(by) { if (this.damage.wrecked) return; this.asleep = false; this.lastBy = by ?? this.lastBy; this.damage.ignite(); }
   /** Combat's hurt: bullets, blasts, melee, fire. Returns a report (zeros for a wreck: the bullet stopped) */
   hurt(o) {
     if (this.damage.wrecked) return { health: 0, armor: 0 };
@@ -88,7 +94,7 @@ export class Vehicle {
     if (o.kind === 'explosion' && this.body && o.knock) {   // thrown about by a blast: shoved, lifted, rolled
       const dir = o.dir || [0, 0], m = o.knock * .45;
       this.body.setVelocity(this.body.vx + dir[0] * m, this.body.vy + dir[1] * m);
-      if (o.knock > 120 && this.cls !== 'boat' && this.cls !== 'heli') this.body.launch(o.knock * .5, (dir[0] * -Math.sin(this.heading) + dir[1] * Math.cos(this.heading)) * (o.knock > 200 ? 9 : 3));
+      if (o.knock > 120 && this.cls !== 'boat' && !flyer(this)) this.body.launch(o.knock * .5, (dir[0] * -Math.sin(this.heading) + dir[1] * Math.cos(this.heading)) * (o.knock > 200 ? 9 : 3));
     }
     this.lastBy = o.by ?? this.lastBy;
     return { health: took, armor: 0, killed: false };
@@ -100,7 +106,10 @@ export class Vehicle {
     // what the controls ask
     let ctl;
     if (this.ai && live) ctl = this.ai(dt, this, w) || {};
-    else if (I && live && this.driver) {
+    else if (I && live && this.driver && flyer(this)) {   // (a player's helicopter or plane: the handbrake's shoulder climbs, the nitro's descends)
+      ctl = { pilot: true, throttle: I.throttle, brake: I.brake, steer: I.steer, climb: (I.down.handbrake ? 1 : 0) - (I.down.nitro ? 1 : 0) };
+      if (I.tap.radioNext || I.tap.radioPrev) this.radio = nextStation(this.radio, I.tap.radioNext ? 1 : -1);
+    } else if (I && live && this.driver) {
       ctl = { throttle: I.throttle, brake: I.brake, steer: I.steer, handbrake: !!I.down.handbrake, handle: this.driver.handling ? this.driver.handling() : 1 };   // (handle: the driver's Driving stat and OVERDRIVE)
       if (I.tap.nitro && this.mods.nitro > 0 && this.nitroT <= 0) { this.mods.nitro--; this.nitroT = TUNE.nitroTime; }
       if (this.hasSiren && I.tap.horn) this.siren = !this.siren; else this.horn = !!I.down.horn && !this.hasSiren;
@@ -115,7 +124,7 @@ export class Vehicle {
     if (this.flats > 0) { b.flat = this.flats; this.flatT += dt; if (b.speed > 20) ctl = { ...ctl, steer: E.clamp((ctl.steer || 0) + Math.sin(this.flatT * 7) * .14 * this.flats, -1, 1) }; }   // (on its rims: the wheel tugs)
     this.ctlNow = ctl;
     // a land vehicle in deep water goes under (its people swim out: the Fleet's business)
-    if (this.cls !== 'boat' && this.cls !== 'heli' && w.water && b.z < 4 && w.water(Math.floor(b.x / 16), Math.floor(b.y / 16))) {
+    if (this.cls !== 'boat' && this.cls !== 'heli' && !(this.cls === 'plane' && b.h.water) && w.water && b.z < 4 && w.water(Math.floor(b.x / 16), Math.floor(b.y / 16))) {
       this.sinking += dt; b.u *= Math.exp(-3 * dt); b.v *= Math.exp(-3 * dt); b.w *= Math.exp(-3 * dt); ctl = { throttle: 0, brake: 0, steer: 0, handbrake: false };
       if (this.sinking >= TUNE.sinkTime && !this.sunk) this.sunk = true;
     }
@@ -137,7 +146,7 @@ export class Vehicle {
     const a = this.actor; a.x = b.x; a.y = b.y; a.z = b.z; a.facing = b.heading; a.dead = wreck;
   }
   /** its tyres burst (a spike strip): a land vehicle with wheels only */
-  flatten(k = 1) { if (!this.body || this.cls === 'heli' || this.cls === 'boat' || this.cls === 'rail') return false; this.flats = Math.min(1, this.flats + k); this.asleep = false; return true; }
+  flatten(k = 1) { if (!this.body || flyer(this) || this.cls === 'boat' || this.cls === 'rail') return false; this.flats = Math.min(1, this.flats + k); this.asleep = false; return true; }
   /** for state hashes */
   hash() { const b = this.body; return b ? [Math.round(b.x * 8), Math.round(b.y * 8), Math.round(b.z * 8), Math.round(b.heading * 1000), this.damage.hash()] : [this.damage.hash()]; }
   /** the save's part (Boom Box mods and the garage): definition, paint, mods, health */

@@ -33,6 +33,7 @@ import { signalAt } from '../nav/signals.js';
 import { Wanted } from './wanted.js';
 import { PursuitDriver } from './pursuit.js';
 import { CopBrain, doorOf } from './cop.js';
+import { aloft } from '../sim/vehicle/defs.js';
 
 declare('policeTiers', shape({
   cruisers: { type: 'number', def: 1, min: 0 }, swat: { type: 'number', def: 0, min: 0 }, feds: { type: 'number', def: 0, min: 0 },
@@ -58,6 +59,9 @@ const UNITS = {   // (each kind's vehicle and crew; content may override: the fl
 };
 const SENSE_EVERY = .2, DISPATCH_EVERY = 1, OUT_NEAR = 90, STUCK_OUT = 3, STUCK_NEAR = 320, PENDING = 3, FALL = 2.5, RECALL = 140, HELI_R = 110, HELI_CLAIM = 1600;   // (HELI_CLAIM: an Eye farther off than this is not sent: another comes in)
 const NOAIM = { candidates: [], level: 'off' };
+
+/** P under one of the city's decks (more than 20 below it): out of the Eye's sight, and in a ground unit's a little way */
+export function underDeck(city, P) { for (const d of city.decks || []) { const h = d.heightAt(P.x, P.y); if (h !== null && h > (P.z || 0) + 20) return true; } return false; }
 
 export class Police {
   /** o: { life (CityLife: traffic, crowd, services, graph, gps, walks), city, fleet, combat, footprint, isPlayer(id),
@@ -141,7 +145,7 @@ export class Police {
     const range = o.range * (alley ? .5 : 1) * (under ? .6 : 1);
     return E.sees(o, P, { map: this.city.map, range, fov: o.fov, facing: o.facing, eye: o.eye }).seen;
   }
-  _underDeck(P) { for (const d of this.city.decks || []) { const h = d.heightAt(P.x, P.y); if (h !== null && h > (P.z || 0) + 20) return true; } return false; }
+  _underDeck(P) { return underDeck(this.city, P); }
   // ---- the step
   /** one step. ctx: { player (the possessed Ped), night, W (the drivers' world: { fleet, t, pedsNear, wet, sirens }) } */
   update(dt, ctx = {}) {
@@ -373,7 +377,7 @@ export class Police {
     this.spikes = this.spikes.filter(s => !s.gone);
     // a tyre over a strip goes flat
     for (const s of this.spikes) for (const v of this.fleet.near(s.x, s.y, s.half + 40)) {
-      if (!v.body || v.cls === 'heli' || v.cls === 'boat' || v.owner === 'police' || s.hit.has(v) || Math.abs(v.z - s.z) > 6) continue;   // (the police know where their strips are)
+      if (!v.body || aloft(v) || v.cls === 'boat' || v.owner === 'police' || s.hit.has(v) || Math.abs(v.z - s.z) > 6) continue;   // (the police know where their strips are)
       if (segBox(v, s.a, s.b)) { s.hit.add(v); if (v.flatten()) BUS.emit('spiked', { vehicle: v.id }); }
     }
   }

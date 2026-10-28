@@ -36,6 +36,8 @@ export class Damage {
   }
   /** on its roof: it burns, whatever its health */
   flip() { if (this.state !== 'wrecked' && this.state !== 'burning' && !this.immune) { this.state = 'burning'; this.burnT = 0; } }
+  /** set alight (a flare in it, X6): it burns, whatever its health, as on its roof */
+  ignite() { this.flip(); }
   /** put it right (the Boom Box's respray and repair) */
   repair() { this.health = this.max; this.dents = { front: 0, rear: 0, left: 0, right: 0 }; this.state = 'ok'; this.burnT = 0; this.exploded = false; }
   _state() {

@@ -15,3 +15,27 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npm test
+  # the desktop wrapper (L7): Electron itself, its binary fetched from Electron's releases on first use, the page loaded
+  # under a virtual display and asked from inside (desktop/smoke.cjs), then the Linux build packed (the Steam Deck's)
+  desktop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: npm --prefix desktop ci --no-audit --no-fund
+      - run: xvfb-run -a desktop/node_modules/.bin/electron --no-sandbox desktop/smoke.cjs   # (--no-sandbox: the runner's user namespaces are shut to Chromium's sandbox)
+      - run: npm --prefix desktop run build -- --platform linux --arch x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grand-theft-moto-linux-x64
+          path: desktop/out/grand-theft-moto-linux-x64
+          retention-days: 7

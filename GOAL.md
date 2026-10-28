@@ -1,6 +1,10 @@
 # The /goal prompt for GRAND THEFT MOTO (GrandTheftMoto-5S)
 
-To start the run:
+**A record: this is the prompt that started the run, and that run is done** (M0-M13, merged into `main` on 2026-10-23).
+Don't paste it again, because it would start the slice over on a spent branch. The prompt that finishes what is left
+is at the end of `docs/HANDOFF.md`.
+
+To start the run (as it was started):
 1. Set the effort to **xhigh**.
 2. Run `/clear`.
 3. Paste the block below.

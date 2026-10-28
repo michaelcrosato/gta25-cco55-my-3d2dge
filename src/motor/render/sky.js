@@ -36,6 +36,9 @@ export function skyAt(hour, w = null) {
   if (s.flash > 0) s.ambient = Math.min(1, s.ambient + s.flash * 2.2);   // lightning lights the whole city for a moment
   return s;
 }
+/** TOP's ground beyond the map for a district ringed by sea (its `beyond`, the water's colour): the sea's by day, the
+ *  hour's dark by night (Glass Heights' bay had ended in a flat grey past the map's edge) */
+export function beyondTop(s, sea) { return mixHex(sea, s.top, E.clamp((1 - s.ambient) / .6, 0, 1) * .8); }
 function clearSky(hour) {
   const h = ((hour % 24) + 24) % 24;
   let i = 0; while (i < KEYS.length - 2 && KEYS[i + 1][0] <= h) i++;

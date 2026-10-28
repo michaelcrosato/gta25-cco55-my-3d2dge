@@ -37,9 +37,12 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | Registries (`def` / `get` / `all` / `declare`) and schemas (`shape`) | `src/motor/core/registry.js`, `schema.js` | M0, M1 |
 | The BUS (scopes, failure isolation) and its catalogue | `src/motor/core/bus.js`, `events.js` | M1 |
 | TUNE knobs, named RNG streams | `src/motor/core/tune.js`, `rng.js` | M1 |
+| The deterministic Math (fdlibm in plain arithmetic, Node 22's own results) and the prelude that installs it before the engine | `src/motor/core/dmath.js`, `prelude.js` | after M13 (D33) |
 | Deep links, the console handle `__gtm`, `game.debug.snapshot` | `src/motor/debug/` | M0 |
 | Per-context bindings over raw devices (GTM-PATCH 4), the activity monitor, glyphs, `{action}` prompts | `src/motor/input/` | M1 |
 | The HumanController (bindings → a world-space Intent) | `src/motor/input/human.js` | M1 |
+| The DualSense by WebHID (its output report by USB and by Bluetooth: the adaptive triggers, the motors, the light bar, the player lights) and what plays on it (R2 and L2 by what the player holds, the light bar the character's colour and the stars); the rumble by it while it is open, else by the Gamepad API | `src/motor/input/dualsense-hid.js`, `haptics.js`, `rumble.js` | L7 |
+| The desktop wrapper (Electron: the page unchanged, full screen, a DualSense granted with no chooser, nothing let off the machine; packed per platform) | `desktop/` | L7 |
 | Actor, Intent, the footprint rings | `src/motor/sim/actor.js`, `intent.js`, `footprint.js` | M1 |
 | The view manager (`iso`, `top`, `side7`; emits `view`) | `src/motor/render/view-manager.js` | M0, M1 |
 | The floor chunks (world-space bakes, LRU, one affine blit per chunk in ISO) | `src/motor/render/floor-chunks.js` | M1 (S2) |
@@ -53,14 +56,17 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The world layer: CityMap, the district builder and validator, `buildCity`, decks | `src/motor/world/citymap.js`, `builder.js`, `validator.js`, `district.js` | M2 |
 | The world clock, the weather, the drawbridge (simulation state, stepped with the clock) | `src/motor/world/clock.js`, `weather.js`, `drawbridge.js` | M2 |
 | The street painter (the city's floor into floor chunks) and the city renderer (props, decks, signs, roofs, yards, glints) | `src/motor/render/surface-paint.js`, `city-render.js` | M2 |
-| The ISO cut-away by lot (per view), the quarter turn, the speed zoom | `src/motor/render/cutaway.js`, `stage.js`, `speed-zoom.js` | M2 |
+| The ISO cut-away by lot (per view), the camera's turn (a tap a quarter, held a spin, in every view: D48), the speed zoom | `src/motor/render/cutaway.js`, `stage.js`, `speed-zoom.js` | M2 |
 | The sky by hour and weather; rain, wet streets, haze and lightning on screen; MOTOR's light pass and glows | `src/motor/render/sky.js`, `weather-fx.js`, `stage.js` | M2 |
 | Lowtown: four neighbourhoods, every landmark, the Loop and the L, the canal and the drawbridge | `src/game/districts/lowtown/` | M2 |
+| The crossings between districts: a gate at a road's end at the map's edge, a city built for the ones open (`buildCity`'s `open`: openings cut, barricades left out); crossed, the play scene enters the other district with the save, the vehicle, the view and the stars (one map at a time) | `src/motor/world/crossing.js`, `district.js`, `src/game/scenes/play.js` (`crossAt`, `reopen`, `arrive`) | X1 |
+| Ironside, District 2: the Foundry, Scrapyard Flats and Voltage Row, the Flyover, the canal and the river, the east bridge | `src/game/districts/ironside/` | X1 |
+| Glass Heights, District 3: Cathedral Hill, the Strip and Marina Heights, the bay and the sea, the Loop Causeway over the bay (shut in Lowtown's sea wall until Blackout) | `src/game/districts/glass-heights/` | X5 |
 | Engine patch 7 (canvas lighting cost) and patch 1's `cutTop` | `vendor/my-3d2dge/PATCHES.md` | M2 |
 | Saves: a JSON document per slot (migrate, normalize, keep a corrupt one as `:bak`, locked in the demo) | `src/motor/core/save.js`, `src/game/save.js` | M3 |
 | Combat data: the `weapons` registry, Vitals (armour, regeneration, knockdown, stun), Inventory (slots of a kind, magazines, reloads), Stats, Abilities | `src/motor/combat/weapons.js`, `vitals.js`, `inventory.js`, `stats.js`, `abilities.js` | M3 |
-| Aim: lock-on in a screen cone (threats first), flicks, assist levels, the shot's pitch; z-aware sight lines | `src/motor/combat/aim.js` | M3 |
-| The Combat world: Shots (3D segment hits against bodies and boxes, walls by height, decks), Explosives (arcs, bounces, rockets, blasts, chains), the Fire grid, Pickups, zaps, the Snap, melee, drive-bys; BUS hit, kill, crime, explode, photo | `src/motor/combat/combat.js`, `shots.js`, `explosives.js`, `pickups.js`, `src/motor/sim/fire.js` | M3 |
+| Aim: lock-on in a screen cone (threats first), flicks, assist levels (with the mouse's point, never far past it), the shot's pitch; z-aware sight lines | `src/motor/combat/aim.js` | M3 |
+| The Combat world: Shots (3D segment hits against bodies and boxes, walls by height, decks; a shot from the shoulder at a car lower than it, at its flank), Explosives (arcs, bounces, rockets, blasts, chains), the Fire grid, Pickups, zaps, the Snap, melee, drive-bys; BUS hit, kill, crime, explode, photo | `src/motor/combat/combat.js`, `shots.js`, `explosives.js`, `pickups.js`, `src/motor/sim/fire.js` | M3 |
 | The weapons bench (each weapon's measured DPS against its spec) | `src/motor/combat/bench.js` | M3 |
 | Peds on foot: the Mover's verbs, stamina, crouch, a roll that stops short, strafing, knockdown and get-up, seats | `src/motor/actors/ped.js` | M3 |
 | PedRig: a look over the Humanoid, MOTOR's weapon models drawn among the limbs (GTM-PATCH 8), the foregrip IK | `src/motor/actors/ped-rig.js`, `src/motor/render/weapon-models.js` | M3 |
@@ -71,9 +77,10 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The Proving Ground: the combat `range`, the view lab's scale yard, `?selftest=1` self-tests (e2e) | `src/game/proving/range-zone.js`, `city-zones.js`, `tests/e2e/selftest.mjs` | M3 |
 | Vehicle models (box parts with kits) and their builders; definitions by model id (D15) | `src/motor/sim/vehicle/model.js`, `defs.js` | M4 |
 | The class bodies: the tyre model over the ground (decks, ramps, jumps, flips, towing), boats, the heli, the L's lines and trains, the tow joint | `src/motor/sim/vehicle/body.js`, `boat.js`, `heli.js`, `rail.js`, `tow.js` | M4 |
+| Planes: a body that rolls on its gear, lifts off past its rotation speed, banks to turn, stalls under its stall speed and sets down gently or crashes (a seaplane on water), turned back at the world's edge on a predicted exit (along it, flown on); the AutoPlayer flying one (a clear run, a cruising height, an approach, a glide and a go-around) | `src/motor/sim/vehicle/plane.js`, `model.js` (`planeParts`), `src/motor/ai/autoplayer.js` (`_plane`) | X2 |
 | Vehicle damage (zone dents, smoke, fire, the explosion) and the handling bench per definition | `src/motor/sim/vehicle/damage.js`, `handling.js` | M4 |
 | The Vehicle actor (seats, doors, lights, siren, horn, radio, nitro, mods, sinking) and the Fleet (sleeping, a neighbour grid, cars on cars, knockdowns, street furniture, chains, trains, tools) | `src/motor/actors/vehicle.js`, `fleet.js` | M4 |
-| Boarding: enter, carjack, break-in, mount, exit and bail-out as `E.ACTIONS` beats | `src/motor/actors/boarding.js` | M4 |
+| Boarding: enter, carjack, break-in, mount, exit and bail-out as `E.ACTIONS` beats (a door against a parked car passed over for a clear one, a slide across) | `src/motor/actors/boarding.js` | M4 |
 | A district's fleet: curb parking by neighbourhood, landmark spots, moorings, the L, the heli's patrol | `src/motor/world/fleet-spawn.js`, `src/game/districts/lowtown/fleet.js` | M4 |
 | The vehicle renderer (paint, dents, steering, doors, lights, beams, sirens, rotors, wakes) and VehicleFX (skids, smoke, sparks, slicks, mines, jets) | `src/motor/render/vehicle-draw.js`, `box-model.js` | M4 |
 | The radio stub (`stations`), the vehicle HUD panel, the Proving Ground's `garage` and the model sheet | `src/motor/audio/stations.js`, `src/motor/ui/hud.js`, `src/game/proving/garage-zone.js`, `tools/model-sheet.mjs` | M4 |
@@ -81,16 +88,16 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The road graph (lanes, junction regions, connectors, crosswalks), the GPS (A*, reverse costs), the signals and the junction reservations, the sidewalk graph | `src/motor/nav/` | M5 |
 | Traffic (the spawner in the annulus, the far LOD, hand-offs, service units) and its DriverBrain (IDM, junctions, sirens, passing) | `src/motor/ai/traffic.js`, `driver.js` | M5 |
 | The crowd (its own ring, gliding peds, reactions, witnesses, troupes, patrols, groups) and the PedBrain | `src/motor/ai/crowd.js`, `pedbrain.js` | M5, M6 |
-| The emergency services (the police's look-round, the Medic, the Pumper) and CityLife, which steps the city together | `src/motor/ai/emergency.js`, `city-life.js` | M5 |
-| The AutoPlayer core (walks the sidewalks, drives the GPS route) | `src/motor/ai/autoplayer.js` | M5 |
+| The emergency services (the police's look-round, the Medic, the Pumper; a crew back in past a parked car, round it to a clear door) and CityLife, which steps the city together | `src/motor/ai/emergency.js`, `city-life.js` | M5 |
+| The AutoPlayer core (walks the sidewalks, drives the GPS route in a style: calm, smooth, careful, player, race; sails a boat over the water's cells round the shore and what lies moored, X6) | `src/motor/ai/autoplayer.js` | M5 |
 | The wanted level (crimes, heat, stars, search and evade) and the police (sight, tiers, units, the Eye, roadblocks, spike strips, NABBED) | `src/motor/police/wanted.js`, `police.js`, `pursuit.js`, `cop.js` | M6 |
 | One fighting brain for everyone who fights on foot (guns in bursts, a clear line of fire, bats, throws) | `src/motor/ai/fighter.js` | M6 |
-| Gangs (respect, stances, hangouts and beats, gang cars in their turf, turf wars) | `src/motor/gangs/gangs.js`, `src/game/gangs.js`, `src/game/peds/gangs.js` | M6 |
+| Gangs (respect, stances, hangouts and beats, gang cars in their turf, turf wars and a job's peace that holds them off) | `src/motor/gangs/gangs.js`, `src/game/gangs.js`, `src/game/peds/gangs.js` | M6 |
 | The radar (the city baked, turf hatched, blips, the search circle and the cops' cones) and the wanted stars | `src/motor/ui/radar.js` | M6 |
 | Lowtown's crimes and police tiers; WRECKED, NABBED, the respray, bribes in play | `src/game/crimes.js`, `police.js`, `scenes/play.js` | M6 |
 | The view manager's memory per context and Auto; the dissolve between views and rail turns; the camera rig | `src/motor/render/view-manager.js`, `crossfade.js`, `stage.js` | M7 |
 | MODE 7's lenses (on foot, in a vehicle, indoors), Auto-rail and sky; the depth views' quarter-size light pass | `src/motor/render/depth/side7.js`, `sky.js`, `stage.js` | M7 |
-| Interiors: the `interiors` registry, `buildInterior` (ASCII rooms), `validateInterior`, and the run while the player is inside (guards, CCTV, noise, takedowns, doors) | `src/motor/world/builder.js`, `district.js`, `validator.js`, `interior.js` | M7 |
+| Interiors: the `interiors` registry, `buildInterior` (ASCII rooms), `validateInterior`, and the run while the player is inside (guards, CCTV, noise, takedowns, doors, spots, a staff pass, a vault's door opened) | `src/motor/world/builder.js`, `district.js`, `validator.js`, `interior.js` | M7 |
 | The First Lowtown Bank; the occluder fixture | `src/game/interiors/bank.js`, `src/game/proving/occluder-zone.js` | M7 |
 | The mission runtime (stages, ops with start, step, end and nav; fails, retry, quit, the medal, the rewards, the record), what a mission spawns (vehicles with drivers on the GPS, peds by role, pickups, props, outdoor takedowns), the random events' runtime | `src/motor/mission/runtime.js`, `actors.js`, `grading.js`, `ambient.js` | M8 |
 | The mission bot (plays any objective from its hint through the AutoPlayer's moves: walking, boarding, driving, towing, ramming, fighting, drive-bys, evading, racing, photos, stealth) and the pad pilot (its wishes pressed on a gamepad) | `src/motor/ai/missionbot.js`, `padpilot.js`, `autoplayer.js` | M8 |
@@ -135,7 +142,7 @@ stage.prop('streetlamp', x, y, z, { light, halo, lightRadius })      // the engi
 stage.glow(x, y, z, (g, sx, sy, k) => ..., { reflect, iso })         // lamp heads, neon: after the lights, occlusion-checked
 stage.floor((g, P) => ...)                                           // on the floor, under what stands on it (glints, sheen)
 stage.onScreen(x, y, z0, z1, rad)                                    // the cheap cull for whoever queues many small things
-stage.turn(±1); stage.zoomTo(z)                                      // the quarter turn (D12) and the speed zoom's steps
+stage.turnInput(dt, I, off); stage.turn(±1); stage.zoomTo(z)        // the turn buttons each step, a quarter turn (D12, D48), the zoom's steps
 stage.end()
 ```
 
@@ -253,3 +260,20 @@ defMission('saints_holy_rollers', { title: 'Holy Rollers', giver: { phone: 'sain
   replays it with the vendored `tools/replay.mjs`. Every checksum matches, each including `game.stateHash`.
 - **Determinism, in code:** an ESLint rule bans `Math.random`, `Date`, `performance` and timers in MOTOR's simulation
   folders and in `src/game`.
+- **Determinism across runtimes (D33):** browsers' `Math.sin`, `cos`, `atan2`, `exp`, `pow`... differ in the last bit
+  between engines and versions, so the page's first script (`src/motor/core/prelude.js`, before the engine) puts
+  MOTOR's own on `Math` (`src/motor/core/dmath.js`: V8 12.4's fdlibm and its `hypot`, ported to plain arithmetic, which
+  every engine rounds alike). The engine, its mocap player, MOTOR and the content then compute alike everywhere, and
+  Node's results are what they always were (`tests/unit/dmath.test.mjs` holds each function to Node 22's own, bit for
+  bit, and every Math function the page's scripts call to the exact ones or these). The headless loaders run the
+  prelude first too. `src/` writes `Math.pow`, never `**` (the lint rule and the same test). The proof:
+  `tests/e2e/cross-runtime.mjs` plays free roam, a mission by the bot and the attract mode headless and in Chromium,
+  step for step, and the hash matches at every checkpoint (60 s in `npm test`, 600 s in `test:full`).
+- **The full game, verified (X8, D45):** `npm run test:full` runs the heavy suites on the PR's head, alone (PLAN.md 15):
+  the perf gate in each district and view (`tools/perf.mjs --gate`); the city soak in each district
+  (`tests/full/city-soak.mjs`: Lowtown by day and at night in the rain, Ironside and Glass Heights by day, watched every
+  step for cars inside each other, calm red runs and cars standing with no cause); the gang sim
+  (`tests/full/gang-soak.mjs`); the screenshot matrix (`tools/shot-matrix.mjs`: every neighbourhood of the three
+  districts, by day, at dusk and at night, in ISO, TOP-DOWN and MODE 7); every mission and activity level through the
+  bot on seeds 1-3 and through a pad (`tools/bot.mjs`); and the campaign, a new game from the title's NEW GAME played by
+  the bot to 100% across the three districts (`tools/bot-campaign.mjs`).

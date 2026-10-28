@@ -14,6 +14,15 @@ declare('stations', shape({
   talk: { type: 'array', def: [] },   // (a talk station's segments: [[lines]], callers and host, over a bed)
 }));
 declare('radioAds', shape({ name: { type: 'string', req: true }, lines: { type: 'array', req: true } }));
+// a station's genre from a content pack, as composer.js's own GENRES are made: { bpm: [lo, hi], scale ('minor', 'dorian',
+// 'major', 'mixo', 'pentatonic', 'blues'), roots: ['E', ...], progs: [[degrees, a bar each]], bass: { wave, rhythm, vol,
+// low?, oct? }, drums: { intro, verse, chorus, bridge } (k kick, s snare, h hat, o open hat), lead: { wave, lo, hi, rhythm:
+// [..], leap, vol } | null, keys: { wave, kind: 'stab' | 'chord' | 'arp', vol }, swing?, form: [[section, bars]] }
+declare('genres', shape({
+  bpm: { type: 'array', req: true }, scale: { type: 'string', req: true }, roots: { type: 'array', req: true }, progs: { type: 'array', req: true },
+  bass: { type: 'object', req: true }, drums: { type: 'object', req: true }, lead: { type: 'any', def: null }, keys: { type: 'object', req: true },
+  swing: { type: 'boolean', def: false }, form: { type: 'array', req: true },
+}));
 // a song written by hand (PLAN.md 8.17: the engine's note syntax, audio/notes.js), played on a station after the ones
 // its composer writes: def('songs', id, { title, artist, station, bpm, steps, tracks: [{ wave, vol, notes }] })
 declare('songs', shape({

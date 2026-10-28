@@ -86,6 +86,19 @@ test('a locked police car takes a break-in first (TUNE.breakIn seconds, a crime)
   assert.equal(b.driver, r); assert.ok(tb < .8, `mounted in ${tb.toFixed(2)} s`);
 });
 
+test('a rider sits at its seat\'s height: up on each bike\'s own saddle, a car\'s at 6, and the same as getting on ends as riding (HANDOFF L2)', async () => {
+  await import('../../src/game/vehicles/sparrow.js'); await import('../../src/game/vehicles/vandal.js');
+  for (const [id, h] of [['sparrow', 7], ['vandal', 8.2], ['t-bike', 14 * .82 - 3.6], ['cortez', 6]]) {
+    const Y = yard(), v = Y.fleet.spawn(id, 300, 300, 0), [x, y] = v.toWorld(0, -(v.hw + 8)), p = ped(Y, x, y);
+    p.board(boardingFor(p, v, 0)); let atEnd = null;
+    step(Y, 6, { until: () => { if (!p.boarding && atEnd === null) atEnd = p.mover.z; return v.driver === p && !p.boarding; } });
+    assert.equal(v.driver, p, id + ': aboard');
+    step(Y, .5);
+    assert.ok(Math.abs(p.mover.z - (v.z + h)) < 1e-9, `${id}: the rider at ${p.mover.z.toFixed(2)}, its seat ${(v.z + h).toFixed(2)}`);
+    assert.ok(Math.abs(atEnd - p.mover.z) < 1e-9, `${id}: getting on ended at ${atEnd.toFixed(2)}, riding at ${p.mover.z.toFixed(2)}`);
+  }
+});
+
 test('getting out above the bail-out speed is a dive roll: the ped ends clear, the car rolls on and stops by itself', () => {
   const Y = yard(), v = Y.fleet.spawn('cortez', 300, 480, 0), p = ped(Y, 300, 480); v.sit(p, 0);
   v.body.u = 160; const plan = exitFor(p, v); assert.equal(plan.kind, 'bailOut');
@@ -281,4 +294,23 @@ test('an empty car broadside across a car\'s way stands its ground on its handbr
   const held = run(false), gave = run(true);
   assert.ok(held < 6, `on its handbrake it barely moves: ${held.toFixed(1)} u`);
   assert.ok(gave > 20, `shoved, it slides out of the way: ${gave.toFixed(1)} u`);
+});
+
+test('a helicopter is flown (HANDOFF L4): landed it waits; the climb lifts it, the pedals push it, the stick yaws it; let down it settles; left only on the ground', async () => {
+  await import('../../src/game/vehicles/skycam.js');
+  const Y = yard(), v = Y.fleet.spawn('skycam', 400, 400, 0), [x, y] = v.toWorld(0, -(v.hw + 8)), p = ped(Y, x, y);
+  step(Y, 1); assert.ok(v.body.landed && v.z === 0, 'it stands landed on its pad: z ' + v.z);
+  p.board(boardingFor(p, v, 0)); step(Y, 6, { until: () => v.driver === p && !p.boarding }); assert.equal(v.driver, p, 'aboard by its door');
+  const fly = f => v2 => { const I = clearIntent(makeIntent()); if (v2 === v) f(I); return I; };
+  step(Y, 3, { intent: fly(I => { I.down.handbrake = true; }) });
+  assert.ok(!v.body.landed && v.z > 100, 'R1 climbs: z ' + v.z.toFixed(0));
+  assert.equal(exitFor(p, v), null, 'never left in the air');
+  const z0 = v.z, x0 = v.x, h0 = v.heading; step(Y, 2, { intent: fly(I => { I.throttle = 1; }) });
+  assert.ok(v.x - x0 > 100 && Math.abs(v.z - z0) < 1, `R2 pushes it on along its heading at its height: x +${(v.x - x0).toFixed(0)}, z ${v.z.toFixed(0)}`);
+  step(Y, 1, { intent: fly(I => { I.steer = 1; }) }); assert.ok(v.heading - h0 > 1, 'the stick yaws it: ' + (v.heading - h0).toFixed(2));
+  step(Y, 4); assert.ok(v.speed < 10, 'let go, the air slows it: ' + v.speed.toFixed(1));
+  step(Y, 6, { intent: fly(I => { I.down.nitro = true; }), until: () => v.body.landed });
+  assert.ok(v.body.landed && v.z === 0, 'L1 lets it down, and it settles: z ' + v.z.toFixed(1));
+  const out = exitFor(p, v); assert.ok(out, 'got out on the ground'); p.leave(out); step(Y, 2, { until: () => !p.boarding }); assert.equal(p.seat, null);
+  step(Y, 3); assert.ok(v.body.landed && v.z === 0, 'with nobody at the controls it stays put');
 });

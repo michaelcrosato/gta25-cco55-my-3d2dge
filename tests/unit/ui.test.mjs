@@ -1,5 +1,6 @@
 // MOTOR's 10-foot kit (PLAN.md 8.18): lists that page by six, tabs, cards, the screen stack and its rules (back, Options,
-// sticky screens, a pause), the settings' rows, the HUD's layout inside the safe area, and the audit's rules.
+// sticky screens, a pause), the settings' rows, the HUD's layout inside the safe area, the audit's rules, and a
+// document's pages (Credits & About).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { engineGlobal } from '../harness.mjs';
@@ -9,7 +10,7 @@ const { List, Tabs, Cards, PAGE } = await import('../../src/motor/ui/tenfoot.js'
 const { Screens } = await import('../../src/motor/ui/screens.js');
 const { settingRows } = await import('../../src/motor/ui/settings.js');
 const { hudLayout, footWidth, mph } = await import('../../src/motor/ui/hud.js');
-const { confirmScreen } = await import('../../src/motor/ui/menus.js');
+const { confirmScreen, docScreen } = await import('../../src/motor/ui/menus.js');
 const { auditRecord } = await import('../../tools/ui-audit.mjs');
 
 const NAV = ['up', 'down', 'left', 'right', 'confirm', 'back', 'tabPrev', 'tabNext', 'secondary', 'tertiary', 'close'];
@@ -102,4 +103,39 @@ test('the audit\'s rules: focus, six a page, scale, glyphs, the safe area', () =
   const r = auditRecord(bad).join('\n');
   for (const want of ['no focus', '7 items', 'scale 0.5', 'unresolved', '"edge" outside the safe area']) assert.ok(r.includes(want), want + ' caught:\n' + r);
   assert.deepEqual(auditRecord({ ...ok, lists: [{ id: 'under', shown: 3, live: false }], focus: [] }), [], 'a list under the screen in front needs no focus');
+});
+
+test('the Graphics setting: Full is the look as made, Fast the lighter knobs, and back (drawing only)', async () => {
+  const { defineSettings, QUALITY } = await import('../../src/motor/ui/settings.js'), { TUNE } = await import('../../src/motor/core/tune.js');
+  await import('../../src/motor/render/stage.js'); await import('../../src/motor/render/weather-fx.js');   // (the knobs' homes)
+  const specs = {}, S = { spec: k => specs[k], define: sp => { specs[sp.key] = sp; } };
+  defineSettings({ settings: S });
+  const q = specs.quality; assert.equal(q.value, 'full', 'Full by default');
+  assert.deepEqual(q.options.map(o => o[0]), ['full', 'fast']);
+  for (const [k, full] of QUALITY) assert.equal(TUNE[k], full, `${k}: Full is the knob's own default`);
+  q.apply({}, 'fast'); for (const [k, , fast] of QUALITY) assert.equal(TUNE[k], fast, `${k} on Fast`);
+  q.apply({}, 'full'); for (const [k, full] of QUALITY) assert.equal(TUNE[k], full, `${k} back on Full`);
+});
+
+test('a document\'s pages: a heading or a row\'s label never ends a page, nor a paragraph\'s last line starts one alone', () => {
+  const sections = Array.from({ length: 5 }, (_, i) => ({ title: 'Part ' + i, rows: [['Label ' + i, 'word '.repeat(30 + 9 * i) + 'tail']], lines: ['more '.repeat(20 + 5 * i) + 'tail'] }));
+  const heads = /^(PART|LABEL) \d$/;
+  let carried = 0;
+  for (let H = 120; H <= 300; H += 3) {   // (every page height from 56 to 236 UI pixels: the breaks fall everywhere)
+    const doc = docScreen({ title: 'DOC', sections }), drawn = [], pages = [];
+    const P = { W: 480, H, safe: [24, 0, 456, H], width: t => t.length * 5, text: t => drawn.push(t) };
+    doc.body(P, 0, 0, 300);
+    for (let k = 0; k < doc.paging()[1]; k++) {
+      if (k) { drawn.length = 0; doc.update(nav('right'), still); doc.body(P, 0, 0, 300); }
+      pages.push([...drawn]);
+    }
+    for (const [k, pg] of pages.entries()) {
+      assert.ok(pg.length, `${H}: page ${k + 1} has lines`);
+      assert.ok(!heads.test(pg[pg.length - 1]), `${H}: page ${k + 1} of ${pages.length} ends on ${pg[pg.length - 1]}`);
+      assert.ok(!/tail$/.test(pg[0]), `${H}: page ${k + 1} of ${pages.length} starts on a paragraph's last line: ${pg[0]}`);   // (each is two lines or more)
+      if (k && heads.test(pg[0])) carried++;
+    }
+    assert.equal(pages.flat().filter(t => heads.test(t)).length, 10, `${H}: every heading and label drawn, once`);
+  }
+  assert.ok(carried > 0, 'some page starts on a heading or a label');
 });

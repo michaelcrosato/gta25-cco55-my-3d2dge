@@ -2,8 +2,11 @@
 // has music of its own with no sound file. A template: the tempo, the scale, chord progressions (scale degrees, a bar
 // each), the bass's rhythm, the drums' patterns by section, the lead's instrument, range, rhythm and leaps, an arp or
 // pad, and the arrangement (intro, verse, chorus, bridge, outro, in bars). The same genre and seed make the same song.
-//   compose(genre, seed) -> { title, genre, bpm, steps, tracks }  ·  GENRES (the four stations' templates)
-const SCALE = { minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10], major: [0, 2, 4, 5, 7, 9, 11], mixo: [0, 2, 4, 5, 7, 9, 10] };
+//   compose(genre, seed) -> { title, genre, bpm, steps, tracks }  ·  GENRES (the first four stations' templates); a
+//   content pack adds its own: def('genres', id, template) (audio/stations.js declares the kind)
+import { get } from '../core/registry.js';
+
+export const SCALE = { minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10], major: [0, 2, 4, 5, 7, 9, 11], mixo: [0, 2, 4, 5, 7, 9, 10], pentatonic: [0, 2, 4, 7, 9], blues: [0, 3, 5, 6, 7, 10] };
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const nameOf = midi => NAMES[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1);   // (60 -> C4)
 const ROOTS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -33,7 +36,7 @@ export const SCORES = {
 };
 /** a song: a genre's template (or a score cue's) made particular by the seed (the title is the station's to give) */
 export function compose(genre, seed = 1, title = '') {
-  const G = GENRES[genre] || SCORES[genre]; if (!G) throw new Error('MOTOR: no genre ' + genre);
+  const G = GENRES[genre] || SCORES[genre] || get('genres', genre); if (!G) throw new Error('MOTOR: no genre ' + genre);
   let x = (seed * 2654435761) >>> 0 || 1; const rnd = () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }, pick = l => l[Math.floor(rnd() * l.length)];
   const bpm = Math.round(G.bpm[0] + rnd() * (G.bpm[1] - G.bpm[0])), root = 48 + ROOTS[pick(G.roots)], sc = SCALE[G.scale], prog = pick(G.progs), chorusProg = pick(G.progs);
   const deg = (d, oct = 0) => { const n = sc.length, k = ((d % n) + n) % n; return root + sc[k] + 12 * (Math.floor(d / n) + oct); };   // (a scale degree as MIDI)

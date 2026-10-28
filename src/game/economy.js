@@ -1,7 +1,7 @@
-// Lowtown's economy (PLAN.md 8.16, 9.10): the seven shops, the two properties and the completion checklist. Every price
-// is a TUNE knob (section 'Prices'); a weapon's default is its Lead Farm price (weapons/arsenal.js), and a weapon with
-// an unlock comes onto the shelves with that mission done. The Kwik-Lux chain keeps three stores, each with its till
-// for a hold-up.
+// The economy (PLAN.md 8.16, 9.10): Lowtown's seven shops, the properties (two in each district) and the
+// completion checklist. Every price is a TUNE knob (section 'Prices'); a weapon's default is its Lead Farm price
+// (weapons/arsenal.js), and a weapon with an unlock comes onto the shelves with that mission done. The Kwik-Lux chain
+// keeps five stores (Ironside's and the Strip's among them), each with its till for a hold-up.
 import { def, get, knob } from '../motor/index.js';
 import './weapons/arsenal.js';   // (the guns' names and prices first)
 
@@ -12,6 +12,8 @@ const ammo = (w, n) => { const s = get('weapons', w); return { id: 'ammo_' + w, 
 def('shops', 'lead-farm', { name: 'Lead Farm', poi: 'lead-farm', color: '#ffa23a', items: [
   gun('slugger'), gun('snub38'), ammo('snub38', 36), gun('buzzsaw'), ammo('buzzsaw', 90), gun('persuader'), ammo('persuader', 24),
   gun('partystarter'), gun('pineapple'), gun('hotmess'), gun('boomtube'), gun('zapomatic'),
+  gun('nailgun'), ammo('nailgun', 120), gun('teslacoil'),   // (Ironside's, EXPANSION.md 6: on the shelves once the Monks' and the Volt Boys' jobs are done)
+  gun('flaregun'), ammo('flaregun', 12),   // (Glass Heights', X6: the Yacht Club's, once Overboard is done)
   { id: 'armor', name: 'Body armour', kind: 'armor', price: P('price_armor', 'Body armour', 400) },
 ] });
 // Boom Box Garage: drive in for the mods (and Lefty's bombs)
@@ -47,14 +49,21 @@ const snacks = () => [
   { id: 'jerky', name: 'Mystery jerky', kind: 'snack', amount: 30, price: P('price_jerky', 'Mystery jerky', 12) },
 ];
 def('shops', 'gas-n-sip', { name: "Gas'n'Sip", poi: 'gas-n-sip', color: '#ffd23a', items: snacks() });
-for (const [id, name] of [['kwik-lux-palm', 'Kwik-Lux (Palm)'], ['kwik-lux-neon', 'Kwik-Lux (Neon)'], ['kwik-lux-harbor', 'Kwik-Lux (Harbor)']])
+for (const [id, name] of [['kwik-lux-palm', 'Kwik-Lux (Palm)'], ['kwik-lux-neon', 'Kwik-Lux (Neon)'], ['kwik-lux-harbor', 'Kwik-Lux (Harbor)'], ['kwik-lux-ironside', 'Kwik-Lux (Ironside)'], ['kwik-lux-strip', 'Kwik-Lux (the Strip)']])   // (Ironside's on Crusher Lane, EXPANSION.md 5, X4; Glass Heights' on Casino Row, X7)
   def('shops', id, { name, poi: id, chain: 'kwik-lux', holdup: true, color: '#5aff8a', items: snacks() });
 
 // the properties: bought at the door, paying into a till every midnight (collected by walking up)
 def('properties', 'car-wash', { name: 'Palm Car Wash', poi: 'car-wash', price: P('price_carwash', 'Palm Car Wash', 15000, 200000), income: P('income_carwash', 'Car wash income', 600, 20000), cap: P('cap_carwash', 'Car wash till', 3000, 100000) });
 def('properties', 'pixel-palace', { name: 'Pixel Palace Arcade', poi: 'pixel-palace', price: P('price_arcade', 'Pixel Palace Arcade', 25000, 200000), income: P('income_arcade', 'Arcade income', 900, 20000), cap: P('cap_arcade', 'Arcade till', 4500, 100000) });
+// Ironside's two (EXPANSION.md 5, X4): Sudsy's Launderette under the crew's flat, and the Airstrip's hangar
+def('properties', 'launderette', { name: "Sudsy's Launderette", poi: 'launderette', district: 'ironside', price: P('price_launderette', "Sudsy's Launderette", 20000, 200000), income: P('income_launderette', 'Launderette income', 700, 20000), cap: P('cap_launderette', 'Launderette till', 3500, 100000) });
+def('properties', 'airstrip', { name: 'Ironside Airstrip', poi: 'hangar', district: 'ironside', price: P('price_airstrip', 'Ironside Airstrip', 40000, 200000), income: P('income_airstrip', 'Airstrip income', 1200, 20000), cap: P('cap_airstrip', 'Airstrip till', 6000, 100000) });
+// Glass Heights' two (EXPANSION.md 5, X7): the Glass Tower's penthouse, and a berth at the marina
+def('properties', 'penthouse', { name: 'The Glass Tower penthouse', poi: 'penthouse', district: 'glass-heights', price: P('price_penthouse', 'The Glass Tower penthouse', 60000, 200000), income: P('income_penthouse', 'Penthouse income', 1600, 20000), cap: P('cap_penthouse', 'Penthouse till', 8000, 100000) });
+def('properties', 'berth', { name: 'The Marina berth', poi: 'berth', district: 'glass-heights', price: P('price_berth', 'The Marina berth', 30000, 200000), income: P('income_berth', 'Berth income', 900, 20000), cap: P('cap_berth', 'Berth till', 4500, 100000) });
 
 // the completion checklist (tenths of a percent: they sum to 1000)
 const K = (id, label, kind, weight, order) => def('completion', id, { label, kind, weight, order });
-K('missions', 'Missions', 'missions', 420, 1); K('jobs', 'Jobs at level 3', 'jobs', 120, 2); K('races', 'Street races', 'races', 60, 3); K('mayhem', 'MAYHEM', 'mayhem', 90, 4);
-K('stunts', 'Unique stunt jumps', 'stunts', 100, 5); K('tokens', 'Moto Tokens', 'tokens', 100, 6); K('properties', 'Properties', 'properties', 110, 7);
+K('missions', 'Missions', 'missions', 420, 1); K('jobs', 'Jobs at level 3', 'jobs', 120, 2); K('races', 'Street races', 'races', 60, 3); K('mayhem', 'MAYHEM', 'mayhem', 80, 4);
+K('arcade', 'Arcade high scores', 'arcade', 20, 5);   // (L4: the cabinet in Club Chrome; its tenth from MAYHEM's and the stunts')
+K('stunts', 'Unique stunt jumps', 'stunts', 90, 6); K('tokens', 'Moto Tokens', 'tokens', 100, 7); K('properties', 'Properties', 'properties', 110, 8);

@@ -12,6 +12,7 @@
 import { E } from '../engine.js';
 import { TUNE } from '../core/tune.js';
 import { drawBoxModel } from './box-model.js';
+import { flyer } from '../sim/vehicle/defs.js';
 
 const SKID_LIFE = 40;   // seconds a skid mark lasts (it fades over its life)
 const HEADING_STEP = Math.PI / 90;   // (a moving car's kept image: redrawn when its heading, or in MODE 7 its bearing, moves 2 degrees)
@@ -26,7 +27,7 @@ export function easeLook(v, dt) {
     const pop = b.felt.lon > 110 && b.speed > 15 && b.speed < 130 && b.ctl.throttle > .9 ? .22 : 0;
     L.wheelie += (pop - L.wheelie) * (1 - Math.exp(-dt * (pop ? 4 : 7)));
     L.roll = L.lean; L.pitch = -L.wheelie;
-  } else if (v.cls === 'heli') { L.roll = b.tiltS || 0; L.pitch = b.tiltF || 0; }
+  } else if (flyer(v)) { L.roll = b.tiltS || 0; L.pitch = b.tiltF || 0; }
   else if (v.cls === 'boat') {
     const t = (v._t = (v._t || 0) + dt), ph = ((typeof v.id === 'number' ? v.id : String(v.id).length) * 1.7) % 6.3, sp = Math.min(1, b.speed / 120);   // (ids are numbers)
     L.roll = Math.sin(t * 1.9 + ph) * .04 + E.clamp(b.felt.lat * .0008, -.15, .15);
@@ -60,17 +61,17 @@ export function drawVehicle(stage, v, o = {}) {
   }
   const opts = { roll: look.roll, pitch: look.pitch, steer: v.cls === 'bike' || v.cls === 'boat' ? 0 : b.steerAngle, rotor: b.rotor || 0, lit, braking: v.lights.brake, reversing: v.lights.reverse,
     siren, paint: v.color, burnt: wreck, cracked: v.damage.share < .5, dents: v.damage.dents, extra };
-  const plain = !v.damage.smoking && siren === undefined && !b.airborne && v.cls !== 'heli' && v.cls !== 'boat' && !v.sinking, still = plain && b.speed < .5;
+  const plain = !v.damage.smoking && siren === undefined && !b.airborne && !flyer(v) && v.cls !== 'boat' && !v.sinking, still = plain && b.speed < .5;
   // ISO's projection is the same everywhere, so a car on the move looks the same wherever it is: its image is kept too,
   // redrawn when its heading (2 degree steps), lean, steering, lights or paint change (a car driving straight: once);
   // in MODE 7 a car looks the same while its bearing from the lens holds (TOP-DOWN leans it by where it is on screen)
-  const d7 = stage.depth && stage.depth === stage.side7 ? stage.depth : null, moving = plain && !still && (!stage.depth || d7) && v.cls !== 'bike';
+  const d7 = stage.mode7, moving = plain && !still && (!stage.depth || d7) && v.cls !== 'bike';
   const sig = still ? `${b.heading.toFixed(3)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}|${doorSig}|${v.color}|${b.steerAngle.toFixed(2)}`
     : moving ? `m${Math.round(b.heading / HEADING_STEP)}|${Math.round(look.roll / .03)}|${Math.round(look.pitch / .02)}|${Math.round(b.steerAngle / .1)}|${v.damage.hash()}|${lit ? 1 : 0}${v.lights.brake ? 1 : 0}${v.lights.reverse ? 1 : 0}|${doorSig}|${v.color}|${wreck ? 1 : 0}${d7 ? '|' + Math.round(Math.atan2(d7.lateral(b.x, b.y), d7.depth(b.x, b.y)) / HEADING_STEP) : ''}` : '';
   const draw = (g, P) => drawBoxModel(g, P, v.model, b.x, b.y, z, b.heading, opts);
   const reach = [v.hl + 6, z, z + v.height + 8];   // (what MODE 7's walls may hide)
   stage.shape(b.x, b.y, z, draw, still || moving ? { kept: { key: v, r: v.hl + 6, h: v.height + 8, sig }, kind: 'car', reach } : { kind: 'car', reach });
-  if (v.cls === 'heli') drawHeliExtras(stage, v, o);
+  if (v.cls === 'heli' || (v.cls === 'plane' && !v.body.landed)) drawHeliExtras(stage, v, o);   // (a plane in the air: its shadow on the ground)
   if (o.night && !wreck) drawNightLights(stage, v, z);
   if (siren !== undefined) {   // the bar's lamps: alternating red and blue glows, and a light either side
     for (const [lx, ly, lz] of v.model.lights.siren) {
@@ -104,7 +105,7 @@ function beam(g, A, B, k) {
   g.fillStyle = gr; g.beginPath(); g.moveTo(A[0] + nx * w0, A[1] + ny * w0); g.lineTo(B[0] + nx * w1, B[1] + ny * w1); g.lineTo(B[0] - nx * w1, B[1] - ny * w1); g.lineTo(A[0] - nx * w0, A[1] - ny * w0); g.closePath(); g.fill();
   E.px.disc(g, A[0], A[1], w0 * 1.4, '#fff8e0'); g.globalCompositeOperation = op;
 }
-// a heli's shadow on the ground under it, and its spotlight: a pool, and a faint shaft from it down to the pool
+// a heli's (or a flying plane's) shadow on the ground under it, and its spotlight: a pool, and a faint shaft from it down to the pool
 function drawHeliExtras(stage, v, o) {
   const b = v.body, g0 = o.ground ? o.ground(b.x, b.y) : 0;
   stage.floor((g, P) => { const q = P.proj(b.x, b.y, g0); if (!q) return; const k = q[2], rx = Math.max(4, v.hl * .8 * k), ry = Math.max(2, v.hw * .9 * k); g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(q[0], q[1], rx, ry, 0, 0, Math.PI * 2); g.fill(); });
@@ -139,7 +140,7 @@ export class VehicleFX {
       else if (f.kind === 'sparks') P.sparks(f.x, f.y, f.z, f.n || 4, null, { color: '#ffd080', speed: 90 });
       else if (f.kind === 'engine') P.smoke(f.x, f.y, f.z, 1, { size: 2.4, dark: true });
       else if (f.kind === 'flame') { P.fire(f.x, f.y, f.z, 1); P.smoke(f.x, f.y, f.z + 6, 1, { size: 3, dark: true }); }
-      else if (f.kind === 'explosion') P.explosion(f.x, f.y, f.z, 1.4, { debris: ['#3a3a40', '#5a5a62', '#8a2a1a'], sound: true });
+      else if (f.kind === 'explosion') P.explosion(f.x, f.y, f.z, 1.4, { debris: ['#3a3a40', '#5a5a62', '#8a2a1a'], sound: true, freeze: false });   // (the hit-stop is the blast's own, in the simulation: Combat's onBlast. One drawn here stopped the game at the next frame drawn near it, D33)
       else if (f.kind === 'splash') { P.ring(f.x, f.y, 6, 40, '#cfe8ff', .5, 0); P.dust(f.x, f.y, 2, 8, { color: '#e8f4ff', size: 2, speed: 50 }); }
       else if (f.kind === 'debris') P.bits(f.x, f.y, f.z, 5, [f.color || '#7a7a82', '#3a3a40']);
       else if (f.kind === 'burst') P.dust(f.x, f.y, f.z, 8, { color: '#cfe8ff', size: 2, speed: 70 });

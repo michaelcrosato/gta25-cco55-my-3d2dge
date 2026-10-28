@@ -134,9 +134,9 @@ export class Ped {
     if (I.tap.ability && this.ability) this.ability.toggle();
     // the aim: locked, assisted or free (the facing when nothing aims)
     const A = w.aim || {}, range = spec ? spec.range : 300;
-    const idleAim = !I.down.aim && !I.aim && !I.aimPoint && !I.down.attack && !I.tap.attack;
-    this.aimer.update(dt, { held: !!I.down.aim && ranged, idle: idleAim, dir: I.aim, facing: m.facing, shooter: this, candidates: A.candidates || [], toScreen: A.toScreen || ((x, y, z) => [x, y - z]),
-      los: A.los, range, level: A.level || 'standard', threat: A.threat, point: I.aimPoint, stick: I.aimStick || 0 });
+    const idleAim = !I.down.aim && !I.aim && !I.aimPoint && !I.down.attack && !I.tap.attack, snap = !!spec && spec.projectile === 'photo';   // (the Snap's aim free: no lock, no assist; a camera, it had swung to a guard by Floor Plan's vault and missed the door)
+    this.aimer.update(dt, { held: !!I.down.aim && ranged && !snap, idle: idleAim, dir: I.aim, facing: m.facing, shooter: this, candidates: A.candidates || [], toScreen: A.toScreen || ((x, y, z) => [x, y - z]),
+      los: A.los, range, level: snap ? 'off' : A.level || 'standard', threat: A.threat, point: I.aimPoint, stick: I.aimStick || 0 });
     // moving: sprint on stamina, a walk while aiming, standing still to swing
     let mv = I.move, len = Math.hypot(mv[0], mv[1]);
     if (this.aiming && len > TUNE.aimWalk) mv = [mv[0] / len * TUNE.aimWalk, mv[1] / len * TUNE.aimWalk];
@@ -168,8 +168,9 @@ export class Ped {
     this._pose(dt, s);
     return this._sync();
   }
-  // in a vehicle's seat (PLAN.md 8.12's drive-by): the body rides along; the pistol or SMG fires out of the window
-  // toward the aim stick, or at the nearest target off either side (30 to 150 degrees from the heading) when it rests
+  // in a vehicle's seat (PLAN.md 8.12's drive-by): the body rides along; the pistol, SMG or Flare Gun (X6) fires out of
+  // the window toward the aim stick, or at the nearest target off either side (30 to 150 degrees from the heading) when
+  // it rests
   /** this ped's factor on a vehicle's handling at its wheel (PLAN.md 8.11): its Driving stat, and OVERDRIVE while on */
   handling() { return this.stats.handling() * (this.ability ? this.ability.handling : 1); }
   // a protagonist at the wheel plays in character (PLAN.md 8.11): a second at speed (over half the top speed) and a near
@@ -193,8 +194,8 @@ export class Ped {
     if (I.tap.ability && this.ability) this.ability.toggle();   // (the Ability button works at the wheel too: OVERDRIVE is a driver's)
     if (this.faction === 'crew' && (this.seat.index || 0) === 0 && this.seat.vehicle) this._driving(dt, w);
     const at = b.seatAt ? b.seatAt(this.seat.index || 0) : [b.x, b.y];
-    m.x = at[0]; m.y = at[1]; m.z = (b.z || 0) + (b.cls === 'bike' ? 7 : 6); m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
-    const spec = this.inv.spec(), ok = !!spec && (spec.slot === 'pistol' || spec.slot === 'smg') && !(b.armed && this.seat.index === 0), trigger = !!(I.down.fire || I.down.attack);   // (the driver's ○ is the vehicle's own weapon when it has one)
+    m.x = at[0]; m.y = at[1]; m.z = b.seatZ ? b.seatZ(this.seat.index || 0) : (b.z || 0) + 6; m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
+    const spec = this.inv.spec(), ok = !!spec && (spec.slot === 'pistol' || spec.slot === 'smg' || spec.projectile === 'flare') && !(b.armed && this.seat.index === 0), trigger = !!(I.down.fire || I.down.attack);   // (the driver's ○ is the vehicle's own weapon when it has one)
     this.aiming = ok && (trigger || !!I.aim);
     let dir = I.aim, held = false;
     if (!dir && this.aiming) {   // no stick: the auto-target off either side
@@ -217,7 +218,7 @@ export class Ped {
   ride() {
     const st = this.seat; if (!st) return this;
     const m = this.mover, b = st.body, at = b.seatAt ? b.seatAt(st.index || 0) : [b.x, b.y];
-    m.x = at[0]; m.y = at[1]; m.z = (b.z || 0) + (b.cls === 'bike' ? 7 : 6); m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
+    m.x = at[0]; m.y = at[1]; m.z = b.seatZ ? b.seatZ(this.seat.index || 0) : (b.z || 0) + 6; m.vx = m.vy = m.vz = 0; m.action = null; m.facing = b.heading;
     if (this.lazyRig) this._rigS = SEATED; else this._pose(1 / 120, { crouch: true });
     return this._sync();
   }

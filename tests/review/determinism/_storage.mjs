@@ -3,7 +3,7 @@
 // they do in a page. Two boots sharing one Map are two visits to the same page.
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { bundle, ENGINE, MOCAP } from '../../../tools/build.mjs';
+import { bundle, prelude, ENGINE, MOCAP } from '../../../tools/build.mjs';
 
 let code = null;
 /** a Storage over a Map (getItem, setItem, removeItem, key, length, clear) */
@@ -25,6 +25,7 @@ export async function bootWithStorage({ hash = '', query = {}, store = storage()
   ctx.console = { log() {}, info() {}, warn() {}, error: (...a) => console.error(...a) };
   ctx.__GTM_OPTIONS__ = { hash, query };
   ctx.localStorage = store;
+  vm.runInContext(prelude(), ctx, { filename: 'prelude.js' });   // (first, as in the page: D33)
   vm.runInContext(readFileSync(ENGINE, 'utf8'), ctx, { filename: 'my-3d2dge.js' });
   for (const f of MOCAP) { const src = readFileSync(f, 'utf8'); vm.runInContext(f.includes('/sets/') ? '(function (window) {\n' + src + '\n})(globalThis);' : src, ctx, { filename: f.split('/').pop() }); }
   vm.runInContext(code, ctx, { filename: 'game.js' });

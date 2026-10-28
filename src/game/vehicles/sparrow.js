@@ -54,7 +54,7 @@ def('vehicleModels', 'sparrow', {
     P([-14.4, -1.4, 9.8, -14, 1.4, 10.8], '#8a1a1a', 'tail'),
   ],
   wheels: [{ x: fx, y: 0, r, steer: true }, { x: rx, y: 0, r, steer: false }],
-  seats: [{ x: -6.8, y: 0 }],
+  seats: [{ x: -6.8, y: 0, z: 7 }],   // (z: the rider on the saddle, whose top is 10.6)
   // (side 0: a bike has no door, and a door with a side is drawn swinging open while its rider gets off)
   doors: [{ id: 'l', x: -5, y: -10, side: 0, seat: 0 }, { id: 'r', x: -5, y: 10, side: 0, seat: 0 }],
   lights: { head: [[9.6, 0, 12.5]], tail: [[-14.2, 0, 10.3]], siren: [] },
@@ -69,6 +69,6 @@ def('vehicles', 'sparrow', {
   handling: { mass: 140, top: 150, accel: 62, brake: 520, grip: 360, drift: .58, steer: .7, steerRate: 4, drive: 'rwd', wheelbase: 16.9, cg: .66, rolling: .015, reverseTop: 25, gears: 1 },
   spec: { t100: 2.4, top: 150, brake100: 13 },
   // (parked at the curbs where the couriers work: the Brickyard, the docks, the Neon Mile; its own spot is the Gas'n'Sip)
-  spawn: { zones: ['brick', 'harbor', 'neon'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['moped', 'bike', 'common'],
+  spawn: { zones: ['brick', 'harbor', 'neon', 'foundry', 'voltage', 'marina', 'strip'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['moped', 'bike', 'common'],
   about: 'A pastel step-through moped with a courier\'s box: slow and light, it slips through traffic and turns on a dime.',
 });

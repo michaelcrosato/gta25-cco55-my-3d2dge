@@ -98,3 +98,25 @@ test('box models: overlapping core parts keep their roles\' order, and a wreck o
   assert.ok(before(partOrder(along([1, 1, -1]), TRUCK, 0, 0, 0, 0, { extra: [far] }), 'door', 'chassis2'), 'the far door first');
   assert.ok(before(partOrder(along([1, 1, -1]), TRUCK, 0, 0, 0, 0, { extra: [near] }), 'chassis', 'door'), 'the near door last');
 });
+test('a glow\'s halo is cut where the wall in front of it tops out (ISO): hidden right behind a block, cut just over its roof, whole in the open (HANDOFF L2)', async () => {
+  const { Stage } = await import('../../src/motor/render/stage.js');
+  const map = new E.TileMap({ w: 40, h: 40, types: { 1: { h: 48, top: '#666', side: '#555' } } }), T = map.T;
+  map.fill(20, 20, 4, 4, 1);   // a block four cells square, 48 u tall
+  const view = new E.View('iso', 'ISO', 45, 30, Math.SQRT2, 1);
+  const r = { view, ix: 0, iy: 0, w: (x, y, z = 0) => [view.ax * x + view.ay * y, view.bx * x + view.by * y + view.bz * z] };
+  const st = Object.create(Stage.prototype); st.world = { map }; st._maxH = null;
+  // the camera looks from +x+y (iso's yaw 45): behind the block is toward -x-y; a tail lamp 6 u up, walked back from it
+  const c = d => st._frontTop(r, 20 * T - d, 22 * T - d, 6, 24);
+  const seen = []; for (let d = 2; d < 30 * T; d += 2) seen.push([d, c(d)]);
+  const hid = seen.find(([, v]) => v <= 0), cut = seen.find(([d, v]) => v > 0 && v < 24 && d > hid[0]), clear = seen.find(([d, v]) => v >= 24 && d > cut[0]);
+  assert.ok(hid && cut && clear, JSON.stringify(seen.filter((_, i) => i % 8 === 0)));
+  assert.ok(seen.filter(([d]) => d > cut[0] && d < clear[0]).every(([, v]) => v > 0), 'past the roof\'s edge it only ever shows more');
+  assert.equal(st._frontTop(r, 26 * T, 26 * T, 6, 24), 24, 'in front of the block (toward the camera): nothing cuts it');
+  // across the halo's width, column by column: the roof's edge runs aslant on screen, so the cut is not one flat line
+  const [px, py] = [20 * T - cut[0], 22 * T - cut[0]], cols = []; for (let dx = -48; dx <= 48; dx += 2) cols.push(st._frontTop(r, px, py, 6, 48, dx));
+  assert.ok(Math.abs(cols[24] - cut[1]) < 1e-9, 'its own column: as the point\'s');
+  assert.ok(new Set(cols.map(v => Math.round(v))).size > 3, 'the columns either side tops out higher and lower: ' + cols.map(Math.round).join(','));
+  assert.equal(st._frontTop(r, px, py, 6, 48, 400), 48, 'a column well off the block: clear');
+  // and _hidden (a wet street's reflection asks it) agrees with the point's own column
+  for (const [d, v] of [hid, cut, clear]) assert.equal(st._hidden(r, 20 * T - d, 22 * T - d, 6), v <= 0, `at ${d}: hidden ${v <= 0}`);
+});

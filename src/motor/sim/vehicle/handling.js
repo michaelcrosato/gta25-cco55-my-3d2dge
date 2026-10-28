@@ -23,6 +23,7 @@ export function measureHandling(id) {
   const d = vehicleDef(id), cls = classOf(d), s = d.spec || {};
   if (cls === 'boat') return boat(id, s);
   if (cls === 'heli') return heli(id, s);
+  if (cls === 'plane') return plane(id, s);
   if (cls === 'rail') return rail(d, s);
   const to = s.t100 ? 100 : 200, from = s.brake100 ? 100 : 200;
   const m = { cls, to, from };
@@ -56,6 +57,19 @@ function heli(id, s) {
   const c = makeBody(id, 0, 0, 0); c.z = 40; let rate = 0; run(c, 3, { to: [0, 0], alt: 400 }, {}, q => { rate = Math.max(rate, q.vz); }); m.climb = rate;
   return m;
 }
+// a plane (X2): its takeoff roll and climb, its top speed in level flight, a turn banked hard over, a stall (the throttle
+// off, the nose held up), and a landing (level and slow, let down gently): on flat ground, or on water for a seaplane
+function plane(id, s) {
+  const m = { cls: 'plane' }, sea = !!vehicleDef(id).handling.water, world = sea ? { water: () => true } : {};
+  const aloft = (z, u) => { const b = makeBody(id, 0, 0, 0); b.landed = false; b.airborne = true; b.z = z; b.u = u; return b; };
+  { const b = makeBody(id, 0, 0, 0); let off = null; run(b, 30, { pilot: true, throttle: 1, climb: 1 }, world, (c, t) => { if (off === null && !c.landed) off = { t, x: c.x }; return !off || t < off.t + 4; }); m.liftoff = off; m.climb = b.vz; }
+  { const b = aloft(200, 150); run(b, 40, { pilot: true, throttle: 1 }, world); m.top = b.u; m.holdZ = b.z; }
+  { const b = aloft(200, 150); let yaw = 0; run(b, 4, { pilot: true, throttle: .8, steer: 1 }, world, c => { yaw = Math.max(yaw, Math.abs(c.w)); }); m.yaw = yaw; }
+  { const b = aloft(250, 120); let stalled = false, drop = 0; run(b, 12, { pilot: true, throttle: 0, climb: 1 }, world, c => { if (c.stalled) stalled = true; drop = Math.min(drop, c.vz); }); m.stalls = stalled; m.drop = drop; }
+  { const b = aloft(30, Math.min(100, b0(id).h.landSpeed * .8)); let hit = 0; run(b, 10, { pilot: true, throttle: .25, climb: -.5 }, world, c => { hit = Math.max(hit, c.felt.hit); return !c.landed; }); m.landed = b.landed; m.landHit = hit; }
+  return m;
+}
+const b0 = id => makeBody(id, 0, 0, 0);
 function rail(d, s) {
   const line = new RailLine({ points: [[0, 0], [3000, 0], [3000, 60], [0, 60]], z: 0, stations: [{ name: 'A', at: [900, 0] }, { name: 'B', at: [2100, 0] }] });
   const tr = new Train(line, { ...d.handling, top: s.top, dwell: s.dwell, s: 400 }), m = { cls: 'rail', stops: [], vmax: 0 };
@@ -84,6 +98,16 @@ export function handlingChecks(id, m = measureHandling(id)) {
     ck('never past its top', m.vmax <= m.top * 1.02, m.vmax, '<= ' + m.top);
     ck('flies near its top', s.top ? m.vmax >= s.top * .9 && Math.abs(m.top - s.top) <= s.top * .05 : true, m.vmax, '>= 90% of ' + s.top);
     ck('climbs', s.climb ? m.climb >= s.climb * .9 : m.climb > 30, m.climb, '>= 90% of ' + (s.climb || 30));
+    return out;
+  }
+  if (m.cls === 'plane') {
+    ck('lifts off past its rotation speed', m.liftoff && m.liftoff.t < 10, m.liftoff ? m.liftoff.t : null, '< 10 s, R1 held');
+    ck('climbs', m.climb >= (s.climb || 40) * .8, m.climb, '>= 80% of ' + (s.climb || 40));
+    ck('flies near its top', s.top && Math.abs(m.top - s.top) <= s.top * .05, m.top, s.top + ' ±5%');
+    ck('holds its height level', Math.abs(m.holdZ - 200) < 10, m.holdZ, '200 ±10');
+    ck('banked, it turns', m.yaw > .4, m.yaw, '> 0.4 rad/s');
+    ck('stalls when slow', m.stalls && m.drop < -100, m.drop, 'stalled, falling > 100 u/s');
+    ck('sets down gently', m.landed && m.landHit === 0, m.landHit, 'landed, no hit');
     return out;
   }
   if (m.cls === 'rail') {

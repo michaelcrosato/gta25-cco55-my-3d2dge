@@ -141,3 +141,101 @@ test('TOP-DOWN: a thing standing on a roof is drawn after the roof (keyed just n
   assert.ok(near(S.items[1].k, Math.hypot(120 - S.top.x, 120 - S.top.y), 1e-9), 'one in the street: its own distance');
   assert.ok(S.items[2].k > spanK, 'one at the building\'s foot (inside its footprint, below the roof): not lifted over it');
 });
+test('a textured face stops at yMax (what nearer walls hide), and a face many tiles long may be cut finer (extra)', () => {
+  const v = new Side7View({}); v.follow(1 / 60, 500, 500); v.frame(fakeR);
+  const ys = [], g = new Proxy({ canvas: { width: 482, height: 272 } }, { get: (o, k) => k in o ? o[k] : k === 'moveTo' || k === 'lineTo' ? (x, y) => ys.push(y) : () => {}, set: (o, k, val) => { o[k] = val; return true; } });
+  const cv = E.mkCanvas(64, 96), face = (s, t) => v._q(300 + 16 * s, 40, 96 * (1 - t)), [, top] = face(0, 0), [, foot] = face(0, 1);   // (far enough that its foot is on the canvas)
+  const whole = texturedFace(g, face, cv, 0, 0, 16, 96, '#888'); assert.ok(whole >= 1 && Math.max(...ys) > foot - 1, 'whole: down to its foot');
+  ys.length = 0; const cut = (top + foot) / 2; texturedFace(g, face, cv, 0, 0, 16, 96, '#888', null, cut);
+  assert.ok(ys.length && Math.max(...ys) <= cut + 1e-6, `cut at ${cut.toFixed(1)}: nothing below it (lowest ${Math.max(...ys).toFixed(1)})`);
+  assert.equal(texturedFace(g, face, cv, 0, 0, 16, 96, '#888', null, top - 1), 0, 'wholly under nearer walls: nothing');
+  const long = (s, t) => v._q(14 + 6 * 16 * s, 40, 96 * (1 - t));
+  assert.ok(texturedFace(g, long, cv, 0, 0, 96, 96, '#888', null, Infinity, 3) > texturedFace(g, long, cv, 0, 0, 96, 96, '#888'), 'extra splits allowed: more quads');
+});
+test('MODE 7\'s cull: an item wholly under a nearer face\'s top is left out; one that shows above it stops at that top (clipY)', async () => {
+  const { Stage } = await import('../../src/motor/render/stage.js');
+  const wall = { k: 100, occ: [0, 120, 300, 120] }, hidden = { k: 200, m: 190, box: [50, 90, 130] }, shown = { k: 210, m: 200, box: [60, 80, 40] }, clear = { k: 220, m: 210, box: [350, 400, 40] };
+  const S = { items: [clear, shown, hidden, wall], side7: { stats: {} } };   // (far to near, as the frame sorts them)
+  Stage.prototype._cull7.call(S, 480);
+  assert.equal(hidden.culled, true, 'under the wall\'s top in every column it spans');
+  assert.ok(!shown.culled && Math.abs(shown.clipY - 120) < 1e-6, `drawn, down to the wall's top (clipY ${shown.clipY})`);
+  assert.ok(!clear.culled && clear.clipY === undefined, 'beside the wall: whole');
+  assert.equal(S.side7.stats.culled, 1);
+});
+
+const { ChaseView, axesAt, headingOf } = await import('../../src/motor/render/depth/chase.js');
+test('the chase camera: at any heading the floor row inverse matches the projection, up the screen is forward', () => {
+  for (const hd of [0, 37, 90, 135.5, 222, 300]) {
+    const v = new ChaseView({}); v.setHeading(hd, 500, 500); v.frame(fakeR); const a = axesAt(hd);
+    assert.ok(near(Math.hypot(...a.f), 1) && near(a.f[0] * a.r[0] + a.f[1] * a.r[1], 0), 'unit axes, square');
+    for (const [L, D] of [[20, 120], [-30, 200], [0, 300]]) {
+      const x = 500 + a.r[0] * L + a.f[0] * D, y = 500 + a.r[1] * L + a.f[1] * D, p = v.proj(x, y, 0);
+      assert.ok(p, `heading ${hd}: in front`); const q = v.toGround(p[0], p[1]); assert.ok(near(q[0], x, 1e-6) && near(q[1], y, 1e-6), `heading ${hd}: ${x},${y} -> ${q}`);
+    }
+    const up = v.screenDirToGround(0, -1); assert.ok(near(up[0], a.f[0], 1e-9) && near(up[1], a.f[1], 1e-9), 'up the screen: the heading');
+    assert.ok(near(headingOf(a.f[0], a.f[1]), hd % 360, 1e-9), 'headingOf inverts axesAt');
+  }
+  assert.ok(near(axesAt(0).f[1], -1) && near(axesAt(90).f[0], 1), 'the rail\'s headings: north, east');
+});
+test('the chase camera: its heading turns in the step after a moving car, on foot only while walking on ahead, a quarter for the turn buttons; it stands behind the focus', () => {
+  const v = new ChaseView({}); v.rig(1, true, 0); v.setHeading(90, 1000, 1000);
+  assert.ok(near(v.heading, 90) && near(v.x, 1000 - v.back) && near(v.y, 1000), 'set behind the car');
+  for (let i = 0; i < 240; i++) v.steer(1 / 60, 180, true, true);
+  assert.ok(Math.abs(v.heading - 180) < 1, 'come round behind it after 4 s: ' + v.heading);
+  const h = v.heading; for (let i = 0; i < 60; i++) v.steer(1 / 60, 270, false, true); assert.equal(v.heading, h, 'a car standing still: it holds');
+  for (let i = 0; i < 600; i++) v.follow(1 / 60, 1000, 1000);
+  const a = axesAt(v.heading); assert.ok(near(v.x, 1000 - a.f[0] * v.back, .5) && near(v.y, 1000 - a.f[1] * v.back, .5), 'behind it, at its distance');
+  const w = new ChaseView({}); w.setHeading(0, 0, 0); w.rig(1, false, 0);
+  for (let i = 0; i < 120; i++) w.steer(1 / 60, 150, true, false);
+  assert.equal(w.heading, 0, 'on foot, walking toward the camera: it holds');
+  for (let i = 0; i < 300; i++) w.steer(1 / 60, 40, true, false);
+  assert.ok(Math.abs(w.heading - 40) < 2, 'walking on ahead, a little to one side: it eases round: ' + w.heading);
+  const h0 = w.heading; w.turnBy(1); for (let i = 0; i < 120; i++) w.steer(1 / 60, null, false, false);
+  assert.ok(Math.abs(w.heading - (h0 + 90)) < 1e-6, 'the turn button: a quarter round, exactly: ' + h0 + ' -> ' + w.heading);
+});
+test('the chase camera: the floor raster reads the texel under each pixel at an angle; faces only toward the camera', () => {
+  const S = 256, pad = 2, n = S + 2 * pad, chunks = new Map(), at = (x, y) => (((x * 7 + y * 13) & 255) | 0xff000000) >>> 0;
+  const floor = { size: S, pad, W: 1024, H: 1024, pixels(ci, cj) { const k = ci + ',' + cj; if (!chunks.has(k)) { const px = new Uint32Array(n * n); for (let ty = 0; ty < n; ty++) for (let tx = 0; tx < n; tx++) px[ty * n + tx] = at(ci * S + tx - pad, cj * S + ty - pad); chunks.set(k, px); } return chunks.get(k); } };
+  const v = new ChaseView({}); v.setHeading(33, 500, 600); v.frame(fakeR);
+  let put = null; const g = { createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }), putImageData: img => { put = img; }, createLinearGradient: () => ({ addColorStop() {} }), fillRect() {} };
+  v.drawFloor(g, floor); const px = new Uint32Array(put.data.buffer);
+  for (const [bx, by] of [[100, 200], [240, 150], [400, 260]]) { const q = v.toGround(bx + .5, by + .5); assert.equal(px[by * fakeR.bw + bx], at(Math.floor(q[0]), Math.floor(q[1])), `pixel ${bx},${by} reads the floor at ${q.map(Math.floor)}`); }
+  // a block north-east of the camera, looking north (the camera behind the focus, south-west of the block): its south
+  // and west faces show, cut a tile wide, never the far ones; and its top, the camera being higher than it
+  const items = [], c = new ChaseView({}); c.setHeading(0, 500, 700); c.frame(fakeR);
+  c.spanItems([{ x0: 560, y0: 400, x1: 640, y1: 480, h: 48, id: 1, t: { h: 48, top: '#777', side: '#555' } }], items, null, false);
+  const sides = items.filter(it => it.kind === 'side');
+  assert.equal(sides.length, 10, 'the south face (5 tiles) and the west face (5 tiles)');
+  assert.ok(sides.every(it => it.k >= it.m && it.m >= c.depth(640, 480) - 1e-9 && it.k <= c.depth(560, 400) + 1e-9), 'each within the block\'s depth');
+  assert.equal(sides.filter(it => near(it.k, it.m)).length, 5, 'the south face square on to the camera: its slices at one depth');
+  assert.equal(items.filter(it => it.kind === 'top').length, 1, 'the top, seen from above');
+});
+
+test('TOP-DOWN turned (D48): the floor inverts exactly at any heading, north up is the old projection, and up the screen is the heading', () => {
+  const v = new TopView({ H: 320 }); v.follow(1 / 60, 1000, 1000); v.frame(fakeR);
+  const at0 = [v.proj(1040, 980, 30), v.toGround(300, 100)];
+  for (const hd of [0, 37, 90, 161.5, 270]) {
+    v.heading = hd;
+    for (const [x, y] of [[1000, 1000], [1060, 940], [930, 1085]]) { const [sx, sy] = v.proj(x, y, 0), g = v.toGround(sx, sy); assert.ok(near(g[0], x) && near(g[1], y), `the floor inverts at ${hd}°`); }
+    const t = hd * Math.PI / 180, f = [Math.sin(t), -Math.cos(t)], c = v.proj(1000, 1000, 0), u = v.proj(1000 + f[0] * 50, 1000 + f[1] * 50, 0);
+    assert.ok(near(u[0], c[0], 1e-6) && u[1] < c[1], `the heading points up the screen at ${hd}°`);
+    const [sx, sy] = v.screenVec(f[0], f[1]), [gx, gy] = v.screenDirToGround(0, -1); assert.ok(near(sx, 0) && near(sy, -1) && near(gx, f[0]) && near(gy, f[1]), `the stick and the screen agree at ${hd}°`);
+    const [i0, j0, i1, j1] = v.range(256, 0), corner = v.toGround(0, 0);
+    assert.ok(corner[0] >= i0 * 256 && corner[0] <= (i1 + 1) * 256 && corner[1] >= j0 * 256 && corner[1] <= (j1 + 1) * 256, 'the chunk range covers the screen\'s corners');
+  }
+  v.heading = 0; assert.deepEqual([v.proj(1040, 980, 30), v.toGround(300, 100)], at0, 'north up: exactly as before');
+  assert.equal(v.view(1).yawDeg, 0); v.heading = 90; assert.equal(v.view(1).yawDeg, 270, 'rigs drawn through a view at the heading (as the chase camera\'s)');
+});
+
+test('MODE 7 off its quarters (D48): any heading\'s axes, the floor still inverting, the turn about the focus keeping it on screen, and the rail\'s own drawing back on a quarter', () => {
+  const v = new Side7View({}); v.follow(1 / 60, 500, 500); v.frame(fakeR);
+  assert.ok(v.aligned && v.ax() === RAIL[0], 'on a quarter: the rail\'s own axes');
+  const before = v.proj(500, 500, 0);
+  v.orbit(37, 500, 500); v.frame(fakeR);
+  assert.ok(!v.aligned, 'off a quarter'); const a = v.ax(), t = 37 * Math.PI / 180;
+  assert.ok(near(a.f[0], Math.sin(t)) && near(a.f[1], -Math.cos(t)) && near(a.r[0], Math.cos(t)) && near(a.r[1], Math.sin(t)), 'axes at 37°');
+  const after = v.proj(500, 500, 0); assert.ok(near(after[0], before[0], 1e-6) && near(after[1], before[1], 1e-6), 'turned about the focus: it stays where it was on screen');
+  for (const [x, y] of [[520, 380], [430, 300]]) { const p = v.proj(x, y, 0); if (!p) continue; const g = v.toGround(p[0], p[1]); assert.ok(near(g[0], x, 1e-6) && near(g[1], y, 1e-6), 'the floor row inverts the projection'); }
+  assert.equal(v.keyHeading, 37.5, 'kept images keyed in steps of 1.5° while off a quarter');
+  v.orbit(90, 500, 500); assert.ok(v.aligned && v.ax() === RAIL[90] && v.keyHeading === 90, 'landed on a quarter: the rail\'s own again');
+});

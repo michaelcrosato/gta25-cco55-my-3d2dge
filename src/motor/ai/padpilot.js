@@ -38,6 +38,8 @@ export class PadPilot {
       const [sx] = this._stick(I.steer || 0, 0); P.axes[0] = sx;
       for (const code of pads('throttle')) { press(+code.slice(3), I.throttle || 0); break; }
       for (const code of pads('brake')) { press(+code.slice(3), I.brake || 0); break; }
+    } else if (context === 'arcade') {   // (a cabinet's stick: the move is the screen's already)
+      const m = I.move; if (Math.hypot(m[0], m[1]) > 1e-3) { const [x, y] = this._stick(m[0], m[1]); P.axes[0] = x; P.axes[1] = y; }
     } else {
       const m = I.move, l = Math.hypot(m[0], m[1]); if (l > 1e-3) { const s = this._screen(m[0], m[1]), [x, y] = this._stick(s[0] * l, s[1] * l); P.axes[0] = x; P.axes[1] = y; }
     }

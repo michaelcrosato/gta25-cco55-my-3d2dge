@@ -10,6 +10,7 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `camAuto` Auto view | 0 | 0..1 | The view picked by itself (1): ISO on foot, TOP-DOWN at speed in a vehicle |
 | `viewFade` View switch fade | 0.35 | 0..1 | Seconds the old view takes to dissolve into the new one (0: a cut) |
 | `autoRail` Auto-rail | 1 | 0..1 | MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0) |
+| `spinRate` Camera spin | 150 | 60..360 | Degrees a second the camera spins while a turn button is held ([ ] or R3 held with the right stick pushed); a tap still turns a quarter |
 | `zoomFoot` ISO zoom on foot | 1 | 0.8..1.2 | The camera zoom walking (1 is the base view) |
 | `zoomDrive` ISO zoom driving | 0.8 | 0.6..1 | The camera zoom in a vehicle below the fast speed |
 | `zoomFast` ISO zoom driving fast | 0.65 | 0.5..0.9 | The camera zoom in a vehicle above the fast speed |
@@ -22,6 +23,7 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 
 | Knob | Default | Range | What it does |
 |---|---|---|---|
+| `rainDrops` Raindrops | 1 | 0.25..1 | How many raindrops fall round the camera, of the full 340 in a downpour (the Fast quality: half) |
 | `crowdEvery` Crowd animation rate | 4 | 1..8 | A crowd body (o.key) is drawn every n frames (4: 15 a second, like classic townsfolk) and its image reused in between, at the place it is now (the player never); away from the player one and a half times n, small on screen twice n |
 | `depthLightRes` Depth views' light coarseness | 4 | 1..8 | TOP-DOWN and MODE 7 at night work the dark and the lamps' pools out every n buffer pixels and scale them up smoothly (the pools are soft: 4 is a sixteenth of the work of 1, per pixel) |
 | `lightRes` Light field coarseness | 2 | 1..4 | ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work |
@@ -66,6 +68,8 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `bailSpeed` Bail-out speed | 60 | 20..200 | Getting out above this speed (u/s) is a dive roll |
 | `enterReach` Enter reach | 40 | 10..120 | How near a vehicle's side a ped must be to get in (u) |
 | `boardSpeed` Boards below | 45 | 0..200 | A vehicle moving faster than this can't be got into (u/s) |
+| `stairsReach` L stairs reach | 18 | 6..60 | How near a station's stairs the player stands to take them (u) |
+| `trainReach` L door reach | 30 | 8..80 | How near a stopped L car's side a body on the platform boards it (u) |
 
 ## Attract
 
@@ -92,6 +96,7 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `lockKeep` Lock-on keeps to | 1.25 | 1..2 | A locked target stays locked out to this many times the weapon range |
 | `flickAt` Flick threshold | 0.75 | 0.3..1 | How far the right stick must travel from rest, in a moment, to switch the lock |
 | `flickCone` Flick cone | 60 | 10..120 | Degrees either side of the flick that the next target may lie in |
+| `pointPast` Assist past the point | 40 | 0..400 | How far beyond the mouse's point the aim assist may still pull to a target (u) |
 | `gravity` Thrown gravity | 520 | 100..2000 | Gravity on thrown things (u/s²) |
 | `bounce` Grenade bounce | 0.38 | 0..1 | The share of its speed a grenade keeps off a bounce |
 | `chainDelay` Chain delay | 0.18 | 0..2 | Seconds before a blast sets off the next explosive thing in reach |
@@ -338,6 +343,11 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `price_hotmess` Hot Mess | 3500 | 0..50000 | Hot Mess ($) |
 | `price_boomtube` Boom Tube | 5000 | 0..50000 | Boom Tube ($) |
 | `price_zapomatic` Zap-O-Matic | 4000 | 0..50000 | Zap-O-Matic ($) |
+| `price_nailgun` Nail Gun | 1100 | 0..50000 | Nail Gun ($) |
+| `price_ammo_nailgun` Nail Gun ammo | 138 | 0..50000 | Nail Gun ammo ($) |
+| `price_teslacoil` Tesla Coil | 6000 | 0..50000 | Tesla Coil ($) |
+| `price_flaregun` Flare Gun | 1800 | 0..50000 | Flare Gun ($) |
+| `price_ammo_flaregun` Flare Gun ammo | 225 | 0..50000 | Flare Gun ammo ($) |
 | `price_armor` Body armour | 400 | 0..50000 | Body armour ($) |
 | `price_mod_armor` Armour plating | 2500 | 0..50000 | Armour plating ($) |
 | `price_mod_nitro` Nitro | 1500 | 0..50000 | Nitro ($) |
@@ -361,6 +371,18 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `price_arcade` Pixel Palace Arcade | 25000 | 0..200000 | Pixel Palace Arcade ($) |
 | `income_arcade` Arcade income | 900 | 0..20000 | Arcade income ($) |
 | `cap_arcade` Arcade till | 4500 | 0..100000 | Arcade till ($) |
+| `price_launderette` Sudsy's Launderette | 20000 | 0..200000 | Sudsy's Launderette ($) |
+| `income_launderette` Launderette income | 700 | 0..20000 | Launderette income ($) |
+| `cap_launderette` Launderette till | 3500 | 0..100000 | Launderette till ($) |
+| `price_airstrip` Ironside Airstrip | 40000 | 0..200000 | Ironside Airstrip ($) |
+| `income_airstrip` Airstrip income | 1200 | 0..20000 | Airstrip income ($) |
+| `cap_airstrip` Airstrip till | 6000 | 0..100000 | Airstrip till ($) |
+| `price_penthouse` The Glass Tower penthouse | 60000 | 0..200000 | The Glass Tower penthouse ($) |
+| `income_penthouse` Penthouse income | 1600 | 0..20000 | Penthouse income ($) |
+| `cap_penthouse` Penthouse till | 8000 | 0..100000 | Penthouse till ($) |
+| `price_berth` The Marina berth | 30000 | 0..200000 | The Marina berth ($) |
+| `income_berth` Berth income | 900 | 0..20000 | Berth income ($) |
+| `cap_berth` Berth till | 4500 | 0..100000 | Berth till ($) |
 
 ## Economy
 

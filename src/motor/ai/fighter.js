@@ -13,8 +13,10 @@
 //   class CopBrain extends Fighter  ·  const F = new Fighter(ped, { walks, rng, profile });  I = F.attack(dt, I, target)
 import { TUNE } from '../core/tune.js';
 import { makeIntent } from '../sim/intent.js';
+import { aloft } from '../sim/vehicle/defs.js';
 
-const NODE_NEAR = 9, THROW_MIN = 70, THROW_MAX = 230, THROW_EVERY = 6, BLAST = 110;
+const NODE_NEAR = 9, THROW_MIN = 70, THROW_MAX = 230, THROW_EVERY = 6;
+export const BLAST = 110;   // (how near a car shot to a wreck can blow up on one: a fighter or a rider spares that much)
 /** how a fighter fights: its range (a share of its gun's), bursts and pauses (s), aim (radians off at most), and kite
  *  (a share of that range: closer than it, it backs off as it fires; 0: it stands) */
 export const FIGHT = { range: .45, burst: .7, pause: .6, aimOff: .08, kite: 0 };
@@ -118,14 +120,16 @@ export class Fighter {
   }
   // one it spares within r of the target (a throw's splash, and its miss)
   _sparedNear(tgt, r) { const S = this._spared(tgt); return !!S && S.some(q => Math.hypot(q.x - tgt.x, q.y - tgt.y) - (q.body && q.hl !== undefined ? q.hl : 0) < r); }
-  // someone not in the fight between it and the target, near the line of fire
+  // someone not in the fight between it and the target, near the line of fire (a flare's: a wider band, and the pool it
+  // leaves round the target: X6's Flare Gun had set the passers-by alight, and their burning trails the player)
   _peopleIn(tgt) {
     const p = this.ped, N = this.pedsNear; if (!N) return false;
+    const s = this.gun && p.inv.spec(this.gun), flare = !!s && s.projectile === 'flare', band = flare ? 26 : 9, past = flare ? 30 : -6;
     const dx = tgt.x - p.x, dy = tgt.y - p.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
-    for (const q of N((p.x + tgt.x) / 2, (p.y + tgt.y) / 2, d / 2 + 12)) {
+    for (const q of N((p.x + tgt.x) / 2, (p.y + tgt.y) / 2, d / 2 + 12 + (flare ? 30 : 0))) {
       if (q === p || q === tgt || q.dead || q.floored || q.seat || q.hostile) continue;
       const ox = q.x - p.x, oy = q.y - p.y, along = ox * ux + oy * uy;
-      if (along > 6 && along < d - 6 && Math.abs(oy * ux - ox * uy) < 9) return true;
+      if (along > 6 && along < d + past && Math.abs(oy * ux - ox * uy) < band) return true;
     }
     return false;
   }
@@ -173,7 +177,7 @@ export function lineOfFire(p, tgt, map = null, fleet = null) {
   }
   if (fleet) {
     const mx = (p.x + tgt.x) / 2, my = (p.y + tgt.y) / 2, r = Math.hypot(tgt.x - p.x, tgt.y - p.y) / 2 + 30, own = tgt.seat ? tgt.seat.vehicle : tgt.body ? tgt : null, mine = p.seat ? p.seat.vehicle : null;
-    for (const v of fleet.near(mx, my, r)) if (v !== own && v !== mine && v.body && v.cls !== 'heli' && v.z < (p.z || 0) + 18 && crosses(v, p, tgt)) return 'car';
+    for (const v of fleet.near(mx, my, r)) if (v !== own && v !== mine && v.body && !aloft(v) && v.z < (p.z || 0) + 18 && crosses(v, p, tgt)) return 'car';
   }
   return true;
 }

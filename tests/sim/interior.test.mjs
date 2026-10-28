@@ -132,7 +132,7 @@ test('the bank: switching views mid-run and turning the camera inside leave the 
   const a = await run(true), b = await run(false);
   assert.ok(b.alarm, 'the walk was seen: the alarm went up');
   assert.deepEqual(a.h, b.h);
-  assert.deepEqual([...seen].sort(), ['iso', 'side7', 'top'], 'every view was switched to');
+  assert.deepEqual([...seen].sort(), ['chase', 'iso', 'side7', 'top'], 'every view was switched to');
 });
 
 test('the bank: a mission\'s hold on it: watch() reads the rounds and the sweeps (a copy); pass() lets the new cleaner past the counter', async () => {

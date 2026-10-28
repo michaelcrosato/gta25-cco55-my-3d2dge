@@ -183,6 +183,7 @@ export class MissionRuntime {
     if (this.wantedHeld) { const w = W.wanted ? W.wanted() : null; if (w) { w.floor(0); w.cap(5); } this.wantedHeld = false; }   // (a stage's cap or floor never outlives its job)
     if (this.blocksHeld) { const P = W.life && W.life.police; if (P) P.noBlocks = false; this.blocksHeld = false; }   // (nor its word on roadblocks)
     if (this.allyHeld) { const G = W.life && W.life.gangs; if (G) G.allies.clear(); this.allyHeld = false; }   // (nor its allies and truces)
+    if (this.peaceHeld) { const G = W.life && W.life.gangs; if (G) G.peace = false; this.peaceHeld = false; }   // (nor its peace)
     if (this.servicesHeld) { const S = W.life && W.life.services; if (S) S.held.clear(); this.servicesHeld = false; }   // (nor a service stood down)
     if (W.stage && W.stage.pointRail) W.stage.pointRail(null);   // (nor a set piece's rail)
     if (W.slowmo) W.slowmo(1);   // (nor its slow motion)
@@ -242,6 +243,8 @@ export class MissionContext {
   get mover() { return this.vehicle || this.player; }
   get elapsed() { return this.R.t; }
   get stageTime() { return this.R.stageT; }
+  /** how many times the job has been retried (a stage's setup can tell a retry from the first try) */
+  get retries() { return this.R.retries; }
   get rng() { return this.R.rng; }
   get stars() { return this.wanted.stars; }
   /** the game's save, to read (respect, missions done: a choice's terms); the runtime writes what a pass earns */
@@ -261,9 +264,10 @@ export class MissionContext {
     this.R.objective = { text, hint: o.hint || null, op: this.R._starting || null };   // (an op's own goes when it ends)
   }
   /** a marker at a point or on an actor (a ring on the floor, a blip on the radar): { remove() }. One made as an op
-   *  starts goes when the op ends */
+   *  starts goes when the op ends. o.hoop: { h } a hoop in the air at the point's height instead, upright across the
+   *  way h it is flown through (a Crop Duster's ring, an Air Race's gate: EXPANSION.md X4) */
   marker(at, o = {}) {
-    const mk = { at: isActor(at) ? null : this.at(at), actor: isActor(at) ? at : null, color: o.color || '#ffe066', r: o.r || 16, blip: o.blip !== false, ring: o.ring !== false, label: o.label || '', gone: false, op: this.R._starting || null, remove() { this.gone = true; } };
+    const mk = { at: isActor(at) ? null : this.at(at), actor: isActor(at) ? at : null, color: o.color || '#ffe066', r: o.r || 16, blip: o.blip !== false, ring: o.ring !== false, hoop: o.hoop || null, label: o.label || '', gone: false, op: this.R._starting || null, remove() { this.gone = true; } };
     this.R.markers.push(mk); return mk;
   }
   /** a GPS route shown to a point (the radar's line, M9): a marker there, routed */
@@ -277,6 +281,10 @@ export class MissionContext {
    *  fought beside that gang (R3's Rats); truce: one fought against its own (G3's), the same thing */
   ally(gang) { const G = this.W.life && this.W.life.gangs; if (!G) return; if (gang) G.allies.add(gang); else G.allies.clear(); this.R.allyHeld = true; }
   truce(gang) { this.ally(gang); }
+  /** the city's gangs keep the peace while the run lasts: no turf war starts (one under way runs its course). A job
+   *  run through a district's turf with the police all over it: the Yacht Club's flares in a war on Casino Row had set
+   *  the cars by House Edge's getaway alight */
+  peace(on = true) { const G = this.W.life && this.W.life.gangs; if (!G) return; G.peace = !!on; this.R.peaceHeld = true; }
   /** the city's traffic within r of at taken off the road (a race's marshals clearing its grid: done as the player is
    *  put on it, so nothing is seen to go); how many went */
   clearTraffic(at, r) { const T = this.W.life && this.W.life.traffic, q = this.at(at); return T && q ? T.clear(q[0], q[1], r) : 0; }
@@ -295,6 +303,9 @@ export class MissionContext {
   /** the city's own service of a kind ('fire' | 'medic' | 'police') takes no new calls while the run lasts: a job that is
    *  that service (Firefighter: the player's the engine on call, and the city's own would come to the same fires) */
   standDown(kind) { const S = this.W.life && this.W.life.services; if (!S) return; S.held.add(kind); this.R.servicesHeld = true; }
+  /** a mission vehicle's driver given new orders: o as spawn.vehicle's drive ({ to, route, chase, flee, race, style,
+   *  siren, then }); null parks it (EXPANSION.md X3: a bus waits at its stop, then drives) */
+  drive(v, o) { this.R.actors.orders(v, o); }
   /** put a world vehicle on the job's list under a tag (a garaged car, one the player came in): the hints can name it;
    *  the world's again when the run ends, and a retry never releases it */
   adopt(v, tag) { if (!v) return null; const R = this.R; if (R.actors.entry(v)) return v; const was = v.owner; R.actors._add(v, 'vehicle', { tag, stage: -1 }); v.adopted = was || 'world'; return v; }
@@ -303,9 +314,9 @@ export class MissionContext {
   /** the crew fund now; and money paid in (n > 0) or out (a bribe: n < 0), with what for */
   get fund() { return this.crew ? this.crew.fund || 0 : 0; }
   pay(n, why = 'mission') { if (this.W.cash) this.W.cash(n, why); }
-  /** the GPS's time by road (seconds at the streets' limits) from the player, or their vehicle, to a point; null with
-   *  no way there (a job's clock: a drop's fair time) */
-  eta(at) { const G = this.W.roads && this.W.roads.gps, P = this.mover, q = this.at(at); if (!G || !P) return null; const r = G.routeTo(P.x, P.y, P.heading ?? P.facing ?? 0, q[0], q[1], { z: P.z || 0, tz: q[2] }); return r ? r.cost : null; }
+  /** the GPS's time by road (seconds at the streets' limits) from the player, or their vehicle (or from: an actor or a
+   *  point), to a point; null with no way there (a job's clock: a drop's fair time) */
+  eta(at, from = null) { const G = this.W.roads && this.W.roads.gps, P = from ? (Array.isArray(from) ? { x: from[0], y: from[1], z: from[2] || 0, heading: 0 } : from) : this.mover, q = this.at(at); if (!G || !P) return null; const r = G.routeTo(P.x, P.y, P.heading ?? P.facing ?? 0, q[0], q[1], { z: P.z || 0, tz: q[2] }); return r ? r.cost : null; }
   /** a body or a vehicle by its id (a BUS event's target or by: who it was, its gang, whose it is), or null */
   byId(id) { const C = this.W.combat, F = this.W.fleet; return (C && C.bodies.find(b => b.id === id)) || (F && F.vehicles.find(v => v.id === id)) || null; }
   /** a blast at a point, nobody's (a drum the fire set off): o { damage (80), splash (56), z (6), fire (false: no
@@ -425,12 +436,13 @@ export class MissionContext {
     }, { nav: m => m.one(tag), start: m => { m.objective(o.text || 'Get in', { hint: { kind: 'enterVehicle', vehicle: tag } }); const v = m.one(tag); if (v) m.marker(v, { color: '#7ac8ff' }); } });
   }
   /** lose the wanted level (the stars to 0, or below o.below) */
-  evade(o = {}) {
+  evade(o = {}) {   // (o.vehicle: the tag of the job's vehicle, lost them in: the bot keeps to it)
     const below = o.below ?? 1;
-    return op(m => (m.stars < below ? { value: true } : undefined), { start: m => m.objective(o.text || 'Lose the cops', { hint: { kind: 'evade' } }) });
+    return op(m => (m.stars < below ? { value: true } : undefined), { start: m => m.objective(o.text || 'Lose the cops', { hint: o.vehicle ? { kind: 'evade', vehicle: o.vehicle } : { kind: 'evade' } }) });
   }
   /** get what (a tagged vehicle or ped) to the point to (within o.radius, 40; o.stopped: standing there; o.health: the
-   *  vehicle above that share of its health, or the stage fails); the objective and the bot's deliver hint */
+   *  vehicle above that share of its health, or the stage fails); the objective and the bot's deliver hint (o.style: how
+   *  the bot drives it, 'careful' when unsaid) */
   deliver(o) {
     const to = this.at(o.to), r = o.radius || 40, text = o.text || 'Deliver it';
     return op(m => {
@@ -439,7 +451,7 @@ export class MissionContext {
       const there = Math.hypot(w.x - to[0], w.y - to[1]) < r && (!o.stopped || (w.speed || 0) < 10);
       return there ? { value: true } : undefined;
     }, { nav: m => { const w = m.one(o.what); return w && w.body && m.vehicle !== w ? w : to; },
-      start: m => { m.objective(text, { hint: { kind: 'deliver', what: o.what, to, tow: o.tow, health: o.health } }); m.marker(to, { color: '#7aff8a', r: Math.min(r, 28) }); } });   // (health: the bot spares the car)
+      start: m => { m.objective(text, { hint: { kind: 'deliver', what: o.what, to, tow: o.tow, health: o.health, style: o.style } }); m.marker(to, { color: '#7aff8a', r: Math.min(r, 28) }); } });   // (health: the bot spares the car)
   }
   /** keep within o.lose (400) of a tagged target until o.until(m) holds (or it gets to o.to); out of reach for o.grace
    *  (4 s) fails the stage */
@@ -460,7 +472,7 @@ export class MissionContext {
       const list = m.tagged(tag); if (!list.length) return { value: true };
       const t = list.find(alive); if (!t) return { value: true };
       return m.dist(t) < (o.reach || 30) && (t.speed || 0) < 10 ? { value: true } : undefined;
-    }, { nav: m => m.one(tag), start: m => { m.objective(o.text || 'Stop them', { hint: { kind: 'kill', targets: tag } }); const t = m.one(tag); if (t) m.marker(t, { color: '#ff5a4a' }); } });
+    }, { nav: m => m.one(tag), start: m => { m.objective(o.text || 'Stop them', { hint: { kind: 'kill', targets: tag, vehicle: o.vehicle } }); const t = m.one(tag); if (t) m.marker(t, { color: '#ff5a4a' }); } });   // (o.vehicle: the tag of the car to chase in, the bot's to board first)
   }
   /** keep a tagged actor alive until o.until(m) holds: its death fails the stage */
   protect(tag, o = {}) {

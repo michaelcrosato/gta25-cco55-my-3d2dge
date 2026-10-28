@@ -16,6 +16,7 @@ import { UILayer } from './ui/layer.js';
 import { Screens } from './ui/screens.js';
 import { Pen } from './ui/tenfoot.js';
 import { defineSettings } from './ui/settings.js';
+import { DualSenseHID } from './input/dualsense-hid.js';
 
 export function createApp({ game, links }) {
   const views = new ViewManager(game), bindings = Bindings.load(game.input), activity = new Activity(game.input);
@@ -25,6 +26,7 @@ export function createApp({ game, links }) {
   // the UI layer (PLAN.md 7.7, 8.18): the HUD and the menus on a canvas of their own, at the HUD size's scale, over
   // the player's settings (the engine's store with MOTOR's own); took: a screen had the step's input (the scene's
   // controls read nothing of it)
+  game.haptics = !game.headless && DualSenseHID.supported() ? new DualSenseHID(navigator.hid) : null;   // (a DualSense's own report by WebHID, L7: the setting opens it)
   defineSettings(game);
   // no touch controls (PLAN.md 8.20): the engine's floating stick off (no scene asks for its touch buttons either)
   if (game.input) { game.input.touchEnabled = false; game.input.touchFilter = () => false; }
@@ -45,7 +47,7 @@ export function wrapScenes(app, specs) {
       app.bindings.update(dt);
       app.ui.took = U.isOpen; if (U.isOpen) { U.update(dt); if (!U.isOpen) app.bindings.spendHeld(); }   // (the press that closed the last screen is spent: play never reads it)
       const held = U.pausing; if (held !== app.ui.held) { app.ui.held = held; try { app.game.audio.duck(held); } catch (e) { /* no audio yet */ } }   // (the music quieter under the pause)
-      if (held) return;   // (the scene stands still under the pause, the map, the settings from it)
+      if (held) { if (app.game.haptics) app.game.haptics.rest(); return; }   // (the scene stands still under the pause, the map, the settings from it; the triggers free)
       if (update) update(dt);
     };
     s.draw = r => { if (draw) draw(r); uiFrame(app, s); };

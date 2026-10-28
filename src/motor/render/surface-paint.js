@@ -20,6 +20,7 @@ export const PALETTE = {
   marble: { stones: ['#d8d2c4', '#cec8ba', '#e2dccc'], mortar: '#9a9488', hi: '#f0eadc', lo: '#b4aea0', speck: '#c4beb0' },
   carpet: { base: '#6a2a32', dark: '#58222a', light: '#7a343c' }, steel: { base: '#5a5e66', line: '#3e4248', rivet: '#8a8e96' },
   concrete: { base: '#5e5c5a', dark: '#504e4c', light: '#6a6866' }, sewer: { base: '#2a3a2a', dark: '#1e2c20', light: '#4a5a3a' },
+  dance: { tiles: ['#c83ac8', '#3ac8e8', '#e8c83a', '#5a3ae8', '#e84a7a'], grout: '#1a1420' },
   // the handling strips (PLAN.md 8.23): asphalt under standing water, a black oil spill, sheet ice
   wet: { base: '#1e2230', var: 4 }, oil: { base: '#121016', var: 12 }, ice: { base: '#c8dcea', dark: '#a6c2d6', light: '#eaf6ff' },
   paint: { yellow: '#d6ac34', white: '#d8d8dc', kerb: '#9a98a0', kerbDark: '#5a5860' },
@@ -43,6 +44,7 @@ export class SurfacePainter {
       else if (surf === 'carpet') { const b = hex(((x >> 3) + (y >> 3)) & 1 ? pal.base : pal.dark), n = E.hash2(x, y) < .2 ? 6 : 0; c = [b[0] + n, b[1] + n, b[2] + n]; }   // (a woven check)
       else if (surf === 'steel') { const edge = (x & 31) === 0 || (y & 31) === 0, rivet = ((x & 31) === 4 || (x & 31) === 28) && ((y & 31) === 4 || (y & 31) === 28); c = hex(rivet ? pal.rivet : edge ? pal.line : pal.base); if (!edge && !rivet) { const n = (E.noise2(x * .2, y * .9) + 1) * 3; c = [c[0] + n, c[1] + n, c[2] + n]; } }   // (plates, their seams and rivets)
       else if (surf === 'sewer') c = E.tex.water(x, y, pal);
+      else if (surf === 'dance') { const tx = x >> 4, ty = y >> 4, edge = (x & 15) === 0 || (y & 15) === 0; c = hex(edge ? pal.grout : pal.tiles[Math.floor(E.hash2(tx, ty) * pal.tiles.length) % pal.tiles.length]); if (!edge) { const k = ((x & 15) + (y & 15)) < 6 ? 18 : 0; c = [c[0] + k, c[1] + k, c[2] + k]; } }   // (a disco floor: a colour a tile, each with a lit corner)
       else if (surf === 'water' || surf === 'deep') c = E.tex.water(x, y, pal);
       else if (surf === 'pier') c = E.tex.planks(x, y, { base: pal.base, dark: E.shade(pal.base, -.15), line: pal.line });
       else { const b = hex(pal.base || '#2e2e36'), n = (E.noise2(x * .27, y * .27) + 1) * (pal.var || 6) * .5 + (E.hash2(x, y) < .07 ? -6 : E.hash2(x + 5, y) > .96 ? 7 : 0); c = [b[0] + n, b[1] + n, b[2] + n + 2]; }

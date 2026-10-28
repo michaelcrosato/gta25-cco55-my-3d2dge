@@ -49,11 +49,11 @@ export class Shots {
   get list() { return this.pool.list; }
   /** fire one: { x, y, z (the muzzle), dir [dx, dy, dz] (unit), speed, range, damage, by (the shooter's id), team,
    *  weapon (its id), vehicle (the shooter's own vehicle's id: a drive-by never hits it), tracer (draw a streak), casing
-   *  ([x, y, z, side]: eject one), kind ('bullet' | 'pellet' | 'flame') } */
+   *  ([x, y, z, side]: eject one), kind ('bullet' | 'pellet' | 'flame' | 'flare'), burn (a flare's: seconds what it hits burns) } */
   fire(o) {
     const sp = o.speed || 900, d = o.dir;
     const b = this.pool.fire({ x: o.x, y: o.y, z: o.z, vx: d[0] * sp, vy: d[1] * sp, vz: d[2] * sp, r: 1, dmg: o.damage || 0, life: (o.range || 300) / sp, team: o.team || 'player',
-      data: { by: o.by ?? null, vehicle: o.vehicle ?? null, weapon: o.weapon || '', kind: o.kind || 'bullet', ox: o.x, oy: o.y, oz: o.z } });
+      data: { by: o.by ?? null, vehicle: o.vehicle ?? null, weapon: o.weapon || '', kind: o.kind || 'bullet', ox: o.x, oy: o.y, oz: o.z, burn: o.burn || 0 } });
     if (!b) return null;
     this.fired++;
     if (o.tracer) this.tracers.push({ b, x0: o.x, y0: o.y, z0: o.z, t: 0 });

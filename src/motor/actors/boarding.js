@@ -9,6 +9,8 @@
 // vehicle.sit(ped, seat). The walk to the door is the Ped's own (a short auto-walk; the stick cancels it).
 import { E } from '../engine.js';
 import { TUNE, knob } from '../core/tune.js';
+import { seatHeight } from '../sim/vehicle/model.js';
+import { flyer } from '../sim/vehicle/defs.js';
 
 knob('Vehicles', 'breakIn', 'Break-in time', 1.2, .2, 4, .1, 'Seconds to jimmy a locked car (police cars) before getting in');
 knob('Vehicles', 'bailSpeed', 'Bail-out speed', 60, 20, 200, 5, 'Getting out above this speed (u/s) is a dive roll');
@@ -18,8 +20,8 @@ knob('Vehicles', 'boardSpeed', 'Boards below', 45, 0, 200, 5, 'A vehicle moving 
 const W = (v, lx, ly) => { const c = Math.cos(v.heading), s = Math.sin(v.heading); return { x: v.x + lx * c - ly * s, y: v.y + lx * s + ly * c }; };
 const lerpP = (a, b, u) => ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
 const ease = E.ease;
-/** the seat's height in a vehicle (the rider of a bike sits up on it) */
-const seatZ = v => v.z + (v.cls === 'bike' ? 7 : v.cls === 'boat' ? 4 : 6);
+/** the seat's height in a vehicle: the model's seat's own (a bike's saddle), else its class's (model.js SEAT_Z) */
+const seatZ = (v, s) => v.z + seatHeight(v.cls, s);
 /** the way into the car from a door's side */
 const inward = (v, d) => d.side ? v.heading - d.side * Math.PI / 2 : v.heading + Math.PI;
 /** a bail-out's dive: out of the door's side (away from the car), carried forward; its two legs, the dive and the roll,
@@ -31,7 +33,7 @@ E.ACTIONS.enterCar = {
   beats: [['open', .3], ['in', .4], ['shut', .18]],
   setup(A) { A.from = { x: A.start.x, y: A.start.y }; },
   at(A, b, u) {
-    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door = W(v, d.x, d.y), seat = W(v, s.x, s.y), z0 = v.z, z1 = seatZ(v);
+    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door = W(v, d.x, d.y), seat = W(v, s.x, s.y), z0 = v.z, z1 = seatZ(v, s);
     if (b === 'open') return { ...lerpP(A.from, door, ease.outQuad(u)), z: z0, state: { facing: inward(v, d), stance: 'ready' } };
     if (b === 'in') return { ...lerpP(door, seat, ease.inOut(u)), z: z0 + (z1 - z0) * u, state: { facing: inward(v, d) + (v.heading - inward(v, d)) * u, crouch: true } };
     return { ...seat, z: z1, state: { facing: v.heading, crouch: true } };
@@ -41,7 +43,7 @@ E.ACTIONS.carjack = {
   beats: [['open', .28], ['yank', .4], ['throw', .32], ['in', .4], ['shut', .16]],
   setup(A) { A.from = { x: A.start.x, y: A.start.y }; },
   at(A, b, u) {
-    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door = W(v, d.x, d.y), seat = W(v, s.x, s.y), z1 = seatZ(v), face = inward(v, d);
+    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, door = W(v, d.x, d.y), seat = W(v, s.x, s.y), z1 = seatZ(v, s), face = inward(v, d);
     // the victim: out of the seat, past the jacker, onto the ground beyond the door
     const out = d.side ? W(v, d.x - 10, d.y + d.side * 16) : W(v, d.x - 16, d.y), vs = { facing: face + Math.PI };
     if (b === 'open') return { ...lerpP(A.from, door, ease.outQuad(u)), z: v.z, state: { facing: face, stance: 'ready' }, other: { ...seat, z: z1, state: { ...vs, crouch: true } } };
@@ -59,13 +61,13 @@ E.ACTIONS.breakIn = {
 E.ACTIONS.mount = {
   beats: [['hop', .32]],
   setup(A) { A.from = { x: A.start.x, y: A.start.y, z: A.start.z }; },
-  at(A, b, u) { const v = A.o.vehicle, s = A.o.seatSpot, seat = W(v, s.x, s.y), z1 = seatZ(v); return { ...lerpP(A.from, seat, ease.outQuad(u)), z: A.from.z + (z1 - A.from.z) * u + Math.sin(u * Math.PI) * 5, state: { facing: v.heading, air: u < .85, crouch: u > .7 } }; },
+  at(A, b, u) { const v = A.o.vehicle, s = A.o.seatSpot, seat = W(v, s.x, s.y), z1 = seatZ(v, s); return { ...lerpP(A.from, seat, ease.outQuad(u)), z: A.from.z + (z1 - A.from.z) * u + Math.sin(u * Math.PI) * 5, state: { facing: v.heading, air: u < .85, crouch: u > .7 } }; },
 };
 E.ACTIONS.exitCar = {
   beats: [['open', .24], ['out', .36], ['shut', .14]],
   setup(A) { A.from = { x: A.start.x, y: A.start.y }; },
   at(A, b, u) {
-    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, seat = W(v, s.x, s.y), door = W(v, d.x, d.y), z1 = seatZ(v), face = inward(v, d) + Math.PI;
+    const v = A.o.vehicle, d = A.o.door, s = A.o.seatSpot, seat = W(v, s.x, s.y), door = W(v, d.x, d.y), z1 = seatZ(v, s), face = inward(v, d) + Math.PI;
     if (b === 'open') return { ...seat, z: z1, state: { facing: v.heading, crouch: true } };
     if (b === 'out') return { ...lerpP(seat, door, ease.inOut(u)), z: z1 + (v.z - z1) * u, state: { facing: v.heading + (face - v.heading) * u, crouch: u < .5 } };
     return { ...door, z: v.z, state: { facing: face } };
@@ -86,9 +88,11 @@ E.ACTIONS.bailOut = {
 };
 
 /** the door a ped at (x, y) uses to reach seat (the nearest door that serves it; any door for a driver's seat: a
- *  passenger door slides across), and whether getting in needs a jack, a break-in or a hop. null: it can't be boarded */
-export function boardingFor(ped, v, seat = 0) {
-  if (!v.body || v.wrecked || v.sunk || v.cls === 'heli' || v.cls === 'rail' || v.towedBy || !level(ped, v)) return null;
+ *  passenger door slides across), and whether getting in needs a jack, a break-in or a hop. null: it can't be boarded.
+ *  o.clear(x, y): whether a door's spot can be stood at; that door blocked (a car parked against it), the nearest clear
+ *  one of any seat's, a slide across */
+export function boardingFor(ped, v, seat = 0, o = {}) {
+  if (!v.body || v.wrecked || v.sunk || (flyer(v) && !v.body.landed) || v.cls === 'rail' || v.towedBy || !level(ped, v)) return null;   // (a heli on the ground only: the Eye has no doors)
   if (v.speed > TUNE.boardSpeed) return null;
   const doors = v.model.doors; if (!doors.length) return null;
   let best = null, bd = Infinity;
@@ -98,6 +102,11 @@ export function boardingFor(ped, v, seat = 0) {
     if (dist < bd) { bd = dist; best = d; }
   }
   if (!best) return null;
+  if (o.clear && v.cls !== 'bike' && !o.clear(W(v, best.x, best.y).x, W(v, best.x, best.y).y)) {
+    let alt = null, ad = Infinity;
+    for (const d of doors) { const p = W(v, d.x, d.y), dist = Math.hypot(p.x - ped.x, p.y - ped.y); if (o.clear(p.x, p.y) && dist < ad) { ad = dist; alt = d; } }
+    if (alt) { best = alt; bd = ad; }
+  }
   const s = v.model.seats[Math.min(seat, v.model.seats.length - 1)] || { x: 0, y: 0 }, occupant = v.seats[seat];
   const kind = v.cls === 'bike' || (v.cls === 'boat' && !v.model.doors.some(d => d.side === 0)) ? 'mount' : occupant ? 'carjack' : 'enterCar';
   return { vehicle: v, door: best, seat, seatSpot: s, kind, victim: occupant || null, locked: v.locked && kind !== 'mount' && !occupant, dist: bd, at: W(v, best.x, best.y) };
@@ -108,13 +117,14 @@ export function inReach(ped, v) { const dx = ped.x - v.x, dy = ped.y - v.y, c = 
 export const level = (a, b, tol = 12) => Math.abs((a.z || 0) - (b.z || 0)) < tol;
 /** the way out: the seat's own door (a driver's on the left), or, where that is blocked, the nearest clear one (across
  *  the car); a dive roll above the bail-out speed. ok(x, y): can a body stand there (a wall, the water)? A boat is only
- *  left where a door opens onto dry ground (null otherwise: nobody swims in the slice) */
+ *  left where a door opens onto dry ground (null otherwise: nobody swims in the slice), a heli only landed and where a
+ *  door opens onto ground a ped can walk (a roof isn't: flown down first) */
 export function exitFor(ped, v, ok = null) {
-  const seat = v.seats.indexOf(ped); if (seat < 0) return null;
+  const seat = v.seats.indexOf(ped); if (seat < 0 || (flyer(v) && !v.body.landed)) return null;   // (a heli is left on the ground, never from the air)
   const own = v.model.doors.filter(d => d.seat === seat), rest = v.model.doors.filter(d => d.seat !== seat);
   let door = null;
   for (const d of [...own, ...rest]) { const p = W(v, d.x, d.y); if (!ok || ok(p.x, p.y)) { door = d; break; } }
-  if (!door) { if (v.cls === 'boat') return null; door = own[0] || v.model.doors[0] || { id: 'x', x: 0, y: -v.hw - 6, side: -1, seat }; }
+  if (!door) { if (v.cls === 'boat' || flyer(v)) return null; door = own[0] || v.model.doors[0] || { id: 'x', x: 0, y: -v.hw - 6, side: -1, seat }; }
   const s = v.model.seats[Math.min(seat, v.model.seats.length - 1)] || { x: 0, y: 0 }, at = W(v, door.x, door.y), kind = v.speed > TUNE.bailSpeed && v.cls !== 'boat' ? 'bailOut' : 'exitCar';
   const plan = { vehicle: v, door, seat, seatSpot: s, kind, at };
   if (kind === 'bailOut' && ok) {   // the dive goes as far as the ground it lands on goes on (a wall, the deck's edge: short of it)

@@ -147,6 +147,13 @@ export function buildDistrict(spec, o = {}) {
   const railType = nextType++; types[railType] = { h: 7, top: '#8a8a92', side: '#6a6a72', face: 'stone', roof: 'plain', texture: false };
   for (let i = 0; i < W * H; i++) if (cells[i] === -2) cells[i] = railType;
   for (const wall of spec.walls || []) { const id = nextType++; types[id] = wall.type; rect(wall.rect, (x, y, i) => { cells[i] = id; }); }
+  // openings: cells cut back out of the walls, after everything above (a crossing's gate through an embankment, X1:
+  // the blocks, lots and props laid out as they were without it); a deck cut out over the water names its railings
+  // (rails: rects, the bridge's outer rows: X5's Causeway)
+  for (const o of spec.openings || []) {
+    rect(o.rect, (x, y, i) => { cells[i] = 0; C.lot[i] = -1; C.surface[i] = SURF[o.surface || 'road']; });
+    for (const r of o.rails || []) rect(r, (x, y, i) => { cells[i] = railType; });
+  }
   C.types = types;
 
   // 5. decks: the Loop, the L, stubs; pillars and railings; raised solids for peds
@@ -359,7 +366,7 @@ function buildDeck(D, C, solids, props) {
     }
     for (const [nx, ny, z0, z1, axis] of notch) put(nx, ny, z0, z1, axis);
   }
-  const deck = new Deck({ id: D.id, kind: D.kind || 'road', width: D.width, z, cells: [...cells.values()], ramps, thickness: thick, stations: D.stations || [], lanes: D.lanes || 2, gaps: D.gaps || [], path: D.path.slice(), closed: !!D.closed });
+  const deck = new Deck({ id: D.id, kind: D.kind || 'road', width: D.width, z, cells: [...cells.values()], ramps, thickness: thick, stations: D.stations || [], lanes: D.lanes || 2, gaps: D.gaps || [], path: D.path.slice(), closed: !!D.closed, surface: D.surface || null });   // (surface: its top's look, 'slag' a stunt ramp of dross: X4)
   // peds stand on it: the flat parts as one solid per cell row run (merged), ramps in 8-unit treads (the engine's step is 2)
   for (const c of deck.cells) {
     if (c.z0 === c.z1) { solids.push({ x: (c.cx + .5) * T, y: (c.cy + .5) * T, z: c.z0 - thick, top: c.z0, hx: 8, hy: 8, deck: D.id }); continue; }

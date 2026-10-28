@@ -64,6 +64,17 @@ const BIT_PARTS = [P([MX0 - 1.1, -3, 30, MX0, 3, 35.5], DARK, 'trim'), P([MX0 - 
   ...[0, 1, 2, 3, 4].map(i => P([MX0 - 3.3, -1.7, 16.4 + i * 1.64, MX0 - .9, 1.7, 16.4 + (i + 1) * 1.64], i % 2 ? FLUTE : BIT, 'trim')),
   P([MX0 - 2.7, -1, 15.2, MX0 - 1.5, 1, 16.4], FLUTE, 'trim')];
 
+// THE CRANE KIT (EXPANSION.md 6, X3: the Rust Monks' Scrapper): a rust-red deck, two cubes of crushed scrap on it behind
+// the cab, the crane's turret at the back, its bronze boom stepping up and back over the tail (above the roof line in
+// 'cabin' parts, after the cab), and the scrap magnet hung from its tip on a cable
+const RUSTDECK = '#5a3a2a', SCRAP1 = '#8a4a2a', SCRAP2 = '#6a5a4a', BRONZE = '#c89a4a', MAGNET = '#2a2a30';
+const CRANE_LOW = [], CRANE_HIGH = [];
+{ const n = 8, xa = -32, xb = -52, za = 22, zt = 40, t = 4.4, bw = 3;
+  for (let i = 0; i < n; i++) {
+    const x1 = xa + (xb - xa) * i / n, x0 = xa + (xb - xa) * (i + 1) / n - (i < n - 1 ? .5 : 0), zc = za + (zt - za) * (i + .5) / n;
+    (zc + t / 2 > zr ? CRANE_HIGH : CRANE_LOW).push(P([x0, -bw, zc - t / 2, x1, bw, zc + t / 2], BRONZE, zc + t / 2 > zr ? 'cabin' : 'glass'));
+  } }
+
 def('vehicleModels', 'hookline', {
   name: 'Hookline', class: 'tow', length: L, width: W, height: H,
   parts: [
@@ -120,6 +131,18 @@ def('vehicleModels', 'hookline', {
       ...cab(),
       ...MAST_HIGH,
       ...BIT_PARTS] },
+    // the Scrapper: the deck, the scrap, the turret (a dark ring, the bronze housing); the cab again, a bronze cross on
+    // each door and the amber beacon; the boom; the cable and the magnet behind the tail
+    crane: { parts: [
+      P([-l, -w, zb, 4.5, w, zb + 1.5], RUSTDECK, 'glass'),
+      P([-22, -12.5, zb + 1.5, -9, -1, zb + 9.5], SCRAP1, 'glass'), P([-21, 1, zb + 1.5, -10, 12.5, zb + 7.5], SCRAP2, 'glass'), P([-20, -10, zb + 9.5, -12, -3, zb + 11], SCRAP2, 'glass'),
+      P([-38, -7.5, zb + 1.5, -27, 7.5, zb + 4], DARK, 'glass'), P([-37, -5.5, zb + 4, -28, 5.5, 22], BRONZE, 'glass'),
+      ...CRANE_LOW,
+      ...cab(),
+      ...pair(13, w, zf + 2.6, 15.4, w + .3, zf + 3.6, BRONZE, 'trim'), ...pair(13.7, w, zf + .6, 14.7, w + .3, zw - .3, BRONZE, 'trim'),
+      P([13.6, -4, zr, 17.2, 4, zr + .6], DARK, 'cabin'), P([14.2, -2.2, zr + .6, 16.6, 2.2, zr + 2.4], AMBER, 'cabin'),
+      ...CRANE_HIGH,
+      P([-51, -.6, 19, -49.8, .6, 38], CABLE, 'trim'), P([-55, -6, 13.5, -45.8, 6, 19], MAGNET, 'trim'), P([-54, -5, 19, -46.8, 5, 20], BRONZE, 'trim')] },
   },
   about: 'A heavy conventional tow truck: a long nose, a square cab with a stack, a low bed on twin rear axles.',
 });
@@ -131,7 +154,7 @@ def('vehicles', 'hookline', {
   palette: ['#f0c020', '#dc5e18', '#e8e8ea'],
   handling: { mass: 2600, top: 200, accel: 50.5, brake: 520, grip: 320, drift: .35, steer: .66, steerRate: 2.6, drive: 'awd', wheelbase: 46, cg: .7, cgHeight: .32, rolling: .015, reverseTop: 60, gears: 4 },
   spec: { t100: 2.3, top: 200, brake100: 15 },
-  spawn: { zones: ['harbor', 'brick'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['tow', 'truck', 'service'],
+  spawn: { zones: ['harbor', 'brick', 'scrapyard'], weight: 1, timeOfDay: ['day', 'night'] }, price: 0, tags: ['tow', 'truck', 'service'],
   about: 'Gus\'s wrecker: slow off the line, heavy in the corners, and the fire button drops the hook on whatever is behind it.',
 });
 
@@ -143,4 +166,15 @@ def('vehicles', 'drillrig', {
   spec: { t100: 2.6, top: 185, brake100: 16 },
   price: 0, tags: ['tow', 'truck', 'heist'],
   about: 'A flatbed carrying a drilling rig: a yellow frame, a lattice mast high over the cab, the bit hung behind it. Top-heavy and slow.',
+});
+
+// The Scrapper (EXPANSION.md 6, X3): the Rust Monks' crane truck, the Hookline's chassis with a scrap magnet on a boom.
+// The Hookline's handling: the crane's weight sits where the tow boom's does
+def('vehicles', 'scrapper', {
+  name: 'Scrapper', model: 'hookline', kit: 'crane', class: 'tow', role: 'gang', seats: 2, radio: 'wheelz', health: 190, horn: 'truck',
+  palette: ['#a8542a', '#7a3a22', '#8a6a3a'],
+  handling: { mass: 2600, top: 200, accel: 50.5, brake: 520, grip: 320, drift: .35, steer: .66, steerRate: 2.6, drive: 'awd', wheelbase: 46, cg: .7, cgHeight: .32, rolling: .015, reverseTop: 60, gears: 4 },
+  spec: { t100: 2.3, top: 200, brake100: 15 },
+  price: 0, tags: ['truck', 'gang', 'crane'],
+  about: 'The Rust Monks\' crane truck: rust paint, a cube of scrap on the deck and a scrap magnet swinging off the back.',
 });

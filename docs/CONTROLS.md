@@ -58,6 +58,24 @@ chords and the held modifiers. PlayStation names below; an Xbox or Nintendo pad 
 | Photo mode | Create | B |
 | Pause | Options | Esc |
 
+In a helicopter (Channel 6's SkyCam) the same buttons fly it: the stick yaws, R2 / W pushes on and L2 / S back, R1 /
+Space climbs and L1 / Shift descends; it holds its height between. Let down slow over a street or a roof, it settles,
+and △ / E gets out only on the ground.
+
+In a boat (the Bilge Rat in Lowtown's harbour; the marina's Splashes and the Club's Regatta in Glass Heights) a car's
+controls drive it: R2 / W the throttle, L2 / S astern, the stick the helm; △ / E gets out only beside dry ground, a quay,
+a pier or the shore.
+
+In a plane (the Duster on Ironside Airstrip; the Gull, a seaplane, at the Yacht Club's pier in Glass Heights) R2 / W is the throttle and L2 / S the
+brake; on the ground the stick steers it at a taxi, and past its take-off speed R1 / Space lifts it off. In the air the
+stick banks it round, R1 climbs and L1 / Shift descends (it holds its height between), and too slow its wings let go:
+it drops its nose until it has the speed again. Set it down level, slow and gently on the ground (the Gull on the
+water); anything else is a crash. It turns back by itself when it would fly out past the world's edge (along the edge it
+flies on), and △ / E gets out only on the ground (the Gull afloat: alongside a pier or the shore).
+
+On foot at the L: △ / E at a station's stairs (the blue rings, at the sidewalk and up on the platform) climbs or goes
+down; on the platform, △ / E by a stopped train boards it, and at a later stop gets off.
+
 ## Photo mode
 
 | Action | Controller | Keyboard and mouse |
@@ -69,8 +87,21 @@ chords and the held modifiers. PlayStation names below; an Xbox or Nintendo pad 
 | Zoom in | R2 | E |
 | Zoom out | L2 | Q |
 | Change view | R3 (tap) | V |
+| The look (a filter) | R1 | F |
 | Take the shot | ✕ | Space, Enter |
 | Back | ○, Create | Esc, B |
+
+## At an arcade cabinet
+
+Stand at the cabinet (Club Chrome's VIP lounge) and press △ / E to play; its title takes a coin on ✕.
+
+| Action | Controller | Keyboard and mouse |
+|---|---|---|
+| Up, down, left, right | left stick, D-pad | W A S D, arrows |
+| Fire (held: autofire) | ✕ | Z, Space |
+| Bomb | ○ | X |
+| Step away | △ | E |
+| Pause | Options | Esc |
 
 ## Menus
 
@@ -95,4 +126,11 @@ chords and the held modifiers. PlayStation names below; an Xbox or Nintendo pad 
 - The mouse in menus: hover focuses, a click confirms, the wheel scrolls, a right click goes back.
 - Aim with the right stick, or the mouse (the ground under the pointer).
 - Never Ctrl or Alt chords: Ctrl+W closes the tab and Alt opens the browser's menus.
+- A DualSense's triggers and light bar (SETTINGS, CONTROLS, DualSense haptics): in Chrome or Edge switched on with a key
+  or a click (the browser asks which device; a pad's button can't open its prompt), in the desktop app at once.
+- The desktop app: F11 out of full screen and back; Esc stays the pause.
+- Turning the camera (Turn left, Turn right: [ and ], or R3 held with the right stick pushed): a tap turns any view a
+  quarter, eased round; held, the camera spins. Let go, ISO settles on the next of its eight angles (as Final Fantasy
+  Tactics and Xenogears rest), TOP-DOWN and MODE 7 stay at the angle you stopped at; the chase camera swings a quarter
+  a tap. The spin's speed is CAMERA, Camera spin on the dev tuning pages (`docs/TUNING.md`).
 

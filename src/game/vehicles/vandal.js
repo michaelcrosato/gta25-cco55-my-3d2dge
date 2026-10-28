@@ -55,7 +55,7 @@ def('vehicleModels', 'vandal', {
     P([-16.2, -1.2, 9.8, -15.9, 1.2, 10.6], PLATE, 'trim'),
   ],
   wheels: [{ x: fx, y: 0, r, steer: true }, { x: rx, y: 0, r, steer: false }],
-  seats: [{ x: -6.6, y: 0 }],
+  seats: [{ x: -6.6, y: 0, z: 8.2 }],   // (z: the rider up on the saddle, whose top is 11.8)
   // (side 0: a bike has no door, and a door with a side is drawn swinging open while its rider gets off)
   doors: [{ id: 'l', x: -5, y: -10, side: 0, seat: 0 }, { id: 'r', x: -5, y: 10, side: 0, seat: 0 }],
   lights: { head: [[13.4, -1.4, 11.6], [13.4, 1.4, 11.6]], tail: [[-16, 0, 11.4]], siren: [] },
@@ -68,6 +68,6 @@ def('vehicles', 'vandal', {
   // (the model's axles; the rider's weight back and a grippy locked rear, so its handbrake slide at speed stays catchable)
   handling: { mass: 220, top: 320, accel: 140, brake: 700, grip: 475, drift: .82, steer: .45, steerRate: 4, drive: 'rwd', wheelbase: 22, cg: .62, reverseTop: 30, gears: 6 },
   spec: { t200: 2.0, top: 320, brake200: 40 },
-  spawn: { zones: ['neon', 'brick'], weight: .5, timeOfDay: ['day', 'night'] }, price: 6000, tags: ['sport', 'bike', 'fast', 'rare'],
+  spawn: { zones: ['neon', 'brick', 'scrapyard', 'strip'], weight: .5, timeOfDay: ['day', 'night'] }, price: 6000, tags: ['sport', 'bike', 'fast', 'rare'],
   about: 'A 600 sport bike: it wheelies off the line, tops 320 and stops like a car, and it throws you off in a crash.',
 });
