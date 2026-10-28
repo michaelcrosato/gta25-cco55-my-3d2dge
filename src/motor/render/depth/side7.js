@@ -1,16 +1,18 @@
 // SIDE-SCROLL MODE 7 (PLAN.md 5.3, 8.5): the engine's "side scrolling with depth" (the stress test's view,
 // vendor/my-3d2dge/reference/stress.game.js 615-844) generalized from one hall to a chunked city. A camera on a rail
 // (level, its lens shifted to put the horizon where the stress test's 14° pitch puts it, so walls and figures stay
-// upright: DECISIONS D8): heading locked to an axis (north by default; 90° steps), it follows the focus sideways and keeps it near..far
-// ahead, moving in depth only past those. On foot it stands 70 up and keeps the focus 110-260 ahead; in a vehicle 90 up,
-// 160-380 ahead, its field widening with speed (rig); Auto-rail turns it to the axis a vehicle has held 1.5 s. The sky
-// above the horizon is the hour's backdrop, its skyline turning with the rail. The floor is drawn a screen row at a time from the floor chunks' canvases
-// (Mode 7); the TileMap's walls come as box spans, sliced a tile deep along the rail and drawn back to front with the
-// scene's actors, each face an exact quad filled with its wall texture under an affine map (a front face, square on
-// to the level camera, an upright rectangle on screen: its texture in plain scaled blits); rigs are the engine's own,
-// drawn through a View at the scale their distance gives (view7). The engine's own lighting and particles stay off in
-// this view; MOTOR draws its own. Each face says where it stands on screen, so the Stage can leave out whatever the
-// nearer walls hide (Stage._cull7).
+// upright: DECISIONS D8): its heading on an axis (north by default; Auto-rail and a mission's set piece keep it there)
+// or, turned by hand, any (D48: off the quarters it draws as the chase camera does, its floor and spans at any
+// heading), it follows the focus sideways and keeps it near..far ahead, moving in depth only past those. On foot it
+// stands 70 up and keeps the focus 110-260 ahead; in a vehicle 90 up, 160-380 ahead, its field widening with speed
+// (rig); Auto-rail turns it to the axis a vehicle has held 1.5 s. The sky above the horizon is the hour's backdrop, its
+// skyline turning with the rail. The floor is drawn a screen row at a time from the floor chunks' canvases (Mode 7);
+// the TileMap's walls come as box spans, sliced a tile deep along the rail and drawn back to front with the scene's
+// actors, each face an exact quad filled with its wall texture under an affine map (a front face, square on to the
+// level camera, an upright rectangle on screen: its texture in plain scaled blits); rigs are the engine's own, drawn
+// through a View at the scale their distance gives (view7). The engine's own lighting and particles stay off in this
+// view; MOTOR draws its own. Each face says where it stands on screen, so the Stage can leave out whatever the nearer
+// walls hide (Stage._cull7).
 //   Sort keys (depth D along the rail, far first): a side-face slice by its far edge, a front face by its depth, an actor
 //   by its own. An actor on the camera's side of a wall then always draws over it, and one beyond is hidden by the
 //   nearer slices that cross its line of sight.
@@ -18,7 +20,10 @@ import { E } from '../../engine.js';
 import { faceTexture, shadeOf, faceColor, FACE_PERIOD } from './textures.js';
 import { texturedFace } from './quads.js';
 
-const DEG = Math.PI / 180;
+const DEG = Math.PI / 180, TILE = 16, VIEW_STEP = 3;
+/** the axes at any heading in degrees (0 north, 90 east): f forward (into the screen), r to the screen's right (at the
+ *  quarters, RAIL's) */
+export function axesAt(deg) { const t = deg * DEG; return { f: [Math.sin(t), -Math.cos(t)], r: [Math.cos(t), Math.sin(t)] }; }
 /** the rail's axes by heading: f forward (into the screen), r to the screen's right; 0 = north (the camera south of the
  *  focus, looking north), 90 east, 180 south, 270 west */
 export const RAIL = { 0: { f: [0, -1], r: [1, 0] }, 90: { f: [1, 0], r: [0, 1] }, 180: { f: [0, 1], r: [-1, 0] }, 270: { f: [-1, 0], r: [0, -1] } };
@@ -36,15 +41,26 @@ export class Side7View {
       sky: ['#07061a', '#1c1438', '#3a2450'], fog: '#2a1f3e', ready: false, zoom: 1, views: new Map(), stats: { rows: 0, quads: 0, actors: 0 } }, o);
     this.fogRGB = E.hex(this.fog); this.mode7 = true;
   }
-  /** the heading kept images are keyed by (a body's, a prop's image is redrawn when it moves on) */
-  get keyHeading() { return this.heading; }
-  /** the rail's axes { f, r } (the chase camera's own, at any heading: ChaseView) */
-  ax() { return RAIL[this.heading]; }
+  /** the heading kept images are keyed by (a body's, a prop's image is redrawn when it moves on): off the quarters, in
+   *  steps of 1.5° (turning, each frame's would never be reused) */
+  get keyHeading() { return this.aligned ? this.heading : Math.round(this.heading / 1.5) * 1.5; }
+  /** is the rail on a quarter (0, 90, 180, 270)? Then it draws with the rail's own fast paths; turned off them by hand
+   *  (D48), as at any heading (the chase camera's drawing) */
+  get aligned() { return RAIL[this.heading] !== undefined; }
+  /** the rail's axes { f, r }: RAIL's on a quarter, else axesAt the heading (kept while it holds) */
+  ax() { return RAIL[this.heading] || (this._axOf === this.heading ? this._ax : (this._axOf = this.heading, this._ax = axesAt(this.heading))); }
   /** turn the rail to a heading (0, 90, 180, 270) round the focus, keeping its distance */
   setHeading(deg, fx, fy) {
     deg = ((Math.round(deg / 90) * 90) % 360 + 360) % 360; if (deg === this.heading && this.ready) return;
     const d = (this.near + this.far) / 2, a = RAIL[deg]; this.heading = deg;
     if (fx !== undefined) { this.x = fx - a.f[0] * d; this.y = fy - a.f[1] * d; this.ready = true; }
+  }
+  /** turn to any heading (degrees) about the focus at (fx, fy), keeping it where it stands on screen (its depth along
+   *  the rail and across it): the turn buttons' spin (D48) */
+  orbit(deg, fx, fy) {
+    const a0 = this.ax(), rx = fx - this.x, ry = fy - this.y, D = rx * a0.f[0] + ry * a0.f[1], L = rx * a0.r[0] + ry * a0.r[1];
+    this.heading = ((deg % 360) + 360) % 360; if (!this.ready || fx === undefined) return;
+    const a = this.ax(); this.x = fx - a.f[0] * D - a.r[0] * L; this.y = fy - a.f[1] * D - a.r[1] * L;
   }
   /** the lens for where the focus is (in a vehicle or not), how fast (speed01, 0..1 of top speed) and how high (fz: the
    *  lens rides that much higher, on a deck or in the air): eased, so getting in or out moves the camera rather than
@@ -115,8 +131,8 @@ export class Side7View {
   }
   /** the engine View a rig is drawn with at k pixels per unit (whole 1/16ths, so views are reused), facing the rail */
   view(k) {
-    const q = Math.max(1 / 16, Math.round(k * 16) / 16), key = this.heading * 1000 + q; let v = this.views.get(key);
-    if (!v) { if (this.views.size > 400) this.views.clear(); v = new E.View('side7', 'Mode 7', (360 - this.heading) % 360, this.pitch, q, 1); this.views.set(key, v); }
+    const q = Math.max(1 / 16, Math.round(k * 16) / 16), hd = this.aligned ? this.heading : (Math.round(this.heading / VIEW_STEP) * VIEW_STEP) % 360, key = hd * 1000 + q; let v = this.views.get(key);   // (off the quarters: in 3° steps)
+    if (!v) { if (this.views.size > 400) this.views.clear(); v = new E.View('side7', 'Mode 7', (360 - hd) % 360, this.pitch, q, 1); this.views.set(key, v); }
     return v;
   }
   /** the chunk range [i0, j0, i1, j1] the camera's wedge can see (to farClip) */
@@ -155,6 +171,7 @@ export class Side7View {
    *  chunk's pixels read once and kept with it), past the far clip or off the map the fog's colour, and put in with one
    *  putImageData (a drawImage a row a chunk was about 420 calls a frame) */
   drawFloor(g, floor) {
+    if (!this.aligned) return this._floorAny(g, floor);
     const P = this.P, W = P.W, H = P.H, top = Math.max(0, Math.ceil(P.hy) + 1); if (top >= H) return;
     let img = this._img; if (!img || img.width !== W || img.height !== H) { img = this._img = g.createImageData(W, H); this._px = new Uint32Array(img.data.buffer); }
     const out = this._px, S = floor.size, pad = floor.pad, n = S + 2 * pad, ns = P.f[0] === 0, s = ns ? P.r[0] : P.r[1];   // s: +1 or -1, the screen's x with or against the world axis
@@ -217,7 +234,8 @@ export class Side7View {
    *  slice's far edge), front faces (key: their depth) and the tops of spans lower than the camera. focus: [x, y]; a
    *  span wholly between the camera and the focus, across its line of sight, drops to a stub (its cutH) */
   spanItems(spans, items, focus, night = true) {
-    const a = this.ax(), P = this.P, T = 16, PER = FACE_PERIOD, mod = (v, m) => ((v % m) + m) % m;
+    if (!this.aligned) return this._spansAny(spans, items, focus, night);
+    const a = this.ax(), P = this.P, T = TILE, PER = FACE_PERIOD, mod = (v, m) => ((v % m) + m) % m;
     const fD = focus ? this.depth(focus[0], focus[1]) : 0, fL = focus ? (focus[0] - this.x) * a.r[0] + (focus[1] - this.y) * a.r[1] : 0;
     const cAlong = this.x * a.f[0] + this.y * a.f[1], cAcross = this.x * a.r[0] + this.y * a.r[1];   // the camera's own coordinates along and across the rail
     for (const s of spans) {
@@ -253,5 +271,98 @@ export class Side7View {
         items.push(it);
       }
     }
+  }
+  /* ---- at any heading (the chase camera's, and MODE 7 turned off its quarters): the drawing generalized where the
+   * rail made it simple ---- */
+  /** the floor as one raster, each buffer row a line across the world at its depth: its pixels stepped in both axes,
+   *  each read from its floor chunk's texels (the last chunk kept while the row stays in it) */
+  _floorAny(g, floor) {
+    const P = this.P, W = P.W, H = P.H, top = Math.max(0, Math.ceil(P.hy) + 1); if (top >= H) return;
+    let img = this._img; if (!img || img.width !== W || img.height !== H) { img = this._img = g.createImageData(W, H); this._px = new Uint32Array(img.data.buffer); }
+    const out = this._px, S = floor.size, pad = floor.pad, n = S + 2 * pad, a = this.ax(), [fr, fg, fb] = this.fogRGB, FOG = ((255 << 24) | (fb << 16) | (fg << 8) | fr) >>> 0;
+    const MW = floor.W, MH = floor.H; let rows = 0;
+    for (let by = top; by < H; by++) {
+      const D = this.rowDepth(by + .5), o = by * W;
+      if (!D || D > this.farClip) { out.fill(FOG, o, o + W); continue; }
+      const step = D / P.F, sx = a.r[0] * step, sy = a.r[1] * step, L0 = (.5 - P.cx) * step;
+      let x = this.x + a.f[0] * D + a.r[0] * L0, y = this.y + a.f[1] * D + a.r[1] * L0, ci = -1, cj = -1, px = null, ox = 0, oy = 0;
+      for (let i = 0; i < W; i++, x += sx, y += sy) {
+        if (x < 0 || y < 0 || x >= MW || y >= MH) { out[o + i] = FOG; continue; }
+        const ti = Math.floor(x / S), tj = Math.floor(y / S);
+        if (ti !== ci || tj !== cj) { ci = ti; cj = tj; px = floor.pixels(ci, cj); ox = pad - ci * S; oy = pad - cj * S; }
+        out[o + i] = px ? px[((y | 0) + oy) * n + (x | 0) + ox] : FOG;
+      }
+      rows++;
+    }
+    g.putImageData(img, 0, 0, 0, top, W, H - top);
+    const yF = this._q(this.fogStart, 0, 0), yE = this._q(this.farClip, 0, 0);   // (the far end into the fog, as MODE 7's)
+    if (yF && yE) {
+      const gr = g.createLinearGradient(0, Math.max(0, top - 2), 0, yF[1]);
+      gr.addColorStop(0, `rgba(${fr},${fg},${fb},1)`); gr.addColorStop(Math.max(0, Math.min(1, (yE[1] - top) / Math.max(1, yF[1] - top))), `rgba(${fr},${fg},${fb},.95)`); gr.addColorStop(1, `rgba(${fr},${fg},${fb},0)`);
+      g.fillStyle = gr; g.fillRect(0, Math.max(0, top - 2), P.W, yF[1] - top + 2);
+    }
+    this.stats.rows = rows;
+  }
+  /** a world point in rail space: [depth along the forward axis, across to the right] */
+  _dl(x, y) { const a = this.ax(), rx = x - this.x, ry = y - this.y; return [rx * a.f[0] + ry * a.f[1], rx * a.r[0] + ry * a.r[1]]; }
+  /** a wall slice from (xa, ya) to (xb, yb), h tall, in rail space from (Da, La) to (Db, Lb): its texture tw wide from
+   *  phase u0 */
+  _slice(g, Da, La, Db, Lb, h, cv, u0, tw, color) {
+    const fog = this.fogAt(Math.min(Da, Db)), [fr, fg, fb] = this.fogRGB; if (fog >= .97) return;
+    this.stats.quads += texturedFace(g, (s, t) => this._q(Da + (Db - Da) * s, La + (Lb - La) * s, h * (1 - t)), fog < .85 ? cv : null, u0, 0, tw, h, color, fog > .02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
+  }
+  /** the draw items of the spans in view: each face looking toward the camera cut a tile wide (key: the slice's far end;
+   *  the part nearer than the near plane cut off), and the tops of spans lower than the camera. focus: [x, y]; a span
+   *  wholly between the camera and the focus, across its line of sight, drops to a stub (its cutH) */
+  _spansAny(spans, items, focus, night = true) {
+    const P = this.P, PER = FACE_PERIOD, mod = (v, m) => ((v % m) + m) % m, [fD, fL] = focus ? this._dl(focus[0], focus[1]) : [0, 0];
+    for (const s of spans) {
+      const C = [[s.x0, s.y0], [s.x1, s.y0], [s.x1, s.y1], [s.x0, s.y1]].map(([x, y]) => this._dl(x, y));
+      const Dn = Math.min(...C.map(c => c[0])), Df = Math.max(...C.map(c => c[0])); if (Df < NEAR_D || Dn > this.farClip) continue;
+      const La = Math.min(...C.map(c => c[1])), Lb = Math.max(...C.map(c => c[1]));
+      if ((La > 0 ? La : Lb < 0 ? -Lb : 0) * P.F / Math.max(6, Df) > P.W / 2 + 8) continue;   // wholly off to a side, even at its far end
+      const cut = focus && Df < fD - 4 && (this.cutAll || (La < fL + 40 && Lb > fL - 40)), h = cut ? Math.min(s.h, s.t.cutH || 8) : s.h, hc = Math.min(s.h, s.t.cutH || 8);
+      const v = (Math.floor(s.x0 / 64) * 7 + Math.floor(s.y0 / 64) * 13) & 3;
+      // the four faces, each its corners [a, b] round the span and its outward normal
+      for (const [ia, ib, nx, ny] of [[0, 1, 0, -1], [1, 2, 1, 0], [2, 3, 0, 1], [3, 0, -1, 0]]) {
+        const ax = ia === 0 || ia === 3 ? s.x0 : s.x1, ay = ia < 2 ? s.y0 : s.y1;
+        if ((this.x - ax) * nx + (this.y - ay) * ny <= 0) continue;   // (facing away)
+        const bx = ib === 0 || ib === 3 ? s.x0 : s.x1, by = ib < 2 ? s.y0 : s.y1, len = Math.hypot(bx - ax, by - ay);
+        const sh = shadeOf(nx, ny), cv = faceTexture(s.id, s.t, h, sh, v, night), col = faceColor(s.t, sh), along = nx ? 1 : 0;   // (an x face runs along y)
+        for (let u = 0; u < len - 1e-6; u += TILE) {
+          const u1 = Math.min(len, u + TILE), p0 = [ax + (bx - ax) * u / len, ay + (by - ay) * u / len], p1 = [ax + (bx - ax) * u1 / len, ay + (by - ay) * u1 / len];
+          let [Da, La2] = this._dl(p0[0], p0[1]), [Db, Lb2] = this._dl(p1[0], p1[1]), w0 = 0, w1 = 1;
+          if (Math.max(Da, Db) < NEAR_D || Math.min(Da, Db) > this.farClip) continue;
+          if (Da < NEAR_D || Db < NEAR_D) {   // (cut at the near plane: the part behind it is not drawn)
+            const t = (NEAR_D - Da) / (Db - Da); if (Da < NEAR_D) { La2 += (Lb2 - La2) * t; Da = NEAR_D; w0 = t; } else { Lb2 = La2 + (Lb2 - La2) * t; Db = NEAR_D; w1 = t; }
+          }
+          const tw = (u1 - u) * (w1 - w0), u0 = mod((along ? p0[1] : p0[0]) + (u1 - u) * w0, PER), DA = Da, DB = Db, LA = La2, LB = Lb2;
+          // (a slice between the camera and the focus, across its line of sight, drops to its stub: a building's corner
+          // turned toward the lens had hidden the player behind it)
+          const hs = focus && Math.max(DA, DB) < fD - 4 && Math.min(LA, LB) < fL + 40 && Math.max(LA, LB) > fL - 40 ? hc : h, sv = hs === h ? cv : faceTexture(s.id, s.t, hs, sh, v, night);
+          items.push(this._box(DA, LA, DB, LB, hs, { k: Math.max(DA, DB), m: Math.min(DA, DB), kind: 'side', fn: g => this._slice(g, DA, LA, DB, LB, hs, sv, u0, tw, col) }));
+        }
+      }
+      if (this.h > h + 1) {   // the top, seen from above: the rectangle cut at the near plane, filled flat
+        const poly = this._nearCut(C); if (poly.length < 3) continue;
+        const pts = poly.map(([D, L]) => this._q(D, L, h)); if (pts.some(q => !q)) continue;
+        const d0 = Math.max(NEAR_D, Dn), top = s.t.top;
+        items.push({ k: d0, m: d0, kind: 'top', box: [Math.min(...pts.map(q => q[0])), Math.max(...pts.map(q => q[0])), Math.min(...pts.map(q => q[1]))], fn: g => {
+          const fog = this.fogAt(d0), [fr, fg, fb] = this.fogRGB;
+          g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath();
+          g.fillStyle = top; g.fill(); if (fog > .02) { g.fillStyle = `rgba(${fr},${fg},${fb},${fog.toFixed(2)})`; g.fill(); } this.stats.quads++;
+        } });
+      }
+    }
+  }
+  /** a convex polygon in rail space [[D, L]] cut to D >= the near plane */
+  _nearCut(C) {
+    const out = [];
+    for (let i = 0; i < C.length; i++) {
+      const p = C[i], q = C[(i + 1) % C.length], pi = p[0] >= NEAR_D, qi = q[0] >= NEAR_D;
+      if (pi) out.push(p);
+      if (pi !== qi) { const t = (NEAR_D - p[0]) / (q[0] - p[0]); out.push([NEAR_D, p[1] + (q[1] - p[1]) * t]); }
+    }
+    return out;
   }
 }

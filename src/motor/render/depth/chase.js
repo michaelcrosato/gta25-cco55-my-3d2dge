@@ -2,17 +2,17 @@
 // shifted (walls and figures upright, the floor receding as from a pitched one), but behind the focus at any heading,
 // turning after it as a kart game's does: in a vehicle it swings round behind the bonnet with the car's heading, on
 // foot it eases round behind the player while they walk on ahead of it, and the turn buttons swing it a quarter
-// round. Everything MODE 7 draws it draws too, generalized where the rail made it simple: the floor raster steps across
-// each buffer row in both world axes; a span shows whichever of its four faces look toward the camera, each cut a
-// tile wide (sorted by its far end, as MODE 7's side slices) and filled through the same affine quads; a top seen from
-// above is cut at the near plane. Rigs are drawn through views at the heading in 3° steps (kept and reused).
+// round. Everything MODE 7 draws it draws too, through Side7View's drawing at any heading (MODE 7's own off its quarters,
+// D48): the floor raster steps across each buffer row in both world axes; a span shows whichever of its four faces look
+// toward the camera, each cut a tile wide (sorted by its far end, as MODE 7's side slices) and filled through the same
+// affine quads; a top seen from above is cut at the near plane. Rigs are drawn through views at the heading in 3° steps (kept and reused).
 // Presentation only, as every view: the simulation never reads it.
 import { E } from '../../engine.js';
-import { Side7View } from './side7.js';
-import { faceTexture, shadeOf, faceColor, FACE_PERIOD } from './textures.js';
-import { texturedFace } from './quads.js';
+import { Side7View, axesAt } from './side7.js';
 
-const DEG = Math.PI / 180, NEAR_D = 10, TILE = 16, VIEW_STEP = 3;
+export { axesAt };
+
+const DEG = Math.PI / 180, VIEW_STEP = 3;
 /** the chase lens: height, how far behind the focus, the field of view (widen: degrees more at top speed) and how fast
  *  the camera swings round after the focus's heading (turn: 1/s) */
 export const CHASE = {
@@ -22,8 +22,6 @@ export const CHASE = {
 };
 const FOOT_CONE = 60;   // (degrees: on foot the camera comes round only while the player walks within this of its forward)
 
-/** the axes at a heading in degrees (0 north, 90 east): f forward (into the screen), r to the screen's right */
-export function axesAt(deg) { const t = deg * DEG; return { f: [Math.sin(t), -Math.cos(t)], r: [Math.cos(t), Math.sin(t)] }; }
 /** a world direction (x, y) as a heading in degrees, 0..360 */
 export function headingOf(x, y) { return ((Math.atan2(x, -y) / DEG) % 360 + 360) % 360; }
 const turnTo = (a, b) => ((b - a + 540) % 360) - 180;   // (the shortest signed turn from a to b, degrees)
@@ -32,11 +30,11 @@ export class ChaseView extends Side7View {
   /** o: as Side7View's ({ sky, fog, farClip, ... }) */
   constructor(o = {}) {
     super({ id: 'chase', label: 'CHASE', back: CHASE.foot.back, turn: CHASE.foot.turn, h: CHASE.foot.h, fov: CHASE.foot.fov, ...o });
-    this._ax = axesAt(this.heading); this._axOf = this.heading; this.mode7 = true; this.swing = 0;
+    this.mode7 = true; this.swing = 0;
   }
-  /** kept images are keyed by the heading in steps of 1.5° (it turns all the time: each frame's would never be reused) */
-  get keyHeading() { return Math.round(this.heading / 1.5) * 1.5; }
-  ax() { if (this._axOf !== this.heading) { this._ax = axesAt(this.heading); this._axOf = this.heading; } return this._ax; }
+  /** drawn as at any heading, always (it turns all the time: Side7View's general floor and spans, its kept images by
+   *  the heading in steps of 1.5°) */
+  get aligned() { return false; }
   /** face a heading (any, in degrees) round the focus at the lens's distance behind it */
   setHeading(deg, fx, fy) {
     this.heading = ((deg % 360) + 360) % 360; this.swing = 0;
@@ -95,95 +93,5 @@ export class ChaseView extends Side7View {
     if (!v) { if (this.views.size > 600) this.views.clear(); v = new E.View('chase', 'Chase', (360 - hd) % 360, this.pitch, q, 1); this.views.set(key, v); }
     return v;
   }
-  /** the floor as one raster, each buffer row a line across the world at its depth: its pixels stepped in both axes,
-   *  each read from its floor chunk's texels (the last chunk kept while the row stays in it) */
-  drawFloor(g, floor) {
-    const P = this.P, W = P.W, H = P.H, top = Math.max(0, Math.ceil(P.hy) + 1); if (top >= H) return;
-    let img = this._img; if (!img || img.width !== W || img.height !== H) { img = this._img = g.createImageData(W, H); this._px = new Uint32Array(img.data.buffer); }
-    const out = this._px, S = floor.size, pad = floor.pad, n = S + 2 * pad, a = this.ax(), [fr, fg, fb] = this.fogRGB, FOG = ((255 << 24) | (fb << 16) | (fg << 8) | fr) >>> 0;
-    const MW = floor.W, MH = floor.H; let rows = 0;
-    for (let by = top; by < H; by++) {
-      const D = this.rowDepth(by + .5), o = by * W;
-      if (!D || D > this.farClip) { out.fill(FOG, o, o + W); continue; }
-      const step = D / P.F, sx = a.r[0] * step, sy = a.r[1] * step, L0 = (.5 - P.cx) * step;
-      let x = this.x + a.f[0] * D + a.r[0] * L0, y = this.y + a.f[1] * D + a.r[1] * L0, ci = -1, cj = -1, px = null, ox = 0, oy = 0;
-      for (let i = 0; i < W; i++, x += sx, y += sy) {
-        if (x < 0 || y < 0 || x >= MW || y >= MH) { out[o + i] = FOG; continue; }
-        const ti = Math.floor(x / S), tj = Math.floor(y / S);
-        if (ti !== ci || tj !== cj) { ci = ti; cj = tj; px = floor.pixels(ci, cj); ox = pad - ci * S; oy = pad - cj * S; }
-        out[o + i] = px ? px[((y | 0) + oy) * n + (x | 0) + ox] : FOG;
-      }
-      rows++;
-    }
-    g.putImageData(img, 0, 0, 0, top, W, H - top);
-    const yF = this._q(this.fogStart, 0, 0), yE = this._q(this.farClip, 0, 0);   // (the far end into the fog, as MODE 7's)
-    if (yF && yE) {
-      const gr = g.createLinearGradient(0, Math.max(0, top - 2), 0, yF[1]);
-      gr.addColorStop(0, `rgba(${fr},${fg},${fb},1)`); gr.addColorStop(Math.max(0, Math.min(1, (yE[1] - top) / Math.max(1, yF[1] - top))), `rgba(${fr},${fg},${fb},.95)`); gr.addColorStop(1, `rgba(${fr},${fg},${fb},0)`);
-      g.fillStyle = gr; g.fillRect(0, Math.max(0, top - 2), P.W, yF[1] - top + 2);
-    }
-    this.stats.rows = rows;
-  }
-  /** a world point in rail space: [depth along the forward axis, across to the right] */
-  _dl(x, y) { const a = this.ax(), rx = x - this.x, ry = y - this.y; return [rx * a.f[0] + ry * a.f[1], rx * a.r[0] + ry * a.r[1]]; }
-  /** a wall slice from (xa, ya) to (xb, yb), h tall, in rail space from (Da, La) to (Db, Lb): its texture tw wide from
-   *  phase u0 */
-  _slice(g, Da, La, Db, Lb, h, cv, u0, tw, color) {
-    const fog = this.fogAt(Math.min(Da, Db)), [fr, fg, fb] = this.fogRGB; if (fog >= .97) return;
-    this.stats.quads += texturedFace(g, (s, t) => this._q(Da + (Db - Da) * s, La + (Lb - La) * s, h * (1 - t)), fog < .85 ? cv : null, u0, 0, tw, h, color, fog > .02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
-  }
-  /** the draw items of the spans in view: each face looking toward the camera cut a tile wide (key: the slice's far end;
-   *  the part nearer than the near plane cut off), and the tops of spans lower than the camera. focus: [x, y]; a span
-   *  wholly between the camera and the focus, across its line of sight, drops to a stub (its cutH) */
-  spanItems(spans, items, focus, night = true) {
-    const P = this.P, PER = FACE_PERIOD, mod = (v, m) => ((v % m) + m) % m, [fD, fL] = focus ? this._dl(focus[0], focus[1]) : [0, 0];
-    for (const s of spans) {
-      const C = [[s.x0, s.y0], [s.x1, s.y0], [s.x1, s.y1], [s.x0, s.y1]].map(([x, y]) => this._dl(x, y));
-      const Dn = Math.min(...C.map(c => c[0])), Df = Math.max(...C.map(c => c[0])); if (Df < NEAR_D || Dn > this.farClip) continue;
-      const La = Math.min(...C.map(c => c[1])), Lb = Math.max(...C.map(c => c[1]));
-      if ((La > 0 ? La : Lb < 0 ? -Lb : 0) * P.F / Math.max(6, Df) > P.W / 2 + 8) continue;   // wholly off to a side, even at its far end
-      const cut = focus && Df < fD - 4 && (this.cutAll || (La < fL + 40 && Lb > fL - 40)), h = cut ? Math.min(s.h, s.t.cutH || 8) : s.h, hc = Math.min(s.h, s.t.cutH || 8);
-      const v = (Math.floor(s.x0 / 64) * 7 + Math.floor(s.y0 / 64) * 13) & 3;
-      // the four faces, each its corners [a, b] round the span and its outward normal
-      for (const [ia, ib, nx, ny] of [[0, 1, 0, -1], [1, 2, 1, 0], [2, 3, 0, 1], [3, 0, -1, 0]]) {
-        const ax = ia === 0 || ia === 3 ? s.x0 : s.x1, ay = ia < 2 ? s.y0 : s.y1;
-        if ((this.x - ax) * nx + (this.y - ay) * ny <= 0) continue;   // (facing away)
-        const bx = ib === 0 || ib === 3 ? s.x0 : s.x1, by = ib < 2 ? s.y0 : s.y1, len = Math.hypot(bx - ax, by - ay);
-        const sh = shadeOf(nx, ny), cv = faceTexture(s.id, s.t, h, sh, v, night), col = faceColor(s.t, sh), along = nx ? 1 : 0;   // (an x face runs along y)
-        for (let u = 0; u < len - 1e-6; u += TILE) {
-          const u1 = Math.min(len, u + TILE), p0 = [ax + (bx - ax) * u / len, ay + (by - ay) * u / len], p1 = [ax + (bx - ax) * u1 / len, ay + (by - ay) * u1 / len];
-          let [Da, La2] = this._dl(p0[0], p0[1]), [Db, Lb2] = this._dl(p1[0], p1[1]), w0 = 0, w1 = 1;
-          if (Math.max(Da, Db) < NEAR_D || Math.min(Da, Db) > this.farClip) continue;
-          if (Da < NEAR_D || Db < NEAR_D) {   // (cut at the near plane: the part behind it is not drawn)
-            const t = (NEAR_D - Da) / (Db - Da); if (Da < NEAR_D) { La2 += (Lb2 - La2) * t; Da = NEAR_D; w0 = t; } else { Lb2 = La2 + (Lb2 - La2) * t; Db = NEAR_D; w1 = t; }
-          }
-          const tw = (u1 - u) * (w1 - w0), u0 = mod((along ? p0[1] : p0[0]) + (u1 - u) * w0, PER), DA = Da, DB = Db, LA = La2, LB = Lb2;
-          // (a slice between the camera and the focus, across its line of sight, drops to its stub: a building's corner
-          // turned toward the lens had hidden the player behind it)
-          const hs = focus && Math.max(DA, DB) < fD - 4 && Math.min(LA, LB) < fL + 40 && Math.max(LA, LB) > fL - 40 ? hc : h, sv = hs === h ? cv : faceTexture(s.id, s.t, hs, sh, v, night);
-          items.push(this._box(DA, LA, DB, LB, hs, { k: Math.max(DA, DB), m: Math.min(DA, DB), kind: 'side', fn: g => this._slice(g, DA, LA, DB, LB, hs, sv, u0, tw, col) }));
-        }
-      }
-      if (this.h > h + 1) {   // the top, seen from above: the rectangle cut at the near plane, filled flat
-        const poly = this._nearCut(C); if (poly.length < 3) continue;
-        const pts = poly.map(([D, L]) => this._q(D, L, h)); if (pts.some(q => !q)) continue;
-        const d0 = Math.max(NEAR_D, Dn), top = s.t.top;
-        items.push({ k: d0, m: d0, kind: 'top', box: [Math.min(...pts.map(q => q[0])), Math.max(...pts.map(q => q[0])), Math.min(...pts.map(q => q[1]))], fn: g => {
-          const fog = this.fogAt(d0), [fr, fg, fb] = this.fogRGB;
-          g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath();
-          g.fillStyle = top; g.fill(); if (fog > .02) { g.fillStyle = `rgba(${fr},${fg},${fb},${fog.toFixed(2)})`; g.fill(); } this.stats.quads++;
-        } });
-      }
-    }
-  }
-  /** a convex polygon in rail space [[D, L]] cut to D >= the near plane */
-  _nearCut(C) {
-    const out = [];
-    for (let i = 0; i < C.length; i++) {
-      const p = C[i], q = C[(i + 1) % C.length], pi = p[0] >= NEAR_D, qi = q[0] >= NEAR_D;
-      if (pi) out.push(p);
-      if (pi !== qi) { const t = (NEAR_D - p[0]) / (q[0] - p[0]); out.push([NEAR_D, p[1] + (q[1] - p[1]) * t]); }
-    }
-    return out;
-  }
+
 }

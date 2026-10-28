@@ -13196,6 +13196,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
 
   // src/motor/render/depth/side7.js
   var DEG = Math.PI / 180;
+  var TILE2 = 16;
+  var VIEW_STEP = 3;
+  function axesAt(deg) {
+    const t = deg * DEG;
+    return { f: [Math.sin(t), -Math.cos(t)], r: [Math.cos(t), Math.sin(t)] };
+  }
   var RAIL = { 0: { f: [0, -1], r: [1, 0] }, 90: { f: [1, 0], r: [0, 1] }, 180: { f: [0, 1], r: [-1, 0] }, 270: { f: [-1, 0], r: [0, -1] } };
   var NEAR_D = 10;
   var RIGS = { foot: { h: 70, near: 110, far: 260, fov: 50, widen: 0 }, vehicle: { h: 90, near: 160, far: 380, fov: 50, widen: 12 }, indoor: { h: 50, near: 64, far: 190, fov: 58, widen: 0 } };
@@ -13229,13 +13235,19 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.fogRGB = E.hex(this.fog);
       this.mode7 = true;
     }
-    /** the heading kept images are keyed by (a body's, a prop's image is redrawn when it moves on) */
+    /** the heading kept images are keyed by (a body's, a prop's image is redrawn when it moves on): off the quarters, in
+     *  steps of 1.5° (turning, each frame's would never be reused) */
     get keyHeading() {
-      return this.heading;
+      return this.aligned ? this.heading : Math.round(this.heading / 1.5) * 1.5;
     }
-    /** the rail's axes { f, r } (the chase camera's own, at any heading: ChaseView) */
+    /** is the rail on a quarter (0, 90, 180, 270)? Then it draws with the rail's own fast paths; turned off them by hand
+     *  (D48), as at any heading (the chase camera's drawing) */
+    get aligned() {
+      return RAIL[this.heading] !== void 0;
+    }
+    /** the rail's axes { f, r }: RAIL's on a quarter, else axesAt the heading (kept while it holds) */
     ax() {
-      return RAIL[this.heading];
+      return RAIL[this.heading] || (this._axOf === this.heading ? this._ax : (this._axOf = this.heading, this._ax = axesAt(this.heading)));
     }
     /** turn the rail to a heading (0, 90, 180, 270) round the focus, keeping its distance */
     setHeading(deg, fx7, fy) {
@@ -13248,6 +13260,16 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.y = fy - a.f[1] * d;
         this.ready = true;
       }
+    }
+    /** turn to any heading (degrees) about the focus at (fx, fy), keeping it where it stands on screen (its depth along
+     *  the rail and across it): the turn buttons' spin (D48) */
+    orbit(deg, fx7, fy) {
+      const a0 = this.ax(), rx6 = fx7 - this.x, ry = fy - this.y, D = rx6 * a0.f[0] + ry * a0.f[1], L28 = rx6 * a0.r[0] + ry * a0.r[1];
+      this.heading = (deg % 360 + 360) % 360;
+      if (!this.ready || fx7 === void 0) return;
+      const a = this.ax();
+      this.x = fx7 - a.f[0] * D - a.r[0] * L28;
+      this.y = fy - a.f[1] * D - a.r[1] * L28;
     }
     /** the lens for where the focus is (in a vehicle or not), how fast (speed01, 0..1 of top speed) and how high (fz: the
      *  lens rides that much higher, on a deck or in the air): eased, so getting in or out moves the camera rather than
@@ -13359,11 +13381,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     /** the engine View a rig is drawn with at k pixels per unit (whole 1/16ths, so views are reused), facing the rail */
     view(k) {
-      const q = Math.max(1 / 16, Math.round(k * 16) / 16), key = this.heading * 1e3 + q;
+      const q = Math.max(1 / 16, Math.round(k * 16) / 16), hd = this.aligned ? this.heading : Math.round(this.heading / VIEW_STEP) * VIEW_STEP % 360, key = hd * 1e3 + q;
       let v = this.views.get(key);
       if (!v) {
         if (this.views.size > 400) this.views.clear();
-        v = new E.View("side7", "Mode 7", (360 - this.heading) % 360, this.pitch, q, 1);
+        v = new E.View("side7", "Mode 7", (360 - hd) % 360, this.pitch, q, 1);
         this.views.set(key, v);
       }
       return v;
@@ -13408,6 +13430,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  chunk's pixels read once and kept with it), past the far clip or off the map the fog's colour, and put in with one
      *  putImageData (a drawImage a row a chunk was about 420 calls a frame) */
     drawFloor(g, floor) {
+      if (!this.aligned) return this._floorAny(g, floor);
       const P25 = this.P, W31 = P25.W, H24 = P25.H, top2 = Math.max(0, Math.ceil(P25.hy) + 1);
       if (top2 >= H24) return;
       let img = this._img;
@@ -13505,7 +13528,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  slice's far edge), front faces (key: their depth) and the tops of spans lower than the camera. focus: [x, y]; a
      *  span wholly between the camera and the focus, across its line of sight, drops to a stub (its cutH) */
     spanItems(spans, items, focus, night6 = true) {
-      const a = this.ax(), P25 = this.P, T33 = 16, PER = FACE_PERIOD, mod = (v, m) => (v % m + m) % m;
+      if (!this.aligned) return this._spansAny(spans, items, focus, night6);
+      const a = this.ax(), P25 = this.P, T33 = TILE2, PER = FACE_PERIOD, mod = (v, m) => (v % m + m) % m;
       const fD = focus ? this.depth(focus[0], focus[1]) : 0, fL = focus ? (focus[0] - this.x) * a.r[0] + (focus[1] - this.y) * a.r[1] : 0;
       const cAlong = this.x * a.f[0] + this.y * a.f[1], cAcross = this.x * a.r[0] + this.y * a.r[1];
       for (const s of spans) {
@@ -13548,23 +13572,157 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
       }
     }
+    /* ---- at any heading (the chase camera's, and MODE 7 turned off its quarters): the drawing generalized where the
+     * rail made it simple ---- */
+    /** the floor as one raster, each buffer row a line across the world at its depth: its pixels stepped in both axes,
+     *  each read from its floor chunk's texels (the last chunk kept while the row stays in it) */
+    _floorAny(g, floor) {
+      const P25 = this.P, W31 = P25.W, H24 = P25.H, top2 = Math.max(0, Math.ceil(P25.hy) + 1);
+      if (top2 >= H24) return;
+      let img = this._img;
+      if (!img || img.width !== W31 || img.height !== H24) {
+        img = this._img = g.createImageData(W31, H24);
+        this._px = new Uint32Array(img.data.buffer);
+      }
+      const out = this._px, S11 = floor.size, pad = floor.pad, n = S11 + 2 * pad, a = this.ax(), [fr, fg, fb] = this.fogRGB, FOG = (255 << 24 | fb << 16 | fg << 8 | fr) >>> 0;
+      const MW = floor.W, MH = floor.H;
+      let rows = 0;
+      for (let by3 = top2; by3 < H24; by3++) {
+        const D = this.rowDepth(by3 + 0.5), o = by3 * W31;
+        if (!D || D > this.farClip) {
+          out.fill(FOG, o, o + W31);
+          continue;
+        }
+        const step2 = D / P25.F, sx = a.r[0] * step2, sy = a.r[1] * step2, L0 = (0.5 - P25.cx) * step2;
+        let x = this.x + a.f[0] * D + a.r[0] * L0, y = this.y + a.f[1] * D + a.r[1] * L0, ci = -1, cj = -1, px = null, ox = 0, oy = 0;
+        for (let i = 0; i < W31; i++, x += sx, y += sy) {
+          if (x < 0 || y < 0 || x >= MW || y >= MH) {
+            out[o + i] = FOG;
+            continue;
+          }
+          const ti = Math.floor(x / S11), tj = Math.floor(y / S11);
+          if (ti !== ci || tj !== cj) {
+            ci = ti;
+            cj = tj;
+            px = floor.pixels(ci, cj);
+            ox = pad - ci * S11;
+            oy = pad - cj * S11;
+          }
+          out[o + i] = px ? px[((y | 0) + oy) * n + (x | 0) + ox] : FOG;
+        }
+        rows++;
+      }
+      g.putImageData(img, 0, 0, 0, top2, W31, H24 - top2);
+      const yF = this._q(this.fogStart, 0, 0), yE = this._q(this.farClip, 0, 0);
+      if (yF && yE) {
+        const gr = g.createLinearGradient(0, Math.max(0, top2 - 2), 0, yF[1]);
+        gr.addColorStop(0, `rgba(${fr},${fg},${fb},1)`);
+        gr.addColorStop(Math.max(0, Math.min(1, (yE[1] - top2) / Math.max(1, yF[1] - top2))), `rgba(${fr},${fg},${fb},.95)`);
+        gr.addColorStop(1, `rgba(${fr},${fg},${fb},0)`);
+        g.fillStyle = gr;
+        g.fillRect(0, Math.max(0, top2 - 2), P25.W, yF[1] - top2 + 2);
+      }
+      this.stats.rows = rows;
+    }
+    /** a world point in rail space: [depth along the forward axis, across to the right] */
+    _dl(x, y) {
+      const a = this.ax(), rx6 = x - this.x, ry = y - this.y;
+      return [rx6 * a.f[0] + ry * a.f[1], rx6 * a.r[0] + ry * a.r[1]];
+    }
+    /** a wall slice from (xa, ya) to (xb, yb), h tall, in rail space from (Da, La) to (Db, Lb): its texture tw wide from
+     *  phase u0 */
+    _slice(g, Da, La, Db, Lb, h, cv, u0, tw, color) {
+      const fog = this.fogAt(Math.min(Da, Db)), [fr, fg, fb] = this.fogRGB;
+      if (fog >= 0.97) return;
+      this.stats.quads += texturedFace(g, (s, t) => this._q(Da + (Db - Da) * s, La + (Lb - La) * s, h * (1 - t)), fog < 0.85 ? cv : null, u0, 0, tw, h, color, fog > 0.02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
+    }
+    /** the draw items of the spans in view: each face looking toward the camera cut a tile wide (key: the slice's far end;
+     *  the part nearer than the near plane cut off), and the tops of spans lower than the camera. focus: [x, y]; a span
+     *  wholly between the camera and the focus, across its line of sight, drops to a stub (its cutH) */
+    _spansAny(spans, items, focus, night6 = true) {
+      const P25 = this.P, PER = FACE_PERIOD, mod = (v, m) => (v % m + m) % m, [fD, fL] = focus ? this._dl(focus[0], focus[1]) : [0, 0];
+      for (const s of spans) {
+        const C27 = [[s.x0, s.y0], [s.x1, s.y0], [s.x1, s.y1], [s.x0, s.y1]].map(([x, y]) => this._dl(x, y));
+        const Dn = Math.min(...C27.map((c) => c[0])), Df = Math.max(...C27.map((c) => c[0]));
+        if (Df < NEAR_D || Dn > this.farClip) continue;
+        const La = Math.min(...C27.map((c) => c[1])), Lb = Math.max(...C27.map((c) => c[1]));
+        if ((La > 0 ? La : Lb < 0 ? -Lb : 0) * P25.F / Math.max(6, Df) > P25.W / 2 + 8) continue;
+        const cut = focus && Df < fD - 4 && (this.cutAll || La < fL + 40 && Lb > fL - 40), h = cut ? Math.min(s.h, s.t.cutH || 8) : s.h, hc = Math.min(s.h, s.t.cutH || 8);
+        const v = Math.floor(s.x0 / 64) * 7 + Math.floor(s.y0 / 64) * 13 & 3;
+        for (const [ia, ib, nx, ny] of [[0, 1, 0, -1], [1, 2, 1, 0], [2, 3, 0, 1], [3, 0, -1, 0]]) {
+          const ax = ia === 0 || ia === 3 ? s.x0 : s.x1, ay = ia < 2 ? s.y0 : s.y1;
+          if ((this.x - ax) * nx + (this.y - ay) * ny <= 0) continue;
+          const bx = ib === 0 || ib === 3 ? s.x0 : s.x1, by3 = ib < 2 ? s.y0 : s.y1, len = Math.hypot(bx - ax, by3 - ay);
+          const sh = shadeOf(nx, ny), cv = faceTexture(s.id, s.t, h, sh, v, night6), col = faceColor(s.t, sh), along2 = nx ? 1 : 0;
+          for (let u = 0; u < len - 1e-6; u += TILE2) {
+            const u1 = Math.min(len, u + TILE2), p0 = [ax + (bx - ax) * u / len, ay + (by3 - ay) * u / len], p1 = [ax + (bx - ax) * u1 / len, ay + (by3 - ay) * u1 / len];
+            let [Da, La2] = this._dl(p0[0], p0[1]), [Db, Lb2] = this._dl(p1[0], p1[1]), w02 = 0, w1 = 1;
+            if (Math.max(Da, Db) < NEAR_D || Math.min(Da, Db) > this.farClip) continue;
+            if (Da < NEAR_D || Db < NEAR_D) {
+              const t = (NEAR_D - Da) / (Db - Da);
+              if (Da < NEAR_D) {
+                La2 += (Lb2 - La2) * t;
+                Da = NEAR_D;
+                w02 = t;
+              } else {
+                Lb2 = La2 + (Lb2 - La2) * t;
+                Db = NEAR_D;
+                w1 = t;
+              }
+            }
+            const tw = (u1 - u) * (w1 - w02), u0 = mod((along2 ? p0[1] : p0[0]) + (u1 - u) * w02, PER), DA = Da, DB = Db, LA = La2, LB = Lb2;
+            const hs = focus && Math.max(DA, DB) < fD - 4 && Math.min(LA, LB) < fL + 40 && Math.max(LA, LB) > fL - 40 ? hc : h, sv = hs === h ? cv : faceTexture(s.id, s.t, hs, sh, v, night6);
+            items.push(this._box(DA, LA, DB, LB, hs, { k: Math.max(DA, DB), m: Math.min(DA, DB), kind: "side", fn: (g) => this._slice(g, DA, LA, DB, LB, hs, sv, u0, tw, col) }));
+          }
+        }
+        if (this.h > h + 1) {
+          const poly = this._nearCut(C27);
+          if (poly.length < 3) continue;
+          const pts2 = poly.map(([D, L28]) => this._q(D, L28, h));
+          if (pts2.some((q) => !q)) continue;
+          const d02 = Math.max(NEAR_D, Dn), top2 = s.t.top;
+          items.push({ k: d02, m: d02, kind: "top", box: [Math.min(...pts2.map((q) => q[0])), Math.max(...pts2.map((q) => q[0])), Math.min(...pts2.map((q) => q[1]))], fn: (g) => {
+            const fog = this.fogAt(d02), [fr, fg, fb] = this.fogRGB;
+            g.setTransform(1, 0, 0, 1, 0, 0);
+            g.beginPath();
+            g.moveTo(pts2[0][0], pts2[0][1]);
+            for (let i = 1; i < pts2.length; i++) g.lineTo(pts2[i][0], pts2[i][1]);
+            g.closePath();
+            g.fillStyle = top2;
+            g.fill();
+            if (fog > 0.02) {
+              g.fillStyle = `rgba(${fr},${fg},${fb},${fog.toFixed(2)})`;
+              g.fill();
+            }
+            this.stats.quads++;
+          } });
+        }
+      }
+    }
+    /** a convex polygon in rail space [[D, L]] cut to D >= the near plane */
+    _nearCut(C27) {
+      const out = [];
+      for (let i = 0; i < C27.length; i++) {
+        const p = C27[i], q = C27[(i + 1) % C27.length], pi2 = p[0] >= NEAR_D, qi = q[0] >= NEAR_D;
+        if (pi2) out.push(p);
+        if (pi2 !== qi) {
+          const t = (NEAR_D - p[0]) / (q[0] - p[0]);
+          out.push([NEAR_D, p[1] + (q[1] - p[1]) * t]);
+        }
+      }
+      return out;
+    }
   };
 
   // src/motor/render/depth/chase.js
   var DEG2 = Math.PI / 180;
-  var NEAR_D2 = 10;
-  var TILE2 = 16;
-  var VIEW_STEP = 3;
+  var VIEW_STEP2 = 3;
   var CHASE = {
     foot: { h: 66, back: 130, fov: 54, widen: 0, turn: 1.2 },
     vehicle: { h: 78, back: 175, fov: 56, widen: 10, turn: 3.2 },
     indoor: { h: 50, back: 80, fov: 60, widen: 0, turn: 1.5 }
   };
   var FOOT_CONE = 60;
-  function axesAt(deg) {
-    const t = deg * DEG2;
-    return { f: [Math.sin(t), -Math.cos(t)], r: [Math.cos(t), Math.sin(t)] };
-  }
   function headingOf(x, y) {
     return (Math.atan2(x, -y) / DEG2 % 360 + 360) % 360;
   }
@@ -13573,21 +13731,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** o: as Side7View's ({ sky, fog, farClip, ... }) */
     constructor(o = {}) {
       super({ id: "chase", label: "CHASE", back: CHASE.foot.back, turn: CHASE.foot.turn, h: CHASE.foot.h, fov: CHASE.foot.fov, ...o });
-      this._ax = axesAt(this.heading);
-      this._axOf = this.heading;
       this.mode7 = true;
       this.swing = 0;
     }
-    /** kept images are keyed by the heading in steps of 1.5° (it turns all the time: each frame's would never be reused) */
-    get keyHeading() {
-      return Math.round(this.heading / 1.5) * 1.5;
-    }
-    ax() {
-      if (this._axOf !== this.heading) {
-        this._ax = axesAt(this.heading);
-        this._axOf = this.heading;
-      }
-      return this._ax;
+    /** drawn as at any heading, always (it turns all the time: Side7View's general floor and spans, its kept images by
+     *  the heading in steps of 1.5°) */
+    get aligned() {
+      return false;
     }
     /** face a heading (any, in degrees) round the focus at the lens's distance behind it */
     setHeading(deg, fx7, fy) {
@@ -13675,7 +13825,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     /** the engine View a rig is drawn with at k pixels per unit, at the heading in 3° steps (whole 1/16ths of scale) */
     view(k) {
-      const q = Math.max(1 / 16, Math.round(k * 16) / 16), hd = Math.round(this.heading / VIEW_STEP) * VIEW_STEP % 360, key = hd * 1e3 + q;
+      const q = Math.max(1 / 16, Math.round(k * 16) / 16), hd = Math.round(this.heading / VIEW_STEP2) * VIEW_STEP2 % 360, key = hd * 1e3 + q;
       let v = this.views.get(key);
       if (!v) {
         if (this.views.size > 600) this.views.clear();
@@ -13684,147 +13834,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       return v;
     }
-    /** the floor as one raster, each buffer row a line across the world at its depth: its pixels stepped in both axes,
-     *  each read from its floor chunk's texels (the last chunk kept while the row stays in it) */
-    drawFloor(g, floor) {
-      const P25 = this.P, W31 = P25.W, H24 = P25.H, top2 = Math.max(0, Math.ceil(P25.hy) + 1);
-      if (top2 >= H24) return;
-      let img = this._img;
-      if (!img || img.width !== W31 || img.height !== H24) {
-        img = this._img = g.createImageData(W31, H24);
-        this._px = new Uint32Array(img.data.buffer);
-      }
-      const out = this._px, S11 = floor.size, pad = floor.pad, n = S11 + 2 * pad, a = this.ax(), [fr, fg, fb] = this.fogRGB, FOG = (255 << 24 | fb << 16 | fg << 8 | fr) >>> 0;
-      const MW = floor.W, MH = floor.H;
-      let rows = 0;
-      for (let by3 = top2; by3 < H24; by3++) {
-        const D = this.rowDepth(by3 + 0.5), o = by3 * W31;
-        if (!D || D > this.farClip) {
-          out.fill(FOG, o, o + W31);
-          continue;
-        }
-        const step2 = D / P25.F, sx = a.r[0] * step2, sy = a.r[1] * step2, L0 = (0.5 - P25.cx) * step2;
-        let x = this.x + a.f[0] * D + a.r[0] * L0, y = this.y + a.f[1] * D + a.r[1] * L0, ci = -1, cj = -1, px = null, ox = 0, oy = 0;
-        for (let i = 0; i < W31; i++, x += sx, y += sy) {
-          if (x < 0 || y < 0 || x >= MW || y >= MH) {
-            out[o + i] = FOG;
-            continue;
-          }
-          const ti = Math.floor(x / S11), tj = Math.floor(y / S11);
-          if (ti !== ci || tj !== cj) {
-            ci = ti;
-            cj = tj;
-            px = floor.pixels(ci, cj);
-            ox = pad - ci * S11;
-            oy = pad - cj * S11;
-          }
-          out[o + i] = px ? px[((y | 0) + oy) * n + (x | 0) + ox] : FOG;
-        }
-        rows++;
-      }
-      g.putImageData(img, 0, 0, 0, top2, W31, H24 - top2);
-      const yF = this._q(this.fogStart, 0, 0), yE = this._q(this.farClip, 0, 0);
-      if (yF && yE) {
-        const gr = g.createLinearGradient(0, Math.max(0, top2 - 2), 0, yF[1]);
-        gr.addColorStop(0, `rgba(${fr},${fg},${fb},1)`);
-        gr.addColorStop(Math.max(0, Math.min(1, (yE[1] - top2) / Math.max(1, yF[1] - top2))), `rgba(${fr},${fg},${fb},.95)`);
-        gr.addColorStop(1, `rgba(${fr},${fg},${fb},0)`);
-        g.fillStyle = gr;
-        g.fillRect(0, Math.max(0, top2 - 2), P25.W, yF[1] - top2 + 2);
-      }
-      this.stats.rows = rows;
-    }
-    /** a world point in rail space: [depth along the forward axis, across to the right] */
-    _dl(x, y) {
-      const a = this.ax(), rx6 = x - this.x, ry = y - this.y;
-      return [rx6 * a.f[0] + ry * a.f[1], rx6 * a.r[0] + ry * a.r[1]];
-    }
-    /** a wall slice from (xa, ya) to (xb, yb), h tall, in rail space from (Da, La) to (Db, Lb): its texture tw wide from
-     *  phase u0 */
-    _slice(g, Da, La, Db, Lb, h, cv, u0, tw, color) {
-      const fog = this.fogAt(Math.min(Da, Db)), [fr, fg, fb] = this.fogRGB;
-      if (fog >= 0.97) return;
-      this.stats.quads += texturedFace(g, (s, t) => this._q(Da + (Db - Da) * s, La + (Lb - La) * s, h * (1 - t)), fog < 0.85 ? cv : null, u0, 0, tw, h, color, fog > 0.02 ? `rgba(${fr},${fg},${fb},${fog.toFixed(2)})` : null);
-    }
-    /** the draw items of the spans in view: each face looking toward the camera cut a tile wide (key: the slice's far end;
-     *  the part nearer than the near plane cut off), and the tops of spans lower than the camera. focus: [x, y]; a span
-     *  wholly between the camera and the focus, across its line of sight, drops to a stub (its cutH) */
-    spanItems(spans, items, focus, night6 = true) {
-      const P25 = this.P, PER = FACE_PERIOD, mod = (v, m) => (v % m + m) % m, [fD, fL] = focus ? this._dl(focus[0], focus[1]) : [0, 0];
-      for (const s of spans) {
-        const C27 = [[s.x0, s.y0], [s.x1, s.y0], [s.x1, s.y1], [s.x0, s.y1]].map(([x, y]) => this._dl(x, y));
-        const Dn = Math.min(...C27.map((c) => c[0])), Df = Math.max(...C27.map((c) => c[0]));
-        if (Df < NEAR_D2 || Dn > this.farClip) continue;
-        const La = Math.min(...C27.map((c) => c[1])), Lb = Math.max(...C27.map((c) => c[1]));
-        if ((La > 0 ? La : Lb < 0 ? -Lb : 0) * P25.F / Math.max(6, Df) > P25.W / 2 + 8) continue;
-        const cut = focus && Df < fD - 4 && (this.cutAll || La < fL + 40 && Lb > fL - 40), h = cut ? Math.min(s.h, s.t.cutH || 8) : s.h, hc = Math.min(s.h, s.t.cutH || 8);
-        const v = Math.floor(s.x0 / 64) * 7 + Math.floor(s.y0 / 64) * 13 & 3;
-        for (const [ia, ib, nx, ny] of [[0, 1, 0, -1], [1, 2, 1, 0], [2, 3, 0, 1], [3, 0, -1, 0]]) {
-          const ax = ia === 0 || ia === 3 ? s.x0 : s.x1, ay = ia < 2 ? s.y0 : s.y1;
-          if ((this.x - ax) * nx + (this.y - ay) * ny <= 0) continue;
-          const bx = ib === 0 || ib === 3 ? s.x0 : s.x1, by3 = ib < 2 ? s.y0 : s.y1, len = Math.hypot(bx - ax, by3 - ay);
-          const sh = shadeOf(nx, ny), cv = faceTexture(s.id, s.t, h, sh, v, night6), col = faceColor(s.t, sh), along2 = nx ? 1 : 0;
-          for (let u = 0; u < len - 1e-6; u += TILE2) {
-            const u1 = Math.min(len, u + TILE2), p0 = [ax + (bx - ax) * u / len, ay + (by3 - ay) * u / len], p1 = [ax + (bx - ax) * u1 / len, ay + (by3 - ay) * u1 / len];
-            let [Da, La2] = this._dl(p0[0], p0[1]), [Db, Lb2] = this._dl(p1[0], p1[1]), w02 = 0, w1 = 1;
-            if (Math.max(Da, Db) < NEAR_D2 || Math.min(Da, Db) > this.farClip) continue;
-            if (Da < NEAR_D2 || Db < NEAR_D2) {
-              const t = (NEAR_D2 - Da) / (Db - Da);
-              if (Da < NEAR_D2) {
-                La2 += (Lb2 - La2) * t;
-                Da = NEAR_D2;
-                w02 = t;
-              } else {
-                Lb2 = La2 + (Lb2 - La2) * t;
-                Db = NEAR_D2;
-                w1 = t;
-              }
-            }
-            const tw = (u1 - u) * (w1 - w02), u0 = mod((along2 ? p0[1] : p0[0]) + (u1 - u) * w02, PER), DA = Da, DB = Db, LA = La2, LB = Lb2;
-            const hs = focus && Math.max(DA, DB) < fD - 4 && Math.min(LA, LB) < fL + 40 && Math.max(LA, LB) > fL - 40 ? hc : h, sv = hs === h ? cv : faceTexture(s.id, s.t, hs, sh, v, night6);
-            items.push(this._box(DA, LA, DB, LB, hs, { k: Math.max(DA, DB), m: Math.min(DA, DB), kind: "side", fn: (g) => this._slice(g, DA, LA, DB, LB, hs, sv, u0, tw, col) }));
-          }
-        }
-        if (this.h > h + 1) {
-          const poly = this._nearCut(C27);
-          if (poly.length < 3) continue;
-          const pts2 = poly.map(([D, L28]) => this._q(D, L28, h));
-          if (pts2.some((q) => !q)) continue;
-          const d02 = Math.max(NEAR_D2, Dn), top2 = s.t.top;
-          items.push({ k: d02, m: d02, kind: "top", box: [Math.min(...pts2.map((q) => q[0])), Math.max(...pts2.map((q) => q[0])), Math.min(...pts2.map((q) => q[1]))], fn: (g) => {
-            const fog = this.fogAt(d02), [fr, fg, fb] = this.fogRGB;
-            g.setTransform(1, 0, 0, 1, 0, 0);
-            g.beginPath();
-            g.moveTo(pts2[0][0], pts2[0][1]);
-            for (let i = 1; i < pts2.length; i++) g.lineTo(pts2[i][0], pts2[i][1]);
-            g.closePath();
-            g.fillStyle = top2;
-            g.fill();
-            if (fog > 0.02) {
-              g.fillStyle = `rgba(${fr},${fg},${fb},${fog.toFixed(2)})`;
-              g.fill();
-            }
-            this.stats.quads++;
-          } });
-        }
-      }
-    }
-    /** a convex polygon in rail space [[D, L]] cut to D >= the near plane */
-    _nearCut(C27) {
-      const out = [];
-      for (let i = 0; i < C27.length; i++) {
-        const p = C27[i], q = C27[(i + 1) % C27.length], pi2 = p[0] >= NEAR_D2, qi = q[0] >= NEAR_D2;
-        if (pi2) out.push(p);
-        if (pi2 !== qi) {
-          const t = (NEAR_D2 - p[0]) / (q[0] - p[0]);
-          out.push([NEAR_D2, p[1] + (q[1] - p[1]) * t]);
-        }
-      }
-      return out;
-    }
   };
 
   // src/motor/render/depth/top.js
+  var VIEW_STEP3 = 3;
   var TopView = class {
     /** o: { H: 320 (on foot), Hmax: 640, F: 352 (so s = 1.1 px/unit at H 320), lead: .35 } */
     constructor(o = {}) {
@@ -13840,6 +13853,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         lead: 0.35,
         ready: false,
         zoom: 1,
+        heading: 0,
         views: /* @__PURE__ */ new Map(),
         stats: { quads: 0, chunks: 0, actors: 0 }
       }, o);
@@ -13867,6 +13881,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.y += (ly - this.y) * (1 - Math.exp(-dt * 6));
       this.H += (wantH - this.H) * k;
     }
+    /** the screen's axes on the ground at the heading (0 north up, 90 east up): r to the screen's right, f up it */
+    ax() {
+      if (this._axOf !== this.heading) {
+        this._ax = axesAt(this.heading);
+        this._axOf = this.heading;
+      }
+      return this._ax;
+    }
+    /** the heading kept images are keyed by (north up: 0; turned, in steps of 1.5°) */
+    get keyHeading() {
+      return Math.round(this.heading / 1.5) * 1.5;
+    }
     frame(r7) {
       const sc = r7.game.screen;
       this.P = { cx: r7.W / 2 + (sc.fx || 0), cy: r7.H / 2 + (sc.fy || 0), s: this.F * (this.zoom || 1) / this.H, W: r7.bw, H: r7.bh };
@@ -13876,13 +13902,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     proj(x, y, z = 0) {
       const P25 = this.P;
       if (z >= this.H - 1) return null;
-      const k = this.H / (this.H - z), s = P25.s * k;
-      return [P25.cx + (x - this.x) * s, P25.cy + (y - this.y) * s, s];
+      const k = this.H / (this.H - z), s = P25.s * k, rx6 = x - this.x, ry = y - this.y;
+      if (!this.heading) return [P25.cx + rx6 * s, P25.cy + ry * s, s];
+      const a = this.ax();
+      return [P25.cx + (rx6 * a.r[0] + ry * a.r[1]) * s, P25.cy - (rx6 * a.f[0] + ry * a.f[1]) * s, s];
     }
     /** the ground point under a buffer pixel */
     toGround(bx, by3) {
-      const P25 = this.P;
-      return [this.x + (bx - P25.cx) / P25.s, this.y + (by3 - P25.cy) / P25.s];
+      const P25 = this.P, u = (bx - P25.cx) / P25.s, v = (by3 - P25.cy) / P25.s;
+      if (!this.heading) return [this.x + u, this.y + v];
+      const a = this.ax();
+      return [this.x + a.r[0] * u - a.f[0] * v, this.y + a.r[1] * u - a.f[1] * v];
     }
     /** the draw order key: distance from the centre (bigger is drawn first) */
     depth(x, y) {
@@ -13893,36 +13923,77 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     depth3(x, y, z = 0) {
       return -z + Math.hypot(x - this.x, y - this.y) * 1e-3;
     }
-    /** a world offset on screen, linear (north up; height leans out from the centre, so it is left out) */
+    /** a world offset on screen, linear (at the heading; height leans out from the centre, so it is left out) */
     screenVec(x, y) {
-      return [x, y];
+      if (!this.heading) return [x, y];
+      const a = this.ax();
+      return [x * a.r[0] + y * a.r[1], -(x * a.f[0] + y * a.f[1])];
     }
     screenDirToGround(dx, dy) {
       if (!dx && !dy) return [0, 0];
-      const l10 = Math.hypot(dx, dy) || 1, m = Math.min(1, l10);
-      return [dx / l10 * m, dy / l10 * m];
+      const a = this.ax(), gx2 = a.r[0] * dx - a.f[0] * dy, gy = a.r[1] * dx - a.f[1] * dy, l10 = Math.hypot(gx2, gy) || 1, m = Math.min(1, Math.hypot(dx, dy));
+      return [gx2 / l10 * m, gy / l10 * m];
     }
-    /** the engine View a rig is drawn with from straight above at k pixels per unit (whole 1/16ths, reused) */
+    /** the engine View a rig is drawn with from straight above at k pixels per unit (whole 1/16ths), at the heading in
+     *  3° steps (reused) */
     view(k) {
-      const q = Math.max(1 / 16, Math.round(k * 16) / 16);
-      let v = this.views.get(q);
+      const q = Math.max(1 / 16, Math.round(k * 16) / 16), hd = Math.round(this.heading / VIEW_STEP3) * VIEW_STEP3 % 360, key = hd * 1e3 + q;
+      let v = this.views.get(key);
       if (!v) {
         if (this.views.size > 400) this.views.clear();
-        v = new E.View("top", "Top-down", 0, 89, q, 1);
-        this.views.set(q, v);
+        v = new E.View("top", "Top-down", (360 - hd) % 360, 89, q, 1);
+        this.views.set(key, v);
       }
       return v;
     }
-    /** the chunk range the screen covers at the floor, with margin units for leaning tops */
+    /** the chunk range the screen covers at the floor, with margin units for leaning tops (turned: the box round the
+     *  screen's four ground corners) */
     range(size, margin = 160) {
-      const P25 = this.P, x0 = this.x - P25.cx / P25.s - margin, x1 = this.x + (P25.W - P25.cx) / P25.s + margin, y0 = this.y - P25.cy / P25.s - margin, y1 = this.y + (P25.H - P25.cy) / P25.s + margin;
-      return [Math.floor(x0 / size), Math.floor(y0 / size), Math.floor(x1 / size), Math.floor(y1 / size)];
+      const P25 = this.P;
+      let x0, y0, x1, y1;
+      if (!this.heading) {
+        x0 = this.x - P25.cx / P25.s;
+        x1 = this.x + (P25.W - P25.cx) / P25.s;
+        y0 = this.y - P25.cy / P25.s;
+        y1 = this.y + (P25.H - P25.cy) / P25.s;
+      } else {
+        x0 = y0 = Infinity;
+        x1 = y1 = -Infinity;
+        for (const [bx, by3] of [[0, 0], [P25.W, 0], [0, P25.H], [P25.W, P25.H]]) {
+          const [gx2, gy] = this.toGround(bx, by3);
+          x0 = Math.min(x0, gx2);
+          x1 = Math.max(x1, gx2);
+          y0 = Math.min(y0, gy);
+          y1 = Math.max(y1, gy);
+        }
+      }
+      return [Math.floor((x0 - margin) / size), Math.floor((y0 - margin) / size), Math.floor((x1 + margin) / size), Math.floor((y1 + margin) / size)];
     }
-    /** the floor: each chunk on screen scaled into place, edges rounded to whole pixels so neighbours meet exactly */
+    /** the floor: each chunk on screen scaled into place, edges rounded to whole pixels so neighbours meet exactly; turned,
+     *  each drawn with its apron under the view's own ground transform (the overlap is the same floor: no seam shows) */
     drawFloor(g, floor) {
       const P25 = this.P, S11 = floor.size, [i0, j0, i1, j1] = this.range(S11, 0);
       let n = 0;
       g.imageSmoothingEnabled = false;
+      if (this.heading) {
+        const a = this.ax(), s = P25.s, A = a.r[0] * s, B2 = -a.f[0] * s, C27 = a.r[1] * s, D = -a.f[1] * s, p = floor.pad;
+        g.save();
+        for (let j = Math.max(0, j0); j <= Math.min(floor.ny - 1, j1); j++) for (let i = Math.max(0, i0); i <= Math.min(floor.nx - 1, i1); i++) {
+          const cv = floor.canvas(i, j), x0 = i * S11 - (cv ? p : 0) - this.x, y0 = j * S11 - (cv ? p : 0) - this.y;
+          g.setTransform(A, B2, C27, D, P25.cx + A * x0 + C27 * y0, P25.cy + B2 * x0 + D * y0);
+          if (cv) {
+            g.drawImage(cv, 0, 0);
+            n++;
+          } else {
+            g.fillStyle = floor.base;
+            g.fillRect(0, 0, S11, S11);
+          }
+        }
+        g.restore();
+        g._c = null;
+        this.stats.chunks = n;
+        return;
+      }
       for (let j = Math.max(0, j0); j <= Math.min(floor.ny - 1, j1); j++) for (let i = Math.max(0, i0); i <= Math.min(floor.nx - 1, i1); i++) {
         const X0 = Math.round(P25.cx + (i * S11 - this.x) * P25.s), X1 = Math.round(P25.cx + ((i + 1) * S11 - this.x) * P25.s), Y0 = Math.round(P25.cy + (j * S11 - this.y) * P25.s), Y1 = Math.round(P25.cy + ((j + 1) * S11 - this.y) * P25.s);
         const cv = floor.canvas(i, j);
@@ -13953,6 +14024,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             const sh = shadeOf(fx7, fy), cv = faceTexture(s.id, s.t, h, sh, v, night6), col = faceColor(s.t, sh), u0 = mod(along2, FACE_PERIOD), len = Math.hypot(B2[0] - A[0], B2[1] - A[1]);
             this.stats.quads += texturedFace(g, (s2, t) => this.proj(A[0] + (B2[0] - A[0]) * s2, A[1] + (B2[1] - A[1]) * s2, h * (1 - t)), cv, u0, 0, len, h, col);
           }
+          if (this.heading) {
+            this._roof(g, s, h);
+            return;
+          }
           const a = this.proj(s.x0, s.y0, h), b = this.proj(s.x1, s.y1, h);
           if (!a || !b) return;
           const rx6 = Math.round(a[0]), ry = Math.round(a[1]), rw = Math.round(b[0]) - rx6, rh = Math.round(b[1]) - ry;
@@ -13965,6 +14040,28 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           g.fillRect(rx6, ry + rh - 1, rw, 1);
           g.fillRect(rx6 + rw - 1, ry, 1, rh);
         } });
+      }
+    }
+    /** a span's roof turned with the view: its four corners at height h filled, each edge lit or shaded as north-up's
+     *  bevel (the edges facing up or left on screen lighter, the others darker) */
+    _roof(g, s, h) {
+      const C27 = [[s.x0, s.y0], [s.x1, s.y0], [s.x1, s.y1], [s.x0, s.y1]].map(([x, y]) => this.proj(x, y, h));
+      if (C27.some((q) => !q)) return;
+      g.beginPath();
+      g.moveTo(C27[0][0], C27[0][1]);
+      for (let i = 1; i < 4; i++) g.lineTo(C27[i][0], C27[i][1]);
+      g.closePath();
+      g.fillStyle = s.t.top;
+      g.fill();
+      g.lineWidth = 1;
+      const lit = E.shade(s.t.top, 0.18), dim = E.shade(s.t.top, -0.22);
+      for (const [i, nx, ny] of [[0, 0, -1], [1, 1, 0], [2, 0, 1], [3, -1, 0]]) {
+        const [sx, sy] = this.screenVec(nx, ny), A = C27[i], B2 = C27[(i + 1) % 4];
+        g.strokeStyle = sx + sy < 0 ? lit : dim;
+        g.beginPath();
+        g.moveTo(A[0], A[1]);
+        g.lineTo(B2[0], B2[1]);
+        g.stroke();
       }
     }
   };
@@ -14419,6 +14516,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   knob("Graphics", "crowdEvery", "Crowd animation rate", 4, 1, 8, 1, "A crowd body (o.key) is drawn every n frames (4: 15 a second, like classic townsfolk) and its image reused in between, at the place it is now (the player never); away from the player one and a half times n, small on screen twice n");
   knob("Camera", "autoRail", "Auto-rail", 1, 0, 1, 1, "MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0)");
   knob("Graphics", "depthLightRes", "Depth views' light coarseness", 4, 1, 8, 1, "TOP-DOWN and MODE 7 at night work the dark and the lamps' pools out every n buffer pixels and scale them up smoothly (the pools are soft: 4 is a sixteenth of the work of 1, per pixel)");
+  knob("Camera", "spinRate", "Camera spin", 150, 60, 360, 10, "Degrees a second the camera spins while a turn button is held ([ ] or R3 held with the right stick pushed); a tap still turns a quarter");
   knob("Graphics", "lightRes", "Light field coarseness", 2, 1, 4, 1, "ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work");
   var CROWD = { outline: false, rim: false };
   var XRAY = { xray: true };
@@ -14429,7 +14527,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var HAZE_GONE = 0.85;
   var HAZY = /* @__PURE__ */ new Set(["car", "prop3d", "pillar", "deck", "rail"]);
   var PREBAKE_AHEAD = 0.3;
-  var TURN = { time: 0.3, most: 0.45, bakeMs: 9, holdMs: 14, step: 3 };
+  var TURN = { most: 0.45, bakeMs: 9, step: 3 };
+  var SPIN = { tap: 0.2, ease: 0.12, rest: 45, glide: 3, snap: 4, k: 9, min: 90 };
   var ZOOM = { time: 0.25, most: 0.35, bakeMs: 9 };
   var discs = /* @__PURE__ */ new Map();
   function poolDisc(inner, outer) {
@@ -14455,7 +14554,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.items = [];
       this.world = null;
       this.last = 0;
-      this.fx = null;
+      this.spin = null;
       this.zx = null;
       this.lamps = [];
       this.glows = [];
@@ -14604,7 +14703,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (W31.backdrop && !this._floorCovers(r7)) W31.backdrop.draw(r7);
         if (W31.engineFloor && W31.map) W31.map.drawFloor(r7);
         else if (W31.floor) W31.floor.drawIso(r7);
-        if (this.fx) this._turnFrame(r7, dt, o.player || this.focus);
+        if (this.spin && this.spin.view === "iso") this._spinFrame(r7, o.player || this.focus);
         else if (W31.map && this.bx) this._bakeIn(r7, dt);
         else if (W31.map) {
           W31.map.queueWalls(r7);
@@ -14703,6 +14802,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         d.steadyT = 0;
         return;
       }
+      if (this.spin) {
+        d.steadyT = 0;
+        return;
+      }
       const want = TUNE.autoRail && o.vehicle && o.vel ? d.autoRail(dt, o.vel[0], o.vel[1]) : (d.steadyT = 0, null);
       if (want === null) return;
       const f = this.focus;
@@ -14714,6 +14817,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  when MODE 7 is up, or as it comes up, and kept there (Auto-rail and the player's turns hold off) till let go.
      *  Presentation only */
     pointRail(deg) {
+      if (deg !== null && deg !== void 0 && this.spin && this.spin.view === this.side7) this.spin = null;
       this.railHold = deg === null || deg === void 0 ? null : (Math.round(deg / 90) * 90 % 360 + 360) % 360;
       if (this.railHold !== null && this.depth === this.side7 && this.side7.heading !== this.railHold) this._railTo(this.railHold);
     }
@@ -14728,36 +14832,120 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     setRig(rig2) {
       this.rig = rig2 ? { ...rig2 } : null;
     }
-    /** turn the camera a quarter, dir -1 (turnLeft) or 1 (turnRight): ISO's yaw, MODE 7's rail (through the crossfade),
-     *  the chase camera's heading (a swing); TOP-DOWN stays north-up. Returns true if it turns */
+    /** turn the camera a quarter, dir -1 (left) or 1 (right): ISO's yaw, TOP-DOWN's heading, MODE 7's rail, each eased
+     *  round by turnInput's steps (a tap of a turn button); the chase camera's heading (a swing). Returns true if it turns */
     turn(dir) {
-      const d = this.depth, f = this.focus;
+      const d = this.depth;
       if (d === this.chase) {
         d.turnBy(dir);
         return true;
       }
-      if (d === this.side7) {
-        if (this.railHold !== null) return false;
-        this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas);
-        d.setHeading(d.heading + 90 * dir, f ? f[0] : d.x, f ? f[1] : d.y);
+      if (!dir || d === this.side7 && this.railHold !== null) return false;
+      if (!d && this.zx) {
+        this.zx.queued = dir;
         return true;
       }
-      if (d || !dir) return false;
-      if (this.fx || this.zx) {
-        (this.fx || this.zx).queued = dir;
-        return true;
-      }
-      const g = this.game, b = g.baseView || g.view, from = g.yaw || 0, to = ((from + 90 * dir) % 360 + 360) % 360;
-      if (g.headless || !this.world || !this.world.map) {
-        g.rotateView(90 * dir);
-        return true;
-      }
-      this.fx = { dir, t: 0, from, to, view: new E.View(b.id, b.label, b.yawDeg + to, b.pitchDeg, b.scale * (g.zoom || 1), b.zBoost), left: 1 };
+      const s = this._spinFrom(dir, this.spin);
+      s.target = this._landing(s);
       return true;
     }
-    /** is a quarter turn under way? */
+    /** the turn buttons each simulation step (I: the intent, its turnLeft and turnRight held or tapped; off: a screen or a
+     *  job has the buttons, and a turn under way still lands). A tap turns the camera a quarter (ISO's yaw, TOP-DOWN's
+     *  heading, MODE 7's rail), eased round; held, it spins (TUNE.spinRate degrees a second) and, let go, ISO settles on
+     *  the next eighth ahead (its eight rests, as Final Fantasy Tactics' and Xenogears' cameras rest), TOP-DOWN and MODE 7
+     *  where they are (any heading; on a quarter within SPIN.snap of one). The chase camera swings a quarter a tap. In the
+     *  step: the heading maps the stick, so the page and a headless run turn alike (D48) */
+    turnInput(dt, I, off2 = false) {
+      const d = this.depth, want = off2 || !I ? 0 : (I.down.turnRight ? 1 : 0) - (I.down.turnLeft ? 1 : 0);
+      let s = this.spin;
+      if (s && s.view !== (d || "iso")) {
+        this._spinEnd();
+        s = null;
+      }
+      if (d === this.chase) {
+        if (!off2 && I && (I.tap.turnLeft || I.tap.turnRight)) d.turnBy(I.tap.turnRight ? 1 : -1);
+        return;
+      }
+      if (d === this.side7 && this.railHold !== null) {
+        this.spin = null;
+        return;
+      }
+      if (want && (!s || s.target !== null)) {
+        if (!d && this.zx) {
+          if (I.tap.turnLeft || I.tap.turnRight) this.zx.queued = want;
+          return;
+        }
+        s = this._spinFrom(want, s);
+      }
+      if (!s) return;
+      if (s.target === null) {
+        if (want === s.dir) {
+          s.held += dt;
+          s.cur += s.dir * TUNE.spinRate * Math.min(1, s.held / SPIN.ease) * dt;
+          this._setHeading(s.view, s.cur);
+          return;
+        }
+        s.target = this._landing(s);
+      }
+      const left3 = s.target - s.cur, v = Math.max(SPIN.min, Math.abs(left3) * SPIN.k) * dt;
+      if (Math.abs(left3) > v) {
+        s.cur += Math.sign(left3) * v;
+        this._setHeading(s.view, s.cur);
+        return;
+      }
+      this.spin = null;
+      this._setHeading(s.view, s.target, true);
+    }
+    /** is a turn under way (spinning, or easing onto where it lands)? */
     get turning() {
-      return !!this.fx;
+      return !!this.spin;
+    }
+    // a spin in dir from where the camera is (or after the quarter a tap in the same direction is already making)
+    _spinFrom(dir, s) {
+      const h = s ? s.cur : this._headingNow(), start2 = s && s.target !== null && s.dir === dir ? s.target : h;
+      return this.spin = { view: this.depth || "iso", dir, held: 0, start: start2, cur: h, target: null };
+    }
+    _headingNow() {
+      const d = this.depth;
+      return d === this.top ? d.heading : d === this.side7 ? d.heading : this.game.yaw || 0;
+    }
+    // where a turn lands (degrees, unwrapped): a tap, a quarter on (ISO: from its rest; TOP-DOWN and MODE 7: to the next
+    // quarter); a spin let go, ISO's next rest ahead, the others a glide on (onto a quarter within snap)
+    _landing(s) {
+      const R9 = SPIN.rest;
+      if (s.held < SPIN.tap) return s.view === "iso" ? Math.round(s.start / R9) * R9 + 90 * s.dir : (s.dir > 0 ? Math.floor(s.start / 90 + 1e-6) + 1 : Math.ceil(s.start / 90 - 1e-6) - 1) * 90;
+      if (s.view === "iso") return (s.dir > 0 ? Math.ceil((s.cur - 0.5) / R9) : Math.floor((s.cur + 0.5) / R9)) * R9;
+      const at = s.cur + s.dir * SPIN.glide, q = Math.round(at / 90) * 90;
+      return Math.abs(at - q) <= SPIN.snap ? q : at;
+    }
+    // put a view's camera at heading h (degrees): ISO's yaw in its steps while it moves (exact as it lands, then its walls
+    // bake in), TOP-DOWN's heading, MODE 7's rail turned about the focus
+    _setHeading(view, h, final = false) {
+      const n = (v) => (v % 360 + 360) % 360;
+      if (view === "iso") {
+        const g = this.game, y = n(final ? h : Math.round(h / TURN.step) * TURN.step);
+        if (y !== n(g.yaw || 0)) g.rotateView(y - (g.yaw || 0));
+        if (!final) return;
+        if (!g.headless && this.world && this.world.map) this.bx = { t: 0 };
+        if (this.zoomWanted !== void 0) {
+          const z = this.zoomWanted;
+          this.zoomWanted = void 0;
+          this.zoomTo(z);
+        }
+        return;
+      }
+      if (view === this.top) {
+        view.heading = n(h);
+        return;
+      }
+      const f = this.focus;
+      view.orbit(n(h), f ? f[0] : void 0, f ? f[1] : void 0);
+    }
+    // the view changed during a turn: the old one lands where it was going at once
+    _spinEnd() {
+      const s = this.spin;
+      this.spin = null;
+      if (s) this._setHeading(s.view, s.target !== null ? s.target : this._landing(s), true);
     }
     /** step the ISO zoom to z (SpeedZoom's levels: 1, .8, .65). Zooming out, the wider view's walls bake for a few frames
      *  first, then the view changes and eases out from the old framing; zooming in, the frame eases in while the closer
@@ -14770,7 +14958,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.zx.next = z;
         return;
       }
-      if (this.fx) {
+      if (this.spin && this.spin.view === "iso") {
         this.zoomWanted = z;
         return;
       }
@@ -14847,27 +15035,17 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       g.restore();
       g._c = null;
     }
-    // a frame of the turn: flat blocks at this frame's yaw, the final yaw's walls baking; after it, the next frame's yaw
-    _turnFrame(r7, dt, at) {
-      const fx7 = this.fx, W31 = this.world, g = this.game;
-      fx7.t += dt;
-      if (at) {
-        if (this.cutaway) this.cutaway.also(fx7.view, at[0], at[1], at[2] || 0);
-        fx7.left = W31.map.prebakeWalls(r7, { view: fx7.view, at: [at[0], at[1]], ms: fx7.t > TURN.time ? TURN.holdMs : TURN.bakeMs });
+    // ISO while the camera spins or eases round: flat blocks at this frame's yaw (nothing to bake), the walls of the yaw
+    // it lands on baking meanwhile once that is known; landed, the bake-in finishes them (_bakeIn)
+    _spinFrame(r7, at) {
+      const s = this.spin, W31 = this.world, g = this.game;
+      if (at && W31.map && s.target !== null) {
+        const y = (s.target % 360 + 360) % 360, b = g.baseView || g.view;
+        if (!s.land || s.land.yaw !== y) s.land = { yaw: y, view: new E.View(b.id, b.label, b.yawDeg + y, b.pitchDeg, b.scale * (g.zoom || 1), b.zBoost) };
+        if (this.cutaway) this.cutaway.also(s.land.view, at[0], at[1], at[2] || 0);
+        W31.map.prebakeWalls(r7, { view: s.land.view, at: [at[0], at[1]], ms: TURN.bakeMs });
       }
-      this._flatWalls(r7);
-      const e = Math.min(1, fx7.t / TURN.time), k = e * e * (3 - 2 * e), done2 = e >= 1 && (fx7.left === 0 || fx7.t >= TURN.most);
-      const yaw = done2 || e >= 1 ? fx7.to : ((fx7.from + fx7.dir * Math.round(90 * k / TURN.step) * TURN.step) % 360 + 360) % 360;
-      r7.overlay(() => {
-        if (done2) this.fx = null;
-        if (yaw !== (g.yaw || 0)) g.rotateView(yaw - (g.yaw || 0));
-        if (done2 && fx7.queued) this.turn(fx7.queued);
-        if (done2 && this.zoomWanted !== void 0) {
-          const z = this.zoomWanted;
-          this.zoomWanted = void 0;
-          this.zoomTo(z);
-        }
-      });
+      if (W31.map) this._flatWalls(r7);
     }
     // the walls as flat-shaded blocks: one box a building lot (its full height, or its stub where the cut-away drops it),
     // one a cell for walls with no lot (railings, embankments); queued with the actors, so they sort and occlude
@@ -23099,7 +23277,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const under = player && this.city.deckAt(player[0], player[1], 1e9);
       const fade = under && under.z > (player[2] || 0) + 24 ? player : null;
       const cut7 = stage2.mode7 && player ? stage2.mode7 : null, pz = player ? player[2] || 0 : 0, fd = cut7 ? cut7.depth(player[0], player[1]) : 0, fl = cut7 ? cut7.lateral(player[0], player[1]) : 0;
-      const rows = stage2.depth === stage2.side7 ? this._rows || (this._rows = /* @__PURE__ */ new Map()) : null;
+      const rows = stage2.depth === stage2.side7 && stage2.side7.aligned ? this._rows || (this._rows = /* @__PURE__ */ new Map()) : null;
       if (rows) rows.clear();
       for (let j = J0; j <= J1; j++) for (let i = I0; i <= I1; i++) {
         const k = j * 64 + i;
@@ -50950,7 +51128,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
               const I = human.update("onFoot", hero);
               hero.update(dt, map, { move: I.move, sprint: I.down.sprint, jumpPressed: I.tap.jump });
               if (I.tap.view) views.next();
-              if (I.tap.turnLeft || I.tap.turnRight) stage2.turn(I.tap.turnRight ? 1 : -1);
+              stage2.turnInput(dt, I);
             } else {
               const to = map.route[(leg + 1) % map.route.length], dx = to[0] - hero.x, dy = to[1] - hero.y, d = Math.hypot(dx, dy), step2 = SPEED * dt;
               if (d <= step2) {
@@ -51122,7 +51300,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (B2.tap("right", "onFoot") || I.tap.weaponNext) sel = (sel + 1) % shown.length;
           if (B2.tap("left", "onFoot") || I.tap.weaponPrev) sel = (sel - 1 + shown.length) % shown.length;
           if (I.tap.view) views.next();
-          if (I.tap.turnLeft || I.tap.turnRight) stage2.turn(I.tap.turnRight ? 1 : -1);
+          stage2.turnInput(dt, I);
           fleet.update(dt, { intent: () => null, peds: [], night: night6 });
           const s = shown[sel];
           if (s) game2.focus(s.v ? s.v.x : s.x, s.v ? s.v.y : s.y, (s.v ? s.v.z : 0) + 8);
@@ -52204,7 +52382,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     { title: "The law", lines: ["Crimes the police see earn stars. One star: a word. Five: everyone.", "Break their line of sight and the stars flash while they search. Stay hidden and they give up.", "Spray & Pray repaints a car and the stars go with it, if nobody watches you drive in. A bribe takes one star."] },
     { title: "The crew", lines: ["Dex, Viv and Gus. Hold {onFoot:switch} for the character wheel and point at one of them.", "Each has an ability: {onFoot:ability}. Each has their own stats, which grow as they use them.", "You cannot switch while wanted, or in a job that needs one of them."] },
     { title: "Jobs and money", lines: ["Missions come from the gangs' payphones, the crew and the planning board. Walk into the ring.", "A blown job can be retried from the stage it went wrong. Every finished one autosaves.", "Races, rampages and vehicle jobs pay too. Properties pay at midnight: walk up to collect."] },
-    { title: "The views", lines: ["{onFoot:view} changes the view: ISO, TOP-DOWN and MODE 7, the side-scrolling camera on a rail.", "Hold {onFoot:view} and flick the right stick ({onFoot:turnLeft} {onFoot:turnRight} on the keys) to turn ISO or the MODE 7 rail a quarter.", "Nothing in the game depends on the view you play in."] },
+    { title: "The views", lines: ["{onFoot:view} changes the view: ISO, TOP-DOWN and MODE 7, the side-scrolling camera on a rail.", "Hold {onFoot:view} and push the right stick ({onFoot:turnLeft} {onFoot:turnRight} on the keys) to turn the camera: a tap turns it a quarter, held it spins. ISO settles on the next of its eight angles; TOP-DOWN and MODE 7 stay where you stop.", "Nothing in the game depends on the view you play in."] },
     { title: "Saving", lines: ["Save at the safehouse: walk to its door and press {onFoot:interact}. Three slots, and the autosave after every job.", "CONTINUE on the title loads the newest save. LOAD picks one."] }
   ];
 
@@ -53233,6 +53411,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
             photo.update(real);
             game2.timeScale = 1;
             stage2.update(real, { vehicle: false, vel: null });
+            stage2.turnInput(real, null, true);
             if (stage2.rig) game2.focus(stage2.rig.x, stage2.rig.y, 16);
             return;
           }
@@ -53459,7 +53638,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           if (!busy && !down2 && !demo) views.context(v ? "vehicle" : "foot", v ? v.speed / (v.body && v.body.h.top || 260) : 0);
           stage2.update(dt, { vehicle: !!v, vel: v && v.body ? [v.body.vx, v.body.vy] : [p.mover.vx, p.mover.vy], heading: v ? v.heading : p.mover.facing });
           if (I.tap.view && !busy) views.next();
-          if ((I.tap.turnLeft || I.tap.turnRight) && !busy) stage2.turn(I.tap.turnRight ? 1 : -1);
+          stage2.turnInput(real, I, busy);
           if (toast) {
             toast.t -= real;
             if (toast.t <= 0) toast = null;
@@ -54293,7 +54472,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
           combat.update(dt, { takers: [me] });
           if (me.dead) me.revive(map.stand[0], map.stand[1]);
           if (I.tap.view) views.next();
-          if (I.tap.turnLeft || I.tap.turnRight) stage2.turn(I.tap.turnRight ? 1 : -1);
+          stage2.turnInput(dt, I);
           game2.focus(me.x, me.y, 16);
         },
         draw(r7) {

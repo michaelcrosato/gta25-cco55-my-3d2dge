@@ -11,10 +11,11 @@ files. Everything is drawn and played by code.
 The city is three districts, a bridge apart: **Lowtown** (the docks, the neon and the brick), **Ironside** (the
 foundry, the scrapyards and the power station) and **Glass Heights** (the hill, the Strip and the marina), each with
 its gangs, missions and side content, opened one by one as the story goes on. It is seen four ways:
-- **ISOMETRIC** (primary), with a quarter-turning camera that pulls out with speed;
-- **TOP-DOWN**: GTA2's perspective lean, the camera climbing as you go faster;
+- **ISOMETRIC** (primary), with a camera that turns (a tap a quarter; held, a spin that settles on one of eight angles)
+  and pulls out with speed;
+- **TOP-DOWN**: GTA2's perspective lean, the camera climbing as you go faster and turning smoothly to any angle;
 - **SIDE-SCROLL MODE 7**: the engine's side scrolling with depth, a rail camera that follows you sideways while the
-  avenues recede into the distance;
+  avenues recede into the distance, its rail turned smoothly to any angle;
 - **CHASE**: a free-turning Mario Kart-style camera behind what you drive (or the way you walk), pulled in short of the
   walls.
 
@@ -93,7 +94,7 @@ The defaults; every one can be rebound per context in SETTINGS, CONTROLS. The fu
 | Roll / drive-by | ○ | X / left button |
 | Weapon wheel / nitro | L1 | Q / Shift |
 | Change view | R3 (tap) | V |
-| Turn the camera | R3 held, right stick | [ and ] |
+| Turn the camera (tap: a quarter; hold: spin) | R3 held, right stick | [ and ] |
 | Phone | D-pad ↑ | T |
 | Switch character | D-pad ↓ | Z |
 | Radio | D-pad ← → (in a vehicle) | , and . |

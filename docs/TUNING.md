@@ -10,6 +10,7 @@ Every gameplay number is a knob, declared beside the code that reads it (MOTOR's
 | `camAuto` Auto view | 0 | 0..1 | The view picked by itself (1): ISO on foot, TOP-DOWN at speed in a vehicle |
 | `viewFade` View switch fade | 0.35 | 0..1 | Seconds the old view takes to dissolve into the new one (0: a cut) |
 | `autoRail` Auto-rail | 1 | 0..1 | MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0) |
+| `spinRate` Camera spin | 150 | 60..360 | Degrees a second the camera spins while a turn button is held ([ ] or R3 held with the right stick pushed); a tap still turns a quarter |
 | `zoomFoot` ISO zoom on foot | 1 | 0.8..1.2 | The camera zoom walking (1 is the base view) |
 | `zoomDrive` ISO zoom driving | 0.8 | 0.6..1 | The camera zoom in a vehicle below the fast speed |
 | `zoomFast` ISO zoom driving fast | 0.65 | 0.5..0.9 | The camera zoom in a vehicle above the fast speed |

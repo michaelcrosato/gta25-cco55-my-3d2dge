@@ -58,7 +58,7 @@ def('provingZones', 'garage', {
         if (B.tap('right', 'onFoot') || I.tap.weaponNext) sel = (sel + 1) % shown.length;
         if (B.tap('left', 'onFoot') || I.tap.weaponPrev) sel = (sel - 1 + shown.length) % shown.length;
         if (I.tap.view) views.next();
-        if (I.tap.turnLeft || I.tap.turnRight) stage.turn(I.tap.turnRight ? 1 : -1);
+        stage.turnInput(dt, I);
         fleet.update(dt, { intent: () => null, peds: [], night });
         const s = shown[sel]; if (s) game.focus(s.v ? s.v.x : s.x, s.v ? s.v.y : s.y, (s.v ? s.v.z : 0) + 8);   // (a heli is framed where it hovers)
       },

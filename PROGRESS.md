@@ -50,6 +50,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | X8 The full game, verified | done | the bot campaign across the three districts to 100% from the title's NEW GAME; the perf gate in each district and each view; the screenshot matrix in every district (the ten neighbourhoods by day, dusk and night in ISO, TOP-DOWN and MODE 7); the HUD's words on plates; what the campaign, test:full's soaks and D21 found, mended where it lives (traffic round wrecks and in boxes, a panicking driver seen in the box, the tyres at a crawl, the gangs' fights, the crowd's spawns, an ally's drive-by, the bot's way past dead ends; D45); the bot gym at peace, its tow's spot cleared · test:full alone on d9542e1: the campaign at 100.0% (5.63 h of game), D21 219 of 219 and through a pad 73 of 73, the gym 60 of 60 and 20 of 20, the soaks, the perf gate, the cross-runtime and UI checks · the look read (docs/media/x8) |
 | L7 Platforms | done | a desktop wrapper (`desktop/`, Electron, its own package and lock: the page loaded unchanged from its file, full screen, sandboxed, the network shut, a DualSense granted to WebHID with no chooser) and the DualSense's own output report by WebHID (`input/dualsense-hid.js`, by USB and by Bluetooth) played from the game (`input/haptics.js`: R2 and L2 by the gun or the vehicle in hand, the light bar the character's colour and the stars, the rumble in the same report; the Gamepad API's rumble the fallback); SETTINGS, CONTROLS, DualSense haptics; QA-DUALSENSE 6-7 for the owner (D46) · CI's `desktop` job on 9890e8f: Electron under a virtual display, the game up, WebHID there, the network shut, a popup refused; the Linux build packed (an artifact) · test:full alone on 9890e8f · the look read (docs/media/l7) |
 | L8 The owner's items | with the owner | prepared, nothing sent: the seven patches' issue texts (unchanged since the slice) with what L1-L7 put on them, and feedback F7 brought up to date (its header and F7.17-F7.22); the release docs final for the full game (ENGINE-ANALYSIS, the Source Information in README and on Credits & About); Credits' pages kept whole (a heading with its text, no paragraph's last line alone) and the UI audit through every page; the DualSense checklist and the PR's review for the owner (D47) · the audits 244 of 244 and 59 of 59 · the look read (docs/media/l8) · test:full alone on the PR's head, 5b55a08 |
+| D48 The camera turns | done | the owner's request after L8: in every view a tap of the turn buttons turns a quarter, eased round, and held they spin; let go, ISO settles on the next of its eight rests (Final Fantasy Tactics and Xenogears), TOP-DOWN and MODE 7 stay at any angle (MODE 7 then drawn as the chase camera is); in the step, so the stick maps alike headless and in the page; the simulation never reads it (D48) · `tests/sim/camera-turn.test.mjs`, `tests/unit/depth.test.mjs` · the look read in each view by day, at night in the rain and in the bank (docs/media/d48) · test:full alone on the head |
 
 ## Acceptance log
 
@@ -1929,3 +1930,25 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     the chat report (12).
   - **For the owner:** the offer upstream above; the DualSense checklist (`docs/QA-DUALSENSE.md`, sections 1-7, about
     20 minutes with the pad and a TV); the PR's review and merge. HANDOFF's L8 box stays open until they are done.
+
+- **D48 · the camera turns in every view (the owner's request), done:**
+  - **Asked** after L8: the camera rotating as in Final Fantasy Tactics and Xenogears in ISO, smoothly in TOP-DOWN, and
+    smoothly to any angle in MODE 7; then the merge (squash).
+  - **Built:** the turn buttons ([ and ], or R3 held with the right stick pushed) in every view: a tap a quarter, eased
+    round; held, a spin at 150° a second (TUNE `spinRate`); let go, ISO on the next of its eight 45° rests ahead,
+    TOP-DOWN and MODE 7 where they stop (onto a quarter within 4°). `Stage.turnInput` each step (the play scene and the
+    Proving Ground's zones); `TopView` at any heading (its projection, inverse, stick, chunk range, floor under the
+    ground transform with the chunks' aprons, turned roofs, rigs' views in 3° steps); `Side7View` off its quarters with
+    the chase camera's drawing, moved into it from `ChaseView` (the chase camera draws as before), its turn an orbit
+    about the focus; decks a cell each off a quarter. Auto-rail and set pieces still crossfade to a quarter.
+  - **Probed first:** ISO's textured walls at yaw offsets 0°, 45°, 90°, 135° and 30° (`docs/media/d48/iso-yaws-*`): all
+    drawn right, so ISO's rests could be every 45°.
+  - **Tests:** `tests/sim/camera-turn.test.mjs` (4: ISO's tap, spin and rest; TOP-DOWN's quarter, free heading and the
+    stick by it; MODE 7's free heading, its axes, the next quarter and a set piece's hold; the same run hashing the same
+    turned or not, and alike twice); `tests/unit/depth.test.mjs` (2 more: TOP-DOWN turned, north up unchanged; MODE 7 off
+    a quarter and back). The mission, city-life and interior sims that turn mid-run pass as they were.
+  - **The look, read** (`docs/media/d48`): each view after a tap, mid-spin and landed, by day on Neon Mile; at night in
+    the rain; in the bank. TOP-DOWN's floor turns with no seam, its roofs, cars, people and road arrows turned with it;
+    MODE 7 at 141°-167° draws its walls, floor, signs and crowd; ISO mid-spin shows the flat blocks, then the walls at
+    the rest. One note looked into: a gap through DONUT DEPOT in MODE 7 was a street lamp's pole in front of it, as at
+    a quarter; nothing to fix.

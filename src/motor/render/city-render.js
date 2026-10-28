@@ -130,7 +130,7 @@ export class CityRenderer {
     const wd = stage.depth === stage.side7 && stage.side7.P ? stage.side7.wedge(CH) : null, I0 = wd ? Math.max(ci - n, wd[0]) : ci - n, J0 = wd ? Math.max(cj - n, wd[1]) : cj - n, I1 = wd ? Math.min(ci + n, wd[2]) : ci + n, J1 = wd ? Math.min(cj + n, wd[3]) : cj + n;
     const under = player && this.city.deckAt(player[0], player[1], 1e9); const fade = under && under.z > (player[2] || 0) + 24 ? player : null;
     const cut7 = stage.mode7 && player ? stage.mode7 : null, pz = player ? player[2] || 0 : 0, fd = cut7 ? cut7.depth(player[0], player[1]) : 0, fl = cut7 ? cut7.lateral(player[0], player[1]) : 0;
-    const rows = stage.depth === stage.side7 ? (this._rows || (this._rows = new Map())) : null; if (rows) rows.clear();   // (MODE 7: a deck's cells by their row across the rail)
+    const rows = stage.depth === stage.side7 && stage.side7.aligned ? (this._rows || (this._rows = new Map())) : null; if (rows) rows.clear();   // (MODE 7 on a quarter: a deck's cells by their row across the rail; turned off one, a cell each, as the chase camera's)
     for (let j = J0; j <= J1; j++) for (let i = I0; i <= I1; i++) {
       const k = j * 64 + i;
       for (const p of this.props.get(k) || []) if (stage.onScreen(p.x, p.y, p.z || 0, (p.z || 0) + (p.top || 60), 24) && !(p.roof && cut7 && this._cut7(cut7, p.lot, fd, fl))) this._prop(stage, p, night);

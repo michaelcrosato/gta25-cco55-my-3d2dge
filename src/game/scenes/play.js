@@ -471,7 +471,7 @@ export const PLAY = {
         const real = dt / Math.max(.05, game.timeScale);
         if (photo.active) {   // photo mode: the world held still, the camera free (nothing below runs: no clock, no traffic, no job)
           photo.update(real); game.timeScale = 1;
-          stage.update(real, { vehicle: false, vel: null }); if (stage.rig) game.focus(stage.rig.x, stage.rig.y, 16);
+          stage.update(real, { vehicle: false, vel: null }); stage.turnInput(real, null, true); if (stage.rig) game.focus(stage.rig.x, stage.rig.y, 16);
           return;
         }
         if (!demo && !app.ui.took && (B.tap('photo', 'onFoot') || B.tap('photo', 'vehicle')) && enterPhoto()) return;   // (Create / B)
@@ -582,7 +582,7 @@ export const PLAY = {
         if (!busy && !down && !demo) views.context(v ? 'vehicle' : 'foot', v ? v.speed / ((v.body && v.body.h.top) || 260) : 0);   // (the view kept on foot and in a vehicle; Auto. The attract's are its director's)
         stage.update(dt, { vehicle: !!v, vel: v && v.body ? [v.body.vx, v.body.vy] : [p.mover.vx, p.mover.vy], heading: v ? v.heading : p.mover.facing });   // (MODE 7's Auto-rail, the chase camera's heading)
         if (I.tap.view && !busy) views.next();
-        if ((I.tap.turnLeft || I.tap.turnRight) && !busy) stage.turn(I.tap.turnRight ? 1 : -1);
+        stage.turnInput(real, I, busy);   // (the turn buttons: a tap a quarter, held a spin; a turn under way lands while busy)
         if (toast) { toast.t -= real; if (toast.t <= 0) toast = null; }
         const q = hero(), qv = q.seat && q.seat.vehicle, fx1 = qv ? qv.x : q.x, fy1 = qv ? qv.y : q.y;
         if (inside) hoodName = inside.name; else { footprint.update(fx1, fy1); const hd = city.hoodAtPoint(fx1, fy1); hoodName = hd ? hd.name : ''; }

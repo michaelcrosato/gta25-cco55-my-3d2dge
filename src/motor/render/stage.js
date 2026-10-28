@@ -8,12 +8,13 @@
 //   stage.update(dt, { vehicle, vel, heading }) each simulation step (MODE 7's Auto-rail, the chase camera's heading) · stage.setRig({ x, y, zoom, heading })
 //   holds every view's camera on a point (photo mode, cut-scenes; null lets go)
 //   draw(g, sx, sy, view, k): a rig or anything drawn by code with an engine View at (sx, sy), k pixels per unit
-// A switch of view (or of MODE 7's rail) dissolves the last frame into the new view over a third of a second
-// (render/crossfade.js), drawn over the world and under the HUD; switching into ISO, the buildings are flat blocks under
-// it while the walls bake a few milliseconds a frame, as in a quarter turn.
-// An ISO quarter turn (stage.turn) would bake a screenful of walls at the new yaw in one frame. Instead the camera
-// orbits for a third of a second with the buildings drawn as flat-shaded blocks (one box a lot, nothing to bake) while
-// the new yaw's walls bake a few milliseconds a frame; then the textured walls come back.
+// A switch of view (or Auto-rail's or a set piece's turn of MODE 7's rail) dissolves the last frame into the new view
+// over a third of a second (render/crossfade.js), drawn over the world and under the HUD; switching into ISO, the
+// buildings are flat blocks under it while the walls bake a few milliseconds a frame, as after a turn.
+// The turn buttons (turnInput, D48) turn every view: a tap a quarter, eased round; held, a spin; let go, ISO settles on
+// the next of its eight rests, TOP-DOWN and MODE 7 stay where they are. An ISO turn would bake a screenful of walls at
+// each yaw. Instead, while the camera spins and settles, the buildings are drawn as flat-shaded blocks (one box a lot,
+// nothing to bake), the walls of the yaw it lands on baking a few milliseconds a frame; then the textured walls come back.
 // MODE 7 leaves out what the nearer walls hide (_cull7): a face, a body or a deck cell wholly behind them is not drawn.
 import { E } from '../engine.js';
 import { Spans } from './depth/spans.js';
@@ -30,6 +31,7 @@ import { PixelCtx } from './pixel-ctx.js';
 knob('Graphics', 'crowdEvery', 'Crowd animation rate', 4, 1, 8, 1, 'A crowd body (o.key) is drawn every n frames (4: 15 a second, like classic townsfolk) and its image reused in between, at the place it is now (the player never); away from the player one and a half times n, small on screen twice n');
 knob('Camera', 'autoRail', 'Auto-rail', 1, 0, 1, 1, 'MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0)');
 knob('Graphics', 'depthLightRes', 'Depth views\' light coarseness', 4, 1, 8, 1, 'TOP-DOWN and MODE 7 at night work the dark and the lamps\' pools out every n buffer pixels and scale them up smoothly (the pools are soft: 4 is a sixteenth of the work of 1, per pixel)');
+knob('Camera', 'spinRate', 'Camera spin', 150, 60, 360, 10, 'Degrees a second the camera spins while a turn button is held ([ ] or R3 held with the right stick pushed); a tap still turns a quarter');
 knob('Graphics', 'lightRes', 'Light field coarseness', 2, 1, 4, 1, 'ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work');
 
 const CROWD = { outline: false, rim: false }, XRAY = { xray: true };
@@ -40,9 +42,13 @@ const BODY_KEPT_MAX = 160;   // and a crowd body whose image would be taller tha
 const HAZE_GONE = .85;   // MODE 7: where the walls go flat into the fog, bodies, cars and props are not drawn
 const HAZY = new Set(['car', 'prop3d', 'pillar', 'deck', 'rail']);   // (the shapes that fade into it: not a sign, a glow or a marker)
 const PREBAKE_AHEAD = .3;   // (ISO: s ahead of the camera the walls are baked before they show)
-// an ISO quarter turn: its length, the longest it waits for walls to bake, the bake budget a frame while it turns and
-// while it waits at the new yaw, its yaw steps (degrees)
-const TURN = { time: .3, most: .45, bakeMs: 9, holdMs: 14, step: 3 };
+// an ISO turn: the longest it waits at the yaw it lands on for the walls to bake, the bake budget a frame while it turns,
+// its yaw steps while it moves (degrees)
+const TURN = { most: .45, bakeMs: 9, step: 3 };
+// the turn buttons (turnInput): a press shorter than tap (s) turns a quarter; held, the spin eases up to speed over ease
+// (s); ISO rests every rest degrees; let go, TOP-DOWN and MODE 7 glide on glide degrees, onto a quarter within snap of
+// it; landing, the camera eases in at k times the turn left a second, never slower than min degrees a second
+const SPIN = { tap: .2, ease: .12, rest: 45, glide: 3, snap: 4, k: 9, min: 90 };
 // an ISO zoom step: the change's length, the longest a zoom-out waits for the wider view's walls to bake first, the
 // bake budget a frame
 const ZOOM = { time: .25, most: .35, bakeMs: 9 };
@@ -62,7 +68,7 @@ const HALO = 24;   // (pixels: how far a glow's halo reaches, for the walls in f
 export class Stage {
   /** game: the E.Game; views: the ViewManager (it learns the depth views here) */
   constructor(game, views) {
-    this.game = game; this.views = views; this.items = []; this.world = null; this.last = 0; this.fx = null; this.zx = null;
+    this.game = game; this.views = views; this.items = []; this.world = null; this.last = 0; this.spin = null; this.zx = null;
     this.lamps = []; this.glows = []; this.floorFx = []; this.marks = []; this.backdrops = new Map(); this.skyNow = null; this._maxH = null; this.wfx = new WeatherFX();
     this.frameNo = 0; this._kept = new WeakMap();   // (crowd bodies' kept images in the depth views, by their key)
     this.fade = new CrossFade(); this.bx = null; this._dt = 0; this.railHold = null; this.sharp = false; this.px = 1; this.baseS = 1;
@@ -121,7 +127,7 @@ export class Stage {
       if (sky && sky.wet > .02) r.decal(g => this.wfx.floor(g, r.bw, r.bh, sky));   // (over the floor, under what stands on it)
       if (W.backdrop && !this._floorCovers(r)) W.backdrop.draw(r);   // (the sky only where the map's edge is in sight)
       if (W.engineFloor && W.map) W.map.drawFloor(r); else if (W.floor) W.floor.drawIso(r);
-      if (this.fx) this._turnFrame(r, dt, o.player || this.focus);
+      if (this.spin && this.spin.view === 'iso') this._spinFrame(r, o.player || this.focus);
       else if (W.map && this.bx) this._bakeIn(r, dt);
       else if (W.map) { W.map.queueWalls(r); if (this.zx) this._zoomFrame(r, dt, o.player || this.focus); else this._prebake(r, W.map, o.vel); }
       return;
@@ -184,6 +190,7 @@ export class Stage {
     }
     if (d !== this.side7 || this.rig) return;
     if (this.railHold !== null) { if (d.heading !== this.railHold) this._railTo(this.railHold); d.steadyT = 0; return; }   // (a set piece holds it: m.view('side7', { heading }))
+    if (this.spin) { d.steadyT = 0; return; }   // (the player is turning it: Auto-rail waits)
     const want = TUNE.autoRail && o.vehicle && o.vel ? d.autoRail(dt, o.vel[0], o.vel[1]) : (d.steadyT = 0, null);
     if (want === null) return;
     const f = this.focus; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); d.setHeading(want, f ? f[0] : d.x, f ? f[1] : d.y);
@@ -193,6 +200,7 @@ export class Stage {
    *  when MODE 7 is up, or as it comes up, and kept there (Auto-rail and the player's turns hold off) till let go.
    *  Presentation only */
   pointRail(deg) {
+    if (deg !== null && deg !== undefined && this.spin && this.spin.view === this.side7) this.spin = null;
     this.railHold = deg === null || deg === undefined ? null : ((Math.round(deg / 90) * 90) % 360 + 360) % 360;
     if (this.railHold !== null && this.depth === this.side7 && this.side7.heading !== this.railHold) this._railTo(this.railHold);
   }
@@ -201,21 +209,72 @@ export class Stage {
    *  that point (ISO's through the scene's focus: stage.rig), at that zoom, MODE 7's rail at that heading; null lets the
    *  views follow the focus again. Presentation only */
   setRig(rig) { this.rig = rig ? { ...rig } : null; }
-  /** turn the camera a quarter, dir -1 (turnLeft) or 1 (turnRight): ISO's yaw, MODE 7's rail (through the crossfade),
-   *  the chase camera's heading (a swing); TOP-DOWN stays north-up. Returns true if it turns */
+  /** turn the camera a quarter, dir -1 (left) or 1 (right): ISO's yaw, TOP-DOWN's heading, MODE 7's rail, each eased
+   *  round by turnInput's steps (a tap of a turn button); the chase camera's heading (a swing). Returns true if it turns */
   turn(dir) {
-    const d = this.depth, f = this.focus;
-    if (d === this.chase) { d.turnBy(dir); return true; }   // (it swings a quarter round, eased: no crossfade)
-    if (d === this.side7) { if (this.railHold !== null) return false; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); d.setHeading(d.heading + 90 * dir, f ? f[0] : d.x, f ? f[1] : d.y); return true; }   // (a set piece's rail stays put)
-    if (d || !dir) return false;
-    if (this.fx || this.zx) { (this.fx || this.zx).queued = dir; return true; }   // (one more turn waits for this one, or for a zoom step)
-    const g = this.game, b = g.baseView || g.view, from = g.yaw || 0, to = ((from + 90 * dir) % 360 + 360) % 360;
-    if (g.headless || !this.world || !this.world.map) { g.rotateView(90 * dir); return true; }   // (nothing is drawn headless: the yaw turns at once)
-    this.fx = { dir, t: 0, from, to, view: new E.View(b.id, b.label, b.yawDeg + to, b.pitchDeg, b.scale * (g.zoom || 1), b.zBoost), left: 1 };
-    return true;
+    const d = this.depth;
+    if (d === this.chase) { d.turnBy(dir); return true; }   // (it swings a quarter round, eased)
+    if (!dir || (d === this.side7 && this.railHold !== null)) return false;   // (a set piece's rail stays put)
+    if (!d && this.zx) { this.zx.queued = dir; return true; }   // (after the zoom step under way)
+    const s = this._spinFrom(dir, this.spin); s.target = this._landing(s); return true;
   }
-  /** is a quarter turn under way? */
-  get turning() { return !!this.fx; }
+  /** the turn buttons each simulation step (I: the intent, its turnLeft and turnRight held or tapped; off: a screen or a
+   *  job has the buttons, and a turn under way still lands). A tap turns the camera a quarter (ISO's yaw, TOP-DOWN's
+   *  heading, MODE 7's rail), eased round; held, it spins (TUNE.spinRate degrees a second) and, let go, ISO settles on
+   *  the next eighth ahead (its eight rests, as Final Fantasy Tactics' and Xenogears' cameras rest), TOP-DOWN and MODE 7
+   *  where they are (any heading; on a quarter within SPIN.snap of one). The chase camera swings a quarter a tap. In the
+   *  step: the heading maps the stick, so the page and a headless run turn alike (D48) */
+  turnInput(dt, I, off = false) {
+    const d = this.depth, want = off || !I ? 0 : (I.down.turnRight ? 1 : 0) - (I.down.turnLeft ? 1 : 0);
+    let s = this.spin;
+    if (s && s.view !== (d || 'iso')) { this._spinEnd(); s = null; }   // (the view changed under it: the old one lands where it was going)
+    if (d === this.chase) { if (!off && I && (I.tap.turnLeft || I.tap.turnRight)) d.turnBy(I.tap.turnRight ? 1 : -1); return; }
+    if (d === this.side7 && this.railHold !== null) { this.spin = null; return; }
+    if (want && (!s || s.target !== null)) {
+      if (!d && this.zx) { if (I.tap.turnLeft || I.tap.turnRight) this.zx.queued = want; return; }
+      s = this._spinFrom(want, s);
+    }
+    if (!s) return;
+    if (s.target === null) {
+      if (want === s.dir) { s.held += dt; s.cur += s.dir * TUNE.spinRate * Math.min(1, s.held / SPIN.ease) * dt; this._setHeading(s.view, s.cur); return; }
+      s.target = this._landing(s);   // (let go, or turned the other way: the next step's press spins from here)
+    }
+    const left = s.target - s.cur, v = Math.max(SPIN.min, Math.abs(left) * SPIN.k) * dt;
+    if (Math.abs(left) > v) { s.cur += Math.sign(left) * v; this._setHeading(s.view, s.cur); return; }
+    this.spin = null; this._setHeading(s.view, s.target, true);
+  }
+  /** is a turn under way (spinning, or easing onto where it lands)? */
+  get turning() { return !!this.spin; }
+  // a spin in dir from where the camera is (or after the quarter a tap in the same direction is already making)
+  _spinFrom(dir, s) {
+    const h = s ? s.cur : this._headingNow(), start = s && s.target !== null && s.dir === dir ? s.target : h;
+    return (this.spin = { view: this.depth || 'iso', dir, held: 0, start, cur: h, target: null });
+  }
+  _headingNow() { const d = this.depth; return d === this.top ? d.heading : d === this.side7 ? d.heading : this.game.yaw || 0; }
+  // where a turn lands (degrees, unwrapped): a tap, a quarter on (ISO: from its rest; TOP-DOWN and MODE 7: to the next
+  // quarter); a spin let go, ISO's next rest ahead, the others a glide on (onto a quarter within snap)
+  _landing(s) {
+    const R = SPIN.rest;
+    if (s.held < SPIN.tap) return s.view === 'iso' ? Math.round(s.start / R) * R + 90 * s.dir : (s.dir > 0 ? Math.floor(s.start / 90 + 1e-6) + 1 : Math.ceil(s.start / 90 - 1e-6) - 1) * 90;
+    if (s.view === 'iso') return (s.dir > 0 ? Math.ceil((s.cur - .5) / R) : Math.floor((s.cur + .5) / R)) * R;
+    const at = s.cur + s.dir * SPIN.glide, q = Math.round(at / 90) * 90; return Math.abs(at - q) <= SPIN.snap ? q : at;
+  }
+  // put a view's camera at heading h (degrees): ISO's yaw in its steps while it moves (exact as it lands, then its walls
+  // bake in), TOP-DOWN's heading, MODE 7's rail turned about the focus
+  _setHeading(view, h, final = false) {
+    const n = v => ((v % 360) + 360) % 360;
+    if (view === 'iso') {
+      const g = this.game, y = n(final ? h : Math.round(h / TURN.step) * TURN.step); if (y !== n(g.yaw || 0)) g.rotateView(y - (g.yaw || 0));
+      if (!final) return;
+      if (!g.headless && this.world && this.world.map) this.bx = { t: 0 };
+      if (this.zoomWanted !== undefined) { const z = this.zoomWanted; this.zoomWanted = undefined; this.zoomTo(z); }
+      return;
+    }
+    if (view === this.top) { view.heading = n(h); return; }
+    const f = this.focus; view.orbit(n(h), f ? f[0] : undefined, f ? f[1] : undefined);
+  }
+  // the view changed during a turn: the old one lands where it was going at once
+  _spinEnd() { const s = this.spin; this.spin = null; if (s) this._setHeading(s.view, s.target !== null ? s.target : this._landing(s), true); }
   /** step the ISO zoom to z (SpeedZoom's levels: 1, .8, .65). Zooming out, the wider view's walls bake for a few frames
    *  first, then the view changes and eases out from the old framing; zooming in, the frame eases in while the closer
    *  view's walls bake, then the view changes. A quarter second either way, scaled about the player. Elsewhere (TOP,
@@ -224,7 +283,7 @@ export class Stage {
     const g = this.game, now = g.zoom || 1;
     if (this.zx ? this.zx.to === z : Math.abs(now - z) < 1e-6) return;
     if (this.zx) { this.zx.next = z; return; }   // (the next step waits for this one)
-    if (this.fx) { this.zoomWanted = z; return; }   // (and for a turn)
+    if (this.spin && this.spin.view === 'iso') { this.zoomWanted = z; return; }   // (and for a turn)
     if (g.headless || this.depth || !this.world || !this.world.map) { g.setZoom(z); return; }
     const b = g.baseView || g.view, yaw = b.pitchDeg < 5 ? 0 : (g.yaw || 0);
     this.zx = { from: now, to: z, t: 0, out: z < now, switched: false, view: new E.View(b.id, b.label, b.yawDeg + yaw, b.pitchDeg, b.scale * z, b.zBoost), left: 1 };
@@ -257,19 +316,17 @@ export class Stage {
     g.setTransform(k, 0, 0, k, fx * (1 - k), fy * (1 - k)); g.drawImage(cv, 0, 0);
     g.restore(); g._c = null;
   }
-  // a frame of the turn: flat blocks at this frame's yaw, the final yaw's walls baking; after it, the next frame's yaw
-  _turnFrame(r, dt, at) {
-    const fx = this.fx, W = this.world, g = this.game; fx.t += dt;
-    if (at) { if (this.cutaway) this.cutaway.also(fx.view, at[0], at[1], at[2] || 0); fx.left = W.map.prebakeWalls(r, { view: fx.view, at: [at[0], at[1]], ms: fx.t > TURN.time ? TURN.holdMs : TURN.bakeMs }); }
-    this._flatWalls(r);
-    const e = Math.min(1, fx.t / TURN.time), k = e * e * (3 - 2 * e), done = e >= 1 && (fx.left === 0 || fx.t >= TURN.most);
-    const yaw = done || e >= 1 ? fx.to : ((fx.from + fx.dir * Math.round(90 * k / TURN.step) * TURN.step) % 360 + 360) % 360;
-    r.overlay(() => {   // (after this frame is drawn: the next frame starts at the new yaw, the camera snapped to the player)
-      if (done) this.fx = null;
-      if (yaw !== (g.yaw || 0)) g.rotateView(yaw - (g.yaw || 0));
-      if (done && fx.queued) this.turn(fx.queued);
-      if (done && this.zoomWanted !== undefined) { const z = this.zoomWanted; this.zoomWanted = undefined; this.zoomTo(z); }
-    });
+  // ISO while the camera spins or eases round: flat blocks at this frame's yaw (nothing to bake), the walls of the yaw
+  // it lands on baking meanwhile once that is known; landed, the bake-in finishes them (_bakeIn)
+  _spinFrame(r, at) {
+    const s = this.spin, W = this.world, g = this.game;
+    if (at && W.map && s.target !== null) {
+      const y = ((s.target % 360) + 360) % 360, b = g.baseView || g.view;
+      if (!s.land || s.land.yaw !== y) s.land = { yaw: y, view: new E.View(b.id, b.label, b.yawDeg + y, b.pitchDeg, b.scale * (g.zoom || 1), b.zBoost) };
+      if (this.cutaway) this.cutaway.also(s.land.view, at[0], at[1], at[2] || 0);
+      W.map.prebakeWalls(r, { view: s.land.view, at: [at[0], at[1]], ms: TURN.bakeMs });
+    }
+    if (W.map) this._flatWalls(r);
   }
   // the walls as flat-shaded blocks: one box a building lot (its full height, or its stub where the cut-away drops it),
   // one a cell for walls with no lot (railings, embankments); queued with the actors, so they sort and occlude

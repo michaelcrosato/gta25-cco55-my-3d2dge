@@ -210,3 +210,32 @@ test('the chase camera: the floor raster reads the texel under each pixel at an 
   assert.equal(sides.filter(it => near(it.k, it.m)).length, 5, 'the south face square on to the camera: its slices at one depth');
   assert.equal(items.filter(it => it.kind === 'top').length, 1, 'the top, seen from above');
 });
+
+test('TOP-DOWN turned (D48): the floor inverts exactly at any heading, north up is the old projection, and up the screen is the heading', () => {
+  const v = new TopView({ H: 320 }); v.follow(1 / 60, 1000, 1000); v.frame(fakeR);
+  const at0 = [v.proj(1040, 980, 30), v.toGround(300, 100)];
+  for (const hd of [0, 37, 90, 161.5, 270]) {
+    v.heading = hd;
+    for (const [x, y] of [[1000, 1000], [1060, 940], [930, 1085]]) { const [sx, sy] = v.proj(x, y, 0), g = v.toGround(sx, sy); assert.ok(near(g[0], x) && near(g[1], y), `the floor inverts at ${hd}°`); }
+    const t = hd * Math.PI / 180, f = [Math.sin(t), -Math.cos(t)], c = v.proj(1000, 1000, 0), u = v.proj(1000 + f[0] * 50, 1000 + f[1] * 50, 0);
+    assert.ok(near(u[0], c[0], 1e-6) && u[1] < c[1], `the heading points up the screen at ${hd}°`);
+    const [sx, sy] = v.screenVec(f[0], f[1]), [gx, gy] = v.screenDirToGround(0, -1); assert.ok(near(sx, 0) && near(sy, -1) && near(gx, f[0]) && near(gy, f[1]), `the stick and the screen agree at ${hd}°`);
+    const [i0, j0, i1, j1] = v.range(256, 0), corner = v.toGround(0, 0);
+    assert.ok(corner[0] >= i0 * 256 && corner[0] <= (i1 + 1) * 256 && corner[1] >= j0 * 256 && corner[1] <= (j1 + 1) * 256, 'the chunk range covers the screen\'s corners');
+  }
+  v.heading = 0; assert.deepEqual([v.proj(1040, 980, 30), v.toGround(300, 100)], at0, 'north up: exactly as before');
+  assert.equal(v.view(1).yawDeg, 0); v.heading = 90; assert.equal(v.view(1).yawDeg, 270, 'rigs drawn through a view at the heading (as the chase camera\'s)');
+});
+
+test('MODE 7 off its quarters (D48): any heading\'s axes, the floor still inverting, the turn about the focus keeping it on screen, and the rail\'s own drawing back on a quarter', () => {
+  const v = new Side7View({}); v.follow(1 / 60, 500, 500); v.frame(fakeR);
+  assert.ok(v.aligned && v.ax() === RAIL[0], 'on a quarter: the rail\'s own axes');
+  const before = v.proj(500, 500, 0);
+  v.orbit(37, 500, 500); v.frame(fakeR);
+  assert.ok(!v.aligned, 'off a quarter'); const a = v.ax(), t = 37 * Math.PI / 180;
+  assert.ok(near(a.f[0], Math.sin(t)) && near(a.f[1], -Math.cos(t)) && near(a.r[0], Math.cos(t)) && near(a.r[1], Math.sin(t)), 'axes at 37°');
+  const after = v.proj(500, 500, 0); assert.ok(near(after[0], before[0], 1e-6) && near(after[1], before[1], 1e-6), 'turned about the focus: it stays where it was on screen');
+  for (const [x, y] of [[520, 380], [430, 300]]) { const p = v.proj(x, y, 0); if (!p) continue; const g = v.toGround(p[0], p[1]); assert.ok(near(g[0], x, 1e-6) && near(g[1], y, 1e-6), 'the floor row inverts the projection'); }
+  assert.equal(v.keyHeading, 37.5, 'kept images keyed in steps of 1.5° while off a quarter');
+  v.orbit(90, 500, 500); assert.ok(v.aligned && v.ax() === RAIL[90] && v.keyHeading === 90, 'landed on a quarter: the rail\'s own again');
+});

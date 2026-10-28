@@ -46,15 +46,17 @@ test('the view cycles ISO -> TOP-DOWN -> MODE 7 -> CHASE -> ISO on R3 / V, and w
   assert.ok(Math.abs(((c.heading - h0 - 90 + 540) % 360) - 180) < 3, `] swings it a quarter right: ${h0} -> ${c.heading}`);
 });
 
-test('[ and ] turn the camera a quarter: the ISO yaw, the MODE 7 rail; TOP-DOWN stays north-up; walking turns with it', async () => {
+test('[ and ] turn the camera a quarter, eased round in the step: the ISO yaw, TOP-DOWN\'s heading, the MODE 7 rail; walking turns with it', async () => {
   const { game, snap, gtm } = await loadGame({ hash: 'play' });
   game.advance(.2);
   const walk = () => { const a = snap().hero; holdCode(game, 'KeyW', .4); const b = snap().hero; return [b[0] - a[0], b[1] - a[1]]; };
+  const turn = key => { holdCode(game, key); game.advance(1); };   // (a tap, then time to land: D48)
   const up0 = walk();
-  holdCode(game, 'BracketRight'); assert.equal(game.yaw, 90, 'ISO turned a quarter');
+  turn('BracketRight'); assert.equal(game.yaw, 90, 'ISO turned a quarter');
   const up1 = walk(), dot = (up0[0] * up1[0] + up0[1] * up1[1]) / (Math.hypot(...up0) * Math.hypot(...up1));
   assert.ok(Math.abs(dot) < .05, `up the screen turned a quarter in the world: ${up0} then ${up1}`);
-  holdCode(game, 'BracketLeft'); holdCode(game, 'BracketLeft'); assert.equal(game.yaw, 270, 'and back past north');
-  holdCode(game, 'KeyV'); assert.equal(snap().view, 'top'); holdCode(game, 'BracketRight'); assert.equal(game.yaw, 270, 'TOP-DOWN does not turn');
-  holdCode(game, 'KeyV'); assert.equal(snap().view, 'side7'); holdCode(game, 'BracketRight'); assert.equal(gtm.stage.side7.heading, 90, 'the MODE 7 rail turns');
+  turn('BracketLeft'); turn('BracketLeft'); assert.equal(game.yaw, 270, 'and back past north');
+  holdCode(game, 'KeyV'); assert.equal(snap().view, 'top'); turn('BracketRight');
+  assert.equal(gtm.stage.top.heading, 90, 'TOP-DOWN turns too (D48)'); assert.equal(game.yaw, 270, 'and ISO\'s yaw is left as it was');
+  holdCode(game, 'KeyV'); assert.equal(snap().view, 'side7'); turn('BracketRight'); assert.equal(gtm.stage.side7.heading, 90, 'the MODE 7 rail turns');
 });

@@ -129,4 +129,8 @@ Stand at the cabinet (Club Chrome's VIP lounge) and press △ / E to play; its t
 - A DualSense's triggers and light bar (SETTINGS, CONTROLS, DualSense haptics): in Chrome or Edge switched on with a key
   or a click (the browser asks which device; a pad's button can't open its prompt), in the desktop app at once.
 - The desktop app: F11 out of full screen and back; Esc stays the pause.
+- Turning the camera (Turn left, Turn right: [ and ], or R3 held with the right stick pushed): a tap turns any view a
+  quarter, eased round; held, the camera spins. Let go, ISO settles on the next of its eight angles (as Final Fantasy
+  Tactics and Xenogears rest), TOP-DOWN and MODE 7 stay at the angle you stopped at; the chase camera swings a quarter
+  a tap. The spin's speed is CAMERA, Camera spin on the dev tuning pages (`docs/TUNING.md`).
 

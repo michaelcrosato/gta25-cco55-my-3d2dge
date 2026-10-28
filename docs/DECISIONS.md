@@ -2213,3 +2213,44 @@ and where it landed.
   - **The DualSense checklist** stays `docs/QA-DUALSENSE.md` (sections 1-7, about 20 minutes), the PR's review and
     merge the owner's; HANDOFF's L8 box stays open until they are done.
 - **Answered:** no. **Landed in:** L8.
+
+## D48 · 2026-10-28 · The camera turns in every view: a tap a quarter, held a spin (the owner's request)
+
+- **Asked:** the owner, after L8: let the camera rotate, "just like it did in Final Fantasy Tactics and Xenogears on
+  PS1" for the isometric view, smoothly in TOP-DOWN, and smoothly to any angle in MODE 7; then commit, push and merge
+  (squash). Until now ISO turned a quarter on a tap, MODE 7's rail a quarter through the crossfade, and TOP-DOWN stayed
+  north up.
+- **Decided:**
+  - **One control for every view, the turn buttons as they were** ([ and ], or R3 held with the right stick pushed):
+    a tap (shorter than 0.2 s) turns a quarter, eased round; held, the camera spins (TUNE `spinRate`, 150° a second,
+    eased up to speed over a tenth of a second). Let go, **ISO settles on the next of its eight rests ahead** (every
+    45°: Final Fantasy Tactics' quarter turns and Xenogears' free spin coming to rest), **TOP-DOWN and MODE 7 stay where
+    they stop** (any heading; one within 4° of a quarter lands on it), and a tap from any heading goes on to the next
+    quarter. A landing eases in (at 9 times the turn left a second, never slower than 90° a second). The chase camera
+    keeps its own: a quarter swing a tap, its heading after the player's. ISO rests at 45° because its textured walls
+    bake per yaw: eight rests keep the bakes to a few, kept in the bounded cache (GTM-PATCH 2); a probe drew the walls
+    right at 30°, 45° and 135° first.
+  - **In the step, never in a frame drawn** (`Stage.turnInput`, called by the play scene and the Proving Ground's zones
+    each step): the heading maps the stick, so a turn moves the camera the same headless and in the page, and the
+    simulation never reads it (the same run hashes the same turned or not: `tests/sim/camera-turn.test.mjs`). ISO's
+    yaw moves in 3° steps while it turns, drawn with the flat blocks the old quarter turn used (nothing to bake), the
+    walls of the yaw it lands on baking meanwhile; landed, the bake-in finishes them.
+  - **TOP-DOWN at any heading** (`TopView.heading`): its projection, its inverse, the stick and the screen vectors, the
+    chunk range and the rigs' views (3° steps) turned about the screen's centre; the floor chunks drawn under the view's
+    own ground transform with their aprons (as ISO's, so no seam shows); a roof as its four corners with the north-up
+    bevel's lit and shaded edges by where they face on screen. North up is the old projection exactly.
+  - **MODE 7 at any heading** (`Side7View.aligned`): on a quarter it draws with the rail's own fast paths as before (its
+    floor raster along one axis, its slices, front faces and decks a row at a time); off one, with the chase camera's
+    drawing (the floor stepped in both axes, the four faces sliced a tile wide, the tops cut at the near plane, decks a
+    cell each), which moved from `ChaseView` into `Side7View` so both share it. A turn orbits the rail about the focus,
+    keeping it where it stands on screen. Auto-rail and a mission's set piece (`m.view('side7', { heading })`) still
+    turn it to a quarter through the crossfade; Auto-rail waits while the player turns it, and a set piece's rail holds
+    against a spin as against a tap.
+  - **Not changed:** the radar stays north up (its N), as it was through ISO's quarter turns; the perf gate's views are
+    all on a quarter, so their numbers stand.
+- **Proved** by `tests/sim/camera-turn.test.mjs` (in each view, through the keys: a tap a quarter, a spin and where it
+  lands, the stick and the screen by the heading, a set piece's rail holding, the hash untouched) and
+  `tests/unit/depth.test.mjs` (TOP-DOWN's floor inverting at any heading and north up unchanged; MODE 7's axes, inverse
+  and orbit off a quarter, its own drawing back on one), and shots read in each view by day, at night in the rain and in
+  the bank.
+- **Answered:** the owner asked. **Landed in:** after L8, before the merge.

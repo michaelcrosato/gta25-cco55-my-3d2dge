@@ -55,7 +55,7 @@ def('provingZones', 'range', {
         combat.update(dt, { takers: [me] });
         if (me.dead) me.revive(map.stand[0], map.stand[1]);
         if (I.tap.view) views.next();
-        if (I.tap.turnLeft || I.tap.turnRight) stage.turn(I.tap.turnRight ? 1 : -1);
+        stage.turnInput(dt, I);
         game.focus(me.x, me.y, 16);
       },
       draw(r) {

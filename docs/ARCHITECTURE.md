@@ -56,7 +56,7 @@ A rebuild of an unchanged tree is byte-identical: the build checks this, and so 
 | The world layer: CityMap, the district builder and validator, `buildCity`, decks | `src/motor/world/citymap.js`, `builder.js`, `validator.js`, `district.js` | M2 |
 | The world clock, the weather, the drawbridge (simulation state, stepped with the clock) | `src/motor/world/clock.js`, `weather.js`, `drawbridge.js` | M2 |
 | The street painter (the city's floor into floor chunks) and the city renderer (props, decks, signs, roofs, yards, glints) | `src/motor/render/surface-paint.js`, `city-render.js` | M2 |
-| The ISO cut-away by lot (per view), the quarter turn, the speed zoom | `src/motor/render/cutaway.js`, `stage.js`, `speed-zoom.js` | M2 |
+| The ISO cut-away by lot (per view), the camera's turn (a tap a quarter, held a spin, in every view: D48), the speed zoom | `src/motor/render/cutaway.js`, `stage.js`, `speed-zoom.js` | M2 |
 | The sky by hour and weather; rain, wet streets, haze and lightning on screen; MOTOR's light pass and glows | `src/motor/render/sky.js`, `weather-fx.js`, `stage.js` | M2 |
 | Lowtown: four neighbourhoods, every landmark, the Loop and the L, the canal and the drawbridge | `src/game/districts/lowtown/` | M2 |
 | The crossings between districts: a gate at a road's end at the map's edge, a city built for the ones open (`buildCity`'s `open`: openings cut, barricades left out); crossed, the play scene enters the other district with the save, the vehicle, the view and the stars (one map at a time) | `src/motor/world/crossing.js`, `district.js`, `src/game/scenes/play.js` (`crossAt`, `reopen`, `arrive`) | X1 |
@@ -142,7 +142,7 @@ stage.prop('streetlamp', x, y, z, { light, halo, lightRadius })      // the engi
 stage.glow(x, y, z, (g, sx, sy, k) => ..., { reflect, iso })         // lamp heads, neon: after the lights, occlusion-checked
 stage.floor((g, P) => ...)                                           // on the floor, under what stands on it (glints, sheen)
 stage.onScreen(x, y, z0, z1, rad)                                    // the cheap cull for whoever queues many small things
-stage.turn(±1); stage.zoomTo(z)                                      // the quarter turn (D12) and the speed zoom's steps
+stage.turnInput(dt, I, off); stage.turn(±1); stage.zoomTo(z)        // the turn buttons each step, a quarter turn (D12, D48), the zoom's steps
 stage.end()
 ```
 
