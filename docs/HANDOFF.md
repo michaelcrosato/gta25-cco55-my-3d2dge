@@ -86,7 +86,7 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
   - the bridges, which open with the story and load one map at a time across a bridge fade, and when streaming
     between districts comes (PLAN.md 19 leaves that for later);
   - the content packs: planes, more boats, more weapons.
-- [ ] **L6 · The expansion, built** milestone by milestone as `EXPANSION.md` lays it out, with the campaign reaching
+- [x] **L6 · The expansion, built** (done, D38-D45) milestone by milestone as `EXPANSION.md` lays it out, with the campaign reaching
   100% across all the districts.
 - [ ] **L7 · Platforms:**
   - a desktop wrapper (Electron or Tauri, for desktops and the Steam Deck) around the one-file page, which stays

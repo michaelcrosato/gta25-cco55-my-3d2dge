@@ -267,3 +267,11 @@ defMission('saints_holy_rollers', { title: 'Holy Rollers', giver: { phone: 'sain
   prelude first too. `src/` writes `Math.pow`, never `**` (the lint rule and the same test). The proof:
   `tests/e2e/cross-runtime.mjs` plays free roam, a mission by the bot and the attract mode headless and in Chromium,
   step for step, and the hash matches at every checkpoint (60 s in `npm test`, 600 s in `test:full`).
+- **The full game, verified (X8, D45):** `npm run test:full` runs the heavy suites on the PR's head, alone (PLAN.md 15):
+  the perf gate in each district and view (`tools/perf.mjs --gate`); the city soak in each district
+  (`tests/full/city-soak.mjs`: Lowtown by day and at night in the rain, Ironside and Glass Heights by day, watched every
+  step for cars inside each other, calm red runs and cars standing with no cause); the gang sim
+  (`tests/full/gang-soak.mjs`); the screenshot matrix (`tools/shot-matrix.mjs`: every neighbourhood of the three
+  districts, by day, at dusk and at night, in ISO, TOP-DOWN and MODE 7); every mission and activity level through the
+  bot on seeds 1-3 and through a pad (`tools/bot.mjs`); and the campaign, a new game from the title's NEW GAME played by
+  the bot to 100% across the three districts (`tools/bot-campaign.mjs`).

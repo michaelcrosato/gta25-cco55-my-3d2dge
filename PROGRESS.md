@@ -47,6 +47,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | X5 Glass Heights' map and the Causeway | done | Glass Heights, District 3 (128 x 112: Cathedral Hill, the Strip, Marina Heights; the Glass Tower and its jetty, St. Chrome's, the Bellevue's penthouse, the Observatory, the Velvet Casino, the Hotel Riviera, the Grand Palms, Heights PD, Heights General, the Yacht Club and the marina's piers, the Gull at its moorings); the Loop Causeway over the bay, shut in Lowtown's sea wall until Blackout is done (D42) · Glass Heights' sim tests in every view, its 10-minute soak, all merged content again (D21) · the look read (docs/media/x5) |
 | X6 Boats, Glass Heights' gangs and missions | done | the Velvet Syndicate (the Velvet Casino, the Velvet limo) and the Yacht Club (the Club's pier, the Regatta, the Flare Gun), the Saints uptown at St. Chrome's; the Splash, the Regatta and Moneybags on the water, the AutoPlayer sailing round what lies moored; nine missions (Communion, High Mass, The Comp, Loaded Dice, Overboard, Flare Up, and House Edge's Floor Plan, The Gull and finale) with the Velvet Casino, an interior whose vault opens (D43) · each mission through the bot on seeds 1-3 and through a pad, the casino's validation and sim tests, the gangs', boats', planes' and mission verbs' tests, the gym's `boat` fixture on seeds 1-3 and through a pad, all merged content again (D21) · the look read (docs/media/x6) |
 | X7 Glass Heights' side content | done | Limo (fares to the Heights' doors, smoothly: three levels), the Heights Regatta (ten buoys round the Heights by sea, against the Yacht Club's board), MAYHEM: Flare the Limos, three stunts (the Villa Pool, the Velvet Fountain, the Palms Newsstand), 15 Moto Tokens, two properties (the Glass Tower penthouse, the Marina berth), the Strip's Kwik-Lux's hold-up, Villa Marisol, the attract reel THE STRIP; the AutoPlayer's `smooth` style, TOP's sea past Glass Heights' edge (D44) · each activity through the bot on seeds 1-3 and a pad, Glass Heights' side-content sim test, the campaign over its tokens, stunts and properties, all merged content again (D21) · the look read (docs/media/x7) |
+| X8 The full game, verified | done | the bot campaign across the three districts to 100% from the title's NEW GAME; the perf gate in each district and each view; the screenshot matrix in every district (the ten neighbourhoods by day, dusk and night in ISO, TOP-DOWN and MODE 7); the HUD's words on plates; what the campaign, test:full's soaks and D21 found, mended where it lives (traffic round wrecks and in boxes, a panicking driver seen in the box, the tyres at a crawl, the gangs' fights, the crowd's spawns, an ally's drive-by, the bot's way past dead ends; D45); the bot gym at peace, its tow's spot cleared · test:full alone on d9542e1: the campaign at 100.0% (5.63 h of game), D21 219 of 219 and through a pad 73 of 73, the gym 60 of 60 and 20 of 20, the soaks, the perf gate, the cross-runtime and UI checks · the look read (docs/media/x8) |
 
 ## Acceptance log
 
@@ -1762,3 +1763,97 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     fare picked up and a ride in the chase camera, the Regatta's line from above and the race, Flare the Limos, the reel
     THE STRIP). One note fixed: TOP's ground past the map's edge had been a flat grey off Glass Heights' bay (the
     district's sea colour now, `beyond`).
+
+- **X8 · The full game, verified (D45), done:**
+  - **The campaign across the three districts** (`tools/bot-campaign.mjs`, a new game from the title's NEW GAME): 100.0%
+    after 5.63 h of game, in 48 min, in test:full on d9542e1 (32 of 32 missions, the nine jobs at level 3, 4 of 4 races,
+    5 of 5 MAYHEMs, the cabinet's high score, 11 of 11 stunts, 55 of 55 Moto Tokens, 6 of 6 properties). Four campaigns
+    before it found, each mended (D44's and D45's): the crossing from Ironside to Glass Heights only by way of Lowtown
+    (a district between); the Heights Regatta never started (boats passed over, then a Splash gliding on out of the
+    start on its handbrake); the Palms Newsstand's car put in the sea past Bluewater Drive; the Grand Palms' limo,
+    burnt, never back (a wreck beside it never towed: MOTOR tows wrecks out of sight now); the Limo's level 3 late fare
+    after fare (its clocks, the ride timed from the limo) and its limo held in a crash scene's jam (the rescue tows the
+    wrecks round a spot it rescues twice). test:full's closing runs then stopped at the campaign three times, at 98.5%,
+    98.5% and 99.2%: the Heights Regatta off the podium (a Splash come to the line bow north had turned round at the
+    green; then the two Gulls The Gull and House Edge set down in the bay lay across its course, and the Splash swung
+    round them into the shallows), and the Villa Pool's stunt never off the ground (a car queued at a light across its
+    run-up, its tail in the line, shoved along the whole run). The Regatta lines a boat up on its start and clears its
+    course at the start; the campaign's stunt run waits for a clear run-up (D45).
+  - **The city soaks** (test:full's first run on 76bc12d stopped there): Ironside's and Glass Heights' 10-minute day
+    soaks had failed since X6 gave Glass Heights its gangs (a turf war's wrecks in the streets; Ironside's own near the
+    bounds): units with sirens standing with no cause behind a queue held by a wreck, far cars creeping through wrecks
+    and parked units, a car pinned on a wreck's corner with another behind it, a ped trapped by a car left on its
+    crossing, a ped on its feet just out of a line's reach, a second Medic for a body already served, a pass merging
+    onto what it passed as it pulled away; and one bike counted a red run past its stop line before the red. Each mended
+    (D45's list). test:full's second run then stopped at the gang sim: a Saint two minutes in one fight, shooting at a
+    Rat the crowd had put away (a fight with one the world has let go of ends now: the longest fight 50 s). That moved
+    every soak, and its third run stopped at them again, on what they had not reached before: a parked unit left the
+    speed of a knock, traffic's GPS routes into a dead end's stub at a district's edge, far cars behind a turf war's
+    wrecks to a lane's end and a parked car knocked into a box, a pass's obstacle moving off, parked cars swinging side
+    to side and a car held at a red creeping on (the tyres at a crawl), a hauler taking the box from a stand on amber,
+    far cars breaking a gridlock by driving through, a squeezer and a panicking bike into a held box, a wedged car put
+    down in a box on its red, a fleeing ped against the Flyover's ramp, a mime's file put down in sight; and two of the
+    soak's own measures (a siren's crossing, two bikes side by side). Each mended (D45's list). The fourth run (69828f8)
+    passed every step to the screenshot matrix and stopped at D21: 10 of 209 runs (Communion's chrome Saint wrecked
+    beside a car Lugnut shot to a wreck, Holy Rollers' Saint driven into the sea by the Harbor's stub, Drag Mass held at
+    the Harbor by a limo's turn, five Tow tickets lost behind a car the Saint had brushed, two MAYHEMs short). Each
+    mended (D45's list: an ally's drive-by spares a car beside its own; the bot's way never by a dead end's stub; the
+    long-vehicle rule gone; a pass's obstacle a leader only once knocked well on; the two MAYHEMs pass on that code),
+    and all merged content run again found three more: two scared cars, unseen by each other, nose to nose in Drag
+    Mass's c45 (panic taken as a siren's turn instead had the Monks' blockade queue Picket Line's soup van under their
+    guns, so panic still ignores the lights and the reservations, the scared car now seen in the box); a far Scrapper's
+    ring hop short of the lane in Ironside's j13; and the soak's stop line read by the car's centre (a car in at j3 on
+    the green, queued with its centre still in the box behind, counted on the red). Seeing a scared car's way through a
+    box stays the other scared ones' alone: a squeezer that waited on it had stood 100 s at j28 behind one stuck there,
+    a Tow ticket lost. The four soaks after, in test:full (on 4b1f149 and the later heads alike, d9542e1's the closing
+    run): Lowtown by day (600 s, 1,082 cars and 4,016 peds seen) the longest stall 4.3 s, at night in the rain 0.4 s,
+    Ironside 2.4 s, Glass Heights 1.4 s (the bound 20), no overlap and no red run in any; the gang sim's two turf wars
+    both ended, the longest fight 60 s.
+  - **D21 runs on X8's code** (test:full on 4b1f149, and again on each later head to the closing d9542e1): every mission
+    and activity level through the bot on seeds 1-3, 219 of 219 (151 gold, 51 silver, 17 bronze; 21 after a retry), and
+    through a pad 73 of 73 (47 gold, 17 silver, 9 bronze). The 4b1f149 run stopped at the bot gym, two fixtures on seed
+    3 (the gym had last passed whole at L4's close; seed 3's tow had failed from X6's close on): a turf war by the
+    follow's mark had shot its Saint to a wreck beside the bot, and the tow's car stood with another parked nose to its
+    front on a one-way street, no end left to hook. The gym keeps the city's gangs at peace now (it measures the bot at
+    each hint; the wars are the missions' and the campaign's), and the tow fixture's spot is cleared as the Tow job's is
+    (D45). The gym on 86dd433 and after: 60 of 60 on seeds 1-3 (the kept limit `evade3` 1 of 3) and 20 of 20 through a
+    pad (`evade3` 1 of 1).
+  - **The perf gate in each district** (`tools/perf.mjs --gate --rounds 5`, in test:full on d9542e1, alone): the draw on
+    the gate's machine, ms, against D10's budgets (ISO 10.4, TOP-DOWN 12.7, MODE 7 12.7): Lowtown 10.05, 9.09 and 12.32;
+    Ironside 8.25, 7.92 and 10.49; Glass Heights 9.37, 9.22 and 11.79; the update at most 0.98 ms a step (the budget
+    1.5).
+- **The screenshot matrix in every district** (`tools/shot-matrix.mjs`, the ten neighbourhoods by day, at dusk and at
+    night in ISO, TOP-DOWN and MODE 7: 90 shots), read one neighbourhood at a time (`docs/media/x8`: a sheet each). One
+    note, in every district: the HUD's words over a big sign, a white crossing or a pale wall had not read (the Glass
+    Tower's sign behind the place line in TOP-DOWN, the Gilded Lily's and Zappo Cola's behind the weapon and the stars,
+    "DEX $250" over Palm Terraces' pink walls). Fixed: the place line, the protagonist and the cash, the weapon's name
+    and the stars on translucent plates, the weapon's box less see-through; read again in Cathedral Hill, the Strip and
+    Palm Terraces by day and night in each view. Read again on X8's last head, its test:full's own 90 shots (on 4b1f149:
+    nothing drawn changed after it) (`docs/media/x8/<neighbourhood>-matrix.jpg`: day, dusk and night down, ISO, TOP-DOWN
+    and MODE 7 across): every neighbourhood reads in every view and hour, the words on their plates over the Glass
+    Tower, the Gilded Lily, Zappo Cola, the Causeway's sign and Palm Terraces' walls; the context prompt over a white
+    truck's roof (the Foundry by day in MODE 7) reads by its outline. No note.
+  - **The docs:** README for the full game (three districts, 32 missions, the side content, the deep links); D45;
+    ARCHITECTURE's proofs.
+  - **EXPANSION.md 9, item by item:**
+    1. Every milestone's acceptance met, its evidence in this log (X1-X8, a verdict for each look read).
+    2. `npm test` and `npm run test:full` pass (test:full alone on d9542e1, below), and CI is green on the PR's head.
+    3. `dist/index.html` is still one self-contained file: the engine's `check.mjs` (`external: []`, both its steps), it
+       plays from `file://` (the e2e smoke), and it rebuilds byte-identical (`dist current`).
+    4. The full game can be finished: 32 missions and section 5's side content, every mission and level through the bot
+       on seeds 1-3 and a pad (above), and the campaign at 100% across the three districts (100.0% after 5.63 h of
+       game).
+    5. Every view in every district (the matrix above) and interior (the Power Station's and the Velvet Casino's shots,
+       `docs/media/x3`, `docs/media/x6`); a crossing and a view switch leave the hash unchanged
+       (`tests/sim/districts.test.mjs`, `glass-heights.test.mjs`: two runs from one seed the same after a bridge's and
+       the Causeway's crossing; `proving.test.mjs`: one drive, one hash, in ISO, TOP-DOWN and MODE 7).
+    6. The attract mode (30 min x the shipped page and seeds 1-3, and 5 min drawn in Chromium), the 10-foot UI audit
+       (pad, keys and mouse at 1080p and 720p, and the HUD at Huge), determinism across Node and Chromium (10 min x 3
+       scenarios) and the replay pass, all in test:full.
+    7. Performance: each district's medians within the budgets (the perf gate above).
+    8. The docs current (README, ARCHITECTURE's proofs, CONTENT-GUIDE, CONTROLS, TUNING, DECISIONS D38-D45), and the
+       report in chat.
+  - **Closed on `d9542e1`:** `npm run test:full` passed every one of its 34 steps, alone, in 2 h 43 min (the perf gates,
+    the four city soaks, the audio, attract and gang soaks, determinism across Node and Chromium, the UI audits, the
+    screenshot matrix, the mission bot on seeds 1-3 and through a pad, the bot gym both ways, the campaign at 100.0%),
+    and CI is green on the PR's head.
