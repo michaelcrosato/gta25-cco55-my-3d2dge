@@ -274,6 +274,12 @@ export async function campaign({ seed = 1, hours = 8, verbose = false, out = con
         if (c.speed > 2) { if (c.body.vx * Math.cos(c.heading) + c.body.vy * Math.sin(c.heading) > 0) I.brake = 1; else I.throttle = 1; } else phase = 'set';   // (stopped against the way it rolls: the brake held while it backs drives it back faster, into the canal behind the Canal's run-up)
         return I;
       }, 30, () => phase === 'set');
+      // the run-up clear, as a player waits for the gap (up to 30 s; then on all the same): a car queued at a light across
+      // the Villa Pool's line, its tail in it, had been shoved along at 2 u/s for the run's whole 25 s, three tries running
+      const inWay = () => { const c = P().seat && P().seat.vehicle; if (!c) return false; const far = Math.hypot(tx - c.x, ty - c.y) + s.r;
+        for (let d = c.hl; d < far; d += 16) { const x = c.x + ux * d, y = c.y + uy * d; if (gtm.fleet.near(x, y, 60).some(o => o !== c && Math.abs((o.z || 0) - (c.z || 0)) < 12 && M.boxDistance(o, x, y) < c.hw + 4)) return true; }
+        return false; };
+      if (inWay()) pilot(() => { const I = M.clearIntent(idle); I.down.handbrake = true; return I; }, 30, () => !inWay());
       const b = bridgeOf(s); if (b) { const d = Math.hypot(tx - v.x, ty - v.y); lift(b, Math.max(0, .5 - d / 160 * (1 / Math.max(.1, M.TUNE.drawbridgeRaise))) + (n - 1) * .08); }
       // the run: flat out along the line at the takeoff (held straight once over it), the nitro if fitted
       let over = false, h = 0, top = 0; const C0 = C().stunts; if (C0) C0.last = null;

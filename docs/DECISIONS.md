@@ -2123,6 +2123,9 @@ and where it landed.
         in from the north had turned round at the green; then the two Gulls The Gull and House Edge set down in the bay,
         across the south shore's line, had stranded it in the shallows swung round them (41 s, off the podium, five
         times). With both: 27.2 s, first, against the board's 28, 32 and 38.
+      - **The campaign's stunt run waits for its run-up to clear** (`tools/bot-campaign.mjs`, up to 30 s, as a player
+        waits for the gap): a car queued at a light across the Villa Pool's line, its tail in it, had been shoved
+        along at 2 u/s for the run's whole 25 s, three tries running, and the campaign stopped at 99.2%.
       - **The soak's own measures:** a crossing of the stop line under a siren is no calm red run when the call ends
         before the box (as a panic that ends there, `soak-red-run.test.mjs`), and the line is crossed by the car's
         front, as the driver reads it (where a line stands at a lane's start straight out of another box, j3's, a car
