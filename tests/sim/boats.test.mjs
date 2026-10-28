@@ -1,7 +1,8 @@
 // Boats (EXPANSION.md 6, 7, X6): Glass Heights' fleet afloat at its moorings (the Club's Regatta along its pier, the
 // marina's Splashes between theirs, the Gull alongside the Club's pier), and the AutoPlayer sailing a boat home round
 // what lies moored in its way (the cells under it the shore's, to its course): the Regatta in from the open sea past
-// the Gull, never pushing at it, to its berth.
+// the Gull, never pushing at it, to its berth. The Heights Regatta clearing its course of what was left standing on it
+// (the moorings beside it kept) and lining a boat up bow south on its line.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../harness.mjs';
@@ -29,4 +30,17 @@ test('Glass Heights\' boats afloat at their moorings; the AutoPlayer sails the R
   assert.ok(Math.hypot(gull.x - g0[0], gull.y - g0[1]) < 6, `the Gull never pushed (${Math.hypot(gull.x - g0[0], gull.y - g0[1]).toFixed(1)} u)`);
   assert.ok(!reg.wrecked && !reg.damage.burning, 'the Regatta whole');
   assert.equal((game.errors || []).length, 0, JSON.stringify(game.errors));
+});
+
+test('the Heights Regatta clears its course of what was left standing on it, and lines a boat up bow south on its line', async () => {
+  const g = await loadGame({ hash: '#play', query: Q }); g.game.advance(.5);
+  const { game, gtm } = g, F = gtm.fleet;
+  // (a Gull set down across the south shore's line, as The Gull and House Edge leave it; the Club's own at its moorings)
+  const afloat = F.vehicles.filter(v => ['boat', 'plane'].includes(v.cls)), left = F.spawn('gull', 668, 1752, -Math.PI / 2, { owner: 'world' });
+  gtm.career.startMission('race_heights_regatta', { activity: true, level: 1 }); game.advance(.5);
+  assert.equal(gtm.career.R.state, 'running');
+  assert.ok(!F.vehicles.includes(left), 'the Gull left on the course is gone');
+  assert.ok(afloat.length >= 4 && afloat.every(v => F.vehicles.includes(v)), 'the boats and the Gull at their moorings stay: ' + afloat.filter(v => !F.vehicles.includes(v)).map(v => v.def.id).join());
+  const b = gtm.crew.ped.seat && gtm.crew.ped.seat.vehicle;
+  assert.ok(b && b.cls === 'boat' && Math.abs(Math.atan2(Math.sin(b.heading - Math.PI / 2), Math.cos(b.heading - Math.PI / 2))) < .1, 'at the helm on the line, bow south');
 });

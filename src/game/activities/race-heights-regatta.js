@@ -36,6 +36,12 @@ defActivity('race_heights_regatta', {
     id: 'race',
     setup(m) {
       const b = ride(m);
+      // (the Club clears its course of what was left standing on it, along each leg: the Gulls The Gull and House Edge
+      // set down in the bay, across the south shore's line, had stranded a Splash swung round them in the shallows)
+      for (let k = 0, a = [LINE.x, LINE.y]; k < BUOYS.length; a = BUOYS[k++]) {
+        const q = BUOYS[k], n = Math.ceil(Math.hypot(q[0] - a[0], q[1] - a[1]) / 30);   // (on the line itself: the moorings 24 off it and more are the Club's and the marina's own)
+        for (let i = 0; i <= n; i++) m.clearSpot([a[0] + (q[0] - a[0]) * i / n, a[1] + (q[1] - a[1]) * i / n], 16);
+      }
       const turned = Math.abs(Math.atan2(Math.sin(b.heading - LINE.heading), Math.cos(b.heading - LINE.heading))) > .5;
       if (Math.hypot(b.x - LINE.x, b.y - LINE.y) > 80 || turned) m.place(b, [LINE.x, LINE.y], { heading: LINE.heading });   // (a retry, a deep link, a boat come to the line bow north: on the line, bow south; one turned round at the green had lost the podium in the turn)
       m.failIf(mm => !inBoat(mm) && !mm.one('ride'), 'the boat\'s gone');

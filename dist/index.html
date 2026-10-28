@@ -41939,6 +41939,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       id: "race",
       setup(m) {
         const b = ride8(m);
+        for (let k = 0, a = [LINE.x, LINE.y]; k < BUOYS.length; a = BUOYS[k++]) {
+          const q = BUOYS[k], n = Math.ceil(Math.hypot(q[0] - a[0], q[1] - a[1]) / 30);
+          for (let i = 0; i <= n; i++) m.clearSpot([a[0] + (q[0] - a[0]) * i / n, a[1] + (q[1] - a[1]) * i / n], 16);
+        }
         const turned = Math.abs(Math.atan2(Math.sin(b.heading - LINE.heading), Math.cos(b.heading - LINE.heading))) > 0.5;
         if (Math.hypot(b.x - LINE.x, b.y - LINE.y) > 80 || turned) m.place(b, [LINE.x, LINE.y], { heading: LINE.heading });
         m.failIf((mm) => !inBoat(mm) && !mm.one("ride"), "the boat's gone");
