@@ -112,8 +112,8 @@ by the gun or the car in hand, the light bar the character's colour, red and blu
 | **Initial Date** | 2026-10-17 (UTC): the first prompt of the planning session. The repository was created on 2026-10-16 at 19:29 UTC-7. |
 | **SOURCE** | *Grand Theft Auto 2* (PC, 1999; DMA Design / Rockstar Games), with depth, features and gameplay drawn from *Grand Theft Auto V* (2013; Rockstar North). In the my-3D2dge 2D pixel style, with the views isometric (primary), top-down (secondary), and the engine's side scrolling with depth (Mode 7). |
 | **GAME ENGINE** | **my-3D2dge v0.46.1**, commit `cfa866a` (`cfa866aa45474868350cad1a7fc015e612f9305f`, 2026-10-15), <https://github.com/michaelcrosato/my-3d2dge> (MIT). It is vendored at `vendor/my-3d2dge/` and extended by MOTOR (`src/motor/`). |
-| **Environment** | Claude Code (2.1.302 when the run began, 2.1.309 at its end) in Anthropic's managed cloud environment: claude.ai/code remote sessions, started from the Claude desktop app. Linux: Ubuntu 24.04.5 LTS, x86_64. Node.js 22.22.0. Headless Chromium 141 (Playwright 1.56.1, build 1194) for the tests. The game targets desktop browsers and runs from one HTML file. |
-| **Model and Effort Level** | AI lab: **Anthropic**. Effort: **max**, for the planning and for every implementation session (M0-M13), with `ultracode` for the fan-outs. The exact model is given in each session's chat report: this environment keeps model identifiers out of files pushed to the repository. |
+| **Environment** | Claude Code (2.1.302 when the run began, 2.1.309 at the slice's end, 2.1.311 at L1-L8's) in Anthropic's managed cloud environment: claude.ai/code remote sessions, started from the Claude desktop app. Linux: Ubuntu 24.04.5 LTS, x86_64. Node.js 22.22.0. Headless Chromium (Playwright 1.56.1) for the tests: 141 (build 1194) for the slice, the container's 153 (build 1243) from L1 on (D32). Electron 44.7.0 for the desktop wrapper, run and packed by CI (D46). The game targets desktop browsers and runs from one HTML file. |
+| **Model and Effort Level** | AI lab: **Anthropic**. Effort: **max**, for the planning and for every implementation session of the slice (M0-M13), with `ultracode` for the fan-outs; **xhigh** for the run after it (L1-L8, one session), confirmed from that session's metadata. The exact model is given in each session's chat report: this environment keeps model identifiers out of files pushed to the repository. |
 
 ## Game engine analysis
 
@@ -140,7 +140,7 @@ and the feedback for the engine's maintainers is [`docs/FEEDBACK-FOR-ENGINE.md`]
 - **Play:** `dist/index.html` (committed, rebuilt by every change).
 - **Build:** `npm ci` (Node 22 or later), then `npm run build`. `npm run dev` serves it on `localhost:5173` and rebuilds
   on every change.
-- **Test:** `npm test` is the gate (lint, the layer and vendor checks, a current build and tuning list, about 440 unit
+- **Test:** `npm test` is the gate (lint, the layer and vendor checks, a current build and tuning list, about 460 unit
   and sim tests, the 15 content recipes, FAN-OUT B's review tests (each a finding of the adversarial review, fixed), and
   the browser suites: smoke, replay, the Proving Ground's self-tests, audio, the attract mode, photo mode, the dev
   tools, one seed played headless and in Chromium to the same hash (D33), the engine's checker on the city and the

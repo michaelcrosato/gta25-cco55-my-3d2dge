@@ -1,4 +1,4 @@
-# Handoff: GRAND THEFT MOTO, the slice done and merged (M0-M13)
+# Handoff: GRAND THEFT MOTO, the full game (M0-M13 and L1-L7), L8 with the owner
 
 This is where a fresh session picks up the run. `PLAN.md` is still the contract and `GOAL.md` is the prompt that
 started the run. This page says where the run stands, what is left (L1-L8), how the repository is worked, and what
@@ -26,14 +26,25 @@ so a session that stops anywhere can resume from it: the work in flight is liste
   through from file:// (D31). The release docs are final: README.md, `docs/ENGINE-ANALYSIS.md`, the Credits & About
   screen and the HTML header (both from `src/about.js`), `vendor/my-3d2dge/PATCHES.md`. **The owner's directions
   (D29):** performance is out of the Definition of Done (the "perf gates" step left test:full; `tools/perf.mjs` stays
-  for later), and the bots may play invulnerable (`?god=1`, the tools' `--god`; the campaign plays god by default,
-  `--mortal` without; the mission bot's runs stay mortal).
+  for later; D35 put it back, L3), and the bots may play invulnerable (`?god=1`, the tools' `--god`; the campaign
+  plays god by default, `--mortal` without; the mission bot's runs stay mortal).
+- **Done: L1-L7** (D33-D46, on this run's branch, `claude/laughing-fermi-w5m8oe`, in the draft PR
+  michaelcrosato/gta25-cco55-my-3d2dge#4 to `main`; `PROGRESS.md` has each item's evidence): determinism across Node
+  and Chromium (L1), the known limits (L2), every view within its budgets with a quality setting and the perf gate
+  back in test:full (L3, superseding D29's first call), PLAN.md 19's backlog on Lowtown (L4), `docs/EXPANSION.md`
+  (L5) and the full game it plans, built (L6: Ironside and Glass Heights, seven gangs, 32 missions, planes and boats,
+  the campaign at 100% across the three districts), the desktop wrapper and the DualSense by WebHID (L7). Each closed
+  with `npm run test:full` passing alone on its last commit, L7's on `9890e8f`.
+- **L8, with the owner** (nothing has left the repository): the offer upstream (the seven patches' issue texts in
+  `vendor/my-3d2dge/PATCHES.md` and the feedback F7 in `docs/FEEDBACK-FOR-ENGINE.md`, brought up to date with L1-L7),
+  the DualSense checklist (`docs/QA-DUALSENSE.md`, sections 1-7, for a person with the pad and a TV) and that PR's
+  review and merge. Its box stays open until the owner has done them.
 - **Merged:** michaelcrosato/gta25-cco55-my-3d2dge#1 (M0-M4) and michaelcrosato/gta25-cco55-my-3d2dge#2 (M5-M13,
   merged on 2026-10-23 as `1a1f955`) are in `main`, and CI is green there. Their branch,
   `claude/compassionate-shannon-h7k7zk`, is spent. New work goes on a fresh branch cut from `main` (a cloud session's
   own), in a new draft PR to `main`. Pushing works.
-- **Left:** the list below (L1-L8), in order. Each change keeps the slice done: `npm test` before every commit,
-  test:full before an item closes, and all merged content re-run after a MOTOR, bot or map change.
+- **Left:** L8, the owner's (below). Any further change keeps the game done: `npm test` before every commit,
+  test:full before it closes, and all merged content re-run after a MOTOR, bot or map change.
 - **The container**, checked on 2026-10-24 (D32): Node 22.22.0, npm 10.9.4, Playwright 1.56.1, ffmpeg and python3 on
   the PATH, 4 CPUs and 15 GB. Its Chromium is now **153** (build 1243, `/opt/pw-browsers/chromium`). PLAN.md 6.1 and D6
   pinned Playwright for Chromium 141 (build 1194). Playwright 1.56.1 still drives 153 through `CHROMIUM_PATH`, which
@@ -93,8 +104,8 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
     unchanged. The wrapper is a dev dependency with its own build output.
   - real DualSense haptics and adaptive triggers through WebHID on desktop Chrome, with the rumble as the fallback.
     Their checks go into `docs/QA-DUALSENSE.md`.
-- [ ] **L8 · The owner's items.** The run prepares each one, and nothing leaves the repository without the owner's
-  say-so:
+- [ ] **L8 · The owner's items** (prepared on 2026-10-28 and put to the owner; open until they are done). The run
+  prepares each one, and nothing leaves the repository without the owner's say-so:
   - the offer upstream: the seven patches' issue texts (`vendor/my-3d2dge/PATCHES.md`) and the feedback F7
     (`docs/FEEDBACK-FOR-ENGINE.md`), brought up to date with L1-L7;
   - the DualSense checklist (`docs/QA-DUALSENSE.md`), for a person with the pad and a TV;
@@ -107,10 +118,10 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
 3. `PROGRESS.md`: each milestone's status and evidence (the acceptance log has every milestone's runs).
 4. `docs/ARCHITECTURE.md`: the module map and the frozen contracts (the Stage and projectors, the registries, the
    Intent, the BUS).
-5. `docs/DECISIONS.md`: D1-D32, every call made without an answer. D21 is M8's, including what the bot does and why;
+5. `docs/DECISIONS.md`: D1-D47, every call made without an answer. D21 is M8's, including what the bot does and why;
    D29 has the owner's two directions (performance out of the Definition of Done, bots that may play god); D30 is
    M13's part 5 (the campaign's stalls, each fixed where it lives); D31 its close (determinism per runtime); D32 the
-   container's Chromium 153 and L1-L8, the one list of what is left.
+   container's Chromium 153 and L1-L8, the one list of what is left; D33-D47 the run that worked it, item by item.
 6. `docs/CONTENT-GUIDE.md`: how each kind of content is added, the mission DSL and its `m` API included.
 7. `vendor/my-3d2dge/PATCHES.md`: the engine patches (GTM-PATCH markers). Never read the 742 KB engine whole. Search
    its `API-INDEX.md` first.

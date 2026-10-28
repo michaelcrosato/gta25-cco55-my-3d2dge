@@ -170,15 +170,28 @@ export function docScreen(o) {
   let k = 0, laid = null;
   const layout = (P, w, h) => {
     if (laid && laid.W === P.W && laid.H === P.H) return laid.pages;
-    const lines = [];
+    const lines = [], para = (text, color) => { const ls = wrapText(P, text, w); ls.forEach((l, i) => lines.push({ text: l, color, end: i === ls.length - 1 })); lines.push({ gap: 3 }); };
     for (const s of o.sections) {
       if (lines.length) lines.push({ gap: 6 });
-      lines.push({ text: s.title.toUpperCase(), color: UI.accent, head: true });
-      for (const [label, text] of s.rows || []) { lines.push({ text: label.toUpperCase(), color: UI.cyan }); for (const l of wrapText(P, text, w)) lines.push({ text: l, color: UI.ink }); lines.push({ gap: 3 }); }
-      for (const t of s.lines || []) { for (const l of wrapText(P, t, w)) lines.push({ text: l, color: UI.dim }); lines.push({ gap: 3 }); }
+      lines.push({ text: s.title.toUpperCase(), color: UI.accent, head: true, keep: true });
+      for (const [label, text] of s.rows || []) { lines.push({ text: label.toUpperCase(), color: UI.cyan, keep: true }); para(text, UI.ink); }
+      for (const t of s.lines || []) para(t, UI.dim);
     }
     const pages = [[]]; let y = 0;
-    for (const l of lines) { const lh = l.gap || 10; if (y + lh > h && pages[pages.length - 1].length) { pages.push([]); y = 0; if (l.gap) continue; } pages[pages.length - 1].push(l); y += lh; }
+    // a heading or a row's label is kept with the line after it (one that would end a page starts the next), and a
+    // paragraph's last line never starts a page alone (the line before it comes too)
+    for (const l of lines) {
+      const lh = l.gap || 10, cur = pages[pages.length - 1];
+      if (y + lh > h && cur.length) {
+        if (l.gap) continue;   // (a gap that would end a page is dropped: the next line starts the next page)
+        const carry = [], prev = cur[cur.length - 1];
+        if (l.end && cur.length > 1 && !prev.keep && !prev.gap) carry.push(cur.pop());
+        while (cur.length > 1 && (cur[cur.length - 1].keep || cur[cur.length - 1].gap)) carry.unshift(cur.pop());
+        while (carry.length && carry[0].gap) carry.shift();
+        pages.push(carry); y = carry.reduce((a, c) => a + (c.gap || 10), 0);
+      }
+      pages[pages.length - 1].push(l); y += lh;
+    }
     laid = { W: P.W, H: P.H, pages }; return pages;
   };
   // (o.tapBack(): taps only, a kiosk's phone: a tap turns the page, and on the last one goes back)

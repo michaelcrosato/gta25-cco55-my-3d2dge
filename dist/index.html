@@ -8,8 +8,8 @@
   * Initial Date: 2026-10-17 (UTC): the first prompt of the planning session
   * SOURCE: Grand Theft Auto 2 (PC, 1999; DMA Design / Rockstar Games), with depth, features and gameplay drawn from Grand Theft Auto V (2013; Rockstar North); my-3D2dge 2D pixel style; views isometric (primary), top-down (secondary) and side scrolling with depth (Mode 7)
   * GAME ENGINE: my-3D2dge v0.46.1, commit cfa866aa45474868350cad1a7fc015e612f9305f (2026-10-15), https://github.com/michaelcrosato/my-3d2dge (MIT), vendored and extended by MOTOR
-  * Environment: Claude Code (2.1.302 when the run began, 2.1.309 at its end) in Anthropic's managed cloud environment (claude.ai/code remote sessions, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22.22.0; headless Chromium 141 (Playwright 1.56.1) for the tests; the game targets desktop browsers
-  * Model and Effort Level: AI lab: Anthropic. Effort: max, for the planning and every implementation session (M0-M13), with ultracode for the fan-outs. The exact model is named in each session's chat report (this environment keeps model identifiers out of repository files)
+  * Environment: Claude Code (2.1.302 when the run began, 2.1.309 at the slice's end, 2.1.311 at L1-L8's) in Anthropic's managed cloud environment (claude.ai/code remote sessions, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22.22.0; headless Chromium (Playwright 1.56.1) for the tests: 141 for the slice, 153 from L1 on; Electron 44.7.0 for the desktop wrapper, run and packed by CI; the game targets desktop browsers
+  * Model and Effort Level: AI lab: Anthropic. Effort: max, for the planning and every implementation session of the slice (M0-M13), with ultracode for the fan-outs; xhigh for the run after it (L1-L8, one session), confirmed from its metadata. The exact model is named in each session's chat report (this environment keeps model identifiers out of repository files)
 
   GAME ENGINE ANALYSIS (summary; the full analysis is docs/ENGINE-ANALYSIS.md in the repository)
   - Used: the exact fixed-step loop and headless stepping (every test runs the real game in Node); scenes and fades; the pixel primitives, colours, textures and font; TileMap for the buildings; the depth-sorted renderer and the iso view; canvas lighting; particles; Humanoid rigs with mocap, Mover and ACTIONS; sees, hears and Suspicion; Bullets, Attack and Combo; the input with DualSense detection and rumble; ChipAudio; store and settings; the session recorder and the checker. The stress test's side scrolling with depth became MODE 7, and the shooter kit's one-point lean became TOP-DOWN.
@@ -28081,28 +28081,32 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     let k = 0, laid = null;
     const layout = (P25, w12, h) => {
       if (laid && laid.W === P25.W && laid.H === P25.H) return laid.pages;
-      const lines = [];
+      const lines = [], para = (text, color) => {
+        const ls = wrapText(P25, text, w12);
+        ls.forEach((l10, i) => lines.push({ text: l10, color, end: i === ls.length - 1 }));
+        lines.push({ gap: 3 });
+      };
       for (const s of o.sections) {
         if (lines.length) lines.push({ gap: 6 });
-        lines.push({ text: s.title.toUpperCase(), color: UI.accent, head: true });
+        lines.push({ text: s.title.toUpperCase(), color: UI.accent, head: true, keep: true });
         for (const [label2, text] of s.rows || []) {
-          lines.push({ text: label2.toUpperCase(), color: UI.cyan });
-          for (const l10 of wrapText(P25, text, w12)) lines.push({ text: l10, color: UI.ink });
-          lines.push({ gap: 3 });
+          lines.push({ text: label2.toUpperCase(), color: UI.cyan, keep: true });
+          para(text, UI.ink);
         }
-        for (const t of s.lines || []) {
-          for (const l10 of wrapText(P25, t, w12)) lines.push({ text: l10, color: UI.dim });
-          lines.push({ gap: 3 });
-        }
+        for (const t of s.lines || []) para(t, UI.dim);
       }
       const pages = [[]];
       let y = 0;
       for (const l10 of lines) {
-        const lh = l10.gap || 10;
-        if (y + lh > h && pages[pages.length - 1].length) {
-          pages.push([]);
-          y = 0;
+        const lh = l10.gap || 10, cur = pages[pages.length - 1];
+        if (y + lh > h && cur.length) {
           if (l10.gap) continue;
+          const carry = [], prev = cur[cur.length - 1];
+          if (l10.end && cur.length > 1 && !prev.keep && !prev.gap) carry.push(cur.pop());
+          while (cur.length > 1 && (cur[cur.length - 1].keep || cur[cur.length - 1].gap)) carry.unshift(cur.pop());
+          while (carry.length && carry[0].gap) carry.shift();
+          pages.push(carry);
+          y = carry.reduce((a, c) => a + (c.gap || 10), 0);
         }
         pages[pages.length - 1].push(l10);
         y += lh;
@@ -40592,8 +40596,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     ["Initial Date", "2026-10-17 (UTC): the first prompt of the planning session"],
     ["SOURCE", "Grand Theft Auto 2 (PC, 1999; DMA Design / Rockstar Games), with depth, features and gameplay drawn from Grand Theft Auto V (2013; Rockstar North); my-3D2dge 2D pixel style; views isometric (primary), top-down (secondary) and side scrolling with depth (Mode 7)"],
     ["GAME ENGINE", "my-3D2dge v0.46.1, commit cfa866aa45474868350cad1a7fc015e612f9305f (2026-10-15), https://github.com/michaelcrosato/my-3d2dge (MIT), vendored and extended by MOTOR"],
-    ["Environment", "Claude Code (2.1.302 when the run began, 2.1.309 at its end) in Anthropic's managed cloud environment (claude.ai/code remote sessions, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22.22.0; headless Chromium 141 (Playwright 1.56.1) for the tests; the game targets desktop browsers"],
-    ["Model and Effort Level", "AI lab: Anthropic. Effort: max, for the planning and every implementation session (M0-M13), with ultracode for the fan-outs. The exact model is named in each session's chat report (this environment keeps model identifiers out of repository files)"]
+    ["Environment", "Claude Code (2.1.302 when the run began, 2.1.309 at the slice's end, 2.1.311 at L1-L8's) in Anthropic's managed cloud environment (claude.ai/code remote sessions, started from the Claude desktop app); Linux (Ubuntu 24.04.5 LTS, x86_64); Node.js 22.22.0; headless Chromium (Playwright 1.56.1) for the tests: 141 for the slice, 153 from L1 on; Electron 44.7.0 for the desktop wrapper, run and packed by CI; the game targets desktop browsers"],
+    ["Model and Effort Level", "AI lab: Anthropic. Effort: max, for the planning and every implementation session of the slice (M0-M13), with ultracode for the fan-outs; xhigh for the run after it (L1-L8, one session), confirmed from its metadata. The exact model is named in each session's chat report (this environment keeps model identifiers out of repository files)"]
   ];
   var ENGINE_SUMMARY = [
     "Used: the exact fixed-step loop and headless stepping (every test runs the real game in Node); scenes and fades; the pixel primitives, colours, textures and font; TileMap for the buildings; the depth-sorted renderer and the iso view; canvas lighting; particles; Humanoid rigs with mocap, Mover and ACTIONS; sees, hears and Suspicion; Bullets, Attack and Combo; the input with DualSense detection and rumble; ChipAudio; store and settings; the session recorder and the checker. The stress test's side scrolling with depth became MODE 7, and the shooter kit's one-point lean became TOP-DOWN.",
@@ -40608,7 +40612,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'
   ];
   var GAME_CREDIT = [
-    "An original game in the spirit of Grand Theft Auto 2, with depth drawn from Grand Theft Auto V. Lowtown, its people, its gangs, its vehicles, its radio and every line are made up for it: no names, logos, music or text from those games.",
+    "An original game in the spirit of Grand Theft Auto 2, with depth drawn from Grand Theft Auto V. Lowtown, Ironside and Glass Heights, their people, their gangs, the vehicles, the radio and every line are made up for it: no names, logos, music or text from those games.",
     "Every picture and sound is drawn and played by code at run time: no image or audio files."
   ];
   var GAME = { title: "GRAND THEFT MOTO", id: "GrandTheftMoto-5S", tagline: "If it has a motor, it's yours." };

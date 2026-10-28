@@ -49,6 +49,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | X7 Glass Heights' side content | done | Limo (fares to the Heights' doors, smoothly: three levels), the Heights Regatta (ten buoys round the Heights by sea, against the Yacht Club's board), MAYHEM: Flare the Limos, three stunts (the Villa Pool, the Velvet Fountain, the Palms Newsstand), 15 Moto Tokens, two properties (the Glass Tower penthouse, the Marina berth), the Strip's Kwik-Lux's hold-up, Villa Marisol, the attract reel THE STRIP; the AutoPlayer's `smooth` style, TOP's sea past Glass Heights' edge (D44) · each activity through the bot on seeds 1-3 and a pad, Glass Heights' side-content sim test, the campaign over its tokens, stunts and properties, all merged content again (D21) · the look read (docs/media/x7) |
 | X8 The full game, verified | done | the bot campaign across the three districts to 100% from the title's NEW GAME; the perf gate in each district and each view; the screenshot matrix in every district (the ten neighbourhoods by day, dusk and night in ISO, TOP-DOWN and MODE 7); the HUD's words on plates; what the campaign, test:full's soaks and D21 found, mended where it lives (traffic round wrecks and in boxes, a panicking driver seen in the box, the tyres at a crawl, the gangs' fights, the crowd's spawns, an ally's drive-by, the bot's way past dead ends; D45); the bot gym at peace, its tow's spot cleared · test:full alone on d9542e1: the campaign at 100.0% (5.63 h of game), D21 219 of 219 and through a pad 73 of 73, the gym 60 of 60 and 20 of 20, the soaks, the perf gate, the cross-runtime and UI checks · the look read (docs/media/x8) |
 | L7 Platforms | done | a desktop wrapper (`desktop/`, Electron, its own package and lock: the page loaded unchanged from its file, full screen, sandboxed, the network shut, a DualSense granted to WebHID with no chooser) and the DualSense's own output report by WebHID (`input/dualsense-hid.js`, by USB and by Bluetooth) played from the game (`input/haptics.js`: R2 and L2 by the gun or the vehicle in hand, the light bar the character's colour and the stars, the rumble in the same report; the Gamepad API's rumble the fallback); SETTINGS, CONTROLS, DualSense haptics; QA-DUALSENSE 6-7 for the owner (D46) · CI's `desktop` job on 9890e8f: Electron under a virtual display, the game up, WebHID there, the network shut, a popup refused; the Linux build packed (an artifact) · test:full alone on 9890e8f · the look read (docs/media/l7) |
+| L8 The owner's items | with the owner | prepared, nothing sent: the seven patches' issue texts (unchanged since the slice) with what L1-L7 put on them, and feedback F7 brought up to date (its header and F7.17-F7.22); the release docs final for the full game (ENGINE-ANALYSIS, the Source Information in README and on Credits & About); Credits' pages kept whole (a heading with its text, no paragraph's last line alone) and the UI audit through every page; the DualSense checklist and the PR's review for the owner (D47) · the audits 244 of 244 and 59 of 59 · the look read (docs/media/l8) · test:full alone on the head |
 
 ## Acceptance log
 
@@ -1893,3 +1894,22 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     219 on seeds 1-3 (151 gold, 51 silver, 17 bronze) and 73 of 73 through a pad, the gym 60 of 60 and 20 of 20, the
     UI audits 238 of 238 and 51 of 51 (HUD Huge), the campaign at 100.0% after 5.63 h of game: the same as on
     `d9542e1`, since L7 moves no run. CI's `test` and `desktop` jobs are green on the same head.
+
+- **L8 · the owner's items (D47), prepared and with the owner:**
+  - **The offer upstream** (not sent): `vendor/my-3d2dge/PATCHES.md`'s seven issue texts stand as written, since no
+    patch was added or changed after the slice (the engine's files last moved at M10, `b2ea884`), with a note on what
+    L1-L7 put on them; `docs/FEEDBACK-FOR-ENGINE.md`'s F7 has the full game's header and F7.17-F7.22, each point checked
+    against the code (the districts' sizes, the counts, the crossing, the quality setting as D35 has it).
+  - **The release docs** (PLAN.md 15.10-11): `docs/ENGINE-ANALYSIS.md` brought up to date with L1-L7 (its call-site
+    counts recounted); the Source Information in README and `src/about.js`: Claude Code 2.1.311 at L1-L8's end, Chromium
+    153 from L1 on, Electron 44.7.0 in CI, and the effort as the sessions' metadata gives it (max for the slice, xhigh
+    for L1-L8).
+  - **Credits & About, read at 1080p, 720p and HUD Huge** (`docs/media/l8`): the game's credit had begun a page with
+    its heading left at the foot of the one before, and a row's last word ("files)") had begun a page alone. MOTOR's
+    `docScreen` now keeps a heading or a label with the line after it and a paragraph's last line with the one before;
+    a gap at a page's foot no longer opens an empty page. `tests/unit/ui.test.mjs` failed on both before the fix, at
+    page heights from 56 to 236 UI pixels, and passes after. The UI audit walks every page now (it had stopped at four
+    of five, six and twelve): 244 of 244 stops by pad, keys and mouse at 1080p and 720p, and 59 of 59 at HUD Huge.
+    Read again after the fix: every heading and label with its text, no line alone; no note.
+  - **For the owner:** the offer upstream above; the DualSense checklist (`docs/QA-DUALSENSE.md`, sections 1-7, about
+    20 minutes with the pad and a TV); the PR's review and merge. HANDOFF's L8 box stays open until they are done.

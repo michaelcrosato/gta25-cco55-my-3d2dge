@@ -2188,3 +2188,28 @@ and where it landed.
   - **Not here:** this container can't fetch Electron's binary from its releases (github.com is outside its network
     policy), and a mirror's copy was not run: the wrapper's run of record is CI's.
 - **Answered:** no. **Landed in:** L7.
+
+## D47 · 2026-10-28 · L8: the owner's items, prepared and put to the owner
+
+- **Asked:** HANDOFF L8: the offer upstream (the seven patches' issue texts and the feedback F7, brought up to date with
+  L1-L7), the DualSense checklist for a person with the pad and a TV, and each PR's review and merge, each prepared,
+  with nothing leaving the repository without the owner's say-so.
+- **Decided:**
+  - **The offer upstream, brought up to date and not sent:** `vendor/my-3d2dge/PATCHES.md` keeps its seven issue texts
+    as written (no patch was added or changed after the slice; the engine's files last moved at M10) and says what the
+    later work put on them; `docs/FEEDBACK-FOR-ENGINE.md`'s F7 has a header for the full game and six new points,
+    F7.17-F7.22 (a second game inside the first, one map at a time, planes and boats, the DualSense past the Gamepad
+    API, the page in a desktop wrapper, performance at a city's size), each checked against the code and DECISIONS.
+    Filing them is the owner's.
+  - **The release docs final for the full game** (PLAN.md 15.10-11): `docs/ENGINE-ANALYSIS.md` (the districts, planes
+    and boats, the arcade's second `E.Game`, the DualSense by WebHID, the call-site counts again, the frame within its
+    budgets since D35), and the Source Information in `README.md` and `src/about.js` (the page's header and Credits &
+    About): Chromium 153 from L1 on, Electron in CI, and the effort as each session's metadata confirms it (max for
+    the slice, xhigh for L1-L8).
+  - **Credits & About's pages** (MOTOR's `docScreen`): a heading or a row's label is kept with the line after it, a
+    paragraph's last line never starts a page alone, and a gap that would end a page no longer opens an empty one
+    (`tests/unit/ui.test.mjs`, at every page height from 56 to 236 UI pixels). The UI audit now walks every page
+    (5 at 1080p, 6 at 720p, 12 at HUD Huge), not the first four.
+  - **The DualSense checklist** stays `docs/QA-DUALSENSE.md` (sections 1-7, about 20 minutes), the PR's review and
+    merge the owner's; HANDOFF's L8 box stays open until they are done.
+- **Answered:** no. **Landed in:** L8.
