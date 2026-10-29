@@ -8,7 +8,8 @@ the last entry of the log below. The owner's directions of 2026-10-22 (D29): per
 Done (the hardware is unlimited; FPS targets and optimization come later), and the bots may play invulnerable (the
 campaign plays `--god`; the mission bot's runs stay mortal).
 
-Merged: the owner merged PR 2 (M5-M13) into `main` on 2026-10-23 (`1a1f955`), after PR 1 (M0-M4).
+Merged: the owner merged PR 2 (M5-M13) into `main` on 2026-10-23 (`1a1f955`), after PR 1 (M0-M4), and PR 4 (L1-L7,
+L8's preparation and D48) on 2026-10-28 (`26a83cb`).
 
 Next: `docs/HANDOFF.md`'s "What's left" list, L1-L8 in order (D32). L1, determinism across runtimes, is done (D33);
 then the known limits (L2, D34), performance (D29's later), PLAN.md 19's backlog on Lowtown, the expansion's plan and

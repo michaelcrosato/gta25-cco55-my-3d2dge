@@ -28,8 +28,8 @@ so a session that stops anywhere can resume from it: the work in flight is liste
   (D29):** performance is out of the Definition of Done (the "perf gates" step left test:full; `tools/perf.mjs` stays
   for later; D35 put it back, L3), and the bots may play invulnerable (`?god=1`, the tools' `--god`; the campaign
   plays god by default, `--mortal` without; the mission bot's runs stay mortal).
-- **Done: L1-L7** (D33-D46, on this run's branch, `claude/laughing-fermi-w5m8oe`, in the draft PR
-  michaelcrosato/gta25-cco55-my-3d2dge#4 to `main`; `PROGRESS.md` has each item's evidence): determinism across Node
+- **Done: L1-L7** (D33-D46, on the branch `claude/laughing-fermi-w5m8oe`, merged into `main` by
+  michaelcrosato/gta25-cco55-my-3d2dge#4; `PROGRESS.md` has each item's evidence): determinism across Node
   and Chromium (L1), the known limits (L2), every view within its budgets with a quality setting and the perf gate
   back in test:full (L3, superseding D29's first call), PLAN.md 19's backlog on Lowtown (L4), `docs/EXPANSION.md`
   (L5) and the full game it plans, built (L6: Ironside and Glass Heights, seven gangs, 32 missions, planes and boats,
@@ -41,12 +41,14 @@ so a session that stops anywhere can resume from it: the work in flight is liste
   passing alone on `6600f53`.
 - **L8, with the owner** (nothing has left the repository): the offer upstream (the seven patches' issue texts in
   `vendor/my-3d2dge/PATCHES.md` and the feedback F7 in `docs/FEEDBACK-FOR-ENGINE.md`, brought up to date with L1-L7),
-  the DualSense checklist (`docs/QA-DUALSENSE.md`, sections 1-7, for a person with the pad and a TV) and that PR's
-  review and merge. Its box stays open until the owner has done them.
-- **Merged:** michaelcrosato/gta25-cco55-my-3d2dge#1 (M0-M4) and michaelcrosato/gta25-cco55-my-3d2dge#2 (M5-M13,
-  merged on 2026-10-23 as `1a1f955`) are in `main`, and CI is green there. Their branch,
-  `claude/compassionate-shannon-h7k7zk`, is spent. New work goes on a fresh branch cut from `main` (a cloud session's
-  own), in a new draft PR to `main`. Pushing works.
+  and the DualSense checklist (`docs/QA-DUALSENSE.md`, sections 1-7, for a person with the pad and a TV). Its box
+  stays open until the owner has done them. Its third item, the PR's review and merge, is done: the owner merged
+  michaelcrosato/gta25-cco55-my-3d2dge#4 on 2026-10-28.
+- **Merged:** michaelcrosato/gta25-cco55-my-3d2dge#1 (M0-M4), michaelcrosato/gta25-cco55-my-3d2dge#2 (M5-M13,
+  merged on 2026-10-23 as `1a1f955`) and michaelcrosato/gta25-cco55-my-3d2dge#4 (L1-L7, L8's preparation and D48,
+  squash-merged on 2026-10-28 as `26a83cb`) are in `main`, and CI is green there. Their branches,
+  `claude/compassionate-shannon-h7k7zk` and `claude/laughing-fermi-w5m8oe`, are spent. New work goes on a fresh branch
+  cut from `main` (a cloud session's own), in a new draft PR to `main`. Pushing works.
 - **Left:** L8, the owner's (below). Any further change keeps the game done: `npm test` before every commit,
   test:full before it closes, and all merged content re-run after a MOTOR, bot or map change.
 - **The container**, checked on 2026-10-24 (D32): Node 22.22.0, npm 10.9.4, Playwright 1.56.1, ffmpeg and python3 on
@@ -113,7 +115,7 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
   - the offer upstream: the seven patches' issue texts (`vendor/my-3d2dge/PATCHES.md`) and the feedback F7
     (`docs/FEEDBACK-FOR-ENGINE.md`), brought up to date with L1-L7;
   - the DualSense checklist (`docs/QA-DUALSENSE.md`), for a person with the pad and a TV;
-  - each PR's review and merge.
+  - [x] each PR's review and merge (done: michaelcrosato/gta25-cco55-my-3d2dge#4 merged on 2026-10-28 as `26a83cb`).
 
 ## Read first
 
