@@ -2287,3 +2287,31 @@ and where it landed.
   rule beside a combo) and `tests/sim/camera-turn.test.mjs` (in play through a pad: a flick a quarter, a spin landing
   on an eighth, the camera held under L2 while the stick aims; ORIGINAL's stick aiming).
 - **Answered:** the owner asked. **Landed in:** after L8 (the branch of the HANDOFF fix's PR).
+
+## D50 · 2026-10-29 · A free camera, to try: every view turned smoothly by the stick, and tilted where it can be
+- **Asked:** the owner: a smooth camera the player fully controls in every view, at least around, and up and down if it
+  can be, as a setting to try; then: TOP-DOWN turns only, no tilt.
+- **Decided:**
+  - **SETTINGS, DISPLAY, Free camera** (off by default; the knob `freeCam`). On, the camera stick (the right stick in
+    MODERN while L2 is up, R3 held with it in ORIGINAL; [ and ] at full speed) turns the view at the speed it is
+    pushed, squared past the dead zone so a light push turns it slowly (`freeTurn`, 180° a second at full), and the
+    view stays where it is let go: no quarters, no rests, no Auto-rail. Up and down tilt it (`freeTilt`, 40° a second):
+    ISO's pitch between 18° and 39° (30° as made: past about 40° the engine's draw order slips, a tree behind a building
+    showing over its roof, read in shots at 40°, 45°, 50° and 55°), MODE 7's and CHASE's lens pitch between 6° and 40°
+    (14° as made), the lens riding up or down with it round the focus so the player stays where they sit on screen
+    (`Side7View.lift`; under 6° the lens is down among the parked cars); TOP-DOWN only turns, as the owner asked (its
+    camera stays straight above at its height). The chase camera still follows the player's heading as it did, from
+    wherever the stick left it.
+  - **ISO at any yaw and tilt:** the engine view swapped for one at that pitch (the view manager passes a view of the
+    same id through with nothing to notify), the yaw and the pitch in 3° steps while they move, each step drawn with
+    D48's flat blocks, and the walls baked where it stops, as after a turn. The bounded wall cache (GTM-PATCH 2) keeps
+    the extra yaws and tilts' bakes within its pixels.
+  - **The Intent gains `look`** (the frozen contract grows by a field, nothing changed): the camera stick's push on
+    screen, filled by the HumanController while the stick is the camera's, read by the Stage in the step and never by
+    the simulation.
+  - **Off again,** the tilts go back as made and ISO lands on its nearest rest.
+- **Proved** by `tests/sim/camera-turn.test.mjs` (through a pad: a slow turn left where it stopped, ISO tilting toward
+  overhead and keeping it across a switch of view, TOP-DOWN turning and never tilting or climbing, MODE 7 turning off
+  the quarters and tilting, all back as made when it is switched off; the same run hashes the same with it turning and
+  tilting or not) and shots read in ISO, MODE 7 and CHASE at their tilts.
+- **Answered:** the owner asked (to try). **Landed in:** after D49, on the same branch.

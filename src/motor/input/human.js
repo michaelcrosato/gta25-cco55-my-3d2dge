@@ -31,7 +31,8 @@ export class HumanController {
     }
     // aim: the right stick (screen-relative) or the mouse's ground point. The right stick aims unless it turns the
     // camera: in ORIGINAL while R3 is held, in MODERN unless L2 is (at the wheel, the drive-by's ○: B.stickAims)
-    const rs = B.stickAims() ? B.stick('RS') : [0, 0];
+    const aims = B.stickAims(), rs = aims ? B.stick('RS') : [0, 0];
+    if (!aims) { const [lx, ly] = B.stick('RS'); I.look[0] = lx; I.look[1] = ly; }   // (the camera's: the free camera reads it, D50)
     if (this.game.input.invertAimY) rs[1] = -rs[1];   // (Settings, Controls: invert aim)
     I.aimStick = Math.min(1, Math.hypot(rs[0], rs[1]));
     if (rs[0] || rs[1]) { const a = this.views.screenDirToGround(rs[0], rs[1]), l = Math.hypot(a[0], a[1]) || 1; I.aim = [a[0] / l, a[1] / l]; }

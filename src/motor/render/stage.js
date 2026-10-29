@@ -32,6 +32,9 @@ knob('Graphics', 'crowdEvery', 'Crowd animation rate', 4, 1, 8, 1, 'A crowd body
 knob('Camera', 'autoRail', 'Auto-rail', 1, 0, 1, 1, 'MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0)');
 knob('Graphics', 'depthLightRes', 'Depth views\' light coarseness', 4, 1, 8, 1, 'TOP-DOWN and MODE 7 at night work the dark and the lamps\' pools out every n buffer pixels and scale them up smoothly (the pools are soft: 4 is a sixteenth of the work of 1, per pixel)');
 knob('Camera', 'spinRate', 'Camera spin', 150, 60, 360, 10, 'Degrees a second the camera spins while a turn button is held ([ ] or R3 held with the right stick pushed); a tap still turns a quarter');
+knob('Camera', 'freeCam', 'Free camera', 0, 0, 1, 1, 'The camera stick (or [ ]) turns every view smoothly at the speed it is pushed and leaves it where it stops; up and down tilt ISO, MODE 7 and CHASE (TOP-DOWN only turns). 0: a tap a quarter, held a spin (D48). SETTINGS, DISPLAY, Free camera (D50)');
+knob('Camera', 'freeTurn', 'Free camera turn', 180, 45, 360, 15, 'Degrees a second the free camera turns with the stick pushed all the way (the push squared: a light one turns it slowly)');
+knob('Camera', 'freeTilt', 'Free camera tilt', 40, 10, 120, 5, 'Degrees a second the free camera tilts with the stick pushed all the way up or down');
 knob('Graphics', 'lightRes', 'Light field coarseness', 2, 1, 4, 1, 'ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work');
 
 const CROWD = { outline: false, rim: false }, XRAY = { xray: true };
@@ -49,6 +52,9 @@ const TURN = { most: .45, bakeMs: 9, step: 3 };
 // (s); ISO rests every rest degrees; let go, TOP-DOWN and MODE 7 glide on glide degrees, onto a quarter within snap of
 // it; landing, the camera eases in at k times the turn left a second, never slower than min degrees a second
 const SPIN = { tap: .2, ease: .12, rest: 45, glide: 3, snap: 4, k: 9, min: 90 };
+// the free camera's tilts (degrees): ISO's pitch (the engine's 30 as made; past about 40 its draw order slips, a tree
+// behind a building showing over the roof), MODE 7's and CHASE's lens pitch (14; under 6 the lens is down among the cars)
+const TILT = { iso: [18, 39], depth: [6, 40] };
 // an ISO zoom step: the change's length, the longest a zoom-out waits for the wider view's walls to bake first, the
 // bake budget a frame
 const ZOOM = { time: .25, most: .35, bakeMs: 9 };
@@ -74,6 +80,7 @@ export class Stage {
     this.fade = new CrossFade(); this.bx = null; this._dt = 0; this.railHold = null; this.sharp = false; this.px = 1; this.baseS = 1;
     views.onChange((now, prev) => { if (now === prev) return; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); this.bx = !views.spec || !views.spec.depth ? { t: 0 } : null; this.sharpSync(); });
     this.side7 = new Side7View({}); this.top = new TopView({}); this.chase = new ChaseView({});
+    this.isoPitch = null; this._pitch0 = { side7: this.side7.pitch, chase: this.chase.pitch }; this._free = false;   // (the free camera's tilts: D50)
     for (const v of [this.top, this.side7, this.chase]) views.addView({ id: v.id, label: v.label, depth: v,
       screenDirToGround: (dx, dy) => v.screenDirToGround(dx, dy), screenVec: (x, y, z) => v.screenVec(x, y, z), groundDirToScreen: v.groundDirToScreen ? (x, y) => v.groundDirToScreen(x, y) : null,
       mouseGround: () => { const m = game.input.mouseScreen && game.input.mouseScreen(); return m && v.P ? v.toGround(m[0] - game.screen.ix, m[1] - game.screen.iy) : null; } });
@@ -190,7 +197,7 @@ export class Stage {
     }
     if (d !== this.side7 || this.rig) return;
     if (this.railHold !== null) { if (d.heading !== this.railHold) this._railTo(this.railHold); d.steadyT = 0; return; }   // (a set piece holds it: m.view('side7', { heading }))
-    if (this.spin) { d.steadyT = 0; return; }   // (the player is turning it: Auto-rail waits)
+    if (this.spin || TUNE.freeCam) { d.steadyT = 0; return; }   // (the player is turning it, or turns it freely: Auto-rail waits)
     const want = TUNE.autoRail && o.vehicle && o.vel ? d.autoRail(dt, o.vel[0], o.vel[1]) : (d.steadyT = 0, null);
     if (want === null) return;
     const f = this.focus; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); d.setHeading(want, f ? f[0] : d.x, f ? f[1] : d.y);
@@ -225,6 +232,8 @@ export class Stage {
    *  where they are (any heading; on a quarter within SPIN.snap of one). The chase camera swings a quarter a tap. In the
    *  step: the heading maps the stick, so the page and a headless run turn alike (D48) */
   turnInput(dt, I, off = false) {
+    if (TUNE.freeCam) return this._freeInput(dt, I, off);
+    if (this._free) this._freeOff();
     const d = this.depth, want = off || !I ? 0 : (I.down.turnRight ? 1 : 0) - (I.down.turnLeft ? 1 : 0);
     let s = this.spin;
     if (s && s.view !== (d || 'iso')) { this._spinEnd(); s = null; }   // (the view changed under it: the old one lands where it was going)
@@ -245,6 +254,44 @@ export class Stage {
   }
   /** is a turn under way (spinning, or easing onto where it lands)? */
   get turning() { return !!this.spin; }
+  // the free camera (TUNE.freeCam, D50), each step: the camera stick's push (I.look; [ ] at full) turns the view at
+  // that speed, squared so a light push turns it slowly, and let go it stays; up and down tilt ISO's pitch and MODE 7's
+  // and CHASE's lens (TOP-DOWN only turns). ISO draws its flat blocks while it moves and bakes its walls where it stops
+  _freeInput(dt, I, off) {
+    this._free = true;
+    const d = this.depth, L = !off && I && I.look ? I.look : null, keys = !off && I ? (I.down.turnRight ? 1 : 0) - (I.down.turnLeft ? 1 : 0) : 0;
+    const x = L && Math.abs(L[0]) > 1e-3 ? L[0] : keys, y = L ? L[1] : 0;
+    const turn = TUNE.freeTurn * x * Math.abs(x) * dt, tilt = TUNE.freeTilt * y * Math.abs(y) * dt;   // (stick down: the camera looks down more)
+    if (this.spin && this.spin.view !== (d || 'iso')) this._spinEnd();
+    if (d === this.chase) { if (turn) { d.swing = 0; d.heading = ((d.heading + turn) % 360 + 360) % 360; } if (tilt) d.pitch = E.clamp(d.pitch + tilt, TILT.depth[0], TILT.depth[1]); return; }
+    if (d === this.top) { if (turn) this._setHeading(d, d.heading + turn); return; }
+    if (d === this.side7) { if (turn && this.railHold === null) this._setHeading(d, d.heading + turn); if (tilt) d.pitch = E.clamp(d.pitch + tilt, TILT.depth[0], TILT.depth[1]); return; }
+    if (this.zx) return;   // (ISO: after the zoom step under way)
+    const g = this.game, b = g.baseView || g.view;
+    if (this.isoPitch === null) this.isoPitch = b.pitchDeg;
+    if (turn || tilt) {
+      const s = this.spin || (this.spin = { view: 'iso', dir: Math.sign(turn) || 1, held: 0, start: g.yaw || 0, cur: g.yaw || 0, target: null, free: true });
+      if (turn) { s.cur += turn; this._setHeading('iso', s.cur); }
+      if (tilt) this.isoPitch = E.clamp(this.isoPitch + tilt, TILT.iso[0], TILT.iso[1]);
+    }
+    const p = Math.round(this.isoPitch / TURN.step) * TURN.step; if (b.id === 'iso' && b.pitchDeg !== p) this._tiltIso(p);   // (in steps, as the yaw: each its own view)
+    if (!turn && !tilt && this.spin) { const s = this.spin; this.spin = null; this._setHeading('iso', Math.round(s.cur / TURN.step) * TURN.step, true); }   // (stopped: its walls bake in)
+  }
+  // ISO's pitch (degrees): the engine view swapped for one at that tilt, keeping its zoom and turn (the view manager
+  // passes a view of the same id through, with nothing to notify)
+  _tiltIso(p) {
+    const g = this.game, b = g.baseView || g.view; g.setView(new E.View(b.id, b.label, b.yawDeg, p, b.scale, b.zBoost));
+    if (!this.spin && !g.headless && this.world && this.world.map) this.bx = { t: 0 };   // (not turning: its walls bake in, as after a turn)
+  }
+  // the free camera switched off: the tilts as made, ISO onto its nearest rest
+  _freeOff() {
+    this._free = false; if (this.spin && this.spin.free) this.spin = null;
+    this.side7.pitch = this._pitch0.side7; this.chase.pitch = this._pitch0.chase;
+    const g = this.game, b = g.baseView || g.view, was = this.isoPitch; this.isoPitch = null;
+    if (this.depth) return;
+    if (was !== null && b.id === 'iso' && b.pitchDeg !== E.VIEWS.iso.pitchDeg) this._tiltIso(E.VIEWS.iso.pitchDeg);
+    this._setHeading('iso', Math.round((g.yaw || 0) / SPIN.rest) * SPIN.rest, true);
+  }
   // a spin in dir from where the camera is (or after the quarter a tap in the same direction is already making)
   _spinFrom(dir, s) {
     const h = s ? s.cur : this._headingNow(), start = s && s.target !== null && s.dir === dir ? s.target : h;

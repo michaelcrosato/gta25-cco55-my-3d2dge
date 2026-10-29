@@ -79,3 +79,36 @@ test('MODERN, the default scheme (D49): the right stick turns the camera; under 
   assert.equal(o.gtm.bindings.scheme, 'original'); assert.equal(o.game.yaw, 0, 'ORIGINAL: the stick alone turns nothing');
   assert.ok(o.gtm.human.intent.aim, 'it aims');
 });
+
+test('the free camera (D50): the stick turns every view at its push and leaves it there; it tilts ISO, MODE 7 and CHASE, never TOP-DOWN; off, as made', async () => {
+  const pads = [pad(0)], { game, gtm } = await loadGame({ hash: 'play', query: { view: 'iso' }, pads }); game.advance(.5);
+  const set = o => { pads[0] = pad(0, o); }, M = gtm.motor, S = gtm.stage, V = gtm.views;
+  M.tuneSet('freeCam', 1);
+  set({ axes: [0, 0, .5, 0] }); game.advance(.5); assert.ok(S.turning, 'turning: ISO draws its flat blocks');
+  set({}); game.advance(.5);
+  assert.ok(!S.turning && game.yaw >= 9 && game.yaw <= 21 && game.yaw % 45 !== 0, `a half push for half a second: a slow turn (the push squared past the dead zone), left where it stopped (${game.yaw})`);
+  set({ axes: [0, 0, 0, 1] }); game.advance(.5); set({}); game.advance(.2);
+  const p = game.baseView.pitchDeg; assert.equal(p, 39, 'the stick down: ISO tilts toward overhead, as far as it goes');
+  game.setView('top'); game.advance(.2); const T = S.top, H = T.H;
+  set({ axes: [0, 0, -.7, .7] }); game.advance(.5); set({}); game.advance(.2);
+  assert.ok(T.heading > 300 && T.heading < 330, `TOP-DOWN turns, left (${T.heading})`); assert.ok(Math.abs(T.H - H) < 1e-6, 'and never tilts or climbs');
+  game.setView('side7'); game.advance(.2); const D = S.side7, h7 = D.heading;
+  set({ axes: [0, 0, .8, -1] }); game.advance(.5); set({}); game.advance(.2);
+  assert.ok(D.heading !== h7 && !D.aligned, `MODE 7 turns to any heading (${D.heading})`); assert.equal(D.pitch, 6, 'and tilts up, as far as it goes');
+  game.setView('iso'); game.advance(.2); assert.equal(game.baseView.pitchDeg, p, 'back in ISO, its tilt is kept');
+  M.tuneSet('freeCam', 0); game.advance(.2);
+  assert.equal(game.baseView.pitchDeg, 30, 'off: ISO at its own tilt'); assert.equal(game.yaw % 45, 0, 'and on a rest');
+  assert.equal(D.pitch, 14, 'MODE 7 as made');
+  assert.equal(V.active, 'iso');
+});
+
+test('the free camera never touches the simulation: the same run hashes the same with it turning and tilting or not', async () => {
+  const run = async free => {
+    const pads = [pad(0)], { game, gtm } = await loadGame({ hash: 'play', query: { view: 'iso' }, pads }); game.advance(.5);
+    gtm.motor.tuneSet('freeCam', free ? 1 : 0);
+    for (let i = 0; i < 6; i++) { pads[0] = pad(0, { axes: [0, 0, i % 2 ? .6 : -.8, i % 3 ? .7 : -.7] }); game.advance(.3); pads[0] = pad(0); game.advance(.2); }
+    gtm.motor.tuneSet('freeCam', 0);
+    return [...game.stateHash()];
+  };
+  assert.deepEqual(await run(true), await run(false));
+});

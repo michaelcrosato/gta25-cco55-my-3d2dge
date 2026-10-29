@@ -43,6 +43,8 @@ so a session that stops anywhere can resume from it: the work in flight is liste
   default, turns the camera with the right stick (L2 held, it aims), with ○ reload, L2 + □ roll and L3 horn; ORIGINAL
   is the layout as it was, in SETTINGS, CONTROLS. The pad pilot plays MODERN. Left with the owner: the older games'
   layouts (CLASSIC, RETRO), view changes on Create and flying on the triggers.
+- **In flight, the owner's request: a free camera to try** (D50, the same branch): SETTINGS, DISPLAY, Free camera,
+  off by default: the camera stick turns every view smoothly and leaves it there, and tilts ISO, MODE 7 and CHASE.
 - **L8, with the owner** (nothing has left the repository): the offer upstream (the seven patches' issue texts in
   `vendor/my-3d2dge/PATCHES.md` and the feedback F7 in `docs/FEEDBACK-FOR-ENGINE.md`, brought up to date with L1-L7),
   and the DualSense checklist (`docs/QA-DUALSENSE.md`, sections 1-7, for a person with the pad and a TV). Its box
@@ -128,11 +130,11 @@ and its evidence is in `PROGRESS.md`; then tick its box here.
 3. `PROGRESS.md`: each milestone's status and evidence (the acceptance log has every milestone's runs).
 4. `docs/ARCHITECTURE.md`: the module map and the frozen contracts (the Stage and projectors, the registries, the
    Intent, the BUS).
-5. `docs/DECISIONS.md`: D1-D49, every call made without an answer. D21 is M8's, including what the bot does and why;
+5. `docs/DECISIONS.md`: D1-D50, every call made without an answer. D21 is M8's, including what the bot does and why;
    D29 has the owner's two directions (performance out of the Definition of Done, bots that may play god); D30 is
    M13's part 5 (the campaign's stalls, each fixed where it lives); D31 its close (determinism per runtime); D32 the
    container's Chromium 153 and L1-L8, the one list of what is left; D33-D47 the run that worked it, item by item;
-   D48 and D49 the owner's camera turns and control schemes.
+   D48-D50 the owner's camera turns, control schemes and free camera.
 6. `docs/CONTENT-GUIDE.md`: how each kind of content is added, the mission DSL and its `m` API included.
 7. `vendor/my-3d2dge/PATCHES.md`: the engine patches (GTM-PATCH markers). Never read the 742 KB engine whole. Search
    its `API-INDEX.md` first.

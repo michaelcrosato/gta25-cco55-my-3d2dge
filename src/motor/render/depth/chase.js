@@ -45,7 +45,7 @@ export class ChaseView extends Side7View {
   /** the lens for where the focus is, how fast and how high: eased as MODE 7's */
   rig(dt, vehicle, speed01 = 0, fz = 0) {
     const R = this.indoor ? CHASE.indoor : vehicle ? CHASE.vehicle : CHASE.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R.fov + R.widen * E.clamp(speed01, 0, 1);
-    this.h += (R.h + fz - this.h) * k; this.back += (R.back - this.back) * k; this.fov += (fov - this.fov) * k;
+    this.h += (R.h + fz + this.lift(this.back) - this.h) * k; this.back += (R.back - this.back) * k; this.fov += (fov - this.fov) * k;
     this.near = this.back * .8; this.far = this.back * 1.25;   // (MODE 7's keys, for whatever reads them)
   }
   /** each simulation step (the heading maps the stick, so it turns in the step, never in a frame drawn: the same game

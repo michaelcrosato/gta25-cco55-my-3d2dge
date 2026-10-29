@@ -13236,6 +13236,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }, o);
       this.fogRGB = E.hex(this.fog);
       this.mode7 = true;
+      this.pitch0 = this.pitch;
+    }
+    /** the free camera's tilt (D50: the lens pitched off pitch0) swings the camera up or down round the focus D ahead, so
+     *  the focus stays where it sits on screen: how much higher (or lower) the lens rides for it */
+    lift(D) {
+      return this.pitch === this.pitch0 ? 0 : D * (Math.tan(this.pitch * DEG) - Math.tan(this.pitch0 * DEG));
     }
     /** the heading kept images are keyed by (a body's, a prop's image is redrawn when it moves on): off the quarters, in
      *  steps of 1.5° (turning, each frame's would never be reused) */
@@ -13278,7 +13284,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  cutting it */
     rig(dt, vehicle, speed01 = 0, fz = 0) {
       const R9 = this.indoor ? RIGS.indoor : vehicle ? RIGS.vehicle : RIGS.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R9.fov + R9.widen * E.clamp(speed01, 0, 1);
-      this.h += (R9.h + fz - this.h) * k;
+      this.h += (R9.h + fz + this.lift((this.near + this.far) / 2) - this.h) * k;
       this.near += (R9.near - this.near) * k;
       this.far += (R9.far - this.far) * k;
       this.fov += (fov - this.fov) * k;
@@ -13759,7 +13765,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** the lens for where the focus is, how fast and how high: eased as MODE 7's */
     rig(dt, vehicle, speed01 = 0, fz = 0) {
       const R9 = this.indoor ? CHASE.indoor : vehicle ? CHASE.vehicle : CHASE.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R9.fov + R9.widen * E.clamp(speed01, 0, 1);
-      this.h += (R9.h + fz - this.h) * k;
+      this.h += (R9.h + fz + this.lift(this.back) - this.h) * k;
       this.back += (R9.back - this.back) * k;
       this.fov += (fov - this.fov) * k;
       this.near = this.back * 0.8;
@@ -14519,6 +14525,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   knob("Camera", "autoRail", "Auto-rail", 1, 0, 1, 1, "MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0)");
   knob("Graphics", "depthLightRes", "Depth views' light coarseness", 4, 1, 8, 1, "TOP-DOWN and MODE 7 at night work the dark and the lamps' pools out every n buffer pixels and scale them up smoothly (the pools are soft: 4 is a sixteenth of the work of 1, per pixel)");
   knob("Camera", "spinRate", "Camera spin", 150, 60, 360, 10, "Degrees a second the camera spins while a turn button is held ([ ] or R3 held with the right stick pushed); a tap still turns a quarter");
+  knob("Camera", "freeCam", "Free camera", 0, 0, 1, 1, "The camera stick (or [ ]) turns every view smoothly at the speed it is pushed and leaves it where it stops; up and down tilt ISO, MODE 7 and CHASE (TOP-DOWN only turns). 0: a tap a quarter, held a spin (D48). SETTINGS, DISPLAY, Free camera (D50)");
+  knob("Camera", "freeTurn", "Free camera turn", 180, 45, 360, 15, "Degrees a second the free camera turns with the stick pushed all the way (the push squared: a light one turns it slowly)");
+  knob("Camera", "freeTilt", "Free camera tilt", 40, 10, 120, 5, "Degrees a second the free camera tilts with the stick pushed all the way up or down");
   knob("Graphics", "lightRes", "Light field coarseness", 2, 1, 4, 1, "ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work");
   var CROWD = { outline: false, rim: false };
   var XRAY = { xray: true };
@@ -14531,6 +14540,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var PREBAKE_AHEAD = 0.3;
   var TURN = { most: 0.45, bakeMs: 9, step: 3 };
   var SPIN = { tap: 0.2, ease: 0.12, rest: 45, glide: 3, snap: 4, k: 9, min: 90 };
+  var TILT = { iso: [18, 39], depth: [6, 40] };
   var ZOOM = { time: 0.25, most: 0.35, bakeMs: 9 };
   var discs = /* @__PURE__ */ new Map();
   function poolDisc(inner, outer) {
@@ -14584,6 +14594,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.side7 = new Side7View({});
       this.top = new TopView({});
       this.chase = new ChaseView({});
+      this.isoPitch = null;
+      this._pitch0 = { side7: this.side7.pitch, chase: this.chase.pitch };
+      this._free = false;
       for (const v of [this.top, this.side7, this.chase]) views.addView({
         id: v.id,
         label: v.label,
@@ -14804,7 +14817,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         d.steadyT = 0;
         return;
       }
-      if (this.spin) {
+      if (this.spin || TUNE.freeCam) {
         d.steadyT = 0;
         return;
       }
@@ -14858,6 +14871,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  where they are (any heading; on a quarter within SPIN.snap of one). The chase camera swings a quarter a tap. In the
      *  step: the heading maps the stick, so the page and a headless run turn alike (D48) */
     turnInput(dt, I, off2 = false) {
+      if (TUNE.freeCam) return this._freeInput(dt, I, off2);
+      if (this._free) this._freeOff();
       const d = this.depth, want = off2 || !I ? 0 : (I.down.turnRight ? 1 : 0) - (I.down.turnLeft ? 1 : 0);
       let s = this.spin;
       if (s && s.view !== (d || "iso")) {
@@ -14901,6 +14916,70 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** is a turn under way (spinning, or easing onto where it lands)? */
     get turning() {
       return !!this.spin;
+    }
+    // the free camera (TUNE.freeCam, D50), each step: the camera stick's push (I.look; [ ] at full) turns the view at
+    // that speed, squared so a light push turns it slowly, and let go it stays; up and down tilt ISO's pitch and MODE 7's
+    // and CHASE's lens (TOP-DOWN only turns). ISO draws its flat blocks while it moves and bakes its walls where it stops
+    _freeInput(dt, I, off2) {
+      this._free = true;
+      const d = this.depth, L28 = !off2 && I && I.look ? I.look : null, keys = !off2 && I ? (I.down.turnRight ? 1 : 0) - (I.down.turnLeft ? 1 : 0) : 0;
+      const x = L28 && Math.abs(L28[0]) > 1e-3 ? L28[0] : keys, y = L28 ? L28[1] : 0;
+      const turn = TUNE.freeTurn * x * Math.abs(x) * dt, tilt = TUNE.freeTilt * y * Math.abs(y) * dt;
+      if (this.spin && this.spin.view !== (d || "iso")) this._spinEnd();
+      if (d === this.chase) {
+        if (turn) {
+          d.swing = 0;
+          d.heading = ((d.heading + turn) % 360 + 360) % 360;
+        }
+        if (tilt) d.pitch = E.clamp(d.pitch + tilt, TILT.depth[0], TILT.depth[1]);
+        return;
+      }
+      if (d === this.top) {
+        if (turn) this._setHeading(d, d.heading + turn);
+        return;
+      }
+      if (d === this.side7) {
+        if (turn && this.railHold === null) this._setHeading(d, d.heading + turn);
+        if (tilt) d.pitch = E.clamp(d.pitch + tilt, TILT.depth[0], TILT.depth[1]);
+        return;
+      }
+      if (this.zx) return;
+      const g = this.game, b = g.baseView || g.view;
+      if (this.isoPitch === null) this.isoPitch = b.pitchDeg;
+      if (turn || tilt) {
+        const s = this.spin || (this.spin = { view: "iso", dir: Math.sign(turn) || 1, held: 0, start: g.yaw || 0, cur: g.yaw || 0, target: null, free: true });
+        if (turn) {
+          s.cur += turn;
+          this._setHeading("iso", s.cur);
+        }
+        if (tilt) this.isoPitch = E.clamp(this.isoPitch + tilt, TILT.iso[0], TILT.iso[1]);
+      }
+      const p = Math.round(this.isoPitch / TURN.step) * TURN.step;
+      if (b.id === "iso" && b.pitchDeg !== p) this._tiltIso(p);
+      if (!turn && !tilt && this.spin) {
+        const s = this.spin;
+        this.spin = null;
+        this._setHeading("iso", Math.round(s.cur / TURN.step) * TURN.step, true);
+      }
+    }
+    // ISO's pitch (degrees): the engine view swapped for one at that tilt, keeping its zoom and turn (the view manager
+    // passes a view of the same id through, with nothing to notify)
+    _tiltIso(p) {
+      const g = this.game, b = g.baseView || g.view;
+      g.setView(new E.View(b.id, b.label, b.yawDeg, p, b.scale, b.zBoost));
+      if (!this.spin && !g.headless && this.world && this.world.map) this.bx = { t: 0 };
+    }
+    // the free camera switched off: the tilts as made, ISO onto its nearest rest
+    _freeOff() {
+      this._free = false;
+      if (this.spin && this.spin.free) this.spin = null;
+      this.side7.pitch = this._pitch0.side7;
+      this.chase.pitch = this._pitch0.chase;
+      const g = this.game, b = g.baseView || g.view, was = this.isoPitch;
+      this.isoPitch = null;
+      if (this.depth) return;
+      if (was !== null && b.id === "iso" && b.pitchDeg !== E.VIEWS.iso.pitchDeg) this._tiltIso(E.VIEWS.iso.pitchDeg);
+      this._setHeading("iso", Math.round((g.yaw || 0) / SPIN.rest) * SPIN.rest, true);
     }
     // a spin in dir from where the camera is (or after the quarter a tap in the same direction is already making)
     _spinFrom(dir, s) {
@@ -15891,6 +15970,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       throttle: 0,
       brake: 0,
       steer: 0,
+      /** the camera stick's push on screen, [x right, y down] (-1..1 each): the free camera's (D50); presentation only,
+       *  never read by the simulation */
+      look: [0, 0],
       down: down2,
       tap
     };
@@ -15898,6 +15980,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   function clearIntent(i) {
     i.move[0] = 0;
     i.move[1] = 0;
+    i.look[0] = 0;
+    i.look[1] = 0;
     i.aim = null;
     i.aimTarget = null;
     i.aimPoint = null;
@@ -18640,7 +18724,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         I.move[0] = d[0];
         I.move[1] = d[1];
       }
-      const rs = B2.stickAims() ? B2.stick("RS") : [0, 0];
+      const aims = B2.stickAims(), rs = aims ? B2.stick("RS") : [0, 0];
+      if (!aims) {
+        const [lx, ly] = B2.stick("RS");
+        I.look[0] = lx;
+        I.look[1] = ly;
+      }
       if (this.game.input.invertAimY) rs[1] = -rs[1];
       I.aimStick = Math.min(1, Math.hypot(rs[0], rs[1]));
       if (rs[0] || rs[1]) {
@@ -27030,7 +27119,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   // src/motor/ui/settings.js
   var SETTING_TABS = [
     { id: "controls", label: "CONTROLS", keys: ["controlScheme", "deadzone", "invertY", "rumble", "haptics", "promptStyle"] },
-    { id: "display", label: "DISPLAY", keys: ["defaultView", "quality", "autoRail", "sharpSide7", "hudSize", "subtitles", "colorblind", "speedometer", "shake", "flashes", "motion"] },
+    { id: "display", label: "DISPLAY", keys: ["defaultView", "quality", "freeCamera", "autoRail", "sharpSide7", "hudSize", "subtitles", "colorblind", "speedometer", "shake", "flashes", "motion"] },
     { id: "audio", label: "AUDIO", keys: ["sound", "volume", "music", "radio", "effects", "djChatter"] },
     { id: "game", label: "GAME", keys: ["difficulty", "aimAssist", "autosave"] },
     { id: "access", label: "ACCESS", keys: ["holdSprint", "holdAim", "holdCrouch", "holdWheel"] }
@@ -27096,6 +27185,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
     });
     def2({ key: "defaultView", group: "Display", label: "Default view", type: "select", value: "iso", options: [["iso", "ISO"], ["top", "Top-down"], ["side7", "Mode 7"], ["chase", "Chase"]], help: "The view a game starts in" });
+    def2({
+      key: "freeCamera",
+      group: "Display",
+      label: "Free camera",
+      type: "toggle",
+      value: false,
+      help: "Try it: the right stick turns every view smoothly at any angle and leaves it there; up and down tilt ISO, MODE 7 and CHASE",
+      apply: (g, v) => tuneSet("freeCam", v ? 1 : 0)
+    });
     def2({ key: "autoRail", group: "Display", label: "Auto-rail", type: "toggle", value: true, help: "MODE 7 in a vehicle: the rail turns to the way you have held", apply: (g, v) => tuneSet("autoRail", v ? 1 : 0) });
     def2({ key: "quality", group: "Display", label: "Graphics", type: "select", value: "full", options: [["full", "Full"], ["fast", "Fast"]], help: "Fast, for a slower machine: a coarser light, the crowd animated less often, half the rain", apply: (g, v) => {
       for (const [k, full, fast] of QUALITY) tuneSet(k, v === "fast" ? fast : full);

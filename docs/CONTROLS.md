@@ -148,4 +148,8 @@ A player who had rebound buttons before the schemes came starts in Original, wit
   any view a quarter, eased round; held, the camera spins. Let go, ISO settles on the next of its eight angles (as
   Final Fantasy Tactics and Xenogears rest), TOP-DOWN and MODE 7 stay at the angle you stopped at; the chase camera
   swings a quarter a tap. The spin's speed is CAMERA, Camera spin on the dev tuning pages (`docs/TUNING.md`).
+- Free camera (SETTINGS, DISPLAY, to try; D50): the camera stick (the right stick, or R3 held with it in Original; [ and
+  ] at full speed) turns every view smoothly at the speed it is pushed, and the view stays where you let go, at any
+  angle. Up and down tilt it: ISO from lower than usual to higher (18° to 39°), MODE 7 and CHASE the lens up and down;
+  TOP-DOWN only turns. Switched off, the tilts go back as made and ISO onto its nearest rest.
 
