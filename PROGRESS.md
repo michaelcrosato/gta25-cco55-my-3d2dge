@@ -8,7 +8,8 @@ the last entry of the log below. The owner's directions of 2026-10-22 (D29): per
 Done (the hardware is unlimited; FPS targets and optimization come later), and the bots may play invulnerable (the
 campaign plays `--god`; the mission bot's runs stay mortal).
 
-Merged: the owner merged PR 2 (M5-M13) into `main` on 2026-10-23 (`1a1f955`), after PR 1 (M0-M4).
+Merged: the owner merged PR 2 (M5-M13) into `main` on 2026-10-23 (`1a1f955`), after PR 1 (M0-M4), and PR 4 (L1-L7,
+L8's preparation and D48) on 2026-10-28 (`26a83cb`).
 
 Next: `docs/HANDOFF.md`'s "What's left" list, L1-L8 in order (D32). L1, determinism across runtimes, is done (D33);
 then the known limits (L2, D34), performance (D29's later), PLAN.md 19's backlog on Lowtown, the expansion's plan and
@@ -51,6 +52,9 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | L7 Platforms | done | a desktop wrapper (`desktop/`, Electron, its own package and lock: the page loaded unchanged from its file, full screen, sandboxed, the network shut, a DualSense granted to WebHID with no chooser) and the DualSense's own output report by WebHID (`input/dualsense-hid.js`, by USB and by Bluetooth) played from the game (`input/haptics.js`: R2 and L2 by the gun or the vehicle in hand, the light bar the character's colour and the stars, the rumble in the same report; the Gamepad API's rumble the fallback); SETTINGS, CONTROLS, DualSense haptics; QA-DUALSENSE 6-7 for the owner (D46) · CI's `desktop` job on 9890e8f: Electron under a virtual display, the game up, WebHID there, the network shut, a popup refused; the Linux build packed (an artifact) · test:full alone on 9890e8f · the look read (docs/media/l7) |
 | L8 The owner's items | with the owner | prepared, nothing sent: the seven patches' issue texts (unchanged since the slice) with what L1-L7 put on them, and feedback F7 brought up to date (its header and F7.17-F7.22); the release docs final for the full game (ENGINE-ANALYSIS, the Source Information in README and on Credits & About); Credits' pages kept whole (a heading with its text, no paragraph's last line alone) and the UI audit through every page; the DualSense checklist and the PR's review for the owner (D47) · the audits 244 of 244 and 59 of 59 · the look read (docs/media/l8) · test:full alone on the PR's head, 5b55a08 |
 | D48 The camera turns | done | the owner's request after L8: in every view a tap of the turn buttons turns a quarter, eased round, and held they spin; let go, ISO settles on the next of its eight rests (Final Fantasy Tactics and Xenogears), TOP-DOWN and MODE 7 stay at any angle (MODE 7 then drawn as the chase camera is); in the step, so the stick maps alike headless and in the page; the simulation never reads it (D48) · `tests/sim/camera-turn.test.mjs`, `tests/unit/depth.test.mjs` · the look read in each view by day, at night in the rain and in the bank (docs/media/d48) · test:full alone on 6600f53 |
+| D49 Control schemes | done | the owner's request: SETTINGS, CONTROLS, Control scheme; MODERN, the default, turns the camera with the right stick (a flick a quarter, held a spin) and aims with it while L2 is held (at the wheel, while ○ is), ○ reloads, L2 + □ rolls, L3 the horn; ORIGINAL the layout as it was; rebinds kept per scheme; the pad pilot plays MODERN · `npm test` 20 of 20 on the commit, the unit and sim tests 471 of 471 · two combat missions through the pad on MODERN, gold (gnomes_lawn_order 131 s, saints_confession_booth 150 s) |
+| D50 Free camera (to try) | done | the owner's request: SETTINGS, DISPLAY, Free camera; the camera stick turns every view at its push and leaves it there; up and down tilt ISO (18° to 39°), MODE 7 and CHASE (6° to 40°, the lens riding round the focus); TOP-DOWN only turns · shots read: ISO at 20°, 39° at night in the rain, 40°, 45°, 50°, 55° (past 40° a tree shows over a roof: capped at 39°), the bank at 18°, MODE 7 at 2° (among the cars: floor 6°), 32° and 40° at night, CHASE at 30° |
+| D51 The free camera's CHASE orbit | done (npm test) | the owner's request after trying D50: in CHASE the free camera stays where the stick leaves it on foot (behind the car again 1.5 s after), tilts -8° to 60°, slides in down its sight line to keep the player in sight, and fades what comes between · shots read: CHASE at -8°, 14°, 35°, 50°, 60° backed against the safehouse, and at six headings by day, at dusk and at night in the rain |
 
 ## Acceptance log
 
@@ -1960,3 +1964,54 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     two runs before, on the same code, had failed only the perf gate, Lowtown's ISO at 10.52 and 10.48 ms. Measured in
     turn with L8's build (`5b55a08`) and M2's over six rounds, the two builds read it alike (a median of 10.30 ms each):
     ISO draws as it did while the camera isn't turning, and its margin is the 1-3% L5 found.
+
+- **D49 · control schemes (the owner's request), npm test green; test:full to follow:**
+  - **What changed:** `src/motor/input/bindings.js` holds the schemes (`SCHEMES`: MODERN, the default, and ORIGINAL),
+    each a whole map of defaults with its own saved rebinds, and hands the right stick between the camera and the aim
+    (`stickAims`: MODERN's L2 on foot, ○ at the wheel); a held-modifier combo's second button serves it alone while the
+    modifier is held (MODERN's L2 with □ rolls without a jump). The HumanController aims with the stick only when it
+    aims; the PadPilot holds L2 as it aims, presses L2 with □ to roll and pushes the stick at the wheel only while the
+    drive-by fires. SETTINGS, CONTROLS has the Control scheme row; `?controls=` picks one for a session. The attract
+    mode's HOW TO PLAY card and the field guide follow the scheme.
+  - **Evidence:** `npm test` passed all 20 steps (the unit and sim tests 471 of 471, the recipes 15, the review 79, the
+    browser suites and the engine's checks). New tests: `tests/unit/input.test.mjs` (MODERN's stick, L2, ○, L2 + □, □
+    alone, L3 and ○ at the wheel; a switch and the rebinds kept per scheme; the legacy player's ORIGINAL; the rebind
+    rule) and `tests/sim/camera-turn.test.mjs` (in play through a pad: a flick a quarter, a spin landing on an eighth,
+    the camera held under L2 while the stick aims; ORIGINAL's stick aiming). Through the pad on MODERN, seed 1:
+    gnomes_lawn_order gold in 131 s of game, saints_confession_booth gold in 150 s, no retries.
+
+- **D50 · a free camera, to try (the owner's request):**
+  - **What changed:** SETTINGS, DISPLAY, Free camera (the knob `freeCam`, off by default). `Stage._freeInput` turns the
+    view at the camera stick's push (the Intent's new `look`, filled by the HumanController while the stick is the
+    camera's; [ and ] at full) and leaves it where it stops, in every view; it tilts ISO's pitch (the engine view swapped
+    for one at that tilt, its flat blocks while it moves and its walls baked where it stops) and MODE 7's and CHASE's
+    lens (`Side7View.lift`: the lens rides round the focus). TOP-DOWN only turns. Off, the tilts go back as made.
+  - **Evidence:** `tests/sim/camera-turn.test.mjs` (a slow turn left where it stopped; ISO's tilt kept across a switch
+    of view; TOP-DOWN turning and never tilting; MODE 7 off the quarters and tilted; back as made when off; the same run
+    hashing the same with it turning and tilting or not) and the shots in the D50 row above, each read.
+
+- **D51 · the free camera's CHASE orbit (the owner's request after trying D50):**
+  - **What was found:** the tilt worked with a pad (a fake standard pad in the page: ISO 30° to 39° and 18°, CHASE 14°
+    to 40° and 6°); it was small in ISO, pad-only, and no view orbited as modern open-city games' cameras do.
+  - **What changed:** `ChaseView` with the free camera on (`free`): no swing back behind on foot, behind the car 1.5 s
+    after the stick lets go; tilts -8° to 60° (`Stage` TILT.chase); a wall between the lens and the player's chest
+    brings it in, down its sight line (`lensH`, `follow`), no nearer than 50 and under the roof of a wall it is still
+    short of; the old horizon raise left to the slide; props, trees, cars, signs and lit signs over the player
+    see-through (`Stage.shape`, `prop`, `glow`, `_spriteHidesFocus`).
+  - **Evidence:** `tests/sim/camera-turn.test.mjs` (the orbit through a pad) and the shots in the row above, each read;
+    `npm test` 20 of 20 (unit and sim 474/474). test:full on D50's head found the UI audit's walk short of BUTTON
+    LAYOUT by D49's new Control scheme row: the walk goes one row further (`tools/ui-audit.mjs`), 244/244 and 59/59.
+
+- **test:full on `ad24db2` (D49 and D50), alone on the machine:** every `npm test` step passed, then:
+  - **the perf gate over budget on three rows, and `main` over on the same three:** Lowtown ISO 11.09 ms (budget 10.4),
+    Glass Heights ISO 10.88, Lowtown MODE 7 12.78 (12.7). `main`'s build (`26a83cb`) through the same gate in the same
+    container: 10.59, 11.48 and 12.71 (five rounds). This build against `main`'s, interleaved: Lowtown ISO 16.8 ms
+    against 16.9, MODE 7 15.6 against 16.4 (rounds about ±8%). Neither commit touches drawing: the container reads
+    slower against M2's yardstick than when L3 set the budgets (D35); the budgets are the owner's call.
+  - **the rest, run step by step after the gate (`tools/test-run.mjs` stops at the first failure):** the city soak, the
+    audio soak, the attract soak (30 min x the page and seeds 1-3) and in Chromium, the gang sim, cross-runtime (10 min
+    x 3), the screenshot matrix, the mission bot on seeds 1-3 (219/219), the mission bot through a pad on MODERN
+    (73/73), the bot gym on seeds 1-3 and through a pad (20/20, the kept limits 1/1), and the campaign to 100.0% after
+    5.63 h of game: all passed. The UI audits failed on D49's new row (the walk one row short of BUTTON LAYOUT); fixed
+    in `cf930ab` (D51's commit), where they pass 244/244 and 59/59.
+

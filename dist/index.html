@@ -11893,7 +11893,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     Bindings: () => Bindings,
     BoatBody: () => BoatBody,
     CAR_GRAVITY: () => CAR_GRAVITY,
-    CHEST: () => CHEST,
+    CHEST: () => CHEST2,
     CLASSES: () => CLASSES,
     COMPLETION_KINDS: () => COMPLETION_KINDS,
     CONFIRM_ABOVE: () => CONFIRM_ABOVE,
@@ -11911,6 +11911,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     CutAway: () => CutAway,
     DEEDS: () => DEEDS,
     DEFAULT_BINDINGS: () => DEFAULT_BINDINGS,
+    DEFAULT_SCHEME: () => DEFAULT_SCHEME,
     DIFFICULTY: () => DIFFICULTY,
     DMath: () => DMath,
     DRIFT: () => DRIFT,
@@ -11989,6 +11990,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     RoadGraph: () => RoadGraph,
     Rumble: () => Rumble,
     SAFE: () => SAFE,
+    SCHEMES: () => SCHEMES,
     SCORES: () => SCORES,
     SETTING_TABS: () => SETTING_TABS,
     SLOTS: () => SLOTS,
@@ -13234,6 +13236,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }, o);
       this.fogRGB = E.hex(this.fog);
       this.mode7 = true;
+      this.pitch0 = this.pitch;
+    }
+    /** the free camera's tilt (D50: the lens pitched off pitch0) swings the camera up or down round the focus D ahead, so
+     *  the focus stays where it sits on screen: how much higher (or lower) the lens rides for it */
+    lift(D) {
+      return this.pitch === this.pitch0 ? 0 : D * (Math.tan(this.pitch * DEG) - Math.tan(this.pitch0 * DEG));
     }
     /** the heading kept images are keyed by (a body's, a prop's image is redrawn when it moves on): off the quarters, in
      *  steps of 1.5° (turning, each frame's would never be reused) */
@@ -13276,7 +13284,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  cutting it */
     rig(dt, vehicle, speed01 = 0, fz = 0) {
       const R9 = this.indoor ? RIGS.indoor : vehicle ? RIGS.vehicle : RIGS.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R9.fov + R9.widen * E.clamp(speed01, 0, 1);
-      this.h += (R9.h + fz - this.h) * k;
+      this.h += (R9.h + fz + this.lift((this.near + this.far) / 2) - this.h) * k;
       this.near += (R9.near - this.near) * k;
       this.far += (R9.far - this.far) * k;
       this.fov += (fov - this.fov) * k;
@@ -13723,6 +13731,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     indoor: { h: 50, back: 80, fov: 60, widen: 0, turn: 1.5 }
   };
   var FOOT_CONE = 60;
+  var CHEST = 20;
+  var FREE_RECENTRE = 1.5;
   function headingOf(x, y) {
     return (Math.atan2(x, -y) / DEG2 % 360 + 360) % 360;
   }
@@ -13757,7 +13767,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** the lens for where the focus is, how fast and how high: eased as MODE 7's */
     rig(dt, vehicle, speed01 = 0, fz = 0) {
       const R9 = this.indoor ? CHASE.indoor : vehicle ? CHASE.vehicle : CHASE.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R9.fov + R9.widen * E.clamp(speed01, 0, 1);
-      this.h += (R9.h + fz - this.h) * k;
+      this.lensH = this.lensH === void 0 ? this.h : this.lensH;
+      this.lensH += (Math.max(8, R9.h + fz + this.lift(this.back)) - this.lensH) * k;
+      this.h = this.lensH;
       this.back += (R9.back - this.back) * k;
       this.fov += (fov - this.fov) * k;
       this.near = this.back * 0.8;
@@ -13774,6 +13786,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.swing -= s;
         this.heading = ((this.heading + s) % 360 + 360) % 360;
         return;
+      }
+      if (this.free) {
+        this.idle = (this.idle || 0) + dt;
+        if (!vehicle || this.idle < FREE_RECENTRE) return;
       }
       if (h === null || !moving || !vehicle && Math.abs(turnTo(this.heading, h)) >= FOOT_CONE) return;
       this.heading = ((this.heading + turnTo(this.heading, h) * Math.min(1, dt * this.turn)) % 360 + 360) % 360;
@@ -13799,6 +13815,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.x += (tx - this.x) * k;
         this.y += (ty - this.y) * k;
       }
+      if (this.free && this.lensH !== void 0) {
+        const dd = Math.hypot(this.x - fx7, this.y - fy);
+        if (dd < this.back) this.h = CHEST + (this.lensH - CHEST) * Math.max(0.2, dd / this.back);
+        if (this.under) this.h = Math.min(this.h, this.under - 4);
+      }
     }
     /** how far from (fx, fy) along (dx, dy) the camera may stand, up to max: short of the first wall cell taller than the
      *  lens (the map's, when it has one) */
@@ -13808,8 +13829,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const T33 = M2.T;
       for (let d = 8; d <= max; d += 6) {
         const id = M2.cell(Math.floor((fx7 + dx * d) / T33), Math.floor((fy + dy * d) / T33));
-        if (id > 0 && (M2.types[id].h || 0) > this.h - 8) return Math.max(60, d - 12);
+        if (id <= 0) continue;
+        const wh = M2.types[id].h || 0;
+        if (wh > (this.free ? CHEST + (this.h - CHEST) * d / max : this.h - 8)) {
+          this.under = d - 12 < (this.free ? 50 : 60) ? wh : 0;
+          return Math.max(this.free ? 50 : 60, d - 12);
+        }
       }
+      this.under = 0;
       return max;
     }
     autoRail() {
@@ -13817,10 +13844,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // (it turns by itself all the time)
     /** MODE 7's projection, the horizon raised while the camera is in short of a wall: the focus's feet stay on the screen
-     *  row they stand on at the lens's full distance (the lens shifted further, so walls stay upright) */
+     *  row they stand on at the lens's full distance (the lens shifted further, so walls stay upright). The free camera
+     *  comes in down its sight line instead (follow), which keeps them there by itself (D50) */
     frame(r7) {
       const P25 = super.frame(r7);
-      if (this.dist !== void 0 && this.dist < this.back - 1) P25.hy -= this.h * P25.F * (1 / this.dist - 1 / this.back);
+      if (!this.free && this.dist !== void 0 && this.dist < this.back - 1) P25.hy -= this.h * P25.F * (1 / this.dist - 1 / this.back);
       return P25;
     }
     /** the engine View a rig is drawn with at k pixels per unit, at the heading in 3° steps (whole 1/16ths of scale) */
@@ -14517,6 +14545,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   knob("Camera", "autoRail", "Auto-rail", 1, 0, 1, 1, "MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0)");
   knob("Graphics", "depthLightRes", "Depth views' light coarseness", 4, 1, 8, 1, "TOP-DOWN and MODE 7 at night work the dark and the lamps' pools out every n buffer pixels and scale them up smoothly (the pools are soft: 4 is a sixteenth of the work of 1, per pixel)");
   knob("Camera", "spinRate", "Camera spin", 150, 60, 360, 10, "Degrees a second the camera spins while a turn button is held ([ ] or R3 held with the right stick pushed); a tap still turns a quarter");
+  knob("Camera", "freeCam", "Free camera", 0, 0, 1, 1, "The camera stick (or [ ]) turns every view smoothly at the speed it is pushed and leaves it where it stops; up and down tilt ISO, MODE 7 and CHASE (TOP-DOWN only turns). 0: a tap a quarter, held a spin (D48). SETTINGS, DISPLAY, Free camera (D50)");
+  knob("Camera", "freeTurn", "Free camera turn", 180, 45, 360, 15, "Degrees a second the free camera turns with the stick pushed all the way (the push squared: a light one turns it slowly)");
+  knob("Camera", "freeTilt", "Free camera tilt", 40, 10, 120, 5, "Degrees a second the free camera tilts with the stick pushed all the way up or down");
   knob("Graphics", "lightRes", "Light field coarseness", 2, 1, 4, 1, "ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work");
   var CROWD = { outline: false, rim: false };
   var XRAY = { xray: true };
@@ -14529,6 +14560,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var PREBAKE_AHEAD = 0.3;
   var TURN = { most: 0.45, bakeMs: 9, step: 3 };
   var SPIN = { tap: 0.2, ease: 0.12, rest: 45, glide: 3, snap: 4, k: 9, min: 90 };
+  var TILT = { iso: [18, 39], depth: [6, 40], chase: [-8, 60] };
   var ZOOM = { time: 0.25, most: 0.35, bakeMs: 9 };
   var discs = /* @__PURE__ */ new Map();
   function poolDisc(inner, outer) {
@@ -14582,6 +14614,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this.side7 = new Side7View({});
       this.top = new TopView({});
       this.chase = new ChaseView({});
+      this.isoPitch = null;
+      this._pitch0 = { side7: this.side7.pitch, chase: this.chase.pitch };
+      this._free = false;
       for (const v of [this.top, this.side7, this.chase]) views.addView({
         id: v.id,
         label: v.label,
@@ -14802,7 +14837,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         d.steadyT = 0;
         return;
       }
-      if (this.spin) {
+      if (this.spin || TUNE.freeCam) {
         d.steadyT = 0;
         return;
       }
@@ -14856,6 +14891,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
      *  where they are (any heading; on a quarter within SPIN.snap of one). The chase camera swings a quarter a tap. In the
      *  step: the heading maps the stick, so the page and a headless run turn alike (D48) */
     turnInput(dt, I, off2 = false) {
+      if (TUNE.freeCam) return this._freeInput(dt, I, off2);
+      if (this._free) this._freeOff();
       const d = this.depth, want = off2 || !I ? 0 : (I.down.turnRight ? 1 : 0) - (I.down.turnLeft ? 1 : 0);
       let s = this.spin;
       if (s && s.view !== (d || "iso")) {
@@ -14899,6 +14936,73 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** is a turn under way (spinning, or easing onto where it lands)? */
     get turning() {
       return !!this.spin;
+    }
+    // the free camera (TUNE.freeCam, D50), each step: the camera stick's push (I.look; [ ] at full) turns the view at
+    // that speed, squared so a light push turns it slowly, and let go it stays; up and down tilt ISO's pitch and MODE 7's
+    // and CHASE's lens (TOP-DOWN only turns). ISO draws its flat blocks while it moves and bakes its walls where it stops
+    _freeInput(dt, I, off2) {
+      this._free = true;
+      const d = this.depth, L28 = !off2 && I && I.look ? I.look : null, keys = !off2 && I ? (I.down.turnRight ? 1 : 0) - (I.down.turnLeft ? 1 : 0) : 0;
+      const x = L28 && Math.abs(L28[0]) > 1e-3 ? L28[0] : keys, y = L28 ? L28[1] : 0;
+      const turn = TUNE.freeTurn * x * Math.abs(x) * dt, tilt = TUNE.freeTilt * y * Math.abs(y) * dt;
+      if (this.spin && this.spin.view !== (d || "iso")) this._spinEnd();
+      if (d === this.chase) {
+        d.free = true;
+        if (turn || tilt) d.idle = 0;
+        if (turn) {
+          d.swing = 0;
+          d.heading = ((d.heading + turn) % 360 + 360) % 360;
+        }
+        if (tilt) d.pitch = E.clamp(d.pitch + tilt, TILT.chase[0], TILT.chase[1]);
+        return;
+      }
+      if (d === this.top) {
+        if (turn) this._setHeading(d, d.heading + turn);
+        return;
+      }
+      if (d === this.side7) {
+        if (turn && this.railHold === null) this._setHeading(d, d.heading + turn);
+        if (tilt) d.pitch = E.clamp(d.pitch + tilt, TILT.depth[0], TILT.depth[1]);
+        return;
+      }
+      if (this.zx) return;
+      const g = this.game, b = g.baseView || g.view;
+      if (this.isoPitch === null) this.isoPitch = b.pitchDeg;
+      if (turn || tilt) {
+        const s = this.spin || (this.spin = { view: "iso", dir: Math.sign(turn) || 1, held: 0, start: g.yaw || 0, cur: g.yaw || 0, target: null, free: true });
+        if (turn) {
+          s.cur += turn;
+          this._setHeading("iso", s.cur);
+        }
+        if (tilt) this.isoPitch = E.clamp(this.isoPitch + tilt, TILT.iso[0], TILT.iso[1]);
+      }
+      const p = Math.round(this.isoPitch / TURN.step) * TURN.step;
+      if (b.id === "iso" && b.pitchDeg !== p) this._tiltIso(p);
+      if (!turn && !tilt && this.spin) {
+        const s = this.spin;
+        this.spin = null;
+        this._setHeading("iso", Math.round(s.cur / TURN.step) * TURN.step, true);
+      }
+    }
+    // ISO's pitch (degrees): the engine view swapped for one at that tilt, keeping its zoom and turn (the view manager
+    // passes a view of the same id through, with nothing to notify)
+    _tiltIso(p) {
+      const g = this.game, b = g.baseView || g.view;
+      g.setView(new E.View(b.id, b.label, b.yawDeg, p, b.scale, b.zBoost));
+      if (!this.spin && !g.headless && this.world && this.world.map) this.bx = { t: 0 };
+    }
+    // the free camera switched off: the tilts as made, ISO onto its nearest rest
+    _freeOff() {
+      this._free = false;
+      if (this.spin && this.spin.free) this.spin = null;
+      this.side7.pitch = this._pitch0.side7;
+      this.chase.pitch = this._pitch0.chase;
+      this.chase.free = false;
+      const g = this.game, b = g.baseView || g.view, was = this.isoPitch;
+      this.isoPitch = null;
+      if (this.depth) return;
+      if (was !== null && b.id === "iso" && b.pitchDeg !== E.VIEWS.iso.pitchDeg) this._tiltIso(E.VIEWS.iso.pitchDeg);
+      this._setHeading("iso", Math.round((g.yaw || 0) / SPIN.rest) * SPIN.rest, true);
     }
     // a spin in dir from where the camera is (or after the quarter a tap in the same direction is already making)
     _spinFrom(dir, s) {
@@ -15112,9 +15216,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         });
         return;
       }
+      const see = d === this.chase && d.free && this._hidesFocus(d, x, y, z, d.depth(x, y), -1e9) ? 0.3 : 1;
       const reach = o.r || 16, it = { k: d.depth(x, y) - 0.01, kind: "glow", fn: (g) => {
         const q2 = d.proj(x, y, z);
-        if (q2 && !this._offBuf(q2, reach * q2[2] + 8)) this._glowAt(g, draw, q2);
+        if (q2 && !this._offBuf(q2, reach * q2[2] + 8)) {
+          if (see < 1) g.globalAlpha = see;
+          this._glowAt(g, draw, q2);
+          g.globalAlpha = 1;
+        }
       } };
       const q = o.r && d.mode7 && z >= 0 && d.proj(x, y, z), R9 = q && Math.max(8, o.r * q[2]) * this.px;
       if (q) {
@@ -15370,12 +15479,21 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // MODE 7: does a body at (x, y, z), k along the rail, stand nearer the lens than the player and over them on screen?
     // (about a body's box each: half a body's width either side, its height up)
-    _hidesFocus(d, x, y, z, k) {
+    // a sprite's screen box (its foot q, w x h pixels) over the player's, and nearer the lens than them (the free camera's
+    // orbit fades it, D50)
+    _spriteHidesFocus(d, k, q, w12, h) {
       const f = this.focus;
       if (!f || k >= d.depth(f[0], f[1]) - 8) return false;
+      const b = d.proj(f[0], f[1], 0);
+      if (!b) return false;
+      return Math.abs(q[0] - b[0]) < w12 / 2 + 12 * b[2] && q[1] > b[1] - 44 * b[2] && q[1] - h < b[1];
+    }
+    _hidesFocus(d, x, y, z, k, margin = 8, half = 12) {
+      const f = this.focus;
+      if (!f || k >= d.depth(f[0], f[1]) - margin) return false;
       const a = d.proj(x, y, z), b = d.proj(f[0], f[1], 0);
       if (!a || !b) return false;
-      const wa = 12 * a[2], wb = 12 * b[2];
+      const wa = half * a[2], wb = 12 * b[2];
       return Math.abs(a[0] - b[0]) < wa + wb && a[1] > b[1] - 44 * b[2] && a[1] - 44 * a[2] < b[1];
     }
     // TOP-DOWN's draw key just after the span over (x, y) (a span's key is its footprint's nearest point to the centre), or
@@ -15476,8 +15594,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const kind = o && o.kind || "shape", hz = HAZY.has(kind) ? this._haze(k) : 0;
       if (hz >= HAZE_GONE) return;
       const f = kept2 && !big ? (g) => this._keptShape(g, d, d.view(1), x, y, z, draw, kept2, it.clipY) : (g) => draw(g, d);
-      const it = { k, kind, fn: hz > 0.02 ? (g) => {
-        g.globalAlpha = 1 - hz;
+      const see = d === this.chase && d.free && (kind === "prop3d" || kind === "car" || kind === "sign") && (kind === "sign" && o.see ? this._hidesFocus(d, o.see[0], o.see[1], o.see[2], d.depth(o.see[0], o.see[1]), -1e9, 80) : this._hidesFocus(d, x, y, z, k)) ? 0.3 : 1, a = (1 - hz) * see;
+      const it = { k, kind, fn: a < 0.98 ? (g) => {
+        g.globalAlpha = a;
         f(g);
         g.globalAlpha = 1;
       } : f };
@@ -15603,12 +15722,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const hz = this._haze(d.depth(x, y));
       if (hz >= HAZE_GONE) return;
       const q = d.mode7 && z >= 0 && d.proj(x, y, z), qs = q && q[2] / Math.SQRT2, box2 = q && !(p.glowAt && o.light && o.halo !== false) ? [q[0] - spr.w * qs / 2 - 1, q[0] + spr.w * qs / 2 + 1, q[1] - spr.h * qs - 1] : null;
+      const see = q && d === this.chase && d.free && this._spriteHidesFocus(d, d.depth(x, y), q, spr.w * qs, spr.h * qs) ? 0.3 : 1;
       this.items.push({ k: d.depth(x, y), m: d.depth(x, y) - 4, box: box2, kind: "prop", fn: (g) => {
         const q2 = d.proj(x, y, z);
         if (!q2) return;
         const s = q2[2] / Math.SQRT2, w12 = spr.w * s, h = spr.h * s;
         if (h < 1) return;
-        if (hz > 0.02) g.globalAlpha = 1 - hz;
+        if (hz > 0.02 || see < 1) g.globalAlpha = (1 - hz) * see;
         g.drawImage(spr.cv, Math.round(q2[0] - w12 / 2), Math.round(q2[1] - h), Math.max(1, Math.round(w12)), Math.max(1, Math.round(h)));
         g.globalAlpha = 1;
         if (p.glowAt && o.light && o.halo !== false) {
@@ -15889,6 +16009,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       throttle: 0,
       brake: 0,
       steer: 0,
+      /** the camera stick's push on screen, [x right, y down] (-1..1 each): the free camera's (D50); presentation only,
+       *  never read by the simulation */
+      look: [0, 0],
       down: down2,
       tap
     };
@@ -15896,6 +16019,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   function clearIntent(i) {
     i.move[0] = 0;
     i.move[1] = 0;
+    i.look[0] = 0;
+    i.look[1] = 0;
     i.aim = null;
     i.aimTarget = null;
     i.aimPoint = null;
@@ -17917,7 +18042,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     pause: ["Pad9", "Escape"],
     photo: ["Pad8", "KeyB"]
   };
-  var DEFAULT_BINDINGS = {
+  var ORIGINAL = {
     onFoot: {
       up: ["KeyW"],
       down: ["KeyS"],
@@ -17988,18 +18113,35 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       look: ["Pad5", "KeyF"]
     }
   };
+  var STICK_TURN = { turnLeft: ["RSLeft", "BracketLeft"], turnRight: ["RSRight", "BracketRight"] };
+  var MODERN = {
+    ...ORIGINAL,
+    onFoot: { ...ORIGINAL.onFoot, roll: ["Pad6>Pad2", "KeyX"], reload: ["Pad1", "KeyR"], ...STICK_TURN },
+    vehicle: { ...ORIGINAL.vehicle, horn: ["Pad10", "KeyH"], ...STICK_TURN }
+  };
+  var SCHEMES = {
+    modern: { label: "Modern", map: MODERN, stickAim: { onFoot: "aim", vehicle: "fire" } },
+    original: { label: "Original", map: ORIGINAL, stickAim: null }
+  };
+  var DEFAULT_SCHEME = "modern";
+  var DEFAULT_BINDINGS = SCHEMES[DEFAULT_SCHEME].map;
   var LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt|KeyP$)/;
   var KEY2 = "GrandTheftMoto-5S:bindings";
   var TRIGGER = 0.35;
   var STICK = 0.5;
+  var storeKey = (scheme) => scheme === "original" ? KEY2 : KEY2 + ":" + scheme;
+  function startingScheme() {
+    return E.store.get(KEY2, null) ? "original" : DEFAULT_SCHEME;
+  }
   var Bindings = class _Bindings {
-    /** input: the engine's game.input (GTM-PATCH(4) gives it .raw) */
-    constructor(input, saved = null) {
+    /** input: the engine's game.input (GTM-PATCH(4) gives it .raw); saved: the rebinds over the scheme's defaults */
+    constructor(input, saved = null, scheme = DEFAULT_SCHEME) {
       this.input = input;
       this.context = "onFoot";
       this.chordWindow = 0.12;
       this.releaseWindow = 0.5;
-      this.map = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+      this.scheme = SCHEMES[scheme] ? scheme : DEFAULT_SCHEME;
+      this.map = JSON.parse(JSON.stringify(SCHEMES[this.scheme].map));
       if (saved) this._overlay(saved);
       this._down = /* @__PURE__ */ new Set();
       this._prev = /* @__PURE__ */ new Set();
@@ -18020,16 +18162,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this._ver = (this._ver || 0) + 1;
     }
     // what update reads of the map, worked out again only when the map changes (rebind, reset, a saved overlay): every
-    // code a binding uses, its held-modifier combos [a, b, code] and chords [a, b, code], and the chords' halves
+    // code a binding uses, its held-modifier combos [a, b, code] (and each context's own, by its second code) and chords
+    // [a, b, code], and the chords' halves
     _derive() {
       const D = this._dv;
       if (D && D.ver === this._ver && D.map === this.map) return D;
-      const codes = /* @__PURE__ */ new Set(), combos = [], chords = [], half = /* @__PURE__ */ new Set();
-      for (const c of Object.values(this.map)) for (const list of Object.values(c)) for (const code of list) {
+      const codes = /* @__PURE__ */ new Set(), combos = [], chords = [], half = /* @__PURE__ */ new Set(), under = {};
+      for (const [ctx, c] of Object.entries(this.map)) for (const list of Object.values(c)) for (const code of list) {
         for (const p of code.replace(/\^$/, "").split(/[+>]/)) codes.add(p);
         if (code.includes(">")) {
           const [a, b] = code.split(">");
           combos.push([a, b, code]);
+          ((under[ctx] ||= {})[b] ||= []).push(a);
         }
         if (code.includes("+")) {
           const [a, b] = code.split("+");
@@ -18039,7 +18183,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
       }
       const kinds2 = [...codes].map((c) => [c, /^(Pad|LS|RS)/.test(c) ? 1 : 0]);
-      return this._dv = { ver: this._ver, map: this.map, codes: [...codes], kinds: kinds2, combos, chords, half };
+      return this._dv = { ver: this._ver, map: this.map, codes: [...codes], kinds: kinds2, combos, chords, half, under };
     }
     /** the pad in use, raw ({ buttons, axes }) or null */
     pad() {
@@ -18148,18 +18292,40 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     codes(action, ctx = this.context) {
       return this.map[ctx] && this.map[ctx][action] || [];
     }
+    // is a plain code free for its own actions: not one of the right stick's directions while the stick aims (a scheme
+    // with a stick camera), nor a held-modifier combo's second code while its modifier is held ('Pad6>Pad2': □ rolls
+    // under L2, so it doesn't jump as well)
+    _free(c, ctx) {
+      if (/^RS/.test(c) && this.stickCamera && this.stickAims(ctx)) return false;
+      const mods = (this._derive().under[ctx] || {})[c];
+      return !mods || !mods.some((a) => this._down.has(a));
+    }
     /** is the action held? */
-    down(action, ctx) {
-      return this.codes(action, ctx).some((c) => /[+>]/.test(c) ? c.split(/[+>]/).every((p) => this._down.has(p)) : this._down.has(c.replace(/\^$/, "")));
+    down(action, ctx = this.context) {
+      return this.codes(action, ctx).some((c) => /[+>]/.test(c) ? c.split(/[+>]/).every((p) => this._down.has(p)) : this._down.has(c.replace(/\^$/, "")) && this._free(c.replace(/\^$/, ""), ctx));
     }
     /** was the action pressed this step? (a chord half waits out the chord window first; a release tap fires as it is
      *  let go; a held modifier's combo as its second code goes down) */
-    tap(action, ctx) {
-      return this.codes(action, ctx).some((c) => c.endsWith("^") ? this._released.has(c.slice(0, -1)) : c.includes(">") ? this._combos.has(c) : this._taps.has(c));
+    tap(action, ctx = this.context) {
+      return this.codes(action, ctx).some((c) => c.endsWith("^") ? this._released.has(c.slice(0, -1)) : c.includes(">") ? this._combos.has(c) : this._taps.has(c) && this._free(c, ctx));
     }
-    /** is a held modifier of the live context down (its second codes, the right stick for one, aren't free for aiming)? */
-    modifierHeld(ctx = this.context) {
-      return Object.values(this.map[ctx] || {}).some((list) => list.some((c) => c.includes(">") && this._down.has(c.split(">")[0])));
+    /** does the scheme turn the camera with the right stick (MODERN)? */
+    get stickCamera() {
+      return !!SCHEMES[this.scheme].stickAim;
+    }
+    /** the action that hands a stick camera's right stick to the aim while held, in a context ('aim', 'fire'), or null */
+    stickAimAction(ctx = this.context) {
+      const g = SCHEMES[this.scheme].stickAim;
+      return g && g[ctx] || null;
+    }
+    /** does the right stick aim now? With a stick camera, only while the context's stickAim action is held (L2 on foot,
+     *  the drive-by's ○ at the wheel); otherwise unless a modifier that hands it to the camera is held (ORIGINAL's R3) */
+    stickAims(ctx = this.context) {
+      if (this.stickCamera) {
+        const a = this.stickAimAction(ctx);
+        return !!a && this.down(a, ctx);
+      }
+      return !Object.entries(this._derive().under[ctx] || {}).some(([b, mods]) => /^RS/.test(b) && mods.some((a) => this._down.has(a)));
     }
     /** the action's analog value 0..1 (the strongest of its codes) */
     value(action, ctx) {
@@ -18181,12 +18347,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return l10 > 1 ? [x / l10, y / l10] : [x, y];
     }
     /** bind code to action in a context; refuses locked codes (the menus' and the engine's pause, P, among them) and a
-     *  code another action of that context uses, whole or as a part (R3 in 'Pad11^', 'Pad11>RSLeft', 'Pad10+Pad11') */
+     *  code another action of that context uses, whole or as a part (R3 in 'Pad11^', 'Pad11>RSLeft', 'Pad10+Pad11'; of
+     *  a held-modifier combo, its modifier: □ stays free to bind beside MODERN's L2 with □) */
     rebind(ctx, action, code, slot3 = null) {
       if (LOCKED.test(code)) return { ok: false, reason: "locked", code };
       const c = this.map[ctx];
       if (!c || !c[action]) return { ok: false, reason: "unknown" };
-      const uses = (q) => q === code || q.replace(/\^$/, "").split(/[+>]/).includes(code);
+      const uses = (q) => q === code || (q.includes(">") ? q.split(">")[0] === code : q.replace(/\^$/, "").split("+").includes(code));
       for (const [a, list2] of Object.entries(c)) if (a !== action && list2.some(uses)) return { ok: false, reason: "conflict", with: a };
       const list = c[action].slice();
       if (slot3 === null || slot3 >= list.length) list.push(code);
@@ -18195,19 +18362,29 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this._ver = (this._ver || 0) + 1;
       return { ok: true };
     }
-    /** back to the defaults (one context, or all) */
+    /** back to the scheme's defaults (one context, or all) */
     reset(ctx = null) {
-      const d = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+      const d = JSON.parse(JSON.stringify(SCHEMES[this.scheme].map));
       if (ctx) this.map[ctx] = d[ctx];
       else this.map = d;
       this._ver = (this._ver || 0) + 1;
     }
-    /** the player's changes, saved apart from the engine's bindings */
+    /** switch to a control scheme (SETTINGS, CONTROLS): its defaults, with the rebinds saved for it. Held buttons carry
+     *  over, as they do between contexts */
+    setScheme(id) {
+      if (!SCHEMES[id] || id === this.scheme) return false;
+      this.scheme = id;
+      this.map = JSON.parse(JSON.stringify(SCHEMES[id].map));
+      this._overlay(E.store.get(storeKey(id), null));
+      return true;
+    }
+    /** the player's changes, saved apart from the engine's bindings (each scheme's apart) */
     save() {
-      E.store.set(KEY2, this.map);
+      E.store.set(storeKey(this.scheme), this.map);
     }
     static load(input) {
-      return new _Bindings(input, E.store.get(KEY2, null));
+      const s = startingScheme();
+      return new _Bindings(input, E.store.get(storeKey(s), null), s);
     }
   };
 
@@ -18586,7 +18763,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         I.move[0] = d[0];
         I.move[1] = d[1];
       }
-      const rs = B2.modifierHeld() ? [0, 0] : B2.stick("RS");
+      const aims = B2.stickAims(), rs = aims ? B2.stick("RS") : [0, 0];
+      if (!aims) {
+        const [lx, ly] = B2.stick("RS");
+        I.look[0] = lx;
+        I.look[1] = ly;
+      }
       if (this.game.input.invertAimY) rs[1] = -rs[1];
       I.aimStick = Math.min(1, Math.hypot(rs[0], rs[1]));
       if (rs[0] || rs[1]) {
@@ -18998,7 +19180,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   knob("Combat", "flickCone", "Flick cone", 60, 10, 120, 5, "Degrees either side of the flick that the next target may lie in");
   knob("Combat", "pointPast", "Assist past the point", 40, 0, 400, 5, "How far beyond the mouse's point the aim assist may still pull to a target (u)");
   var ASSIST = { off: { cone: 0, pull: 0 }, low: { cone: 8, pull: 0.45 }, standard: { cone: 16, pull: 0.8 } };
-  var CHEST = 22;
+  var CHEST2 = 22;
   var SIGHT_TRIES = 4;
   var angleBetween = (ax, ay, bx, by3) => {
     const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by3);
@@ -19006,7 +19188,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by3) / (la * lb))));
   };
   function screenDir(s, dir, toScreen) {
-    const a = toScreen(s.x, s.y, s.z + CHEST), b = toScreen(s.x + dir[0] * 64, s.y + dir[1] * 64, s.z + CHEST);
+    const a = toScreen(s.x, s.y, s.z + CHEST2), b = toScreen(s.x + dir[0] * 64, s.y + dir[1] * 64, s.z + CHEST2);
     return [b[0] - a[0], b[1] - a[1], a];
   }
   function reachable(c, s, range) {
@@ -19021,7 +19203,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     let best = null, bestScore = Infinity;
     for (const c of candidates) {
       if (!reachable(c, s, o.range)) continue;
-      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST), dx = p[0] - a[0], dy = p[1] - a[1], ang = angleBetween(ax, ay, dx, dy);
+      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST2), dx = p[0] - a[0], dy = p[1] - a[1], ang = angleBetween(ax, ay, dx, dy);
       if (ang > half) continue;
       const near4 = Math.hypot(dx, dy), threat = o.threat && o.threat(c) ? 0.35 : c.hostile ? 0.6 : 1;
       const score = near4 * (1 + 0.5 * ang / half) * threat;
@@ -19033,11 +19215,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return best;
   }
   function flickLock(s, current, flick, candidates, o) {
-    const a = o.toScreen(current.x, current.y, (current.z || 0) + CHEST), half = TUNE.flickCone * Math.PI / 180;
+    const a = o.toScreen(current.x, current.y, (current.z || 0) + CHEST2), half = TUNE.flickCone * Math.PI / 180;
     let best = null, bestScore = Infinity;
     for (const c of candidates) {
       if (c === current || !reachable(c, s, o.range)) continue;
-      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST), dx = p[0] - a[0], dy = p[1] - a[1], ang = angleBetween(flick[0], flick[1], dx, dy);
+      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST2), dx = p[0] - a[0], dy = p[1] - a[1], ang = angleBetween(flick[0], flick[1], dx, dy);
       if (ang > half) continue;
       const score = Math.hypot(dx, dy) * (1 + ang / half);
       if (score < bestScore && (!o.los || o.los(s, c))) {
@@ -19053,7 +19235,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const [ax, ay, a] = screenDir(s, dir, o.toScreen), half = lv.cone * Math.PI / 180, inCone = [];
     for (const c of candidates) {
       if (!reachable(c, s, o.range)) continue;
-      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST), ang = angleBetween(ax, ay, p[0] - a[0], p[1] - a[1]);
+      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST2), ang = angleBetween(ax, ay, p[0] - a[0], p[1] - a[1]);
       if (ang <= half) inCone.push([ang, c]);
     }
     inCone.sort((p, q) => p[0] - q[0]);
@@ -19072,11 +19254,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
   function shotFrom(s, dir, at) {
     if (!at) return [dir[0], dir[1], 0];
-    const d = Math.hypot(at[0] - s.x, at[1] - s.y) || 1, slope = (at[2] - ((s.z || 0) + CHEST)) / d, l10 = Math.hypot(1, slope);
+    const d = Math.hypot(at[0] - s.x, at[1] - s.y) || 1, slope = (at[2] - ((s.z || 0) + CHEST2)) / d, l10 = Math.hypot(1, slope);
     return [dir[0] / l10, dir[1] / l10, slope / l10];
   }
   function losClear(map, a, b, decks = null) {
-    const az = (a.z || 0) + CHEST, bz = (b.z || 0) + CHEST * 0.8, n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6);
+    const az = (a.z || 0) + CHEST2, bz = (b.z || 0) + CHEST2 * 0.8, n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6);
     for (let i = 1; i < n; i++) {
       const k = i / n, x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k, z = az + (bz - az) * k;
       if (map.heightAt(x, y) > z) return false;
@@ -19130,23 +19312,23 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this.target) {
         const t = this.target, dx = t.x - s.x, dy = t.y - s.y, l10 = Math.hypot(dx, dy) || 1;
         this.dir = [dx / l10, dy / l10];
-        this.pitchTo = [t.x, t.y, (t.z || 0) + CHEST];
+        this.pitchTo = [t.x, t.y, (t.z || 0) + CHEST2];
         return this;
       }
       if (o.point) {
         const dx = o.point[0] - s.x, dy = o.point[1] - s.y, l10 = Math.hypot(dx, dy) || 1, below = (s.z || 0) - (o.point[2] || 0);
         this.dir = [dx / l10, dy / l10];
-        this.pitchTo = Math.abs(below) > 20 ? [o.point[0], o.point[1], (o.point[2] || 0) + CHEST] : null;
+        this.pitchTo = Math.abs(below) > 20 ? [o.point[0], o.point[1], (o.point[2] || 0) + CHEST2] : null;
         const h2 = assist(s, this.dir, o.candidates, { ...o, level: o.level === "off" ? "off" : "low" });
         if (h2.target && Math.hypot(h2.target.x - s.x, h2.target.y - s.y) <= l10 + TUNE.pointPast) {
           this.dir = h2.dir;
-          this.pitchTo = [h2.target.x, h2.target.y, (h2.target.z || 0) + CHEST];
+          this.pitchTo = [h2.target.x, h2.target.y, (h2.target.z || 0) + CHEST2];
         }
         return this;
       }
       const h = assist(s, dir, o.candidates, o);
       this.dir = h.dir;
-      this.pitchTo = h.target ? [h.target.x, h.target.y, (h.target.z || 0) + CHEST] : null;
+      this.pitchTo = h.target ? [h.target.x, h.target.y, (h.target.z || 0) + CHEST2] : null;
       return this;
     }
   };
@@ -20990,7 +21172,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const p = this.aimer.pitchTo;
       if (!p) return 0;
       const d = Math.hypot(p[0] - this.x, p[1] - this.y) || 1;
-      return Math.atan2(p[2] - (this.z + CHEST), d);
+      return Math.atan2(p[2] - (this.z + CHEST2), d);
     }
     // how far the body can go along dir before a wall or a solid in its way (for rolls)
     _clearAhead(map, dir, dist) {
@@ -23315,7 +23497,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       for (const s of this.signs) if (Math.abs(s.x - fx7) < radius && Math.abs(s.y - fy) < radius && stage2.onScreen(s.x, s.y, s.z, s.z, 48)) {
         const [wx2, wy] = WALL_IN[s.side] || [0, 0];
-        for (const [ax, ay, i, n2] of signSlices(stage2.projector(), s, night6)) stage2.shape(ax, ay, 0, (g, P25) => drawSign(g, P25, s, night6, i, n2), { bias: 0.01, wall: [ax + wx2, ay + wy], kind: "sign" });
+        for (const [ax, ay, i, n2] of signSlices(stage2.projector(), s, night6)) stage2.shape(ax, ay, 0, (g, P25) => drawSign(g, P25, s, night6, i, n2), { bias: 0.01, wall: [ax + wx2, ay + wy], kind: "sign", see: [s.x, s.y, s.z] });
         if (night6) stage2.glow(s.x, s.y, s.z, (g, sx, sy, k) => {
           const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * 0.75)), true);
           g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2));
@@ -26975,8 +27157,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
 
   // src/motor/ui/settings.js
   var SETTING_TABS = [
-    { id: "controls", label: "CONTROLS", keys: ["deadzone", "invertY", "rumble", "haptics", "promptStyle"] },
-    { id: "display", label: "DISPLAY", keys: ["defaultView", "quality", "autoRail", "sharpSide7", "hudSize", "subtitles", "colorblind", "speedometer", "shake", "flashes", "motion"] },
+    { id: "controls", label: "CONTROLS", keys: ["controlScheme", "deadzone", "invertY", "rumble", "haptics", "promptStyle"] },
+    { id: "display", label: "DISPLAY", keys: ["defaultView", "quality", "freeCamera", "autoRail", "sharpSide7", "hudSize", "subtitles", "colorblind", "speedometer", "shake", "flashes", "motion"] },
     { id: "audio", label: "AUDIO", keys: ["sound", "volume", "music", "radio", "effects", "djChatter"] },
     { id: "game", label: "GAME", keys: ["difficulty", "aimAssist", "autosave"] },
     { id: "access", label: "ACCESS", keys: ["holdSprint", "holdAim", "holdCrouch", "holdWheel"] }
@@ -27002,6 +27184,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const def2 = (sp) => {
       if (!S11.spec(sp.key)) S11.define(sp);
     };
+    def2({
+      key: "controlScheme",
+      group: "Controller",
+      label: "Control scheme",
+      type: "select",
+      value: startingScheme(),
+      options: Object.entries(SCHEMES).map(([id, s]) => [id, s.label]),
+      help: "Modern: the right stick turns the camera, L2 aims with it. Original: the right stick aims, R3 held turns the camera",
+      apply: (g, v) => {
+        if (g.bindings) g.bindings.setScheme(v);
+      }
+    });
     def2({
       key: "promptStyle",
       group: "Controller",
@@ -27030,6 +27224,15 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
     });
     def2({ key: "defaultView", group: "Display", label: "Default view", type: "select", value: "iso", options: [["iso", "ISO"], ["top", "Top-down"], ["side7", "Mode 7"], ["chase", "Chase"]], help: "The view a game starts in" });
+    def2({
+      key: "freeCamera",
+      group: "Display",
+      label: "Free camera",
+      type: "toggle",
+      value: false,
+      help: "Try it: the right stick turns every view smoothly and leaves it there, up and down tilting it; in CHASE (R3 cycles the views) it orbits you as a modern open-city game's camera does",
+      apply: (g, v) => tuneSet("freeCam", v ? 1 : 0)
+    });
     def2({ key: "autoRail", group: "Display", label: "Auto-rail", type: "toggle", value: true, help: "MODE 7 in a vehicle: the rail turns to the way you have held", apply: (g, v) => tuneSet("autoRail", v ? 1 : 0) });
     def2({ key: "quality", group: "Display", label: "Graphics", type: "select", value: "full", options: [["full", "Full"], ["fast", "Fast"]], help: "Fast, for a slower machine: a coarser light, the crowd animated less often, half the rain", apply: (g, v) => {
       for (const [k, full, fast] of QUALITY) tuneSet(k, v === "fast" ? fast : full);
@@ -35210,8 +35413,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (!I.down[b] && !I.tap[b]) continue;
         if (I.tap[b] && this.tapped.has(b)) continue;
         for (const code of pads(b)) {
-          if (code.includes(">") || code.endsWith("^")) continue;
-          for (const part2 of code.split("+")) press(+part2.slice(3));
+          if (code.includes("RS") || code.endsWith("^")) continue;
+          for (const part2 of code.split(/[+>]/)) press(+part2.slice(3));
           break;
         }
         if (I.tap[b]) {
@@ -35249,6 +35452,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       let ax = null;
       if (I.aimPoint && actor) ax = [I.aimPoint[0] - actor.x, I.aimPoint[1] - actor.y];
       else if (I.aim) ax = I.aim;
+      const g = this.B.stickCamera && ax ? this.B.stickAimAction(context) : null;
+      if (this.B.stickCamera && ax && (!g || context === "vehicle" && !I.down[g] && !I.tap[g])) ax = null;
+      else if (g && context !== "vehicle") for (const code of pads(g)) {
+        press(+code.slice(3));
+        break;
+      }
       if (ax && Math.hypot(ax[0], ax[1]) > 1e-3) {
         const s = this._screen(ax[0], ax[1]), [x, y] = this._stick(s[0], s[1]);
         P25.axes[2] = x;
@@ -36691,7 +36900,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     // point blank: the muzzle is a gun's length out (a posed hand's, 18 u), so a body between the shooter's chest and it (a
     // bat swung in the face) takes the shot where the line meets it: { t, at } or null
     _pointBlank(p, muzzle) {
-      const x0 = p.x, y0 = p.y, z05 = (p.z || 0) + CHEST - 6, dx = muzzle[0] - x0, dy = muzzle[1] - y0, dz2 = muzzle[2] - z05;
+      const x0 = p.x, y0 = p.y, z05 = (p.z || 0) + CHEST2 - 6, dx = muzzle[0] - x0, dy = muzzle[1] - y0, dz2 = muzzle[2] - z05;
       let best = null, bs = 1;
       for (const t of this.bodies) {
         if (t === p || t.dead || Math.abs(t.x - x0) > 40 || Math.abs(t.y - y0) > 40) continue;
@@ -36722,9 +36931,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
         if (!best) break;
         hitSet.add(best);
-        pts2.push([best.x, best.y, best.z + CHEST]);
+        pts2.push([best.x, best.y, best.z + CHEST2]);
         const lethal = best.vitals && best.vitals.zaps + 1 >= TUNE.zapKill;
-        this.hurt(best, { amount: lethal ? 999 : damage, kind: "zap", by: p.id, at: [best.x, best.y, best.z + CHEST] });
+        this.hurt(best, { amount: lethal ? 999 : damage, kind: "zap", by: p.id, at: [best.x, best.y, best.z + CHEST2] });
         if (best.vitals) best.vitals.stun = Math.max(best.vitals.stun, spec.stun || 1);
         from = best;
         reach = TUNE.zapReach;
@@ -36740,7 +36949,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _photo(p, spec) {
       const d = p.aimer.dir, seen2 = this.bodies.filter((b) => b !== p && !b.dead && Math.hypot(b.x - p.x, b.y - p.y) < spec.range && (b.x - p.x) * d[0] + (b.y - p.y) * d[1] > 0).map((b) => b.id);
       BUS.emit("photo", { by: p.id, x: p.x, y: p.y, targets: seen2, dir: [d[0], d[1]] });
-      this._fx("flash", p.x, p.y, p.z + CHEST);
+      this._fx("flash", p.x, p.y, p.z + CHEST2);
       this._sfx("select", { pitch: 1.6 });
     }
     /** a melee move connecting (Ped's combo hit): damage by the move and strength, knockback by RED MIST */
@@ -36748,7 +36957,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const k = MOVE_POWER[move && move.name] || 1, ab = a.ability, amount = spec.damage * k * a.stats.melee() * (ab ? ab.damage : 1);
       const dx = t.x - a.x, dy = t.y - a.y, d = Math.hypot(dx, dy) || 1;
       const floors = move && move.name === "uppercut" || spec.id === "slugger" && move && move.name === "overhead";
-      const at = t.vitals || !t.hl ? [t.x, t.y, t.z + CHEST * 0.9] : nearestOnBox(t, a.x, a.y, (t.z || 0) + CHEST * 0.6);
+      const at = t.vitals || !t.hl ? [t.x, t.y, t.z + CHEST2 * 0.9] : nearestOnBox(t, a.x, a.y, (t.z || 0) + CHEST2 * 0.6);
       const r7 = this.hurt(t, { amount, kind: "melee", by: a.id, knock: TUNE.meleeKnock * k * (ab ? ab.knockback : 1), knockdown: floors || ab && ab.knockback > 1 && k >= 1.25, dir: [dx / d, dy / d], at });
       if (r7) {
         a.stats.did("meleeHit");
@@ -36773,7 +36982,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (!t || t.dead) return null;
       const r7 = t.hurt ? t.hurt(o) : null;
       if (!r7) return null;
-      const at = o.at || [t.x, t.y, (t.z || 0) + CHEST];
+      const at = o.at || [t.x, t.y, (t.z || 0) + CHEST2];
       BUS.emit("hit", { target: t.id, by: o.by, damage: (r7.health || 0) + (r7.armor || 0), kind: o.kind, x: at[0], y: at[1], z: at[2] });
       if (r7.health >= 1 && t.vitals && o.kind !== "fire" && o.kind !== "zap") this._fx("blood", at[0], at[1], at[2], { n: Math.min(8, 2 + Math.round(r7.health / 8)) });
       if (r7.armor > 0) this._fx("spark", at[0], at[1], at[2]);
@@ -36936,7 +37145,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   };
   function handOf(p, dir, reach) {
     const [dx, dy] = dir || [Math.cos(p.facing), Math.sin(p.facing)];
-    return [p.x + dx * reach - dy * 3, p.y + dy * reach + dx * 3, (p.z || 0) + CHEST - 6];
+    return [p.x + dx * reach - dy * 3, p.y + dy * reach + dx * 3, (p.z || 0) + CHEST2 - 6];
   }
 
   // src/motor/world/interior.js
@@ -40200,7 +40409,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     if (p.dead) return;
     const A = p.aimer;
     if (A.target) {
-      const q = A.target, z2 = (q.z || 0) + CHEST + 18, hurt = q.vitals ? 1 - q.vitals.health / 100 : 0;
+      const q = A.target, z2 = (q.z || 0) + CHEST2 + 18, hurt = q.vitals ? 1 - q.vitals.health / 100 : 0;
       stage2.glow(q.x, q.y, z2, (g, sx, sy) => {
         const X2 = E.px, s = 5 + Math.sin(t * 10) * 0.8, c = hurt > 0.6 ? "#ff3a3a" : "#ff8a3a";
         X2.poly(g, [[sx - s, sy - s * 1.6], [sx + s, sy - s * 1.6], [sx, sy]], OUT);
@@ -40209,7 +40418,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return;
     }
     if (!p.aiming) return;
-    const d = 64, x = p.x + A.dir[0] * d, y = p.y + A.dir[1] * d, z = p.z + CHEST;
+    const d = 64, x = p.x + A.dir[0] * d, y = p.y + A.dir[1] * d, z = p.z + CHEST2;
     stage2.glow(x, y, z, (g, sx, sy) => {
       const X2 = E.px;
       X2.rect(g, sx - 4, sy, 3, 1, "#f0ecff");
@@ -40704,7 +40913,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     syncMouseButtons(game2);
     const app2 = { game: game2, links: links2, views, bindings, activity, human: new HumanController(bindings, views, game2), footprint: new Footprint(), kiosk: kioskWanted(links2), seed, stage: new Stage(game2, views) };
     game2.haptics = !game2.headless && DualSenseHID.supported() ? new DualSenseHID(navigator.hid) : null;
+    game2.bindings = bindings;
     defineSettings(game2);
+    const scheme = links2.query.get("controls");
+    if (scheme) bindings.setScheme(scheme);
     if (game2.input) {
       game2.input.touchEnabled = false;
       game2.input.touchFilter = () => false;
@@ -52382,7 +52594,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     { title: "The law", lines: ["Crimes the police see earn stars. One star: a word. Five: everyone.", "Break their line of sight and the stars flash while they search. Stay hidden and they give up.", "Spray & Pray repaints a car and the stars go with it, if nobody watches you drive in. A bribe takes one star."] },
     { title: "The crew", lines: ["Dex, Viv and Gus. Hold {onFoot:switch} for the character wheel and point at one of them.", "Each has an ability: {onFoot:ability}. Each has their own stats, which grow as they use them.", "You cannot switch while wanted, or in a job that needs one of them."] },
     { title: "Jobs and money", lines: ["Missions come from the gangs' payphones, the crew and the planning board. Walk into the ring.", "A blown job can be retried from the stage it went wrong. Every finished one autosaves.", "Races, rampages and vehicle jobs pay too. Properties pay at midnight: walk up to collect."] },
-    { title: "The views", lines: ["{onFoot:view} changes the view: ISO, TOP-DOWN and MODE 7, the side-scrolling camera on a rail.", "Hold {onFoot:view} and push the right stick ({onFoot:turnLeft} {onFoot:turnRight} on the keys) to turn the camera: a tap turns it a quarter, held it spins. ISO settles on the next of its eight angles; TOP-DOWN and MODE 7 stay where you stop.", "Nothing in the game depends on the view you play in."] },
+    { title: "The views", lines: ["{onFoot:view} changes the view: ISO, TOP-DOWN and MODE 7, the side-scrolling camera on a rail.", "{onFoot:turnLeft} {onFoot:turnRight} turn the camera: a flick a quarter, held a spin. ISO settles on the next of its eight angles; TOP-DOWN and MODE 7 stay where you stop. Which way the right stick works is the Control scheme (SETTINGS, CONTROLS).", "Nothing in the game depends on the view you play in."] },
     { title: "Saving", lines: ["Save at the safehouse: walk to its door and press {onFoot:interact}. Three slots, and the autosave after every job.", "CONTINUE on the title loads the newest save. LOAD picks one."] }
   ];
 
@@ -55571,7 +55783,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     { codes: ["Pad2"] },
     { codes: ["Pad0"] },
     { codes: ["Pad11"] },
-    { codes: ["RS"], text: "AIM / LOOK" },
+    { codes: ["RS"], text: (B2) => B2.stickCamera ? "CAMERA  •  AIM WITH L2" : "AIM / LOOK" },
     { codes: ["Pad9"] },
     { codes: ["Pad17"] }
   ];
@@ -55585,7 +55797,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return "";
   }
   function label(B2, row) {
-    if (row.text) return row.text;
+    if (row.text) return typeof row.text === "function" ? row.text(B2) : row.text;
     const foot = row.codes.map((c) => job2(B2, "onFoot", c)).filter(Boolean), car4 = row.codes.map((c) => job2(B2, "vehicle", c)).filter(Boolean);
     const a = [...new Set(foot)].join(" / "), b = [...new Set(car4)].join(" / ");
     return !b || a === b ? a || b : !a ? b : a + "  •  " + b;

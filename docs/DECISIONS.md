@@ -2254,3 +2254,92 @@ and where it landed.
   and orbit off a quarter, its own drawing back on one), and shots read in each view by day, at night in the rain and in
   the bank.
 - **Answered:** the owner asked. **Landed in:** after L8, before the merge.
+
+## D49 · 2026-10-29 · Control schemes: MODERN (the right stick turns the camera) by default, ORIGINAL kept
+- **Asked:** the owner, playing with a pad: holding R3 and pushing the right stick to turn the camera is not intuitive,
+  and the player needs orienting quickly. First asked for L1 and R1; then: several schemes, defaulting to the layout of
+  today's open-city games ("why re-invent the wheel"), with the older games' layouts in the menu.
+- **Found:** none of those games turns the camera with the shoulders. The recent ones turn it with the right stick,
+  which is free there until L2 aims; here the right stick always aimed (the twin-stick layout of the GTA 2 heritage),
+  which is why D48 put the turn on R3 held. L1 and R1 hold the weapon wheel and the reload on foot, the nitro and the
+  handbrake in a car, and climb and descend in the air.
+- **Decided:**
+  - **A control scheme is a whole map of defaults** (`SCHEMES` in `src/motor/input/bindings.js`), picked in SETTINGS,
+    CONTROLS, Control scheme. Each keeps the player's rebinds apart (ORIGINAL's where every rebind was saved before);
+    a player who had rebound buttons before starts in ORIGINAL, everyone else in MODERN. `?controls=` picks one for a
+    session, unsaved (a test plays ORIGINAL with it).
+  - **MODERN, the default:** ORIGINAL with the pad laid out as those games lay it out. The right stick turns the camera
+    (the D48 turn: a flick a quarter, held a spin, ISO settling on an eighth); while L2 is held it aims instead (at the
+    wheel, while the drive-by's ○ is: the stick aims the drive-by or a turret, and before that the drive-by takes its
+    own target off the side, as it always did with the stick at rest). ○ reloads; L2 with □ rolls, and □ under L2
+    doesn't jump (a held-modifier combo's second button serves the combo alone while the modifier is held); L3 sounds
+    the horn; R1 on foot is free. The keys and the mouse are ORIGINAL's.
+  - **ORIGINAL:** the layout as it was, unchanged.
+  - **Not yet** (a later step, with the owner): the older games' layouts (one with the camera centred by a button and
+    the gas and brake on ✕ and □, one with the shoulders' jobs of the game after it), view changes on Create, and
+    flying on the triggers and the shoulders. Their names stay generic on screen (MODERN, CLASSIC, RETRO), as the
+    Credits promise no names or text from those games; the docs say which each follows.
+- **The bot:** the mission bot writes Intents and never meets a scheme. The pad pilot reads the bindings, so it plays
+  MODERN now: it holds L2 while it aims on foot, presses L2 with □ to roll, and at the wheel pushes the right stick only
+  while the drive-by fires. The simulation never reads the camera (D48), so no hash moves.
+- **Proved** by `tests/unit/input.test.mjs` (the stick a turn, held a spin, an aim under L2; ○, L2 with □ and □ alone;
+  L3's horn and ○'s drive-by aim at the wheel; a switch and its saved rebinds; the legacy player's ORIGINAL; the rebind
+  rule beside a combo) and `tests/sim/camera-turn.test.mjs` (in play through a pad: a flick a quarter, a spin landing
+  on an eighth, the camera held under L2 while the stick aims; ORIGINAL's stick aiming).
+- **Answered:** the owner asked. **Landed in:** after L8 (the branch of the HANDOFF fix's PR).
+
+## D50 · 2026-10-29 · A free camera, to try: every view turned smoothly by the stick, and tilted where it can be
+- **Asked:** the owner: a smooth camera the player fully controls in every view, at least around, and up and down if it
+  can be, as a setting to try; then: TOP-DOWN turns only, no tilt.
+- **Decided:**
+  - **SETTINGS, DISPLAY, Free camera** (off by default; the knob `freeCam`). On, the camera stick (the right stick in
+    MODERN while L2 is up, R3 held with it in ORIGINAL; [ and ] at full speed) turns the view at the speed it is
+    pushed, squared past the dead zone so a light push turns it slowly (`freeTurn`, 180° a second at full), and the
+    view stays where it is let go: no quarters, no rests, no Auto-rail. Up and down tilt it (`freeTilt`, 40° a second):
+    ISO's pitch between 18° and 39° (30° as made: past about 40° the engine's draw order slips, a tree behind a building
+    showing over its roof, read in shots at 40°, 45°, 50° and 55°), MODE 7's and CHASE's lens pitch between 6° and 40°
+    (14° as made), the lens riding up or down with it round the focus so the player stays where they sit on screen
+    (`Side7View.lift`; under 6° the lens is down among the parked cars); TOP-DOWN only turns, as the owner asked (its
+    camera stays straight above at its height). The chase camera still follows the player's heading as it did, from
+    wherever the stick left it.
+  - **ISO at any yaw and tilt:** the engine view swapped for one at that pitch (the view manager passes a view of the
+    same id through with nothing to notify), the yaw and the pitch in 3° steps while they move, each step drawn with
+    D48's flat blocks, and the walls baked where it stops, as after a turn. The bounded wall cache (GTM-PATCH 2) keeps
+    the extra yaws and tilts' bakes within its pixels.
+  - **The Intent gains `look`** (the frozen contract grows by a field, nothing changed): the camera stick's push on
+    screen, filled by the HumanController while the stick is the camera's, read by the Stage in the step and never by
+    the simulation.
+  - **Off again,** the tilts go back as made and ISO lands on its nearest rest.
+- **Proved** by `tests/sim/camera-turn.test.mjs` (through a pad: a slow turn left where it stopped, ISO tilting toward
+  overhead and keeping it across a switch of view, TOP-DOWN turning and never tilting or climbing, MODE 7 turning off
+  the quarters and tilting, all back as made when it is switched off; the same run hashes the same with it turning and
+  tilting or not) and shots read in ISO, MODE 7 and CHASE at their tilts.
+- **Answered:** the owner asked (to try). **Landed in:** after D49, on the same branch.
+
+## D51 · 2026-10-29 · The free camera's CHASE: an orbit as modern open-city games have
+- **Asked:** the owner, trying D50: "I couldn't get it to tilt up or down to work ... I was expecting a fully
+  controllable camera like in the modern GTA games."
+- **Found:** with a pad, the tilt worked in the build (a fake standard pad driving the page: ISO 30° to 39° and back
+  to 18°, CHASE 14° to 40° and 6°). What it gave was small (ISO's ±10°, its draw order the limit), it was only on the
+  pad (the keys turn, nothing tilts; the mouse aims), and ORIGINAL (a player who rebound buttons before D49 starts
+  there) gives the stick to the camera only with R3 held. And no view behaved as those games' cameras do: CHASE, the
+  view behind the player, swung back behind them as they walked.
+- **Decided:** with the free camera on, CHASE orbits the player as those games' cameras do:
+  - **it stays where the stick leaves it** on foot (no swinging back behind), and at the wheel comes round behind the
+    car 1.5 s after the stick lets go;
+  - **it tilts from low, looking up past the player (-8°), to high above them (60°)**, the lens riding round them so
+    they keep their place on screen (`Side7View.lift`, the lens never under the street);
+  - **it keeps them in sight:** a wall between the lens and their chest brings it in, sliding down its sight line so
+    they keep their place on screen, only nearer (no nearer than 50; still short of the wall there, under its roof, the
+    walls between cut to their stubs); CHASE's old raise of the horizon while it is in (which kept the feet on their row
+    at the lens's height) gives way to the slide, which keeps them there by itself;
+  - **what comes between fades:** a prop, a tree or palm, a car, or a sign (and a lit sign's glow) over the player on
+    screen and nearer the lens is drawn see-through (.3).
+  - ISO, MODE 7 and TOP-DOWN keep D50's turns and tilts. The setting's help points at CHASE (R3 cycles the views).
+- **Not done:** the mouse turning the camera (it aims at the ground here: a camera on the mouse means aiming at the
+  screen's middle, those games' way, a change of the whole aim on the keys and mouse); the owner's call.
+- **Proved** by `tests/sim/camera-turn.test.mjs` (through a pad in CHASE: the stick turns it round the player, it stays
+  there while they walk on ahead and to the side, it tilts to 60° and to -8°, off it is as made) and shots read in
+  CHASE at -8°, 14°, 35°, 50° and 60° from behind the safehouse (backed against its wall: the slide, the faded tree
+  and sign), and at headings 20°, 60°, 100°, 200°, 240° and 320° by day, at dusk and at night in the rain.
+- **Answered:** the owner asked. **Landed in:** after D50, on the same branch.

@@ -39,8 +39,11 @@ export class Side7View {
   constructor(o) {
     Object.assign(this, { id: 'side7', label: 'MODE 7', heading: 0, x: 0, y: 0, h: 70, pitch: 14, fov: 50, near: 110, far: 260, farClip: 600, fogStart: 300,
       sky: ['#07061a', '#1c1438', '#3a2450'], fog: '#2a1f3e', ready: false, zoom: 1, views: new Map(), stats: { rows: 0, quads: 0, actors: 0 } }, o);
-    this.fogRGB = E.hex(this.fog); this.mode7 = true;
+    this.fogRGB = E.hex(this.fog); this.mode7 = true; this.pitch0 = this.pitch;
   }
+  /** the free camera's tilt (D50: the lens pitched off pitch0) swings the camera up or down round the focus D ahead, so
+   *  the focus stays where it sits on screen: how much higher (or lower) the lens rides for it */
+  lift(D) { return this.pitch === this.pitch0 ? 0 : D * (Math.tan(this.pitch * DEG) - Math.tan(this.pitch0 * DEG)); }
   /** the heading kept images are keyed by (a body's, a prop's image is redrawn when it moves on): off the quarters, in
    *  steps of 1.5° (turning, each frame's would never be reused) */
   get keyHeading() { return this.aligned ? this.heading : Math.round(this.heading / 1.5) * 1.5; }
@@ -67,7 +70,7 @@ export class Side7View {
    *  cutting it */
   rig(dt, vehicle, speed01 = 0, fz = 0) {
     const R = this.indoor ? RIGS.indoor : vehicle ? RIGS.vehicle : RIGS.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R.fov + R.widen * E.clamp(speed01, 0, 1);
-    this.h += (R.h + fz - this.h) * k; this.near += (R.near - this.near) * k; this.far += (R.far - this.far) * k; this.fov += (fov - this.fov) * k;
+    this.h += (R.h + fz + this.lift((this.near + this.far) / 2) - this.h) * k; this.near += (R.near - this.near) * k; this.far += (R.far - this.far) * k; this.fov += (fov - this.fov) * k;
   }
   /** Auto-rail: given a vehicle's velocity each step, the heading of the axis it has held steady for 1.5 s (going
    *  faster than 40, nine tenths of it along that axis) once it differs from the rail's own, else null */

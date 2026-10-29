@@ -10,11 +10,12 @@
 // play (a bot's runs and the tests keep the defaults).
 import { tuneSet } from '../core/tune.js';
 import { PROMPTS } from '../input/prompts.js';
+import { SCHEMES, startingScheme } from '../input/bindings.js';
 import { MARKERS } from './radar.js';
 
 export const SETTING_TABS = [
-  { id: 'controls', label: 'CONTROLS', keys: ['deadzone', 'invertY', 'rumble', 'haptics', 'promptStyle'] },
-  { id: 'display', label: 'DISPLAY', keys: ['defaultView', 'quality', 'autoRail', 'sharpSide7', 'hudSize', 'subtitles', 'colorblind', 'speedometer', 'shake', 'flashes', 'motion'] },
+  { id: 'controls', label: 'CONTROLS', keys: ['controlScheme', 'deadzone', 'invertY', 'rumble', 'haptics', 'promptStyle'] },
+  { id: 'display', label: 'DISPLAY', keys: ['defaultView', 'quality', 'freeCamera', 'autoRail', 'sharpSide7', 'hudSize', 'subtitles', 'colorblind', 'speedometer', 'shake', 'flashes', 'motion'] },
   { id: 'audio', label: 'AUDIO', keys: ['sound', 'volume', 'music', 'radio', 'effects', 'djChatter'] },
   { id: 'game', label: 'GAME', keys: ['difficulty', 'aimAssist', 'autosave'] },
   { id: 'access', label: 'ACCESS', keys: ['holdSprint', 'holdAim', 'holdCrouch', 'holdWheel'] },
@@ -35,11 +36,15 @@ const TIPS = { deadzone: 'How far a stick moves before it counts (twin-stick aim
 export function defineSettings(game) {
   const S = game.settings; if (!S || !S.define) return null;
   const def = sp => { if (!S.spec(sp.key)) S.define(sp); };
+  def({ key: 'controlScheme', group: 'Controller', label: 'Control scheme', type: 'select', value: startingScheme(), options: Object.entries(SCHEMES).map(([id, s]) => [id, s.label]),
+    help: 'Modern: the right stick turns the camera, L2 aims with it. Original: the right stick aims, R3 held turns the camera', apply: (g, v) => { if (g.bindings) g.bindings.setScheme(v); } });
   def({ key: 'promptStyle', group: 'Controller', label: 'Button symbols', type: 'select', value: 'auto', options: [['auto', 'Auto'], ['playstation', 'PlayStation'], ['xbox', 'Xbox'], ['nintendo', 'Nintendo'], ['keyboard', 'Keyboard']],
     help: 'Auto: the symbols of the controller in use, or the keys', apply: (g, v) => { PROMPTS.keys = v === 'keyboard'; if (g.input) g.input.glyphs = v === 'keyboard' ? 'auto' : v; } });
   def({ key: 'haptics', group: 'Controller', label: 'DualSense haptics', type: 'toggle', value: true, help: 'A DualSense\'s triggers and light bar (in Chrome or Edge, the first time: a key or a click, and the browser asks which)',
     apply: (g, v) => { const H = g.haptics; if (!H) return; if (v) H.connect(true); else H.close(); } });   // (a key or a click grants the browser's prompt; a pad's button can't)
   def({ key: 'defaultView', group: 'Display', label: 'Default view', type: 'select', value: 'iso', options: [['iso', 'ISO'], ['top', 'Top-down'], ['side7', 'Mode 7'], ['chase', 'Chase']], help: 'The view a game starts in' });
+  def({ key: 'freeCamera', group: 'Display', label: 'Free camera', type: 'toggle', value: false, help: 'Try it: the right stick turns every view smoothly and leaves it there, up and down tilting it; in CHASE (R3 cycles the views) it orbits you as a modern open-city game\'s camera does',
+    apply: (g, v) => tuneSet('freeCam', v ? 1 : 0) });
   def({ key: 'autoRail', group: 'Display', label: 'Auto-rail', type: 'toggle', value: true, help: 'MODE 7 in a vehicle: the rail turns to the way you have held', apply: (g, v) => tuneSet('autoRail', v ? 1 : 0) });
   def({ key: 'quality', group: 'Display', label: 'Graphics', type: 'select', value: 'full', options: [['full', 'Full'], ['fast', 'Fast']], help: 'Fast, for a slower machine: a coarser light, the crowd animated less often, half the rain', apply: (g, v) => { for (const [k, full, fast] of QUALITY) tuneSet(k, v === 'fast' ? fast : full); } });
   def({ key: 'sharpSide7', group: 'Display', label: 'Sharp MODE 7', type: 'toggle', value: false, help: 'MODE 7 drawn at the screen\'s own resolution: crisp instead of the pixel look' });

@@ -21,6 +21,8 @@ export const CHASE = {
   indoor: { h: 50, back: 80, fov: 60, widen: 0, turn: 1.5 },
 };
 const FOOT_CONE = 60;   // (degrees: on foot the camera comes round only while the player walks within this of its forward)
+const CHEST = 20;   // (world units: the player's chest, which the free camera keeps in sight, D50)
+const FREE_RECENTRE = 1.5;   // (s: the free camera at the wheel comes round behind again this long after the stick lets go, D50)
 
 /** a world direction (x, y) as a heading in degrees, 0..360 */
 export function headingOf(x, y) { return ((Math.atan2(x, -y) / DEG) % 360 + 360) % 360; }
@@ -45,7 +47,9 @@ export class ChaseView extends Side7View {
   /** the lens for where the focus is, how fast and how high: eased as MODE 7's */
   rig(dt, vehicle, speed01 = 0, fz = 0) {
     const R = this.indoor ? CHASE.indoor : vehicle ? CHASE.vehicle : CHASE.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R.fov + R.widen * E.clamp(speed01, 0, 1);
-    this.h += (R.h + fz - this.h) * k; this.back += (R.back - this.back) * k; this.fov += (fov - this.fov) * k;
+    this.lensH = this.lensH === undefined ? this.h : this.lensH;   // (the lens's own height; the free camera, come in, rides lower along its sight line: follow)
+    this.lensH += (Math.max(8, R.h + fz + this.lift(this.back)) - this.lensH) * k; this.h = this.lensH;   // (tilted up, the lens never under the street)
+    this.back += (R.back - this.back) * k; this.fov += (fov - this.fov) * k;
     this.near = this.back * .8; this.far = this.back * 1.25;   // (MODE 7's keys, for whatever reads them)
   }
   /** each simulation step (the heading maps the stick, so it turns in the step, never in a frame drawn: the same game
@@ -54,6 +58,10 @@ export class ChaseView extends Side7View {
   steer(dt, h = null, moving = false, vehicle = false) {
     this.inVehicle = !!vehicle; this.turn = (this.indoor ? CHASE.indoor : vehicle ? CHASE.vehicle : CHASE.foot).turn;
     if (this.swing) { const s = Math.abs(this.swing) < .05 ? this.swing : this.swing * Math.min(1, dt * 6); this.swing -= s; this.heading = ((this.heading + s) % 360 + 360) % 360; return; }
+    if (this.free) {   // (the free camera, D50: it stays where the stick left it, as a modern open-city game's does; at the wheel it comes round behind again a moment after the stick lets go)
+      this.idle = (this.idle || 0) + dt;
+      if (!vehicle || this.idle < FREE_RECENTRE) return;
+    }
     if (h === null || !moving || (!vehicle && Math.abs(turnTo(this.heading, h)) >= FOOT_CONE)) return;
     this.heading = ((this.heading + turnTo(this.heading, h) * Math.min(1, dt * this.turn)) % 360 + 360) % 360;
   }
@@ -67,6 +75,12 @@ export class ChaseView extends Side7View {
     const k = 1 - Math.exp(-dt * 6), tx = fx - a.f[0] * this.dist, ty = fy - a.f[1] * this.dist;
     if (clear < this.back - 1) { this.x = tx + (this.x - tx) * (1 - k); this.y = ty + (this.y - ty) * (1 - k); const dx = this.x - fx, dy = this.y - fy, d = Math.hypot(dx, dy); if (d > this.dist) { this.x = fx + dx / d * this.dist; this.y = fy + dy / d * this.dist; } }
     else { this.x += (tx - this.x) * k; this.y += (ty - this.y) * k; }
+    // the free camera come in (D50): down its sight line to the player's chest, as a modern open-city game's slides in,
+    // so the player keeps their place on screen, only nearer
+    if (this.free && this.lensH !== undefined) {
+      const dd = Math.hypot(this.x - fx, this.y - fy); if (dd < this.back) this.h = CHEST + (this.lensH - CHEST) * Math.max(.2, dd / this.back);
+      if (this.under) this.h = Math.min(this.h, this.under - 4);   // (still short of the wall at its nearest: under its roof, the walls between cut to their stubs)
+    }
   }
   /** how far from (fx, fy) along (dx, dy) the camera may stand, up to max: short of the first wall cell taller than the
    *  lens (the map's, when it has one) */
@@ -74,17 +88,22 @@ export class ChaseView extends Side7View {
     const M = this.map; if (!M) return max;
     const T = M.T;
     for (let d = 8; d <= max; d += 6) {
-      const id = M.cell(Math.floor((fx + dx * d) / T), Math.floor((fy + dy * d) / T));
-      if (id > 0 && (M.types[id].h || 0) > this.h - 8) return Math.max(60, d - 12);   // (no nearer than 60: the walls still between are cut to their stubs)
+      const id = M.cell(Math.floor((fx + dx * d) / T), Math.floor((fy + dy * d) / T)); if (id <= 0) continue;
+      // the free camera (D50) keeps the line from the lens to the player's chest clear, as a modern open-city game's
+      // does, and comes in as close as it must; otherwise only a wall taller than the lens comes between, and the
+      // camera no nearer than 60 (the walls still between are cut to their stubs)
+      const wh = M.types[id].h || 0;
+      if (wh > (this.free ? CHEST + (this.h - CHEST) * d / max : this.h - 8)) { this.under = d - 12 < (this.free ? 50 : 60) ? wh : 0; return Math.max(this.free ? 50 : 60, d - 12); }
     }
-    return max;
+    this.under = 0; return max;
   }
   autoRail() { return null; }   // (it turns by itself all the time)
   /** MODE 7's projection, the horizon raised while the camera is in short of a wall: the focus's feet stay on the screen
-   *  row they stand on at the lens's full distance (the lens shifted further, so walls stay upright) */
+   *  row they stand on at the lens's full distance (the lens shifted further, so walls stay upright). The free camera
+   *  comes in down its sight line instead (follow), which keeps them there by itself (D50) */
   frame(r) {
     const P = super.frame(r);
-    if (this.dist !== undefined && this.dist < this.back - 1) P.hy -= this.h * P.F * (1 / this.dist - 1 / this.back);
+    if (!this.free && this.dist !== undefined && this.dist < this.back - 1) P.hy -= this.h * P.F * (1 / this.dist - 1 / this.back);
     return P;
   }
   /** the engine View a rig is drawn with at k pixels per unit, at the heading in 3° steps (whole 1/16ths of scale) */

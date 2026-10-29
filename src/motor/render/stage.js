@@ -32,6 +32,9 @@ knob('Graphics', 'crowdEvery', 'Crowd animation rate', 4, 1, 8, 1, 'A crowd body
 knob('Camera', 'autoRail', 'Auto-rail', 1, 0, 1, 1, 'MODE 7 in a vehicle: the rail turns to the way it has held for 1.5 s, through the crossfade (1); only by hand (0)');
 knob('Graphics', 'depthLightRes', 'Depth views\' light coarseness', 4, 1, 8, 1, 'TOP-DOWN and MODE 7 at night work the dark and the lamps\' pools out every n buffer pixels and scale them up smoothly (the pools are soft: 4 is a sixteenth of the work of 1, per pixel)');
 knob('Camera', 'spinRate', 'Camera spin', 150, 60, 360, 10, 'Degrees a second the camera spins while a turn button is held ([ ] or R3 held with the right stick pushed); a tap still turns a quarter');
+knob('Camera', 'freeCam', 'Free camera', 0, 0, 1, 1, 'The camera stick (or [ ]) turns every view smoothly at the speed it is pushed and leaves it where it stops; up and down tilt ISO, MODE 7 and CHASE (TOP-DOWN only turns). 0: a tap a quarter, held a spin (D48). SETTINGS, DISPLAY, Free camera (D50)');
+knob('Camera', 'freeTurn', 'Free camera turn', 180, 45, 360, 15, 'Degrees a second the free camera turns with the stick pushed all the way (the push squared: a light one turns it slowly)');
+knob('Camera', 'freeTilt', 'Free camera tilt', 40, 10, 120, 5, 'Degrees a second the free camera tilts with the stick pushed all the way up or down');
 knob('Graphics', 'lightRes', 'Light field coarseness', 2, 1, 4, 1, 'ISO lighting works the light out every n buffer pixels and scales it up smoothly (GTM-PATCH 7): 1 is per pixel, 2 a quarter of the work');
 
 const CROWD = { outline: false, rim: false }, XRAY = { xray: true };
@@ -49,6 +52,10 @@ const TURN = { most: .45, bakeMs: 9, step: 3 };
 // (s); ISO rests every rest degrees; let go, TOP-DOWN and MODE 7 glide on glide degrees, onto a quarter within snap of
 // it; landing, the camera eases in at k times the turn left a second, never slower than min degrees a second
 const SPIN = { tap: .2, ease: .12, rest: 45, glide: 3, snap: 4, k: 9, min: 90 };
+// the free camera's tilts (degrees): ISO's pitch (the engine's 30 as made; past about 40 its draw order slips, a tree
+// behind a building showing over the roof), MODE 7's lens pitch (14; under 6 the lens is down among the cars), CHASE's
+// (14: from low, looking up past the player, to high above them, orbiting as a modern open-city game's camera does)
+const TILT = { iso: [18, 39], depth: [6, 40], chase: [-8, 60] };
 // an ISO zoom step: the change's length, the longest a zoom-out waits for the wider view's walls to bake first, the
 // bake budget a frame
 const ZOOM = { time: .25, most: .35, bakeMs: 9 };
@@ -74,6 +81,7 @@ export class Stage {
     this.fade = new CrossFade(); this.bx = null; this._dt = 0; this.railHold = null; this.sharp = false; this.px = 1; this.baseS = 1;
     views.onChange((now, prev) => { if (now === prev) return; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); this.bx = !views.spec || !views.spec.depth ? { t: 0 } : null; this.sharpSync(); });
     this.side7 = new Side7View({}); this.top = new TopView({}); this.chase = new ChaseView({});
+    this.isoPitch = null; this._pitch0 = { side7: this.side7.pitch, chase: this.chase.pitch }; this._free = false;   // (the free camera's tilts: D50)
     for (const v of [this.top, this.side7, this.chase]) views.addView({ id: v.id, label: v.label, depth: v,
       screenDirToGround: (dx, dy) => v.screenDirToGround(dx, dy), screenVec: (x, y, z) => v.screenVec(x, y, z), groundDirToScreen: v.groundDirToScreen ? (x, y) => v.groundDirToScreen(x, y) : null,
       mouseGround: () => { const m = game.input.mouseScreen && game.input.mouseScreen(); return m && v.P ? v.toGround(m[0] - game.screen.ix, m[1] - game.screen.iy) : null; } });
@@ -190,7 +198,7 @@ export class Stage {
     }
     if (d !== this.side7 || this.rig) return;
     if (this.railHold !== null) { if (d.heading !== this.railHold) this._railTo(this.railHold); d.steadyT = 0; return; }   // (a set piece holds it: m.view('side7', { heading }))
-    if (this.spin) { d.steadyT = 0; return; }   // (the player is turning it: Auto-rail waits)
+    if (this.spin || TUNE.freeCam) { d.steadyT = 0; return; }   // (the player is turning it, or turns it freely: Auto-rail waits)
     const want = TUNE.autoRail && o.vehicle && o.vel ? d.autoRail(dt, o.vel[0], o.vel[1]) : (d.steadyT = 0, null);
     if (want === null) return;
     const f = this.focus; this.fade.start(this.r && this.r.ctx && this.r.ctx.canvas); d.setHeading(want, f ? f[0] : d.x, f ? f[1] : d.y);
@@ -225,6 +233,8 @@ export class Stage {
    *  where they are (any heading; on a quarter within SPIN.snap of one). The chase camera swings a quarter a tap. In the
    *  step: the heading maps the stick, so the page and a headless run turn alike (D48) */
   turnInput(dt, I, off = false) {
+    if (TUNE.freeCam) return this._freeInput(dt, I, off);
+    if (this._free) this._freeOff();
     const d = this.depth, want = off || !I ? 0 : (I.down.turnRight ? 1 : 0) - (I.down.turnLeft ? 1 : 0);
     let s = this.spin;
     if (s && s.view !== (d || 'iso')) { this._spinEnd(); s = null; }   // (the view changed under it: the old one lands where it was going)
@@ -245,6 +255,49 @@ export class Stage {
   }
   /** is a turn under way (spinning, or easing onto where it lands)? */
   get turning() { return !!this.spin; }
+  // the free camera (TUNE.freeCam, D50), each step: the camera stick's push (I.look; [ ] at full) turns the view at
+  // that speed, squared so a light push turns it slowly, and let go it stays; up and down tilt ISO's pitch and MODE 7's
+  // and CHASE's lens (TOP-DOWN only turns). ISO draws its flat blocks while it moves and bakes its walls where it stops
+  _freeInput(dt, I, off) {
+    this._free = true;
+    const d = this.depth, L = !off && I && I.look ? I.look : null, keys = !off && I ? (I.down.turnRight ? 1 : 0) - (I.down.turnLeft ? 1 : 0) : 0;
+    const x = L && Math.abs(L[0]) > 1e-3 ? L[0] : keys, y = L ? L[1] : 0;
+    const turn = TUNE.freeTurn * x * Math.abs(x) * dt, tilt = TUNE.freeTilt * y * Math.abs(y) * dt;   // (stick down: the camera looks down more)
+    if (this.spin && this.spin.view !== (d || 'iso')) this._spinEnd();
+    if (d === this.chase) {   // (it orbits the player: it stays where it is left on foot, and comes round behind the car a moment after)
+      d.free = true; if (turn || tilt) d.idle = 0;
+      if (turn) { d.swing = 0; d.heading = ((d.heading + turn) % 360 + 360) % 360; }
+      if (tilt) d.pitch = E.clamp(d.pitch + tilt, TILT.chase[0], TILT.chase[1]);
+      return;
+    }
+    if (d === this.top) { if (turn) this._setHeading(d, d.heading + turn); return; }
+    if (d === this.side7) { if (turn && this.railHold === null) this._setHeading(d, d.heading + turn); if (tilt) d.pitch = E.clamp(d.pitch + tilt, TILT.depth[0], TILT.depth[1]); return; }
+    if (this.zx) return;   // (ISO: after the zoom step under way)
+    const g = this.game, b = g.baseView || g.view;
+    if (this.isoPitch === null) this.isoPitch = b.pitchDeg;
+    if (turn || tilt) {
+      const s = this.spin || (this.spin = { view: 'iso', dir: Math.sign(turn) || 1, held: 0, start: g.yaw || 0, cur: g.yaw || 0, target: null, free: true });
+      if (turn) { s.cur += turn; this._setHeading('iso', s.cur); }
+      if (tilt) this.isoPitch = E.clamp(this.isoPitch + tilt, TILT.iso[0], TILT.iso[1]);
+    }
+    const p = Math.round(this.isoPitch / TURN.step) * TURN.step; if (b.id === 'iso' && b.pitchDeg !== p) this._tiltIso(p);   // (in steps, as the yaw: each its own view)
+    if (!turn && !tilt && this.spin) { const s = this.spin; this.spin = null; this._setHeading('iso', Math.round(s.cur / TURN.step) * TURN.step, true); }   // (stopped: its walls bake in)
+  }
+  // ISO's pitch (degrees): the engine view swapped for one at that tilt, keeping its zoom and turn (the view manager
+  // passes a view of the same id through, with nothing to notify)
+  _tiltIso(p) {
+    const g = this.game, b = g.baseView || g.view; g.setView(new E.View(b.id, b.label, b.yawDeg, p, b.scale, b.zBoost));
+    if (!this.spin && !g.headless && this.world && this.world.map) this.bx = { t: 0 };   // (not turning: its walls bake in, as after a turn)
+  }
+  // the free camera switched off: the tilts as made, ISO onto its nearest rest
+  _freeOff() {
+    this._free = false; if (this.spin && this.spin.free) this.spin = null;
+    this.side7.pitch = this._pitch0.side7; this.chase.pitch = this._pitch0.chase; this.chase.free = false;
+    const g = this.game, b = g.baseView || g.view, was = this.isoPitch; this.isoPitch = null;
+    if (this.depth) return;
+    if (was !== null && b.id === 'iso' && b.pitchDeg !== E.VIEWS.iso.pitchDeg) this._tiltIso(E.VIEWS.iso.pitchDeg);
+    this._setHeading('iso', Math.round((g.yaw || 0) / SPIN.rest) * SPIN.rest, true);
+  }
   // a spin in dir from where the camera is (or after the quarter a tap in the same direction is already making)
   _spinFrom(dir, s) {
     const h = s ? s.cur : this._headingNow(), start = s && s.target !== null && s.dir === dir ? s.target : h;
@@ -366,7 +419,9 @@ export class Stage {
     if (o.always) { this.marks.push(() => { const q = d.proj(x, y, z); if (q) this._glowAt(this.r.ctx, draw, q); }); return; }
     // (a glow whose reach misses the buffer costs nothing: MODE 7's lens puts a passing lamp's halo hundreds of pixels
     // off it, ISO's _isoGlows culls the same way)
-    const reach = o.r || 16, it = { k: d.depth(x, y) - .01, kind: 'glow', fn: g => { const q = d.proj(x, y, z); if (q && !this._offBuf(q, reach * q[2] + 8)) this._glowAt(g, draw, q); } };
+    // (the free camera's orbit, D50: a glow over the player, a lit sign on the wall they stand at, see-through)
+    const see = d === this.chase && d.free && this._hidesFocus(d, x, y, z, d.depth(x, y), -1e9) ? .3 : 1;
+    const reach = o.r || 16, it = { k: d.depth(x, y) - .01, kind: 'glow', fn: g => { const q = d.proj(x, y, z); if (q && !this._offBuf(q, reach * q[2] + 8)) { if (see < 1) g.globalAlpha = see; this._glowAt(g, draw, q); g.globalAlpha = 1; } } };
     const q = o.r && d.mode7 && z >= 0 && d.proj(x, y, z), R = q && Math.max(8, o.r * q[2]) * this.px;
     if (q) { it.box = [q[0] - R, q[0] + R, q[1] - R]; it.m = it.k - o.r; }
     this.items.push(it);
@@ -510,10 +565,17 @@ export class Stage {
   _haze(k) { const d = this.depth; return d && d.mode7 ? d.fogAt(k) : 0; }
   // MODE 7: does a body at (x, y, z), k along the rail, stand nearer the lens than the player and over them on screen?
   // (about a body's box each: half a body's width either side, its height up)
-  _hidesFocus(d, x, y, z, k) {
+  // a sprite's screen box (its foot q, w x h pixels) over the player's, and nearer the lens than them (the free camera's
+  // orbit fades it, D50)
+  _spriteHidesFocus(d, k, q, w, h) {
     const f = this.focus; if (!f || k >= d.depth(f[0], f[1]) - 8) return false;
+    const b = d.proj(f[0], f[1], 0); if (!b) return false;
+    return Math.abs(q[0] - b[0]) < w / 2 + 12 * b[2] && q[1] > b[1] - 44 * b[2] && q[1] - h < b[1];
+  }
+  _hidesFocus(d, x, y, z, k, margin = 8, half = 12) {
+    const f = this.focus; if (!f || k >= d.depth(f[0], f[1]) - margin) return false;
     const a = d.proj(x, y, z), b = d.proj(f[0], f[1], 0); if (!a || !b) return false;
-    const wa = 12 * a[2], wb = 12 * b[2];
+    const wa = half * a[2], wb = 12 * b[2];   // (half: how far either side of x it reaches, world units; a sign's slice, a board's half)
     return Math.abs(a[0] - b[0]) < wa + wb && a[1] > b[1] - 44 * b[2] && a[1] - 44 * a[2] < b[1];
   }
   // TOP-DOWN's draw key just after the span over (x, y) (a span's key is its footprint's nearest point to the centre), or
@@ -574,7 +636,10 @@ export class Stage {
     else if (d === this.top && z > 2 && this.spans) { const s = this.spans.at(x, y); if (s && s.h <= z + 2) k = Math.min(k, this._spanKey(x, y, k)); }   // (and a thing on a roof after the roof: under it, every roof's clutter was hidden)
     const kind = (o && o.kind) || 'shape', hz = HAZY.has(kind) ? this._haze(k) : 0; if (hz >= HAZE_GONE) return;   // (MODE 7: a car or a prop into the haze as the walls go)
     const f = kept && !big ? g => this._keptShape(g, d, d.view(1), x, y, z, draw, kept, it.clipY) : g => draw(g, d);
-    const it = { k, kind, fn: hz > .02 ? g => { g.globalAlpha = 1 - hz; f(g); g.globalAlpha = 1; } : f };
+    // (the free camera's orbit, D50: a prop, a car or a sign between its lens and the player, over them on screen, is
+    // see-through, as a modern open-city game's camera fades what comes between)
+    const see = d === this.chase && d.free && (kind === 'prop3d' || kind === 'car' || kind === 'sign') && (kind === 'sign' && o.see ? this._hidesFocus(d, o.see[0], o.see[1], o.see[2], d.depth(o.see[0], o.see[1]), -1e9, 80) : this._hidesFocus(d, x, y, z, k)) ? .3 : 1, a = (1 - hz) * see;   // (a sign over the player at any depth: the wall they stand at)
+    const it = { k, kind, fn: a < .98 ? g => { g.globalAlpha = a; f(g); g.globalAlpha = 1; } : f };
     if (d.mode7 && o && o.reach) this._reachBox(d, it, x, y, o.reach);   // (o.reach: [r, z0, z1], what the walls may hide)
     else if (d.mode7 && o && o.extent) this._extentBox(d, it, o.extent);   // (o.extent: [x0, y0, x1, y1, z0, z1], a box it fills: a run of deck cells)
     this.items.push(it);
@@ -645,10 +710,11 @@ export class Stage {
     if (o.light && p.light) this.lamps.push([x, y, z, o.lightRadius || 70]);
     const hz = this._haze(d.depth(x, y)); if (hz >= HAZE_GONE) return;   // (MODE 7: into the haze as the walls go; its light still falls)
     const q = d.mode7 && z >= 0 && d.proj(x, y, z), qs = q && q[2] / Math.SQRT2, box = q && !(p.glowAt && o.light && o.halo !== false) ? [q[0] - spr.w * qs / 2 - 1, q[0] + spr.w * qs / 2 + 1, q[1] - spr.h * qs - 1] : null;   // (MODE 7: its sprite's box, for the walls to hide it; a halo reaches wider)
+    const see = q && d === this.chase && d.free && this._spriteHidesFocus(d, d.depth(x, y), q, spr.w * qs, spr.h * qs) ? .3 : 1;   // (the free camera's orbit: a tree between its lens and the player see-through, D50)
     this.items.push({ k: d.depth(x, y), m: d.depth(x, y) - 4, box, kind: 'prop', fn: g => {
       const q = d.proj(x, y, z); if (!q) return;
       const s = q[2] / Math.SQRT2, w = spr.w * s, h = spr.h * s; if (h < 1) return;   // (sprites are drawn for ISO's sqrt 2 pixels a unit)
-      if (hz > .02) g.globalAlpha = 1 - hz;
+      if (hz > .02 || see < 1) g.globalAlpha = (1 - hz) * see;
       g.drawImage(spr.cv, Math.round(q[0] - w / 2), Math.round(q[1] - h), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
       g.globalAlpha = 1;
       if (p.glowAt && o.light && o.halo !== false) { const gx = q[0] - w / 2 + w * p.glowAt[0], gy = q[1] - h + h * p.glowAt[1], R = Math.max(2, w * .9); g.globalAlpha = .25; g.fillStyle = p.glowAt[2]; g.beginPath(); g.arc(gx, gy, R, 0, 6.3); g.fill(); g.globalAlpha = 1; }

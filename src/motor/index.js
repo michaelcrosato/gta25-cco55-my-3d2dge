@@ -28,7 +28,7 @@ export { TowJoint } from './sim/vehicle/tow.js';
 export { Damage, ZONES } from './sim/vehicle/damage.js';
 export { measureHandling, handlingChecks, DRIFT } from './sim/vehicle/handling.js';
 export { drawBoxModel, carModel } from './render/box-model.js';
-export { Bindings, DEFAULT_BINDINGS } from './input/bindings.js';
+export { Bindings, DEFAULT_BINDINGS, SCHEMES, DEFAULT_SCHEME } from './input/bindings.js';
 export { Activity, kioskWanted, wokeBy } from './input/activity.js';
 export { Director } from './ai/director.js';
 export { drawGlyph, glyphWidth, glyphSet } from './input/glyphs.js';

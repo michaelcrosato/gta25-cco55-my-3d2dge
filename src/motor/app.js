@@ -27,7 +27,9 @@ export function createApp({ game, links }) {
   // the player's settings (the engine's store with MOTOR's own); took: a screen had the step's input (the scene's
   // controls read nothing of it)
   game.haptics = !game.headless && DualSenseHID.supported() ? new DualSenseHID(navigator.hid) : null;   // (a DualSense's own report by WebHID, L7: the setting opens it)
+  game.bindings = bindings;   // (the Control scheme setting switches them, D49)
   defineSettings(game);
+  const scheme = links.query.get('controls'); if (scheme) bindings.setScheme(scheme);   // (?controls=modern|original: this session only, unsaved)
   // no touch controls (PLAN.md 8.20): the engine's floating stick off (no scene asks for its touch buttons either)
   if (game.input) { game.input.touchEnabled = false; game.input.touchFilter = () => false; }
   const layer = new UILayer(game, { base: () => (app.stage.sharp ? app.stage.baseS : null) });

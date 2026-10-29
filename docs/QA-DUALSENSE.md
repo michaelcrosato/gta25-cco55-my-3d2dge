@@ -26,7 +26,10 @@ Bluetooth. Open `dist/index.html`. Sit where you'd sit to play, about 10 feet ba
 - [ ] Get in a car (△). R2 a little: the car creeps; R2 halfway: about half the speed of R2 held; L2 brakes, then
       reverses. The speed follows the trigger smoothly, not in steps.
 - [ ] R1 (the handbrake) slides the back out in a turn; L1 (nitro) when fitted.
-- [ ] Right stick held with R3 turns the ISO camera (and MODE 7's rail); R3 tapped cycles ISO, TOP-DOWN, MODE 7.
+- [ ] The right stick turns the camera (a flick a quarter, held a spin); with L2 held it aims instead and the camera
+      holds still; R3 tapped cycles ISO, TOP-DOWN, MODE 7. ○ reloads, L2 + □ rolls, L3 in a car sounds the horn.
+- [ ] SETTINGS, CONTROLS, Control scheme: Original. Now the right stick aims, R3 held with it turns the camera, ○
+      rolls. Back to Modern.
 - [ ] SETTINGS, CONTROLS: the stick dead zone and Invert aim change what the stick does at once.
 
 ## 3. Rumble (3 min)

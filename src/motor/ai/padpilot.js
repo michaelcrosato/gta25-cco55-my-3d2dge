@@ -27,8 +27,8 @@ export class PadPilot {
       if (!I.down[b] && !I.tap[b]) continue;
       if (I.tap[b] && this.tapped.has(b)) continue;   // (pressed by a tap last step: let go now, so the next press is a fresh one)
       for (const code of pads(b)) {
-        if (code.includes('>') || code.endsWith('^')) continue;   // (the camera's modifiers and release taps: not the bot's)
-        for (const part of code.split('+')) press(+part.slice(3));
+        if (code.includes('RS') || code.endsWith('^')) continue;   // (the camera's stick and release taps: not the bot's)
+        for (const part of code.split(/[+>]/)) press(+part.slice(3));   // (a chord's halves; a held modifier with its button: MODERN's L2 with □ rolls)
         break;
       }
       if (I.tap[b]) { tapped.add(b); this.presses++; }
@@ -44,6 +44,12 @@ export class PadPilot {
       const m = I.move, l = Math.hypot(m[0], m[1]); if (l > 1e-3) { const s = this._screen(m[0], m[1]), [x, y] = this._stick(s[0] * l, s[1] * l); P.axes[0] = x; P.axes[1] = y; }
     }
     let ax = null; if (I.aimPoint && actor) ax = [I.aimPoint[0] - actor.x, I.aimPoint[1] - actor.y]; else if (I.aim) ax = I.aim;
+    // a stick camera (MODERN) gives the right stick to the aim only while its stickAim action is held: on foot the
+    // pilot holds L2 as it aims; at the wheel it pushes the stick only while the drive-by fires (the drive-by takes its
+    // own target off the side before that, and the stick would turn the camera)
+    const g = this.B.stickCamera && ax ? this.B.stickAimAction(context) : null;
+    if (this.B.stickCamera && ax && (!g || (context === 'vehicle' && !I.down[g] && !I.tap[g]))) ax = null;
+    else if (g && context !== 'vehicle') for (const code of pads(g)) { press(+code.slice(3)); break; }
     if (ax && Math.hypot(ax[0], ax[1]) > 1e-3) { const s = this._screen(ax[0], ax[1]), [x, y] = this._stick(s[0], s[1]); P.axes[2] = x; P.axes[3] = y; }
     P.timestamp = (P.timestamp || 0) + 1;
     return P;

@@ -1,8 +1,9 @@
 # Controls
 
-The default buttons, by context (MOTOR's `src/motor/input/bindings.js`; the game's BUTTON LAYOUT screen draws the same in your
-controller's own symbols). Every one can be changed in SETTINGS, CONTROLS, REBIND, but the menus' own keys, the
-chords and the held modifiers. PlayStation names below; an Xbox or Nintendo pad shows its own.
+The default buttons, by context, in the Modern control scheme (MOTOR's `src/motor/input/bindings.js`; the game's BUTTON
+LAYOUT screen draws the same in your controller's own symbols; Original, the other scheme, is below). Every one can be
+changed in SETTINGS, CONTROLS, REBIND, but the menus' own keys, the chords and the held modifiers. PlayStation names
+below; an Xbox or Nintendo pad shows its own.
 
 ## On foot
 
@@ -14,7 +15,7 @@ chords and the held modifiers. PlayStation names below; an Xbox or Nintendo pad 
 | Right | left stick | D |
 | Sprint | ✕ | Shift |
 | Jump / climb | □ | Space |
-| Roll | ○ | X |
+| Roll | L2 + □ (□ alone jumps) | X |
 | Crouch | L3 | C |
 | Get in / use | △ | E |
 | Ability | L3 + R3 | F |
@@ -22,13 +23,13 @@ chords and the held modifiers. PlayStation names below; an Xbox or Nintendo pad 
 | Phone | D-pad ↑ | T |
 | Aim | L2 | right click |
 | Attack | R2 | left click |
-| Reload | R1 | R |
+| Reload | ○ | R |
 | Weapon wheel | L1 | Q |
 | Weapon back | D-pad ← | — |
 | Weapon on | D-pad → | — |
 | Change view | R3 (tap) | V |
-| Turn left | hold R3, right stick ← | [ |
-| Turn right | hold R3, right stick → | ] |
+| Turn left | right stick ← (under L2 it aims) | [ |
+| Turn right | right stick → | ] |
 | Map | Touchpad | M, Tab |
 | Photo mode | Create | B |
 | Pause | Options | Esc |
@@ -44,14 +45,14 @@ chords and the held modifiers. PlayStation names below; an Xbox or Nintendo pad 
 | Handbrake | R1 | Space |
 | Nitro | L1 | Shift |
 | Drive-by | ○ | left click |
-| Horn | ✕ | H |
+| Horn | L3 | H |
 | Get in / use | △ | E |
 | Radio back | D-pad ← | , |
 | Radio on | D-pad → | . |
 | Ability | L3 + R3 | F |
 | Change view | R3 (tap) | V |
-| Turn left | hold R3, right stick ← | [ |
-| Turn right | hold R3, right stick → | ] |
+| Turn left | right stick ← (while ○ is held, it aims the drive-by) | [ |
+| Turn right | right stick → | ] |
 | Phone | D-pad ↑ | T |
 | Switch character | D-pad ↓ | Z |
 | Map | Touchpad | M, Tab |
@@ -121,16 +122,36 @@ Stand at the cabinet (Club Chrome's VIP lounge) and press △ / E to play; its t
 | Zoom in | R2 | =, numpad + |
 | Zoom out | L2 | -, numpad - |
 
+## Control schemes
+
+SETTINGS, CONTROLS, Control scheme picks the controller's layout (D49); the keys and the mouse are the same in both, and
+each scheme keeps its own rebinds.
+
+- **Modern** (the default; the way today's open-city games lay out a pad): the right stick turns the camera; hold L2
+  and it aims instead (at the wheel, hold ○ to aim the drive-by with it). ○ reloads, L2 + □ rolls, L3 sounds the horn;
+  R1 on foot is free.
+- **Original** (the twin-stick layout the game was built with): the right stick aims; hold R3 and push it to turn the
+  camera. ○ rolls, R1 reloads, ✕ sounds the horn.
+
+A player who had rebound buttons before the schemes came starts in Original, with their rebinds. `?controls=original`
+(or `modern`) picks one for a session without saving it.
+
 ## Everywhere
 
 - The mouse in menus: hover focuses, a click confirms, the wheel scrolls, a right click goes back.
-- Aim with the right stick, or the mouse (the ground under the pointer).
+- Aim with the right stick (Modern: while L2 is held), or the mouse (the ground under the pointer).
 - Never Ctrl or Alt chords: Ctrl+W closes the tab and Alt opens the browser's menus.
 - A DualSense's triggers and light bar (SETTINGS, CONTROLS, DualSense haptics): in Chrome or Edge switched on with a key
   or a click (the browser asks which device; a pad's button can't open its prompt), in the desktop app at once.
 - The desktop app: F11 out of full screen and back; Esc stays the pause.
-- Turning the camera (Turn left, Turn right: [ and ], or R3 held with the right stick pushed): a tap turns any view a
-  quarter, eased round; held, the camera spins. Let go, ISO settles on the next of its eight angles (as Final Fantasy
-  Tactics and Xenogears rest), TOP-DOWN and MODE 7 stay at the angle you stopped at; the chase camera swings a quarter
-  a tap. The spin's speed is CAMERA, Camera spin on the dev tuning pages (`docs/TUNING.md`).
+- Turning the camera (Turn left, Turn right: [ and ], or the right stick; in Original, R3 held with it): a tap turns
+  any view a quarter, eased round; held, the camera spins. Let go, ISO settles on the next of its eight angles (as
+  Final Fantasy Tactics and Xenogears rest), TOP-DOWN and MODE 7 stay at the angle you stopped at; the chase camera
+  swings a quarter a tap. The spin's speed is CAMERA, Camera spin on the dev tuning pages (`docs/TUNING.md`).
+- Free camera (SETTINGS, DISPLAY, to try; D50): the camera stick (the right stick, or R3 held with it in Original; [ and
+  ] at full speed) turns every view smoothly at the speed it is pushed, and the view stays where you let go, at any
+  angle. Up and down tilt it: ISO from lower than usual to higher (18° to 39°), MODE 7 and CHASE the lens up and down;
+  TOP-DOWN only turns. In CHASE it orbits you as a modern open-city game's camera does (D51): it stays where you leave
+  it while you walk (at the wheel it comes round behind a moment after), tilts from low to high above, comes in to keep
+  you in sight, and what comes between fades. Switched off, the tilts go back as made and ISO onto its nearest rest.
 

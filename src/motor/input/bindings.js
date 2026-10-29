@@ -6,6 +6,9 @@
 //   are the analog triggers), 'LS<Dir>' / 'RS<Dir>' (a stick pushed past halfway: LSUp, RSLeft...), chords
 //   'Pad10+Pad11' (both within the chord window), held modifiers 'Pad11>RSLeft' (RSLeft pressed while R3 is held) and
 //   release taps 'Pad11^' (R3 let go within the release window, unless it served as a modifier or a chord half).
+// A control scheme (D49) is a whole map of defaults: MODERN (the default) turns the camera with the right stick, the way
+// today's open-city games do, and ORIGINAL is the twin-stick layout the game was built with. The player's rebinds are
+// saved per scheme, on top of it.
 import { E } from '../engine.js';
 
 /** the standard gamepad layout, DualSense names: 0 ✕, 1 ○, 2 □, 3 △, 4 L1, 5 R1, 6 L2, 7 R2, 8 Create, 9 Options,
@@ -14,7 +17,8 @@ const NAV = { up: ['Pad12', 'ArrowUp', 'KeyW', 'LSUp'], down: ['Pad13', 'ArrowDo
 // R3 is the view button on release; held, a flick of the right stick turns the camera a quarter (ISO yaw, the MODE 7 rail)
 const SHARED = { view: ['Pad11^', 'KeyV'], turnLeft: ['Pad11>RSLeft', 'BracketLeft'], turnRight: ['Pad11>RSRight', 'BracketRight'],
   ability: ['Pad10+Pad11', 'KeyF'], phone: ['Pad12', 'KeyT'], switch: ['Pad13', 'KeyZ'], map: ['Pad17', 'KeyM', 'Tab'], pause: ['Pad9', 'Escape'], photo: ['Pad8', 'KeyB'] };
-export const DEFAULT_BINDINGS = {
+/** ORIGINAL: the twin-stick layout the game was built with (the right stick aims; R3 held turns the camera) */
+const ORIGINAL = {
   onFoot: { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'],
     sprint: ['Pad0', 'ShiftLeft', 'ShiftRight'], jump: ['Pad2', 'Space'], roll: ['Pad1', 'KeyX'], interact: ['Pad3', 'KeyE'],
     reload: ['Pad5', 'KeyR'], wheel: ['Pad4', 'KeyQ'], aim: ['Pad6', 'Mouse2'], attack: ['Pad7', 'Mouse0'], crouch: ['Pad10', 'KeyC'],
@@ -32,16 +36,37 @@ export const DEFAULT_BINDINGS = {
   photo: { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], zoomIn: ['Pad7', 'KeyE'], zoomOut: ['Pad6', 'KeyQ'],
     view: ['Pad11^', 'KeyV'], snap: ['Pad0', 'Space', 'Enter'], back: ['Pad1', 'Escape', 'Pad8', 'KeyB'], look: ['Pad5', 'KeyF'] },
 };
+// MODERN: ORIGINAL with the pad laid out as today's open-city games lay it out (the keys and the mouse as they were).
+// The right stick turns the camera (a flick a quarter, held a spin) and aims only while L2 is held (at the wheel, while
+// the drive-by's ○ is: stickAim); ○ reloads, L2 with □ rolls (□ alone jumps), L3 sounds the horn; R1 on foot is free
+const STICK_TURN = { turnLeft: ['RSLeft', 'BracketLeft'], turnRight: ['RSRight', 'BracketRight'] };
+const MODERN = { ...ORIGINAL,
+  onFoot: { ...ORIGINAL.onFoot, roll: ['Pad6>Pad2', 'KeyX'], reload: ['Pad1', 'KeyR'], ...STICK_TURN },
+  vehicle: { ...ORIGINAL.vehicle, horn: ['Pad10', 'KeyH'], ...STICK_TURN } };
+/** the control schemes: each a whole map of defaults; stickAim: per context, the action that hands the right stick
+ *  from the camera to the aim while it is held (none: the right stick aims, as in ORIGINAL) */
+export const SCHEMES = {
+  modern: { label: 'Modern', map: MODERN, stickAim: { onFoot: 'aim', vehicle: 'fire' } },
+  original: { label: 'Original', map: ORIGINAL, stickAim: null },
+};
+export const DEFAULT_SCHEME = 'modern';
+export const DEFAULT_BINDINGS = SCHEMES[DEFAULT_SCHEME].map;
 /** codes that may not be rebound: the menus and the browser keep them (the engine's BINDABLE rule, ENG:1047) */
 const LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt|KeyP$)/;
 const KEY = 'GrandTheftMoto-5S:bindings';
 const TRIGGER = .35, STICK = .5;
+// where a scheme's rebinds are saved (ORIGINAL's where every rebind was saved before there were schemes)
+const storeKey = scheme => (scheme === 'original' ? KEY : KEY + ':' + scheme);
+/** the scheme a player starts with: MODERN, unless they rebound buttons before there were schemes (then ORIGINAL,
+ *  with their rebinds) */
+export function startingScheme() { return E.store.get(KEY, null) ? 'original' : DEFAULT_SCHEME; }
 
 export class Bindings {
-  /** input: the engine's game.input (GTM-PATCH(4) gives it .raw) */
-  constructor(input, saved = null) {
+  /** input: the engine's game.input (GTM-PATCH(4) gives it .raw); saved: the rebinds over the scheme's defaults */
+  constructor(input, saved = null, scheme = DEFAULT_SCHEME) {
     this.input = input; this.context = 'onFoot'; this.chordWindow = .12; this.releaseWindow = .5;
-    this.map = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+    this.scheme = SCHEMES[scheme] ? scheme : DEFAULT_SCHEME;
+    this.map = JSON.parse(JSON.stringify(SCHEMES[this.scheme].map));
     if (saved) this._overlay(saved);
     this._down = new Set(); this._prev = new Set(); this._pressAt = {}; this._pending = []; this._taps = new Set(); this._chorded = new Set(); this.t = 0;
     this._combos = new Set(); this._released = new Set(); this._modded = new Set();   // this step's modifier taps and release taps; modifiers spent this hold
@@ -49,17 +74,18 @@ export class Bindings {
   }
   _overlay(saved) { for (const [c, acts] of Object.entries(saved || {})) if (this.map[c]) for (const [a, codes] of Object.entries(acts)) if (Array.isArray(codes)) this.map[c][a] = codes.slice(); this._ver = (this._ver || 0) + 1; }
   // what update reads of the map, worked out again only when the map changes (rebind, reset, a saved overlay): every
-  // code a binding uses, its held-modifier combos [a, b, code] and chords [a, b, code], and the chords' halves
+  // code a binding uses, its held-modifier combos [a, b, code] (and each context's own, by its second code) and chords
+  // [a, b, code], and the chords' halves
   _derive() {
     const D = this._dv; if (D && D.ver === this._ver && D.map === this.map) return D;
-    const codes = new Set(), combos = [], chords = [], half = new Set();
-    for (const c of Object.values(this.map)) for (const list of Object.values(c)) for (const code of list) {
+    const codes = new Set(), combos = [], chords = [], half = new Set(), under = {};
+    for (const [ctx, c] of Object.entries(this.map)) for (const list of Object.values(c)) for (const code of list) {
       for (const p of code.replace(/\^$/, '').split(/[+>]/)) codes.add(p);
-      if (code.includes('>')) { const [a, b] = code.split('>'); combos.push([a, b, code]); }
+      if (code.includes('>')) { const [a, b] = code.split('>'); combos.push([a, b, code]); ((under[ctx] ||= {})[b] ||= []).push(a); }
       if (code.includes('+')) { const [a, b] = code.split('+'); chords.push([a, b, code]); half.add(a); half.add(b); }
     }
     const kinds = [...codes].map(c => [c, /^(Pad|LS|RS)/.test(c) ? 1 : 0]);   // (0: a key or mouse button, read as held or pressed)
-    return (this._dv = { ver: this._ver, map: this.map, codes: [...codes], kinds, combos, chords, half });
+    return (this._dv = { ver: this._ver, map: this.map, codes: [...codes], kinds, combos, chords, half, under });
   }
   /** the pad in use, raw ({ buttons, axes }) or null */
   pad() { const R = this.input.raw; return (R && (R.pads.find(p => p.index === R.active) || R.pads[0])) || null; }
@@ -124,13 +150,29 @@ export class Bindings {
   }
   /** the codes bound to an action in the live context (or the one named) */
   codes(action, ctx = this.context) { return (this.map[ctx] && this.map[ctx][action]) || []; }
+  // is a plain code free for its own actions: not one of the right stick's directions while the stick aims (a scheme
+  // with a stick camera), nor a held-modifier combo's second code while its modifier is held ('Pad6>Pad2': □ rolls
+  // under L2, so it doesn't jump as well)
+  _free(c, ctx) {
+    if (/^RS/.test(c) && this.stickCamera && this.stickAims(ctx)) return false;
+    const mods = (this._derive().under[ctx] || {})[c];
+    return !mods || !mods.some(a => this._down.has(a));
+  }
   /** is the action held? */
-  down(action, ctx) { return this.codes(action, ctx).some(c => /[+>]/.test(c) ? c.split(/[+>]/).every(p => this._down.has(p)) : this._down.has(c.replace(/\^$/, ''))); }
+  down(action, ctx = this.context) { return this.codes(action, ctx).some(c => /[+>]/.test(c) ? c.split(/[+>]/).every(p => this._down.has(p)) : this._down.has(c.replace(/\^$/, '')) && this._free(c.replace(/\^$/, ''), ctx)); }
   /** was the action pressed this step? (a chord half waits out the chord window first; a release tap fires as it is
    *  let go; a held modifier's combo as its second code goes down) */
-  tap(action, ctx) { return this.codes(action, ctx).some(c => c.endsWith('^') ? this._released.has(c.slice(0, -1)) : c.includes('>') ? this._combos.has(c) : this._taps.has(c)); }
-  /** is a held modifier of the live context down (its second codes, the right stick for one, aren't free for aiming)? */
-  modifierHeld(ctx = this.context) { return Object.values(this.map[ctx] || {}).some(list => list.some(c => c.includes('>') && this._down.has(c.split('>')[0]))); }
+  tap(action, ctx = this.context) { return this.codes(action, ctx).some(c => c.endsWith('^') ? this._released.has(c.slice(0, -1)) : c.includes('>') ? this._combos.has(c) : this._taps.has(c) && this._free(c, ctx)); }
+  /** does the scheme turn the camera with the right stick (MODERN)? */
+  get stickCamera() { return !!SCHEMES[this.scheme].stickAim; }
+  /** the action that hands a stick camera's right stick to the aim while held, in a context ('aim', 'fire'), or null */
+  stickAimAction(ctx = this.context) { const g = SCHEMES[this.scheme].stickAim; return (g && g[ctx]) || null; }
+  /** does the right stick aim now? With a stick camera, only while the context's stickAim action is held (L2 on foot,
+   *  the drive-by's ○ at the wheel); otherwise unless a modifier that hands it to the camera is held (ORIGINAL's R3) */
+  stickAims(ctx = this.context) {
+    if (this.stickCamera) { const a = this.stickAimAction(ctx); return !!a && this.down(a, ctx); }
+    return !Object.entries(this._derive().under[ctx] || {}).some(([b, mods]) => /^RS/.test(b) && mods.some(a => this._down.has(a)));
+  }
   /** the action's analog value 0..1 (the strongest of its codes) */
   value(action, ctx) { let v = 0; for (const c of this.codes(action, ctx)) { if (this._spent.has(c.replace(/\^$/, ''))) continue; v = Math.max(v, c.includes('>') ? (this._down.has(c.split('>')[0]) ? this.codeValue(c.split('>')[1]) : 0) : this.codeValue(c.replace(/\^$/, ''))); } return v; }
   /** a direction from four actions (up/down/left/right) plus a stick: screen x right, y down, length <= 1 */
@@ -140,18 +182,26 @@ export class Bindings {
     const l = Math.hypot(x, y); return l > 1 ? [x / l, y / l] : [x, y];
   }
   /** bind code to action in a context; refuses locked codes (the menus' and the engine's pause, P, among them) and a
-   *  code another action of that context uses, whole or as a part (R3 in 'Pad11^', 'Pad11>RSLeft', 'Pad10+Pad11') */
+   *  code another action of that context uses, whole or as a part (R3 in 'Pad11^', 'Pad11>RSLeft', 'Pad10+Pad11'; of
+   *  a held-modifier combo, its modifier: □ stays free to bind beside MODERN's L2 with □) */
   rebind(ctx, action, code, slot = null) {
     if (LOCKED.test(code)) return { ok: false, reason: 'locked', code };
     const c = this.map[ctx]; if (!c || !c[action]) return { ok: false, reason: 'unknown' };
-    const uses = q => q === code || q.replace(/\^$/, '').split(/[+>]/).includes(code);
+    const uses = q => q === code || (q.includes('>') ? q.split('>')[0] === code : q.replace(/\^$/, '').split('+').includes(code));
     for (const [a, list] of Object.entries(c)) if (a !== action && list.some(uses)) return { ok: false, reason: 'conflict', with: a };
     const list = c[action].slice(); if (slot === null || slot >= list.length) list.push(code); else list[slot] = code;
     c[action] = list; this._ver = (this._ver || 0) + 1; return { ok: true };
   }
-  /** back to the defaults (one context, or all) */
-  reset(ctx = null) { const d = JSON.parse(JSON.stringify(DEFAULT_BINDINGS)); if (ctx) this.map[ctx] = d[ctx]; else this.map = d; this._ver = (this._ver || 0) + 1; }
-  /** the player's changes, saved apart from the engine's bindings */
-  save() { E.store.set(KEY, this.map); }
-  static load(input) { return new Bindings(input, E.store.get(KEY, null)); }
+  /** back to the scheme's defaults (one context, or all) */
+  reset(ctx = null) { const d = JSON.parse(JSON.stringify(SCHEMES[this.scheme].map)); if (ctx) this.map[ctx] = d[ctx]; else this.map = d; this._ver = (this._ver || 0) + 1; }
+  /** switch to a control scheme (SETTINGS, CONTROLS): its defaults, with the rebinds saved for it. Held buttons carry
+   *  over, as they do between contexts */
+  setScheme(id) {
+    if (!SCHEMES[id] || id === this.scheme) return false;
+    this.scheme = id; this.map = JSON.parse(JSON.stringify(SCHEMES[id].map)); this._overlay(E.store.get(storeKey(id), null));
+    return true;
+  }
+  /** the player's changes, saved apart from the engine's bindings (each scheme's apart) */
+  save() { E.store.set(storeKey(this.scheme), this.map); }
+  static load(input) { const s = startingScheme(); return new Bindings(input, E.store.get(storeKey(s), null), s); }
 }

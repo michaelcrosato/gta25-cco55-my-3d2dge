@@ -162,7 +162,7 @@ export class CityRenderer {
       // the door is drawn over the board wherever along it they stand, the wall behind never covers it, and a lamp
       // beside it no longer lifts it over everything)
       const [wx, wy] = WALL_IN[s.side] || [0, 0];   // (the wall behind the board: TOP-DOWN draws the board after its building)
-      for (const [ax, ay, i, n] of signSlices(stage.projector(), s, night)) stage.shape(ax, ay, 0, (g, P) => drawSign(g, P, s, night, i, n), { bias: .01, wall: [ax + wx, ay + wy], kind: 'sign' });
+      for (const [ax, ay, i, n] of signSlices(stage.projector(), s, night)) stage.shape(ax, ay, 0, (g, P) => drawSign(g, P, s, night, i, n), { bias: .01, wall: [ax + wx, ay + wy], kind: 'sign', see: [s.x, s.y, s.z] });   // (see: the board's middle, for the free camera's see-through test: every slice alike)
       if (night) stage.glow(s.x, s.y, s.z, (g, sx, sy, k) => { const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * .75)), true); g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2)); }, { iso: true });   // (neon: lit after the dark)
     }
   }

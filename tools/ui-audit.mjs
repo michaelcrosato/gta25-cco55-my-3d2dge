@@ -84,7 +84,7 @@ async function walkTitle(S) {
   await S.act('down', 6); await S.stop('settings-controls-2', 'settings');
   for (const t of ['display', 'audio', 'game', 'access']) { await S.act('tabNext'); await S.stop('settings-' + t, 'settings'); }
   await S.act('tabPrev', 3); await S.act('down', 6); await S.stop('settings-display-2', 'settings');
-  await S.act('tabPrev'); await S.act('up', 6); await S.act('down', 5); await S.act('confirm'); await S.stop('layout-onfoot', 'layout');   // (the layout: below the dead zone, invert, vibration, DualSense haptics and the button symbols)
+  await S.act('tabPrev'); await S.act('up', 6); await S.act('down', 6); await S.act('confirm'); await S.stop('layout-onfoot', 'layout');   // (the layout: below the control scheme (D49), the dead zone, invert, vibration, DualSense haptics and the button symbols)
   await S.act('tabNext'); await S.stop('layout-vehicle', 'layout'); await S.act('back');
   await S.act('down'); await S.act('confirm'); await S.stop('rebind-onfoot', 'rebind');
   await S.act('down', 6); await S.stop('rebind-onfoot-2', 'rebind'); await S.act('down', 6); await S.stop('rebind-onfoot-3', 'rebind');

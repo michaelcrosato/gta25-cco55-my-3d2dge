@@ -120,6 +120,7 @@ and hash tests drive Intents directly.
 { move: [x, y],            // on foot: a world direction, length <= 1
   aim: [x, y] | null, aimTarget: Actor | null,
   throttle: 0..1, brake: 0..1, steer: -1..1,   // in a vehicle (steer: + right)
+  look: [x, y],              // the camera stick's push on screen (-1..1): the free camera's (D50), never the simulation's
   down: { [button]: bool }, tap: { [button]: bool } }   // held, and pressed this step
 // buttons: sprint jump roll crouch attack aim interact reload ability wheel phone map pause view switch horn fire nitro
 //          handbrake photo weaponPrev weaponNext radioPrev radioNext
