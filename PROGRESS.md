@@ -54,6 +54,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | D48 The camera turns | done | the owner's request after L8: in every view a tap of the turn buttons turns a quarter, eased round, and held they spin; let go, ISO settles on the next of its eight rests (Final Fantasy Tactics and Xenogears), TOP-DOWN and MODE 7 stay at any angle (MODE 7 then drawn as the chase camera is); in the step, so the stick maps alike headless and in the page; the simulation never reads it (D48) · `tests/sim/camera-turn.test.mjs`, `tests/unit/depth.test.mjs` · the look read in each view by day, at night in the rain and in the bank (docs/media/d48) · test:full alone on 6600f53 |
 | D49 Control schemes | done (npm test); test:full running | the owner's request: SETTINGS, CONTROLS, Control scheme; MODERN, the default, turns the camera with the right stick (a flick a quarter, held a spin) and aims with it while L2 is held (at the wheel, while ○ is), ○ reloads, L2 + □ rolls, L3 the horn; ORIGINAL the layout as it was; rebinds kept per scheme; the pad pilot plays MODERN · `npm test` 20 of 20 on the commit, the unit and sim tests 471 of 471 · two combat missions through the pad on MODERN, gold (gnomes_lawn_order 131 s, saints_confession_booth 150 s) |
 | D50 Free camera (to try) | done (npm test); test:full on the branch's head | the owner's request: SETTINGS, DISPLAY, Free camera; the camera stick turns every view at its push and leaves it there; up and down tilt ISO (18° to 39°), MODE 7 and CHASE (6° to 40°, the lens riding round the focus); TOP-DOWN only turns · shots read: ISO at 20°, 39° at night in the rain, 40°, 45°, 50°, 55° (past 40° a tree shows over a roof: capped at 39°), the bank at 18°, MODE 7 at 2° (among the cars: floor 6°), 32° and 40° at night, CHASE at 30° |
+| D51 The free camera's CHASE orbit | done (npm test) | the owner's request after trying D50: in CHASE the free camera stays where the stick leaves it on foot (behind the car again 1.5 s after), tilts -8° to 60°, slides in down its sight line to keep the player in sight, and fades what comes between · shots read: CHASE at -8°, 14°, 35°, 50°, 60° backed against the safehouse, and at six headings by day, at dusk and at night in the rain |
 
 ## Acceptance log
 
@@ -1988,4 +1989,16 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
   - **Evidence:** `tests/sim/camera-turn.test.mjs` (a slow turn left where it stopped; ISO's tilt kept across a switch
     of view; TOP-DOWN turning and never tilting; MODE 7 off the quarters and tilted; back as made when off; the same run
     hashing the same with it turning and tilting or not) and the shots in the D50 row above, each read.
+
+- **D51 · the free camera's CHASE orbit (the owner's request after trying D50):**
+  - **What was found:** the tilt worked with a pad (a fake standard pad in the page: ISO 30° to 39° and 18°, CHASE 14°
+    to 40° and 6°); it was small in ISO, pad-only, and no view orbited as modern open-city games' cameras do.
+  - **What changed:** `ChaseView` with the free camera on (`free`): no swing back behind on foot, behind the car 1.5 s
+    after the stick lets go; tilts -8° to 60° (`Stage` TILT.chase); a wall between the lens and the player's chest
+    brings it in, down its sight line (`lensH`, `follow`), no nearer than 50 and under the roof of a wall it is still
+    short of; the old horizon raise left to the slide; props, trees, cars, signs and lit signs over the player
+    see-through (`Stage.shape`, `prop`, `glow`, `_spriteHidesFocus`).
+  - **Evidence:** `tests/sim/camera-turn.test.mjs` (the orbit through a pad) and the shots in the row above, each read;
+    `npm test` 20 of 20 (unit and sim 474/474). test:full on D50's head found the UI audit's walk short of BUTTON
+    LAYOUT by D49's new Control scheme row: the walk goes one row further (`tools/ui-audit.mjs`), 244/244 and 59/59.
 

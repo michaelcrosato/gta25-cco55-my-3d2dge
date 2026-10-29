@@ -112,3 +112,17 @@ test('the free camera never touches the simulation: the same run hashes the same
   };
   assert.deepEqual(await run(true), await run(false));
 });
+
+test('the free camera in CHASE orbits the player (D51): left where the stick puts it while they walk on, tilted from low to high above', async () => {
+  const pads = [pad(0)], { game, gtm } = await loadGame({ hash: 'play', query: { view: 'chase' }, pads }); game.advance(.5);
+  const set = o => { pads[0] = pad(0, o); }, C = gtm.stage.chase;
+  assert.equal(gtm.views.active, 'chase');
+  gtm.motor.tuneSet('freeCam', 1);
+  const h0 = C.heading; set({ axes: [0, 0, 1, 0] }); game.advance(.5); set({}); game.advance(.1);
+  const h1 = C.heading, turned = Math.abs(((h1 - h0 + 540) % 360) - 180); assert.ok(turned > 60, `the stick turned it round the player (${h0} -> ${h1})`);
+  set({ axes: [.6, -.6, 0, 0] }); game.advance(3); set({}); game.advance(.1);   // (walking on ahead and to the side: the chase camera as made would come round behind)
+  assert.equal(C.heading, h1, 'on foot it stays where it was left');
+  set({ axes: [0, 0, 0, 1] }); game.advance(2); set({}); game.advance(.1); assert.equal(C.pitch, 60, 'the stick down: high above');
+  set({ axes: [0, 0, 0, -1] }); game.advance(3); set({}); game.advance(.1); assert.equal(C.pitch, -8, 'the stick up: low, looking up past them');
+  gtm.motor.tuneSet('freeCam', 0); game.advance(.1); assert.equal(C.pitch, 14, 'off: as made'); assert.equal(C.free, false);
+});

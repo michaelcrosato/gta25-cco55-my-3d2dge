@@ -151,5 +151,7 @@ A player who had rebound buttons before the schemes came starts in Original, wit
 - Free camera (SETTINGS, DISPLAY, to try; D50): the camera stick (the right stick, or R3 held with it in Original; [ and
   ] at full speed) turns every view smoothly at the speed it is pushed, and the view stays where you let go, at any
   angle. Up and down tilt it: ISO from lower than usual to higher (18° to 39°), MODE 7 and CHASE the lens up and down;
-  TOP-DOWN only turns. Switched off, the tilts go back as made and ISO onto its nearest rest.
+  TOP-DOWN only turns. In CHASE it orbits you as a modern open-city game's camera does (D51): it stays where you leave
+  it while you walk (at the wheel it comes round behind a moment after), tilts from low to high above, comes in to keep
+  you in sight, and what comes between fades. Switched off, the tilts go back as made and ISO onto its nearest rest.
 

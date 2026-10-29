@@ -11893,7 +11893,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     Bindings: () => Bindings,
     BoatBody: () => BoatBody,
     CAR_GRAVITY: () => CAR_GRAVITY,
-    CHEST: () => CHEST,
+    CHEST: () => CHEST2,
     CLASSES: () => CLASSES,
     COMPLETION_KINDS: () => COMPLETION_KINDS,
     CONFIRM_ABOVE: () => CONFIRM_ABOVE,
@@ -13731,6 +13731,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     indoor: { h: 50, back: 80, fov: 60, widen: 0, turn: 1.5 }
   };
   var FOOT_CONE = 60;
+  var CHEST = 20;
+  var FREE_RECENTRE = 1.5;
   function headingOf(x, y) {
     return (Math.atan2(x, -y) / DEG2 % 360 + 360) % 360;
   }
@@ -13765,7 +13767,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     /** the lens for where the focus is, how fast and how high: eased as MODE 7's */
     rig(dt, vehicle, speed01 = 0, fz = 0) {
       const R9 = this.indoor ? CHASE.indoor : vehicle ? CHASE.vehicle : CHASE.foot, k = this.ready ? 1 - Math.exp(-dt * 2.5) : 1, fov = R9.fov + R9.widen * E.clamp(speed01, 0, 1);
-      this.h += (R9.h + fz + this.lift(this.back) - this.h) * k;
+      this.lensH = this.lensH === void 0 ? this.h : this.lensH;
+      this.lensH += (Math.max(8, R9.h + fz + this.lift(this.back)) - this.lensH) * k;
+      this.h = this.lensH;
       this.back += (R9.back - this.back) * k;
       this.fov += (fov - this.fov) * k;
       this.near = this.back * 0.8;
@@ -13782,6 +13786,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.swing -= s;
         this.heading = ((this.heading + s) % 360 + 360) % 360;
         return;
+      }
+      if (this.free) {
+        this.idle = (this.idle || 0) + dt;
+        if (!vehicle || this.idle < FREE_RECENTRE) return;
       }
       if (h === null || !moving || !vehicle && Math.abs(turnTo(this.heading, h)) >= FOOT_CONE) return;
       this.heading = ((this.heading + turnTo(this.heading, h) * Math.min(1, dt * this.turn)) % 360 + 360) % 360;
@@ -13807,6 +13815,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         this.x += (tx - this.x) * k;
         this.y += (ty - this.y) * k;
       }
+      if (this.free && this.lensH !== void 0) {
+        const dd = Math.hypot(this.x - fx7, this.y - fy);
+        if (dd < this.back) this.h = CHEST + (this.lensH - CHEST) * Math.max(0.2, dd / this.back);
+        if (this.under) this.h = Math.min(this.h, this.under - 4);
+      }
     }
     /** how far from (fx, fy) along (dx, dy) the camera may stand, up to max: short of the first wall cell taller than the
      *  lens (the map's, when it has one) */
@@ -13816,8 +13829,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const T33 = M2.T;
       for (let d = 8; d <= max; d += 6) {
         const id = M2.cell(Math.floor((fx7 + dx * d) / T33), Math.floor((fy + dy * d) / T33));
-        if (id > 0 && (M2.types[id].h || 0) > this.h - 8) return Math.max(60, d - 12);
+        if (id <= 0) continue;
+        const wh = M2.types[id].h || 0;
+        if (wh > (this.free ? CHEST + (this.h - CHEST) * d / max : this.h - 8)) {
+          this.under = d - 12 < (this.free ? 50 : 60) ? wh : 0;
+          return Math.max(this.free ? 50 : 60, d - 12);
+        }
       }
+      this.under = 0;
       return max;
     }
     autoRail() {
@@ -13825,10 +13844,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // (it turns by itself all the time)
     /** MODE 7's projection, the horizon raised while the camera is in short of a wall: the focus's feet stay on the screen
-     *  row they stand on at the lens's full distance (the lens shifted further, so walls stay upright) */
+     *  row they stand on at the lens's full distance (the lens shifted further, so walls stay upright). The free camera
+     *  comes in down its sight line instead (follow), which keeps them there by itself (D50) */
     frame(r7) {
       const P25 = super.frame(r7);
-      if (this.dist !== void 0 && this.dist < this.back - 1) P25.hy -= this.h * P25.F * (1 / this.dist - 1 / this.back);
+      if (!this.free && this.dist !== void 0 && this.dist < this.back - 1) P25.hy -= this.h * P25.F * (1 / this.dist - 1 / this.back);
       return P25;
     }
     /** the engine View a rig is drawn with at k pixels per unit, at the heading in 3° steps (whole 1/16ths of scale) */
@@ -14540,7 +14560,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   var PREBAKE_AHEAD = 0.3;
   var TURN = { most: 0.45, bakeMs: 9, step: 3 };
   var SPIN = { tap: 0.2, ease: 0.12, rest: 45, glide: 3, snap: 4, k: 9, min: 90 };
-  var TILT = { iso: [18, 39], depth: [6, 40] };
+  var TILT = { iso: [18, 39], depth: [6, 40], chase: [-8, 60] };
   var ZOOM = { time: 0.25, most: 0.35, bakeMs: 9 };
   var discs = /* @__PURE__ */ new Map();
   function poolDisc(inner, outer) {
@@ -14927,11 +14947,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const turn = TUNE.freeTurn * x * Math.abs(x) * dt, tilt = TUNE.freeTilt * y * Math.abs(y) * dt;
       if (this.spin && this.spin.view !== (d || "iso")) this._spinEnd();
       if (d === this.chase) {
+        d.free = true;
+        if (turn || tilt) d.idle = 0;
         if (turn) {
           d.swing = 0;
           d.heading = ((d.heading + turn) % 360 + 360) % 360;
         }
-        if (tilt) d.pitch = E.clamp(d.pitch + tilt, TILT.depth[0], TILT.depth[1]);
+        if (tilt) d.pitch = E.clamp(d.pitch + tilt, TILT.chase[0], TILT.chase[1]);
         return;
       }
       if (d === this.top) {
@@ -14975,6 +14997,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this.spin && this.spin.free) this.spin = null;
       this.side7.pitch = this._pitch0.side7;
       this.chase.pitch = this._pitch0.chase;
+      this.chase.free = false;
       const g = this.game, b = g.baseView || g.view, was = this.isoPitch;
       this.isoPitch = null;
       if (this.depth) return;
@@ -15193,9 +15216,14 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         });
         return;
       }
+      const see = d === this.chase && d.free && this._hidesFocus(d, x, y, z, d.depth(x, y), -1e9) ? 0.3 : 1;
       const reach = o.r || 16, it = { k: d.depth(x, y) - 0.01, kind: "glow", fn: (g) => {
         const q2 = d.proj(x, y, z);
-        if (q2 && !this._offBuf(q2, reach * q2[2] + 8)) this._glowAt(g, draw, q2);
+        if (q2 && !this._offBuf(q2, reach * q2[2] + 8)) {
+          if (see < 1) g.globalAlpha = see;
+          this._glowAt(g, draw, q2);
+          g.globalAlpha = 1;
+        }
       } };
       const q = o.r && d.mode7 && z >= 0 && d.proj(x, y, z), R9 = q && Math.max(8, o.r * q[2]) * this.px;
       if (q) {
@@ -15451,12 +15479,21 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     }
     // MODE 7: does a body at (x, y, z), k along the rail, stand nearer the lens than the player and over them on screen?
     // (about a body's box each: half a body's width either side, its height up)
-    _hidesFocus(d, x, y, z, k) {
+    // a sprite's screen box (its foot q, w x h pixels) over the player's, and nearer the lens than them (the free camera's
+    // orbit fades it, D50)
+    _spriteHidesFocus(d, k, q, w12, h) {
       const f = this.focus;
       if (!f || k >= d.depth(f[0], f[1]) - 8) return false;
+      const b = d.proj(f[0], f[1], 0);
+      if (!b) return false;
+      return Math.abs(q[0] - b[0]) < w12 / 2 + 12 * b[2] && q[1] > b[1] - 44 * b[2] && q[1] - h < b[1];
+    }
+    _hidesFocus(d, x, y, z, k, margin = 8, half = 12) {
+      const f = this.focus;
+      if (!f || k >= d.depth(f[0], f[1]) - margin) return false;
       const a = d.proj(x, y, z), b = d.proj(f[0], f[1], 0);
       if (!a || !b) return false;
-      const wa = 12 * a[2], wb = 12 * b[2];
+      const wa = half * a[2], wb = 12 * b[2];
       return Math.abs(a[0] - b[0]) < wa + wb && a[1] > b[1] - 44 * b[2] && a[1] - 44 * a[2] < b[1];
     }
     // TOP-DOWN's draw key just after the span over (x, y) (a span's key is its footprint's nearest point to the centre), or
@@ -15557,8 +15594,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const kind = o && o.kind || "shape", hz = HAZY.has(kind) ? this._haze(k) : 0;
       if (hz >= HAZE_GONE) return;
       const f = kept2 && !big ? (g) => this._keptShape(g, d, d.view(1), x, y, z, draw, kept2, it.clipY) : (g) => draw(g, d);
-      const it = { k, kind, fn: hz > 0.02 ? (g) => {
-        g.globalAlpha = 1 - hz;
+      const see = d === this.chase && d.free && (kind === "prop3d" || kind === "car" || kind === "sign") && (kind === "sign" && o.see ? this._hidesFocus(d, o.see[0], o.see[1], o.see[2], d.depth(o.see[0], o.see[1]), -1e9, 80) : this._hidesFocus(d, x, y, z, k)) ? 0.3 : 1, a = (1 - hz) * see;
+      const it = { k, kind, fn: a < 0.98 ? (g) => {
+        g.globalAlpha = a;
         f(g);
         g.globalAlpha = 1;
       } : f };
@@ -15684,12 +15722,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const hz = this._haze(d.depth(x, y));
       if (hz >= HAZE_GONE) return;
       const q = d.mode7 && z >= 0 && d.proj(x, y, z), qs = q && q[2] / Math.SQRT2, box2 = q && !(p.glowAt && o.light && o.halo !== false) ? [q[0] - spr.w * qs / 2 - 1, q[0] + spr.w * qs / 2 + 1, q[1] - spr.h * qs - 1] : null;
+      const see = q && d === this.chase && d.free && this._spriteHidesFocus(d, d.depth(x, y), q, spr.w * qs, spr.h * qs) ? 0.3 : 1;
       this.items.push({ k: d.depth(x, y), m: d.depth(x, y) - 4, box: box2, kind: "prop", fn: (g) => {
         const q2 = d.proj(x, y, z);
         if (!q2) return;
         const s = q2[2] / Math.SQRT2, w12 = spr.w * s, h = spr.h * s;
         if (h < 1) return;
-        if (hz > 0.02) g.globalAlpha = 1 - hz;
+        if (hz > 0.02 || see < 1) g.globalAlpha = (1 - hz) * see;
         g.drawImage(spr.cv, Math.round(q2[0] - w12 / 2), Math.round(q2[1] - h), Math.max(1, Math.round(w12)), Math.max(1, Math.round(h)));
         g.globalAlpha = 1;
         if (p.glowAt && o.light && o.halo !== false) {
@@ -19141,7 +19180,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   knob("Combat", "flickCone", "Flick cone", 60, 10, 120, 5, "Degrees either side of the flick that the next target may lie in");
   knob("Combat", "pointPast", "Assist past the point", 40, 0, 400, 5, "How far beyond the mouse's point the aim assist may still pull to a target (u)");
   var ASSIST = { off: { cone: 0, pull: 0 }, low: { cone: 8, pull: 0.45 }, standard: { cone: 16, pull: 0.8 } };
-  var CHEST = 22;
+  var CHEST2 = 22;
   var SIGHT_TRIES = 4;
   var angleBetween = (ax, ay, bx, by3) => {
     const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by3);
@@ -19149,7 +19188,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by3) / (la * lb))));
   };
   function screenDir(s, dir, toScreen) {
-    const a = toScreen(s.x, s.y, s.z + CHEST), b = toScreen(s.x + dir[0] * 64, s.y + dir[1] * 64, s.z + CHEST);
+    const a = toScreen(s.x, s.y, s.z + CHEST2), b = toScreen(s.x + dir[0] * 64, s.y + dir[1] * 64, s.z + CHEST2);
     return [b[0] - a[0], b[1] - a[1], a];
   }
   function reachable(c, s, range) {
@@ -19164,7 +19203,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     let best = null, bestScore = Infinity;
     for (const c of candidates) {
       if (!reachable(c, s, o.range)) continue;
-      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST), dx = p[0] - a[0], dy = p[1] - a[1], ang = angleBetween(ax, ay, dx, dy);
+      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST2), dx = p[0] - a[0], dy = p[1] - a[1], ang = angleBetween(ax, ay, dx, dy);
       if (ang > half) continue;
       const near4 = Math.hypot(dx, dy), threat = o.threat && o.threat(c) ? 0.35 : c.hostile ? 0.6 : 1;
       const score = near4 * (1 + 0.5 * ang / half) * threat;
@@ -19176,11 +19215,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return best;
   }
   function flickLock(s, current, flick, candidates, o) {
-    const a = o.toScreen(current.x, current.y, (current.z || 0) + CHEST), half = TUNE.flickCone * Math.PI / 180;
+    const a = o.toScreen(current.x, current.y, (current.z || 0) + CHEST2), half = TUNE.flickCone * Math.PI / 180;
     let best = null, bestScore = Infinity;
     for (const c of candidates) {
       if (c === current || !reachable(c, s, o.range)) continue;
-      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST), dx = p[0] - a[0], dy = p[1] - a[1], ang = angleBetween(flick[0], flick[1], dx, dy);
+      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST2), dx = p[0] - a[0], dy = p[1] - a[1], ang = angleBetween(flick[0], flick[1], dx, dy);
       if (ang > half) continue;
       const score = Math.hypot(dx, dy) * (1 + ang / half);
       if (score < bestScore && (!o.los || o.los(s, c))) {
@@ -19196,7 +19235,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const [ax, ay, a] = screenDir(s, dir, o.toScreen), half = lv.cone * Math.PI / 180, inCone = [];
     for (const c of candidates) {
       if (!reachable(c, s, o.range)) continue;
-      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST), ang = angleBetween(ax, ay, p[0] - a[0], p[1] - a[1]);
+      const p = o.toScreen(c.x, c.y, (c.z || 0) + CHEST2), ang = angleBetween(ax, ay, p[0] - a[0], p[1] - a[1]);
       if (ang <= half) inCone.push([ang, c]);
     }
     inCone.sort((p, q) => p[0] - q[0]);
@@ -19215,11 +19254,11 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   }
   function shotFrom(s, dir, at) {
     if (!at) return [dir[0], dir[1], 0];
-    const d = Math.hypot(at[0] - s.x, at[1] - s.y) || 1, slope = (at[2] - ((s.z || 0) + CHEST)) / d, l10 = Math.hypot(1, slope);
+    const d = Math.hypot(at[0] - s.x, at[1] - s.y) || 1, slope = (at[2] - ((s.z || 0) + CHEST2)) / d, l10 = Math.hypot(1, slope);
     return [dir[0] / l10, dir[1] / l10, slope / l10];
   }
   function losClear(map, a, b, decks = null) {
-    const az = (a.z || 0) + CHEST, bz = (b.z || 0) + CHEST * 0.8, n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6);
+    const az = (a.z || 0) + CHEST2, bz = (b.z || 0) + CHEST2 * 0.8, n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6);
     for (let i = 1; i < n; i++) {
       const k = i / n, x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k, z = az + (bz - az) * k;
       if (map.heightAt(x, y) > z) return false;
@@ -19273,23 +19312,23 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (this.target) {
         const t = this.target, dx = t.x - s.x, dy = t.y - s.y, l10 = Math.hypot(dx, dy) || 1;
         this.dir = [dx / l10, dy / l10];
-        this.pitchTo = [t.x, t.y, (t.z || 0) + CHEST];
+        this.pitchTo = [t.x, t.y, (t.z || 0) + CHEST2];
         return this;
       }
       if (o.point) {
         const dx = o.point[0] - s.x, dy = o.point[1] - s.y, l10 = Math.hypot(dx, dy) || 1, below = (s.z || 0) - (o.point[2] || 0);
         this.dir = [dx / l10, dy / l10];
-        this.pitchTo = Math.abs(below) > 20 ? [o.point[0], o.point[1], (o.point[2] || 0) + CHEST] : null;
+        this.pitchTo = Math.abs(below) > 20 ? [o.point[0], o.point[1], (o.point[2] || 0) + CHEST2] : null;
         const h2 = assist(s, this.dir, o.candidates, { ...o, level: o.level === "off" ? "off" : "low" });
         if (h2.target && Math.hypot(h2.target.x - s.x, h2.target.y - s.y) <= l10 + TUNE.pointPast) {
           this.dir = h2.dir;
-          this.pitchTo = [h2.target.x, h2.target.y, (h2.target.z || 0) + CHEST];
+          this.pitchTo = [h2.target.x, h2.target.y, (h2.target.z || 0) + CHEST2];
         }
         return this;
       }
       const h = assist(s, dir, o.candidates, o);
       this.dir = h.dir;
-      this.pitchTo = h.target ? [h.target.x, h.target.y, (h.target.z || 0) + CHEST] : null;
+      this.pitchTo = h.target ? [h.target.x, h.target.y, (h.target.z || 0) + CHEST2] : null;
       return this;
     }
   };
@@ -21133,7 +21172,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const p = this.aimer.pitchTo;
       if (!p) return 0;
       const d = Math.hypot(p[0] - this.x, p[1] - this.y) || 1;
-      return Math.atan2(p[2] - (this.z + CHEST), d);
+      return Math.atan2(p[2] - (this.z + CHEST2), d);
     }
     // how far the body can go along dir before a wall or a solid in its way (for rolls)
     _clearAhead(map, dir, dist) {
@@ -23458,7 +23497,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       }
       for (const s of this.signs) if (Math.abs(s.x - fx7) < radius && Math.abs(s.y - fy) < radius && stage2.onScreen(s.x, s.y, s.z, s.z, 48)) {
         const [wx2, wy] = WALL_IN[s.side] || [0, 0];
-        for (const [ax, ay, i, n2] of signSlices(stage2.projector(), s, night6)) stage2.shape(ax, ay, 0, (g, P25) => drawSign(g, P25, s, night6, i, n2), { bias: 0.01, wall: [ax + wx2, ay + wy], kind: "sign" });
+        for (const [ax, ay, i, n2] of signSlices(stage2.projector(), s, night6)) stage2.shape(ax, ay, 0, (g, P25) => drawSign(g, P25, s, night6, i, n2), { bias: 0.01, wall: [ax + wx2, ay + wy], kind: "sign", see: [s.x, s.y, s.z] });
         if (night6) stage2.glow(s.x, s.y, s.z, (g, sx, sy, k) => {
           const cv = signImage(s.text, s.color, Math.max(1, Math.round(k * 0.75)), true);
           g.drawImage(cv, Math.round(sx - cv.width / 2), Math.round(sy - cv.height / 2));
@@ -27191,7 +27230,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       label: "Free camera",
       type: "toggle",
       value: false,
-      help: "Try it: the right stick turns every view smoothly at any angle and leaves it there; up and down tilt ISO, MODE 7 and CHASE",
+      help: "Try it: the right stick turns every view smoothly and leaves it there, up and down tilting it; in CHASE (R3 cycles the views) it orbits you as a modern open-city game's camera does",
       apply: (g, v) => tuneSet("freeCam", v ? 1 : 0)
     });
     def2({ key: "autoRail", group: "Display", label: "Auto-rail", type: "toggle", value: true, help: "MODE 7 in a vehicle: the rail turns to the way you have held", apply: (g, v) => tuneSet("autoRail", v ? 1 : 0) });
@@ -36861,7 +36900,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     // point blank: the muzzle is a gun's length out (a posed hand's, 18 u), so a body between the shooter's chest and it (a
     // bat swung in the face) takes the shot where the line meets it: { t, at } or null
     _pointBlank(p, muzzle) {
-      const x0 = p.x, y0 = p.y, z05 = (p.z || 0) + CHEST - 6, dx = muzzle[0] - x0, dy = muzzle[1] - y0, dz2 = muzzle[2] - z05;
+      const x0 = p.x, y0 = p.y, z05 = (p.z || 0) + CHEST2 - 6, dx = muzzle[0] - x0, dy = muzzle[1] - y0, dz2 = muzzle[2] - z05;
       let best = null, bs = 1;
       for (const t of this.bodies) {
         if (t === p || t.dead || Math.abs(t.x - x0) > 40 || Math.abs(t.y - y0) > 40) continue;
@@ -36892,9 +36931,9 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
         if (!best) break;
         hitSet.add(best);
-        pts2.push([best.x, best.y, best.z + CHEST]);
+        pts2.push([best.x, best.y, best.z + CHEST2]);
         const lethal = best.vitals && best.vitals.zaps + 1 >= TUNE.zapKill;
-        this.hurt(best, { amount: lethal ? 999 : damage, kind: "zap", by: p.id, at: [best.x, best.y, best.z + CHEST] });
+        this.hurt(best, { amount: lethal ? 999 : damage, kind: "zap", by: p.id, at: [best.x, best.y, best.z + CHEST2] });
         if (best.vitals) best.vitals.stun = Math.max(best.vitals.stun, spec.stun || 1);
         from = best;
         reach = TUNE.zapReach;
@@ -36910,7 +36949,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     _photo(p, spec) {
       const d = p.aimer.dir, seen2 = this.bodies.filter((b) => b !== p && !b.dead && Math.hypot(b.x - p.x, b.y - p.y) < spec.range && (b.x - p.x) * d[0] + (b.y - p.y) * d[1] > 0).map((b) => b.id);
       BUS.emit("photo", { by: p.id, x: p.x, y: p.y, targets: seen2, dir: [d[0], d[1]] });
-      this._fx("flash", p.x, p.y, p.z + CHEST);
+      this._fx("flash", p.x, p.y, p.z + CHEST2);
       this._sfx("select", { pitch: 1.6 });
     }
     /** a melee move connecting (Ped's combo hit): damage by the move and strength, knockback by RED MIST */
@@ -36918,7 +36957,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       const k = MOVE_POWER[move && move.name] || 1, ab = a.ability, amount = spec.damage * k * a.stats.melee() * (ab ? ab.damage : 1);
       const dx = t.x - a.x, dy = t.y - a.y, d = Math.hypot(dx, dy) || 1;
       const floors = move && move.name === "uppercut" || spec.id === "slugger" && move && move.name === "overhead";
-      const at = t.vitals || !t.hl ? [t.x, t.y, t.z + CHEST * 0.9] : nearestOnBox(t, a.x, a.y, (t.z || 0) + CHEST * 0.6);
+      const at = t.vitals || !t.hl ? [t.x, t.y, t.z + CHEST2 * 0.9] : nearestOnBox(t, a.x, a.y, (t.z || 0) + CHEST2 * 0.6);
       const r7 = this.hurt(t, { amount, kind: "melee", by: a.id, knock: TUNE.meleeKnock * k * (ab ? ab.knockback : 1), knockdown: floors || ab && ab.knockback > 1 && k >= 1.25, dir: [dx / d, dy / d], at });
       if (r7) {
         a.stats.did("meleeHit");
@@ -36943,7 +36982,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       if (!t || t.dead) return null;
       const r7 = t.hurt ? t.hurt(o) : null;
       if (!r7) return null;
-      const at = o.at || [t.x, t.y, (t.z || 0) + CHEST];
+      const at = o.at || [t.x, t.y, (t.z || 0) + CHEST2];
       BUS.emit("hit", { target: t.id, by: o.by, damage: (r7.health || 0) + (r7.armor || 0), kind: o.kind, x: at[0], y: at[1], z: at[2] });
       if (r7.health >= 1 && t.vitals && o.kind !== "fire" && o.kind !== "zap") this._fx("blood", at[0], at[1], at[2], { n: Math.min(8, 2 + Math.round(r7.health / 8)) });
       if (r7.armor > 0) this._fx("spark", at[0], at[1], at[2]);
@@ -37106,7 +37145,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
   };
   function handOf(p, dir, reach) {
     const [dx, dy] = dir || [Math.cos(p.facing), Math.sin(p.facing)];
-    return [p.x + dx * reach - dy * 3, p.y + dy * reach + dx * 3, (p.z || 0) + CHEST - 6];
+    return [p.x + dx * reach - dy * 3, p.y + dy * reach + dx * 3, (p.z || 0) + CHEST2 - 6];
   }
 
   // src/motor/world/interior.js
@@ -40370,7 +40409,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     if (p.dead) return;
     const A = p.aimer;
     if (A.target) {
-      const q = A.target, z2 = (q.z || 0) + CHEST + 18, hurt = q.vitals ? 1 - q.vitals.health / 100 : 0;
+      const q = A.target, z2 = (q.z || 0) + CHEST2 + 18, hurt = q.vitals ? 1 - q.vitals.health / 100 : 0;
       stage2.glow(q.x, q.y, z2, (g, sx, sy) => {
         const X2 = E.px, s = 5 + Math.sin(t * 10) * 0.8, c = hurt > 0.6 ? "#ff3a3a" : "#ff8a3a";
         X2.poly(g, [[sx - s, sy - s * 1.6], [sx + s, sy - s * 1.6], [sx, sy]], OUT);
@@ -40379,7 +40418,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return;
     }
     if (!p.aiming) return;
-    const d = 64, x = p.x + A.dir[0] * d, y = p.y + A.dir[1] * d, z = p.z + CHEST;
+    const d = 64, x = p.x + A.dir[0] * d, y = p.y + A.dir[1] * d, z = p.z + CHEST2;
     stage2.glow(x, y, z, (g, sx, sy) => {
       const X2 = E.px;
       X2.rect(g, sx - 4, sy, 3, 1, "#f0ecff");

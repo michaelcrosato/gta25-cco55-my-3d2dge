@@ -2315,3 +2315,31 @@ and where it landed.
   the quarters and tilting, all back as made when it is switched off; the same run hashes the same with it turning and
   tilting or not) and shots read in ISO, MODE 7 and CHASE at their tilts.
 - **Answered:** the owner asked (to try). **Landed in:** after D49, on the same branch.
+
+## D51 · 2026-10-29 · The free camera's CHASE: an orbit as modern open-city games have
+- **Asked:** the owner, trying D50: "I couldn't get it to tilt up or down to work ... I was expecting a fully
+  controllable camera like in the modern GTA games."
+- **Found:** with a pad, the tilt worked in the build (a fake standard pad driving the page: ISO 30° to 39° and back
+  to 18°, CHASE 14° to 40° and 6°). What it gave was small (ISO's ±10°, its draw order the limit), it was only on the
+  pad (the keys turn, nothing tilts; the mouse aims), and ORIGINAL (a player who rebound buttons before D49 starts
+  there) gives the stick to the camera only with R3 held. And no view behaved as those games' cameras do: CHASE, the
+  view behind the player, swung back behind them as they walked.
+- **Decided:** with the free camera on, CHASE orbits the player as those games' cameras do:
+  - **it stays where the stick leaves it** on foot (no swinging back behind), and at the wheel comes round behind the
+    car 1.5 s after the stick lets go;
+  - **it tilts from low, looking up past the player (-8°), to high above them (60°)**, the lens riding round them so
+    they keep their place on screen (`Side7View.lift`, the lens never under the street);
+  - **it keeps them in sight:** a wall between the lens and their chest brings it in, sliding down its sight line so
+    they keep their place on screen, only nearer (no nearer than 50; still short of the wall there, under its roof, the
+    walls between cut to their stubs); CHASE's old raise of the horizon while it is in (which kept the feet on their row
+    at the lens's height) gives way to the slide, which keeps them there by itself;
+  - **what comes between fades:** a prop, a tree or palm, a car, or a sign (and a lit sign's glow) over the player on
+    screen and nearer the lens is drawn see-through (.3).
+  - ISO, MODE 7 and TOP-DOWN keep D50's turns and tilts. The setting's help points at CHASE (R3 cycles the views).
+- **Not done:** the mouse turning the camera (it aims at the ground here: a camera on the mouse means aiming at the
+  screen's middle, those games' way, a change of the whole aim on the keys and mouse); the owner's call.
+- **Proved** by `tests/sim/camera-turn.test.mjs` (through a pad in CHASE: the stick turns it round the player, it stays
+  there while they walk on ahead and to the side, it tilts to 60° and to -8°, off it is as made) and shots read in
+  CHASE at -8°, 14°, 35°, 50° and 60° from behind the safehouse (backed against its wall: the slide, the faded tree
+  and sign), and at headings 20°, 60°, 100°, 200°, 240° and 320° by day, at dusk and at night in the rain.
+- **Answered:** the owner asked. **Landed in:** after D50, on the same branch.
