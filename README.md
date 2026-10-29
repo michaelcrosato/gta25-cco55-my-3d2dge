@@ -79,22 +79,25 @@ controller first if you have one.
 
 ## Controls
 
-The defaults; every one can be rebound per context in SETTINGS, CONTROLS. The full list is in
+The defaults, in the Modern control scheme: the right stick turns the camera, and aims while L2 is held. SETTINGS,
+CONTROLS, Control scheme switches to Original, the twin-stick layout the game was built with (the right stick aims, R3
+held turns the camera). Every button can be rebound per context there too. The full list is in
 [`docs/CONTROLS.md`](docs/CONTROLS.md).
 
 | Action | DualSense | Keyboard and mouse |
 |---|---|---|
 | Move / steer | left stick | WASD |
-| Aim / look | right stick (L2 locks on) | mouse (right button locks on) |
+| Aim | hold L2 (locks on), then the right stick | mouse (right button locks on) |
 | Attack / fire | R2 | left button |
 | Accelerate / brake and reverse | R2 / L2 (analog) | W / S |
 | Get in, out, use | △ | E |
-| Sprint / horn | ✕ | Shift / H |
+| Sprint / horn | ✕ / L3 | Shift / H |
 | Jump, climb / handbrake | □ / R1 | Space |
-| Roll / drive-by | ○ | X / left button |
+| Reload / roll | ○ / L2 + □ | R / X |
+| Drive-by | ○ | left button |
 | Weapon wheel / nitro | L1 | Q / Shift |
 | Change view | R3 (tap) | V |
-| Turn the camera (tap: a quarter; hold: spin) | R3 held, right stick | [ and ] |
+| Turn the camera (flick: a quarter; hold: spin) | right stick | [ and ] |
 | Phone | D-pad ↑ | T |
 | Switch character | D-pad ↓ | Z |
 | Radio | D-pad ← → (in a vehicle) | , and . |

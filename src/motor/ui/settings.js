@@ -10,10 +10,11 @@
 // play (a bot's runs and the tests keep the defaults).
 import { tuneSet } from '../core/tune.js';
 import { PROMPTS } from '../input/prompts.js';
+import { SCHEMES, startingScheme } from '../input/bindings.js';
 import { MARKERS } from './radar.js';
 
 export const SETTING_TABS = [
-  { id: 'controls', label: 'CONTROLS', keys: ['deadzone', 'invertY', 'rumble', 'haptics', 'promptStyle'] },
+  { id: 'controls', label: 'CONTROLS', keys: ['controlScheme', 'deadzone', 'invertY', 'rumble', 'haptics', 'promptStyle'] },
   { id: 'display', label: 'DISPLAY', keys: ['defaultView', 'quality', 'autoRail', 'sharpSide7', 'hudSize', 'subtitles', 'colorblind', 'speedometer', 'shake', 'flashes', 'motion'] },
   { id: 'audio', label: 'AUDIO', keys: ['sound', 'volume', 'music', 'radio', 'effects', 'djChatter'] },
   { id: 'game', label: 'GAME', keys: ['difficulty', 'aimAssist', 'autosave'] },
@@ -35,6 +36,8 @@ const TIPS = { deadzone: 'How far a stick moves before it counts (twin-stick aim
 export function defineSettings(game) {
   const S = game.settings; if (!S || !S.define) return null;
   const def = sp => { if (!S.spec(sp.key)) S.define(sp); };
+  def({ key: 'controlScheme', group: 'Controller', label: 'Control scheme', type: 'select', value: startingScheme(), options: Object.entries(SCHEMES).map(([id, s]) => [id, s.label]),
+    help: 'Modern: the right stick turns the camera, L2 aims with it. Original: the right stick aims, R3 held turns the camera', apply: (g, v) => { if (g.bindings) g.bindings.setScheme(v); } });
   def({ key: 'promptStyle', group: 'Controller', label: 'Button symbols', type: 'select', value: 'auto', options: [['auto', 'Auto'], ['playstation', 'PlayStation'], ['xbox', 'Xbox'], ['nintendo', 'Nintendo'], ['keyboard', 'Keyboard']],
     help: 'Auto: the symbols of the controller in use, or the keys', apply: (g, v) => { PROMPTS.keys = v === 'keyboard'; if (g.input) g.input.glyphs = v === 'keyboard' ? 'auto' : v; } });
   def({ key: 'haptics', group: 'Controller', label: 'DualSense haptics', type: 'toggle', value: true, help: 'A DualSense\'s triggers and light bar (in Chrome or Edge, the first time: a key or a click, and the browser asks which)',

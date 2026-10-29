@@ -2254,3 +2254,36 @@ and where it landed.
   and orbit off a quarter, its own drawing back on one), and shots read in each view by day, at night in the rain and in
   the bank.
 - **Answered:** the owner asked. **Landed in:** after L8, before the merge.
+
+## D49 · 2026-10-29 · Control schemes: MODERN (the right stick turns the camera) by default, ORIGINAL kept
+- **Asked:** the owner, playing with a pad: holding R3 and pushing the right stick to turn the camera is not intuitive,
+  and the player needs orienting quickly. First asked for L1 and R1; then: several schemes, defaulting to the layout of
+  today's open-city games ("why re-invent the wheel"), with the older games' layouts in the menu.
+- **Found:** none of those games turns the camera with the shoulders. The recent ones turn it with the right stick,
+  which is free there until L2 aims; here the right stick always aimed (the twin-stick layout of the GTA 2 heritage),
+  which is why D48 put the turn on R3 held. L1 and R1 hold the weapon wheel and the reload on foot, the nitro and the
+  handbrake in a car, and climb and descend in the air.
+- **Decided:**
+  - **A control scheme is a whole map of defaults** (`SCHEMES` in `src/motor/input/bindings.js`), picked in SETTINGS,
+    CONTROLS, Control scheme. Each keeps the player's rebinds apart (ORIGINAL's where every rebind was saved before);
+    a player who had rebound buttons before starts in ORIGINAL, everyone else in MODERN. `?controls=` picks one for a
+    session, unsaved (a test plays ORIGINAL with it).
+  - **MODERN, the default:** ORIGINAL with the pad laid out as those games lay it out. The right stick turns the camera
+    (the D48 turn: a flick a quarter, held a spin, ISO settling on an eighth); while L2 is held it aims instead (at the
+    wheel, while the drive-by's ○ is: the stick aims the drive-by or a turret, and before that the drive-by takes its
+    own target off the side, as it always did with the stick at rest). ○ reloads; L2 with □ rolls, and □ under L2
+    doesn't jump (a held-modifier combo's second button serves the combo alone while the modifier is held); L3 sounds
+    the horn; R1 on foot is free. The keys and the mouse are ORIGINAL's.
+  - **ORIGINAL:** the layout as it was, unchanged.
+  - **Not yet** (a later step, with the owner): the older games' layouts (one with the camera centred by a button and
+    the gas and brake on ✕ and □, one with the shoulders' jobs of the game after it), view changes on Create, and
+    flying on the triggers and the shoulders. Their names stay generic on screen (MODERN, CLASSIC, RETRO), as the
+    Credits promise no names or text from those games; the docs say which each follows.
+- **The bot:** the mission bot writes Intents and never meets a scheme. The pad pilot reads the bindings, so it plays
+  MODERN now: it holds L2 while it aims on foot, presses L2 with □ to roll, and at the wheel pushes the right stick only
+  while the drive-by fires. The simulation never reads the camera (D48), so no hash moves.
+- **Proved** by `tests/unit/input.test.mjs` (the stick a turn, held a spin, an aim under L2; ○, L2 with □ and □ alone;
+  L3's horn and ○'s drive-by aim at the wheel; a switch and its saved rebinds; the legacy player's ORIGINAL; the rebind
+  rule beside a combo) and `tests/sim/camera-turn.test.mjs` (in play through a pad: a flick a quarter, a spin landing
+  on an eighth, the camera held under L2 while the stick aims; ORIGINAL's stick aiming).
+- **Answered:** the owner asked. **Landed in:** after L8 (the branch of the HANDOFF fix's PR).

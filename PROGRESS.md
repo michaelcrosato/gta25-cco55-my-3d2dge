@@ -52,6 +52,7 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
 | L7 Platforms | done | a desktop wrapper (`desktop/`, Electron, its own package and lock: the page loaded unchanged from its file, full screen, sandboxed, the network shut, a DualSense granted to WebHID with no chooser) and the DualSense's own output report by WebHID (`input/dualsense-hid.js`, by USB and by Bluetooth) played from the game (`input/haptics.js`: R2 and L2 by the gun or the vehicle in hand, the light bar the character's colour and the stars, the rumble in the same report; the Gamepad API's rumble the fallback); SETTINGS, CONTROLS, DualSense haptics; QA-DUALSENSE 6-7 for the owner (D46) · CI's `desktop` job on 9890e8f: Electron under a virtual display, the game up, WebHID there, the network shut, a popup refused; the Linux build packed (an artifact) · test:full alone on 9890e8f · the look read (docs/media/l7) |
 | L8 The owner's items | with the owner | prepared, nothing sent: the seven patches' issue texts (unchanged since the slice) with what L1-L7 put on them, and feedback F7 brought up to date (its header and F7.17-F7.22); the release docs final for the full game (ENGINE-ANALYSIS, the Source Information in README and on Credits & About); Credits' pages kept whole (a heading with its text, no paragraph's last line alone) and the UI audit through every page; the DualSense checklist and the PR's review for the owner (D47) · the audits 244 of 244 and 59 of 59 · the look read (docs/media/l8) · test:full alone on the PR's head, 5b55a08 |
 | D48 The camera turns | done | the owner's request after L8: in every view a tap of the turn buttons turns a quarter, eased round, and held they spin; let go, ISO settles on the next of its eight rests (Final Fantasy Tactics and Xenogears), TOP-DOWN and MODE 7 stay at any angle (MODE 7 then drawn as the chase camera is); in the step, so the stick maps alike headless and in the page; the simulation never reads it (D48) · `tests/sim/camera-turn.test.mjs`, `tests/unit/depth.test.mjs` · the look read in each view by day, at night in the rain and in the bank (docs/media/d48) · test:full alone on 6600f53 |
+| D49 Control schemes | done (npm test); test:full running | the owner's request: SETTINGS, CONTROLS, Control scheme; MODERN, the default, turns the camera with the right stick (a flick a quarter, held a spin) and aims with it while L2 is held (at the wheel, while ○ is), ○ reloads, L2 + □ rolls, L3 the horn; ORIGINAL the layout as it was; rebinds kept per scheme; the pad pilot plays MODERN · `npm test` 20 of 20 on the commit, the unit and sim tests 471 of 471 · two combat missions through the pad on MODERN, gold (gnomes_lawn_order 131 s, saints_confession_booth 150 s) |
 
 ## Acceptance log
 
@@ -1961,3 +1962,19 @@ New work goes on a fresh branch cut from `main`, in a new draft PR. A new sessio
     two runs before, on the same code, had failed only the perf gate, Lowtown's ISO at 10.52 and 10.48 ms. Measured in
     turn with L8's build (`5b55a08`) and M2's over six rounds, the two builds read it alike (a median of 10.30 ms each):
     ISO draws as it did while the camera isn't turning, and its margin is the 1-3% L5 found.
+
+- **D49 · control schemes (the owner's request), npm test green; test:full to follow:**
+  - **What changed:** `src/motor/input/bindings.js` holds the schemes (`SCHEMES`: MODERN, the default, and ORIGINAL),
+    each a whole map of defaults with its own saved rebinds, and hands the right stick between the camera and the aim
+    (`stickAims`: MODERN's L2 on foot, ○ at the wheel); a held-modifier combo's second button serves it alone while the
+    modifier is held (MODERN's L2 with □ rolls without a jump). The HumanController aims with the stick only when it
+    aims; the PadPilot holds L2 as it aims, presses L2 with □ to roll and pushes the stick at the wheel only while the
+    drive-by fires. SETTINGS, CONTROLS has the Control scheme row; `?controls=` picks one for a session. The attract
+    mode's HOW TO PLAY card and the field guide follow the scheme.
+  - **Evidence:** `npm test` passed all 20 steps (the unit and sim tests 471 of 471, the recipes 15, the review 79, the
+    browser suites and the engine's checks). New tests: `tests/unit/input.test.mjs` (MODERN's stick, L2, ○, L2 + □, □
+    alone, L3 and ○ at the wheel; a switch and the rebinds kept per scheme; the legacy player's ORIGINAL; the rebind
+    rule) and `tests/sim/camera-turn.test.mjs` (in play through a pad: a flick a quarter, a spin landing on an eighth,
+    the camera held under L2 while the stick aims; ORIGINAL's stick aiming). Through the pad on MODERN, seed 1:
+    gnomes_lawn_order gold in 131 s of game, saints_confession_booth gold in 150 s, no retries.
+

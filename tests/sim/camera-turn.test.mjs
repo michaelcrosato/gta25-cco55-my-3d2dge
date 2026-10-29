@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame, holdCode } from '../harness.mjs';
+import { pad } from '../fixtures/pads.mjs';
 
 const near = (a, b, e = 1e-9) => Math.abs(a - b) < e;
 const open = async view => { const g = await loadGame({ hash: 'play', query: { view } }); g.game.advance(.5); return g; };
@@ -59,4 +60,22 @@ test('the turns never touch the simulation: the same run hashes the same turned 
   const plain = await run(false), turned = await run(true);
   assert.deepEqual(turned, plain, 'standing still, turning the camera changes nothing');
   assert.deepEqual(await run(true), turned, 'and the same turns give the same game');
+});
+
+test('MODERN, the default scheme (D49): the right stick turns the camera; under L2 it aims and the camera holds; ORIGINAL aims with it', async () => {
+  const pads = [pad(0)], { game, gtm } = await loadGame({ hash: 'play', query: { view: 'iso' }, pads }); game.advance(.5);
+  const set = o => { pads[0] = pad(0, o); };
+  assert.equal(gtm.bindings.scheme, 'modern');
+  set({ axes: [0, 0, .9, 0] }); game.advance(1 / 30); set({}); game.advance(1);
+  assert.equal(game.yaw, 90, 'a flick of the right stick: a quarter');
+  set({ axes: [0, 0, -.9, 0] }); game.advance(.4); assert.ok(gtm.stage.turning, 'held: spinning');
+  set({}); game.advance(1); assert.ok(game.yaw % 45 === 0, `let go, on an eighth (${game.yaw})`);
+  const yaw = game.yaw;
+  set({ values: { 6: 1 }, axes: [0, 0, .9, 0] }); game.advance(.5);
+  assert.equal(game.yaw, yaw, 'under L2 the camera holds');
+  assert.ok(gtm.human.intent.aim, 'and the stick aims');
+  set({}); game.advance(.5);
+  const o = await loadGame({ hash: 'play', query: { view: 'iso', controls: 'original' }, pads: [pad(0, { axes: [0, 0, .9, 0] })] }); o.game.advance(1);
+  assert.equal(o.gtm.bindings.scheme, 'original'); assert.equal(o.game.yaw, 0, 'ORIGINAL: the stick alone turns nothing');
+  assert.ok(o.gtm.human.intent.aim, 'it aims');
 });

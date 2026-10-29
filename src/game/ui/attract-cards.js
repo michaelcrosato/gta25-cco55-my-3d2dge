@@ -11,7 +11,7 @@ const LEGENDS = [['BIG SAL', 87, 412000], ['THE DUCHESS', 71, 268500], ['NOODLES
 const LEFT = [{ codes: ['Pad6'] }, { codes: ['Pad4'] }, { codes: ['Pad12'] }, { codes: ['Pad14', 'Pad15'], text: 'WEAPON  •  STATION' }, { codes: ['Pad13'] }, { codes: ['Pad10'] },
   { codes: ['LS'], text: 'MOVE / STEER' }, { codes: ['Pad8'] }];
 const RIGHT = [{ codes: ['Pad7'] }, { codes: ['Pad5'] }, { codes: ['Pad3'] }, { codes: ['Pad1'] }, { codes: ['Pad2'] }, { codes: ['Pad0'] }, { codes: ['Pad11'] },
-  { codes: ['RS'], text: 'AIM / LOOK' }, { codes: ['Pad9'] }, { codes: ['Pad17'] }];
+  { codes: ['RS'], text: B => (B.stickCamera ? 'CAMERA  •  AIM WITH L2' : 'AIM / LOOK') }, { codes: ['Pad9'] }, { codes: ['Pad17'] }];   // (the scheme's: D49)
 const SHORT = { 'GET IN / USE': 'GET IN / OUT', 'WEAPON WHEEL': 'WEAPONS', ACCELERATE: 'GAS', 'BRAKE / REVERSE': 'BRAKE', 'SWITCH CHARACTER': 'SWITCH', 'CHANGE VIEW': 'VIEW', 'PHOTO MODE': 'PHOTO' };
 
 // what a pad code does in a context: the first action bound to it there, a tap or a release (its label), or ''
@@ -21,7 +21,7 @@ function job(B, ctx, code) {
   return '';
 }
 function label(B, row) {
-  if (row.text) return row.text;
+  if (row.text) return typeof row.text === 'function' ? row.text(B) : row.text;
   const foot = row.codes.map(c => job(B, 'onFoot', c)).filter(Boolean), car = row.codes.map(c => job(B, 'vehicle', c)).filter(Boolean);
   const a = [...new Set(foot)].join(' / '), b = [...new Set(car)].join(' / ');
   return !b || a === b ? a || b : !a ? b : a + '  •  ' + b;

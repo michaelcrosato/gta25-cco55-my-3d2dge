@@ -11911,6 +11911,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     CutAway: () => CutAway,
     DEEDS: () => DEEDS,
     DEFAULT_BINDINGS: () => DEFAULT_BINDINGS,
+    DEFAULT_SCHEME: () => DEFAULT_SCHEME,
     DIFFICULTY: () => DIFFICULTY,
     DMath: () => DMath,
     DRIFT: () => DRIFT,
@@ -11989,6 +11990,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     RoadGraph: () => RoadGraph,
     Rumble: () => Rumble,
     SAFE: () => SAFE,
+    SCHEMES: () => SCHEMES,
     SCORES: () => SCORES,
     SETTING_TABS: () => SETTING_TABS,
     SLOTS: () => SLOTS,
@@ -17917,7 +17919,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     pause: ["Pad9", "Escape"],
     photo: ["Pad8", "KeyB"]
   };
-  var DEFAULT_BINDINGS = {
+  var ORIGINAL = {
     onFoot: {
       up: ["KeyW"],
       down: ["KeyS"],
@@ -17988,18 +17990,35 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       look: ["Pad5", "KeyF"]
     }
   };
+  var STICK_TURN = { turnLeft: ["RSLeft", "BracketLeft"], turnRight: ["RSRight", "BracketRight"] };
+  var MODERN = {
+    ...ORIGINAL,
+    onFoot: { ...ORIGINAL.onFoot, roll: ["Pad6>Pad2", "KeyX"], reload: ["Pad1", "KeyR"], ...STICK_TURN },
+    vehicle: { ...ORIGINAL.vehicle, horn: ["Pad10", "KeyH"], ...STICK_TURN }
+  };
+  var SCHEMES = {
+    modern: { label: "Modern", map: MODERN, stickAim: { onFoot: "aim", vehicle: "fire" } },
+    original: { label: "Original", map: ORIGINAL, stickAim: null }
+  };
+  var DEFAULT_SCHEME = "modern";
+  var DEFAULT_BINDINGS = SCHEMES[DEFAULT_SCHEME].map;
   var LOCKED = /^(Escape|Enter|F\d+|Pad9|Pad16|Meta|Control|Alt|KeyP$)/;
   var KEY2 = "GrandTheftMoto-5S:bindings";
   var TRIGGER = 0.35;
   var STICK = 0.5;
+  var storeKey = (scheme) => scheme === "original" ? KEY2 : KEY2 + ":" + scheme;
+  function startingScheme() {
+    return E.store.get(KEY2, null) ? "original" : DEFAULT_SCHEME;
+  }
   var Bindings = class _Bindings {
-    /** input: the engine's game.input (GTM-PATCH(4) gives it .raw) */
-    constructor(input, saved = null) {
+    /** input: the engine's game.input (GTM-PATCH(4) gives it .raw); saved: the rebinds over the scheme's defaults */
+    constructor(input, saved = null, scheme = DEFAULT_SCHEME) {
       this.input = input;
       this.context = "onFoot";
       this.chordWindow = 0.12;
       this.releaseWindow = 0.5;
-      this.map = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+      this.scheme = SCHEMES[scheme] ? scheme : DEFAULT_SCHEME;
+      this.map = JSON.parse(JSON.stringify(SCHEMES[this.scheme].map));
       if (saved) this._overlay(saved);
       this._down = /* @__PURE__ */ new Set();
       this._prev = /* @__PURE__ */ new Set();
@@ -18020,16 +18039,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this._ver = (this._ver || 0) + 1;
     }
     // what update reads of the map, worked out again only when the map changes (rebind, reset, a saved overlay): every
-    // code a binding uses, its held-modifier combos [a, b, code] and chords [a, b, code], and the chords' halves
+    // code a binding uses, its held-modifier combos [a, b, code] (and each context's own, by its second code) and chords
+    // [a, b, code], and the chords' halves
     _derive() {
       const D = this._dv;
       if (D && D.ver === this._ver && D.map === this.map) return D;
-      const codes = /* @__PURE__ */ new Set(), combos = [], chords = [], half = /* @__PURE__ */ new Set();
-      for (const c of Object.values(this.map)) for (const list of Object.values(c)) for (const code of list) {
+      const codes = /* @__PURE__ */ new Set(), combos = [], chords = [], half = /* @__PURE__ */ new Set(), under = {};
+      for (const [ctx, c] of Object.entries(this.map)) for (const list of Object.values(c)) for (const code of list) {
         for (const p of code.replace(/\^$/, "").split(/[+>]/)) codes.add(p);
         if (code.includes(">")) {
           const [a, b] = code.split(">");
           combos.push([a, b, code]);
+          ((under[ctx] ||= {})[b] ||= []).push(a);
         }
         if (code.includes("+")) {
           const [a, b] = code.split("+");
@@ -18039,7 +18060,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         }
       }
       const kinds2 = [...codes].map((c) => [c, /^(Pad|LS|RS)/.test(c) ? 1 : 0]);
-      return this._dv = { ver: this._ver, map: this.map, codes: [...codes], kinds: kinds2, combos, chords, half };
+      return this._dv = { ver: this._ver, map: this.map, codes: [...codes], kinds: kinds2, combos, chords, half, under };
     }
     /** the pad in use, raw ({ buttons, axes }) or null */
     pad() {
@@ -18148,18 +18169,40 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     codes(action, ctx = this.context) {
       return this.map[ctx] && this.map[ctx][action] || [];
     }
+    // is a plain code free for its own actions: not one of the right stick's directions while the stick aims (a scheme
+    // with a stick camera), nor a held-modifier combo's second code while its modifier is held ('Pad6>Pad2': □ rolls
+    // under L2, so it doesn't jump as well)
+    _free(c, ctx) {
+      if (/^RS/.test(c) && this.stickCamera && this.stickAims(ctx)) return false;
+      const mods = (this._derive().under[ctx] || {})[c];
+      return !mods || !mods.some((a) => this._down.has(a));
+    }
     /** is the action held? */
-    down(action, ctx) {
-      return this.codes(action, ctx).some((c) => /[+>]/.test(c) ? c.split(/[+>]/).every((p) => this._down.has(p)) : this._down.has(c.replace(/\^$/, "")));
+    down(action, ctx = this.context) {
+      return this.codes(action, ctx).some((c) => /[+>]/.test(c) ? c.split(/[+>]/).every((p) => this._down.has(p)) : this._down.has(c.replace(/\^$/, "")) && this._free(c.replace(/\^$/, ""), ctx));
     }
     /** was the action pressed this step? (a chord half waits out the chord window first; a release tap fires as it is
      *  let go; a held modifier's combo as its second code goes down) */
-    tap(action, ctx) {
-      return this.codes(action, ctx).some((c) => c.endsWith("^") ? this._released.has(c.slice(0, -1)) : c.includes(">") ? this._combos.has(c) : this._taps.has(c));
+    tap(action, ctx = this.context) {
+      return this.codes(action, ctx).some((c) => c.endsWith("^") ? this._released.has(c.slice(0, -1)) : c.includes(">") ? this._combos.has(c) : this._taps.has(c) && this._free(c, ctx));
     }
-    /** is a held modifier of the live context down (its second codes, the right stick for one, aren't free for aiming)? */
-    modifierHeld(ctx = this.context) {
-      return Object.values(this.map[ctx] || {}).some((list) => list.some((c) => c.includes(">") && this._down.has(c.split(">")[0])));
+    /** does the scheme turn the camera with the right stick (MODERN)? */
+    get stickCamera() {
+      return !!SCHEMES[this.scheme].stickAim;
+    }
+    /** the action that hands a stick camera's right stick to the aim while held, in a context ('aim', 'fire'), or null */
+    stickAimAction(ctx = this.context) {
+      const g = SCHEMES[this.scheme].stickAim;
+      return g && g[ctx] || null;
+    }
+    /** does the right stick aim now? With a stick camera, only while the context's stickAim action is held (L2 on foot,
+     *  the drive-by's ○ at the wheel); otherwise unless a modifier that hands it to the camera is held (ORIGINAL's R3) */
+    stickAims(ctx = this.context) {
+      if (this.stickCamera) {
+        const a = this.stickAimAction(ctx);
+        return !!a && this.down(a, ctx);
+      }
+      return !Object.entries(this._derive().under[ctx] || {}).some(([b, mods]) => /^RS/.test(b) && mods.some((a) => this._down.has(a)));
     }
     /** the action's analog value 0..1 (the strongest of its codes) */
     value(action, ctx) {
@@ -18181,12 +18224,13 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       return l10 > 1 ? [x / l10, y / l10] : [x, y];
     }
     /** bind code to action in a context; refuses locked codes (the menus' and the engine's pause, P, among them) and a
-     *  code another action of that context uses, whole or as a part (R3 in 'Pad11^', 'Pad11>RSLeft', 'Pad10+Pad11') */
+     *  code another action of that context uses, whole or as a part (R3 in 'Pad11^', 'Pad11>RSLeft', 'Pad10+Pad11'; of
+     *  a held-modifier combo, its modifier: □ stays free to bind beside MODERN's L2 with □) */
     rebind(ctx, action, code, slot3 = null) {
       if (LOCKED.test(code)) return { ok: false, reason: "locked", code };
       const c = this.map[ctx];
       if (!c || !c[action]) return { ok: false, reason: "unknown" };
-      const uses = (q) => q === code || q.replace(/\^$/, "").split(/[+>]/).includes(code);
+      const uses = (q) => q === code || (q.includes(">") ? q.split(">")[0] === code : q.replace(/\^$/, "").split("+").includes(code));
       for (const [a, list2] of Object.entries(c)) if (a !== action && list2.some(uses)) return { ok: false, reason: "conflict", with: a };
       const list = c[action].slice();
       if (slot3 === null || slot3 >= list.length) list.push(code);
@@ -18195,19 +18239,29 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       this._ver = (this._ver || 0) + 1;
       return { ok: true };
     }
-    /** back to the defaults (one context, or all) */
+    /** back to the scheme's defaults (one context, or all) */
     reset(ctx = null) {
-      const d = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+      const d = JSON.parse(JSON.stringify(SCHEMES[this.scheme].map));
       if (ctx) this.map[ctx] = d[ctx];
       else this.map = d;
       this._ver = (this._ver || 0) + 1;
     }
-    /** the player's changes, saved apart from the engine's bindings */
+    /** switch to a control scheme (SETTINGS, CONTROLS): its defaults, with the rebinds saved for it. Held buttons carry
+     *  over, as they do between contexts */
+    setScheme(id) {
+      if (!SCHEMES[id] || id === this.scheme) return false;
+      this.scheme = id;
+      this.map = JSON.parse(JSON.stringify(SCHEMES[id].map));
+      this._overlay(E.store.get(storeKey(id), null));
+      return true;
+    }
+    /** the player's changes, saved apart from the engine's bindings (each scheme's apart) */
     save() {
-      E.store.set(KEY2, this.map);
+      E.store.set(storeKey(this.scheme), this.map);
     }
     static load(input) {
-      return new _Bindings(input, E.store.get(KEY2, null));
+      const s = startingScheme();
+      return new _Bindings(input, E.store.get(storeKey(s), null), s);
     }
   };
 
@@ -18586,7 +18640,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         I.move[0] = d[0];
         I.move[1] = d[1];
       }
-      const rs = B2.modifierHeld() ? [0, 0] : B2.stick("RS");
+      const rs = B2.stickAims() ? B2.stick("RS") : [0, 0];
       if (this.game.input.invertAimY) rs[1] = -rs[1];
       I.aimStick = Math.min(1, Math.hypot(rs[0], rs[1]));
       if (rs[0] || rs[1]) {
@@ -26975,7 +27029,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
 
   // src/motor/ui/settings.js
   var SETTING_TABS = [
-    { id: "controls", label: "CONTROLS", keys: ["deadzone", "invertY", "rumble", "haptics", "promptStyle"] },
+    { id: "controls", label: "CONTROLS", keys: ["controlScheme", "deadzone", "invertY", "rumble", "haptics", "promptStyle"] },
     { id: "display", label: "DISPLAY", keys: ["defaultView", "quality", "autoRail", "sharpSide7", "hudSize", "subtitles", "colorblind", "speedometer", "shake", "flashes", "motion"] },
     { id: "audio", label: "AUDIO", keys: ["sound", "volume", "music", "radio", "effects", "djChatter"] },
     { id: "game", label: "GAME", keys: ["difficulty", "aimAssist", "autosave"] },
@@ -27002,6 +27056,18 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     const def2 = (sp) => {
       if (!S11.spec(sp.key)) S11.define(sp);
     };
+    def2({
+      key: "controlScheme",
+      group: "Controller",
+      label: "Control scheme",
+      type: "select",
+      value: startingScheme(),
+      options: Object.entries(SCHEMES).map(([id, s]) => [id, s.label]),
+      help: "Modern: the right stick turns the camera, L2 aims with it. Original: the right stick aims, R3 held turns the camera",
+      apply: (g, v) => {
+        if (g.bindings) g.bindings.setScheme(v);
+      }
+    });
     def2({
       key: "promptStyle",
       group: "Controller",
@@ -35210,8 +35276,8 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
         if (!I.down[b] && !I.tap[b]) continue;
         if (I.tap[b] && this.tapped.has(b)) continue;
         for (const code of pads(b)) {
-          if (code.includes(">") || code.endsWith("^")) continue;
-          for (const part2 of code.split("+")) press(+part2.slice(3));
+          if (code.includes("RS") || code.endsWith("^")) continue;
+          for (const part2 of code.split(/[+>]/)) press(+part2.slice(3));
           break;
         }
         if (I.tap[b]) {
@@ -35249,6 +35315,12 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
       let ax = null;
       if (I.aimPoint && actor) ax = [I.aimPoint[0] - actor.x, I.aimPoint[1] - actor.y];
       else if (I.aim) ax = I.aim;
+      const g = this.B.stickCamera && ax ? this.B.stickAimAction(context) : null;
+      if (this.B.stickCamera && ax && (!g || context === "vehicle" && !I.down[g] && !I.tap[g])) ax = null;
+      else if (g && context !== "vehicle") for (const code of pads(g)) {
+        press(+code.slice(3));
+        break;
+      }
       if (ax && Math.hypot(ax[0], ax[1]) > 1e-3) {
         const s = this._screen(ax[0], ax[1]), [x, y] = this._stick(s[0], s[1]);
         P25.axes[2] = x;
@@ -40704,7 +40776,10 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     syncMouseButtons(game2);
     const app2 = { game: game2, links: links2, views, bindings, activity, human: new HumanController(bindings, views, game2), footprint: new Footprint(), kiosk: kioskWanted(links2), seed, stage: new Stage(game2, views) };
     game2.haptics = !game2.headless && DualSenseHID.supported() ? new DualSenseHID(navigator.hid) : null;
+    game2.bindings = bindings;
     defineSettings(game2);
+    const scheme = links2.query.get("controls");
+    if (scheme) bindings.setScheme(scheme);
     if (game2.input) {
       game2.input.touchEnabled = false;
       game2.input.touchFilter = () => false;
@@ -52382,7 +52457,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     { title: "The law", lines: ["Crimes the police see earn stars. One star: a word. Five: everyone.", "Break their line of sight and the stars flash while they search. Stay hidden and they give up.", "Spray & Pray repaints a car and the stars go with it, if nobody watches you drive in. A bribe takes one star."] },
     { title: "The crew", lines: ["Dex, Viv and Gus. Hold {onFoot:switch} for the character wheel and point at one of them.", "Each has an ability: {onFoot:ability}. Each has their own stats, which grow as they use them.", "You cannot switch while wanted, or in a job that needs one of them."] },
     { title: "Jobs and money", lines: ["Missions come from the gangs' payphones, the crew and the planning board. Walk into the ring.", "A blown job can be retried from the stage it went wrong. Every finished one autosaves.", "Races, rampages and vehicle jobs pay too. Properties pay at midnight: walk up to collect."] },
-    { title: "The views", lines: ["{onFoot:view} changes the view: ISO, TOP-DOWN and MODE 7, the side-scrolling camera on a rail.", "Hold {onFoot:view} and push the right stick ({onFoot:turnLeft} {onFoot:turnRight} on the keys) to turn the camera: a tap turns it a quarter, held it spins. ISO settles on the next of its eight angles; TOP-DOWN and MODE 7 stay where you stop.", "Nothing in the game depends on the view you play in."] },
+    { title: "The views", lines: ["{onFoot:view} changes the view: ISO, TOP-DOWN and MODE 7, the side-scrolling camera on a rail.", "{onFoot:turnLeft} {onFoot:turnRight} turn the camera: a flick a quarter, held a spin. ISO settles on the next of its eight angles; TOP-DOWN and MODE 7 stay where you stop. Which way the right stick works is the Control scheme (SETTINGS, CONTROLS).", "Nothing in the game depends on the view you play in."] },
     { title: "Saving", lines: ["Save at the safehouse: walk to its door and press {onFoot:interact}. Three slots, and the autosave after every job.", "CONTINUE on the title loads the newest save. LOAD picks one."] }
   ];
 
@@ -55571,7 +55646,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     { codes: ["Pad2"] },
     { codes: ["Pad0"] },
     { codes: ["Pad11"] },
-    { codes: ["RS"], text: "AIM / LOOK" },
+    { codes: ["RS"], text: (B2) => B2.stickCamera ? "CAMERA  •  AIM WITH L2" : "AIM / LOOK" },
     { codes: ["Pad9"] },
     { codes: ["Pad17"] }
   ];
@@ -55585,7 +55660,7 @@ return { load, Mannequin, drive, LEGEND: MR.LEGEND };
     return "";
   }
   function label(B2, row) {
-    if (row.text) return row.text;
+    if (row.text) return typeof row.text === "function" ? row.text(B2) : row.text;
     const foot = row.codes.map((c) => job2(B2, "onFoot", c)).filter(Boolean), car4 = row.codes.map((c) => job2(B2, "vehicle", c)).filter(Boolean);
     const a = [...new Set(foot)].join(" / "), b = [...new Set(car4)].join(" / ");
     return !b || a === b ? a || b : !a ? b : a + "  •  " + b;
